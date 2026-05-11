@@ -1,0 +1,2 @@
+# Playwright artifacts default to the repository root (test-results/, playwright-report/).
+# Root .gitignore lists those; this file is for any future files under playwright/.

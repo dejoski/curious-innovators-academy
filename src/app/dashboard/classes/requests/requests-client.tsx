@@ -1,0 +1,580 @@
+"use client";
+
+import type { DataSource } from "@/lib/data/fetch-source";
+import React, { useMemo, useRef, useState } from "react";
+import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X } from "lucide-react";
+import { useClickOutside } from "@/hooks/use-click-outside";
+import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import { fallbackQueueBannerText } from "@/lib/product-copy";
+
+type RequestStatus = "Pending" | "Approved" | "Rejected";
+
+type EnrichmentRequestRow = {
+  id: string;
+  student: string;
+  parent: string;
+  class: string;
+  block: string;
+  level: string;
+  option: string;
+  status: RequestStatus;
+};
+
+export type ClassesEnrichmentRequestsProps = {
+  initialRequests: EnrichmentRequestRow[];
+  dataSource: DataSource;
+};
+
+const PAGE_SIZE = 10;
+type SortKey = "student" | "parent" | "class" | "block" | "level" | "option" | "status";
+type FilterValue = "All" | RequestStatus;
+
+function getVisiblePages(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, "ellipsis", total];
+  if (current >= total - 2) return [1, "ellipsis", total - 2, total - 1, total];
+  return [1, "ellipsis", current, "ellipsis", total];
+}
+
+export default function ClassesEnrichmentRequests({
+  initialRequests,
+  dataSource,
+}: ClassesEnrichmentRequestsProps) {
+  const [requests, setRequests] = useState<EnrichmentRequestRow[]>(() => [...initialRequests]);
+  const [syncHint, setSyncHint] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<FilterValue>("All");
+  const [sortKey, setSortKey] = useState<SortKey>("student");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+
+  const filterRef = useRef<HTMLDivElement | null>(null);
+  const sortRef = useRef<HTMLDivElement | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
+  const rowMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const rowMenuPlacement = useFixedMenuPlacement(rowMenuId !== null, rowMenuAnchorRef, 160);
+
+  useClickOutside(filterRef, () => setFilterOpen(false), filterOpen);
+  useClickOutside(sortRef, () => setSortOpen(false), sortOpen);
+  useClickOutside(rowMenuRef, () => setRowMenuId(null), rowMenuId !== null);
+
+  const [confirmAction, setConfirmAction] = useState<
+    | null
+    | { type: "approve" | "reject"; id: string; student: string }
+  >(null);
+  const [detailRequest, setDetailRequest] = useState<EnrichmentRequestRow | null>(null);
+
+  const pendingCount = useMemo(() => requests.filter((r) => r.status === "Pending").length, [requests]);
+  const approvedCount = useMemo(() => requests.filter((r) => r.status === "Approved").length, [requests]);
+  const rejectedCount = useMemo(() => requests.filter((r) => r.status === "Rejected").length, [requests]);
+  const totalRequests = requests.length;
+  const distinctClasses = useMemo(
+    () => new Set(requests.map((r) => r.class.trim()).filter(Boolean)).size,
+    [requests],
+  );
+
+  const processed = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = requests.filter((r) => {
+      if (filter !== "All" && r.status !== filter) return false;
+      if (!q) return true;
+      const hay = [r.student, r.parent, r.class, r.block, r.level, r.option, r.status].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+    rows = [...rows].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return rows;
+  }, [requests, search, filter, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return processed.slice(start, start + PAGE_SIZE);
+  }, [processed, safePage]);
+
+  const visiblePages = getVisiblePages(safePage, totalPages);
+
+  const pageIdSet = useMemo(() => new Set(pageRows.map((r) => r.id)), [pageRows]);
+  const allOnPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        pageIdSet.forEach((id) => next.delete(id));
+      } else {
+        pageIdSet.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  async function readApiError(res: Response): Promise<string> {
+    try {
+      const j = (await res.json()) as { error?: string };
+      return j.error ?? res.statusText;
+    } catch {
+      return res.statusText;
+    }
+  }
+
+  const applyStatus = async (id: string, status: RequestStatus) => {
+    const prevRow = requests.find((r) => r.id === id);
+    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    setConfirmAction(null);
+    setRowMenuId(null);
+    const res = await fetch("/api/data/enrichment-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    if (!res.ok && prevRow) {
+      setRequests((prev) => prev.map((r) => (r.id === id ? prevRow : r)));
+      setSyncHint(`Status kept locally only (${await readApiError(res)}).`);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6 p-8 h-full bg-[#fafafa]">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-[28px] font-bold text-[#272932]">Enrichment requests</h1>
+        <p className="text-[16px] text-[#666d80]">
+          Review enrichment class requests, approve or reject enrollments, and track demand by class.
+        </p>
+        {(dataSource === "fallback" || syncHint) && (
+          <div className="flex flex-col gap-2 max-w-3xl">
+            {dataSource === "fallback" && (
+              <p className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
+                {fallbackQueueBannerText()}
+              </p>
+            )}
+            {syncHint && (
+              <p className="rounded-lg border border-[#d80509]/30 bg-[#fff5f5] px-4 py-2 text-sm text-[#a00408]">{syncHint}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+          <div className="bg-[#cfa500]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5 text-[#cfa500]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[16px] font-semibold text-[#272932]">Pending</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{pendingCount}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+          <div className="bg-[#004d08]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-[#004d08]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[16px] font-semibold text-[#272932]">Approved enrollments</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{approvedCount}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+          <div className="bg-[#ffd9d9] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <XCircle className="w-5 h-5 text-[#d80509]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[16px] font-semibold text-[#272932]">Declined</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{rejectedCount}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex flex-col justify-center gap-1">
+          <span className="text-[16px] font-semibold text-[#272932]">Classes in queue</span>
+          <span className="text-[16px] font-medium text-[#666d80]">
+            {distinctClasses} {distinctClasses === 1 ? "class" : "classes"}
+          </span>
+          <span className="text-[12px] text-[#8b919f]">{totalRequests} total requests</span>
+        </div>
+      </div>
+
+      <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex flex-col gap-4 flex-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-[6px] text-[#0d0d12]">
+            <Search className="w-4 h-4 text-gray-500 shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search..."
+              className="text-[12px] bg-transparent outline-none placeholder:text-[#0d0d12] min-w-[120px]"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative" ref={filterRef}>
+              <button
+                type="button"
+                className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]"
+                onClick={() => {
+                  setFilterOpen((o) => !o);
+                  setSortOpen(false);
+                }}
+              >
+                <Filter className="w-4 h-4" />
+                <span>Filter by: {filter}</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {filterOpen && (
+                <div className="absolute right-0 top-full mt-1 z-[100] min-w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
+                  {(["All", "Pending", "Approved", "Rejected"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                      onClick={() => {
+                        setFilter(opt);
+                        setFilterOpen(false);
+                        setPage(1);
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative" ref={sortRef}>
+              <button
+                type="button"
+                className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]"
+                onClick={() => {
+                  setSortOpen((o) => !o);
+                  setFilterOpen(false);
+                }}
+              >
+                <SortAsc className="w-4 h-4" />
+                <span>Sort</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {sortOpen && (
+                <div className="absolute right-0 top-full mt-1 z-[100] min-w-[200px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
+                  {(
+                    [
+                      ["student", "Student name"],
+                      ["parent", "Parent"],
+                      ["class", "Class"],
+                      ["block", "Block"],
+                      ["level", "Level"],
+                      ["option", "Option"],
+                      ["status", "Status"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                      onClick={() => {
+                        if (sortKey === key) {
+                          setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                        } else {
+                          setSortKey(key);
+                          setSortDir("asc");
+                        }
+                        setSortOpen(false);
+                      }}
+                    >
+                      <span>{label}</span>
+                      {sortKey === key && <span className="text-[10px] text-[#666d80]">{sortDir === "asc" ? "A→Z" : "Z→A"}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button type="button" className="bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]" onClick={toggleSelectAllPage}>
+              {allOnPageSelected ? "Deselect page" : "Select All"}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col flex-1 min-h-0 border-t border-[#f0f0f0] pt-4">
+          <div className="w-full min-w-0 overflow-x-auto pb-2">
+            <div className="min-w-[900px]">
+          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide">
+            <div>Student</div>
+            <div>Parent</div>
+            <div>Class</div>
+            <div className="text-center">Block</div>
+            <div className="text-center">Level</div>
+            <div>Option</div>
+            <div>Status</div>
+            <div className="text-center"> </div>
+          </div>
+
+            {pageRows.map((req) => (
+              <div
+                key={req.id}
+                className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-3 py-2.5 border-b border-[#f0f0f0] items-center text-[13px] text-[#0d0d12] hover:bg-[#fafafa] transition-colors"
+              >
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  type="button"
+                  aria-pressed={selectedIds.has(req.id)}
+                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 ${
+                    selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
+                  }`}
+                  onClick={() => toggleSelect(req.id)}
+                />
+                <span className="truncate">{req.student}</span>
+              </div>
+              <div className="truncate">{req.parent}</div>
+              <div className="truncate">{req.class}</div>
+              <div className="text-center">{req.block}</div>
+              <div className="text-center">{req.level}</div>
+              <div>{req.option}</div>
+              <div>
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-[6px] text-[10px] border ${
+                    req.status === "Pending"
+                      ? "bg-[#cfa500]/20 text-[#cfa500] border-[#cfa500]/50"
+                      : req.status === "Approved"
+                        ? "bg-[#004d08]/20 text-[#004d08] border-[#004d08]/50"
+                        : "bg-[#ffd9d9] text-[#d80509] border-[#d80509]/50"
+                  }`}
+                >
+                  {req.status}
+                </span>
+              </div>
+              <div className="flex justify-center relative" ref={rowMenuId === req.id ? rowMenuRef : null}>
+                <button
+                  type="button"
+                  ref={rowMenuId === req.id ? rowMenuAnchorRef : null}
+                  className="text-gray-400 hover:text-gray-600"
+                  onClick={() => setRowMenuId((id) => (id === req.id ? null : req.id))}
+                  aria-expanded={rowMenuId === req.id}
+                >
+                  <MoreHorizontal className="w-5 h-5" />
+                </button>
+                {rowMenuId === req.id && rowMenuPlacement && (
+                  <div
+                    className="fixed z-[70] w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md"
+                    style={{
+                      top: rowMenuPlacement.top,
+                      left: rowMenuPlacement.left,
+                    }}
+                  >
+                    {req.status === "Pending" && (
+                      <>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-[12px] text-[#004d08] hover:bg-[#fafafa]"
+                          onClick={() => setConfirmAction({ type: "approve", id: req.id, student: req.student })}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-[12px] text-[#d80509] hover:bg-[#fafafa]"
+                          onClick={() => setConfirmAction({ type: "reject", id: req.id, student: req.student })}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                      onClick={() => {
+                        setDetailRequest(req);
+                        setRowMenuId(null);
+                      }}
+                    >
+                      View request
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+            </div>
+          </div>
+
+          {pageRows.length === 0 && (
+            <div className="py-8 text-center text-[14px] text-[#666d80]">No requests match your filters.</div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+          <button
+            type="button"
+            disabled={safePage <= 1}
+            className="min-w-[32px] min-h-[32px] flex items-center justify-center rotate-90 text-gray-500 disabled:opacity-40 rounded-lg hover:bg-gray-100"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            aria-label="Previous page"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-1">
+            {visiblePages.map((item, i) =>
+              item === "ellipsis" ? (
+                <span key={`e-${i}`} className="min-w-[32px] min-h-[32px] flex items-center justify-center text-[#666d80] text-[12px] font-semibold">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  className={`min-w-[32px] min-h-[32px] flex items-center justify-center rounded-[9px] text-[12px] font-semibold transition-colors ${
+                    item === safePage ? "bg-[#14c1d5] text-white" : "text-[#666d80] hover:bg-gray-100"
+                  }`}
+                  onClick={() => setPage(item)}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={safePage >= totalPages}
+            className="min-w-[32px] min-h-[32px] flex items-center justify-center -rotate-90 text-gray-500 disabled:opacity-40 rounded-lg hover:bg-gray-100"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            aria-label="Next page"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {detailRequest && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="request-detail-title"
+        >
+          <div className="relative w-full max-w-md rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              onClick={() => setDetailRequest(null)}
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 id="request-detail-title" className="pr-8 text-lg font-semibold text-[#272932]">
+              Request summary
+            </h2>
+            <dl className="mt-4 space-y-2 text-[14px]">
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Student</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.student}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Parent</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.parent}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Class</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.class}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Block</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.block}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Level</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.level}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Option</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.option}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Status</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRequest.status}</dd>
+              </div>
+            </dl>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90"
+                onClick={() => setDetailRequest(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-request-title"
+        >
+          <div className="relative w-full max-w-md rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              onClick={() => setConfirmAction(null)}
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 id="confirm-request-title" className="pr-8 text-lg font-semibold text-[#272932]">
+              {confirmAction.type === "approve" ? "Approve request" : "Reject request"}
+            </h2>
+            <p className="mt-2 text-[14px] text-[#666d80]">
+              {confirmAction.type === "approve"
+                ? `Approve enrollment for ${confirmAction.student}?`
+                : `Reject enrollment for ${confirmAction.student}?`}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-[12px] font-semibold text-[#0d0d12]"
+                onClick={() => setConfirmAction(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`rounded-[8px] px-4 py-2 text-[12px] font-semibold text-white ${
+                  confirmAction.type === "approve" ? "bg-[#004d08]" : "bg-[#d80509]"
+                }`}
+                onClick={() =>
+                  applyStatus(confirmAction.id, confirmAction.type === "approve" ? "Approved" : "Rejected")
+                }
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

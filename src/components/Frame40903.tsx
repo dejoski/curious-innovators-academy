@@ -1,0 +1,34 @@
+import React from "react";
+
+const imgGroup = "https://www.figma.com/api/mcp/asset/78574383-8a0e-43c1-ad58-afdb5f140448";
+
+export type Frame40903Props = {
+  count?: number;
+  label?: string;
+};
+
+export default function Frame40903({ count = 12, label = "Teachers" }: Frame40903Props) {
+  return (
+    <div className="bg-white border border-[#f0f0f0] border-solid content-stretch flex items-center p-[20px] relative rounded-[18px] size-full" data-node-id="11:4242">
+      <div className="content-stretch flex flex-col gap-[13px] items-start relative shrink-0 w-[112px]" data-node-id="11:4243">
+        <div className="bg-[#d2f1f5] content-stretch flex flex-col items-center justify-center relative rounded-[10px] shrink-0 size-[40px]" data-node-id="11:4888" data-name="Container">
+          <div className="overflow-clip relative shrink-0 size-[20px]" data-node-id="11:4900" data-name="streamline-plump:class-lesson">
+            <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]" data-node-id="11:4901" data-name="Group">
+              <div className="absolute inset-[-4%_-4%]">
+                <img alt="" className="block max-w-none size-full" src={imgGroup} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="content-stretch flex flex-col gap-[10px] items-start not-italic relative shrink-0 w-full" data-node-id="11:4249">
+          <p className="font-['Inter:Bold',sans-serif] font-bold leading-[1.1] relative shrink-0 text-[#272932] text-[32px] w-full" data-node-id="11:4250">
+            {count}
+          </p>
+          <p className="font-['Inter:Medium',sans-serif] font-medium leading-[1.4] relative shrink-0 text-[#666d80] text-[16px] w-full" data-node-id="11:4251">
+            {label}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
