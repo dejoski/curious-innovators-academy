@@ -30,12 +30,12 @@ import {
   DASHBOARD_TEXT_PRIMARY_CLASS,
   DASHBOARD_TEXT_SECONDARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
-const imgAvatarsPeople = "https://www.figma.com/api/mcp/asset/38d743da-b055-4164-8aeb-88a6d95340b6";
-const imgSolarLogout2Outline = "https://www.figma.com/api/mcp/asset/e2d9c71c-eec6-4035-87ed-3165d07f8d16";
-const imgContainer = "https://www.figma.com/api/mcp/asset/739fef9c-8404-4858-8d3b-88a0e5264637";
-const imgDivider = "https://www.figma.com/api/mcp/asset/22d3a64c-afe3-4ec3-9452-ca5eac907d78";
+const imgAvatarsPeople = "/images/avatars-people-fresh.png";
+const imgSolarLogout2Outline = "/images/logout-icon.png";
+const imgContainer = "/images/container.png";
+const imgDivider = "/images/icon-divider.svg";
 /** Match parent sidebar Feedback nav affordance */
-const imgRiParentLine = "https://www.figma.com/api/mcp/asset/2f653d06-ee2a-49a1-a7f8-b4bb0dce100a";
+const imgRiParentLine = "/images/icon-parent.svg";
 
 export default function DashboardHeader() {
   const {

@@ -9,15 +9,15 @@ import {
 } from "@/lib/dashboard-shell-classes";
 import { fallbackDirectoryBannerText, exportQueuedToast, messagingDialogDisclaimer } from "@/lib/product-copy";
 
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/cb2db90b-2b30-409c-be8b-d29b6c20bdc2";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
 
-const imgVector = "https://www.figma.com/api/mcp/asset/827e4416-5636-49fa-a2ec-c005068ebc41";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/b35b801d-b00c-47b0-b222-6e5e17bc5d91";
-const imgIcRoundPlus = "https://www.figma.com/api/mcp/asset/f9521d8b-9782-4428-8c82-ba25fd8a152d";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/289cd33e-0d75-474a-a765-907c87145ac4";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/0321004a-e7e0-42bd-aefd-a220009368ae";
-const imgChevronDown1 = "https://www.figma.com/api/mcp/asset/b67abd41-82b4-48c7-ba4b-ad72a2cc4ec8";
-const imgHugeiconsTeacher = "https://www.figma.com/api/mcp/asset/7a890e53-59c1-468e-b39e-2bde451a56e3";
+const imgVector = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgIcRoundPlus = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-generic.svg";
+const imgChevronDown1 = "/images/icon-generic.svg";
+const imgHugeiconsTeacher = "/images/icon-generic.svg";
 
 type ProgramKind = "core" | "enrichment";
 

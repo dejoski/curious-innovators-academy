@@ -1,6 +1,6 @@
 import React from "react";
 
-const imgHugeiconsStudent = "https://www.figma.com/api/mcp/asset/7e7895ec-947b-4d0f-8ab0-e53bded8e667";
+const imgHugeiconsStudent = "/images/icon-generic.svg";
 
 export type Frame40901Props = {
   /** Stat value shown in large type */

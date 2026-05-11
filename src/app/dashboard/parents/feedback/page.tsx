@@ -4,12 +4,12 @@ import React, { useEffect, useState } from "react";
 import { isDemoLoginUiEnabled, isDemoUiBypassStored } from "@/lib/demo-login";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/70a3acce-f3df-4f3e-a3af-3425d745e185";
-const imgHealthiconsNeutralOutline24Px = "https://www.figma.com/api/mcp/asset/64029fbc-c13e-4126-a147-45ba99b99da7";
-const imgGroup2 = "https://www.figma.com/api/mcp/asset/b4256ac1-442f-4287-9c9f-d65cfcd300fd";
-const imgBoxiconsHappyHeartEyes = "https://www.figma.com/api/mcp/asset/9a6a076a-3aca-41e0-afc6-4f7a3ce77c38";
-const imgSolarStarBold = "https://www.figma.com/api/mcp/asset/1ea6f3d8-e793-4ee3-b93c-ca9dd983f14b";
-const imgSolarStarBold1 = "https://www.figma.com/api/mcp/asset/e14c5a03-9bb5-43a8-a8de-bd7d72759e5b";
+const imgGroup1 = "/images/icon-generic.svg";
+const imgHealthiconsNeutralOutline24Px = "/images/icon-generic.svg";
+const imgGroup2 = "/images/icon-generic.svg";
+const imgBoxiconsHappyHeartEyes = "/images/icon-generic.svg";
+const imgSolarStarBold = "/images/icon-generic.svg";
+const imgSolarStarBold1 = "/images/icon-generic.svg";
 
 type Mood = "angry" | "average" | "great" | "excellent";
 

@@ -8,15 +8,15 @@ import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 import { getParentDemoStudent } from "@/lib/parent-student-profile-demo";
 import { photoUploadUnavailableToast } from "@/lib/product-copy";
 
-const imgEllipse2735 = "https://www.figma.com/api/mcp/asset/452e8d82-f3d3-480a-b4bd-c62a18b28843";
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/da91ab8e-ec7b-4a32-88ca-5220441a49ef";
-const imgLine10 = "https://www.figma.com/api/mcp/asset/878684eb-4425-4ba6-b723-80da8e653c9b";
-const imgMaskGroup = "https://www.figma.com/api/mcp/asset/8a9f7bae-57e3-4baa-9a0f-76770c2b711b";
-const imgGroup2 = "https://www.figma.com/api/mcp/asset/14d02c80-0686-47fb-b281-6595ac2f9e6b";
-const imgVector3 = "https://www.figma.com/api/mcp/asset/690734fd-b589-40f9-99ae-53aa3480b801";
-const imgVuesaxLinearClipboardText = "https://www.figma.com/api/mcp/asset/dd699d6f-ea93-48a6-b6a7-56e7b10d2ad9";
-const imgRiParentLine = "https://www.figma.com/api/mcp/asset/bb0c18f5-1daf-4966-8175-639b516dd36d";
-const imgVuesaxOutlineCalendar = "https://www.figma.com/api/mcp/asset/05ed15df-4b82-474e-b4bd-1d1d272bb699";
+const imgEllipse2735 = "/images/icon-generic.svg";
+const imgGroup1 = "/images/icon-generic.svg";
+const imgLine10 = "/images/icon-generic.svg";
+const imgMaskGroup = "/images/icon-generic.svg";
+const imgGroup2 = "/images/icon-generic.svg";
+const imgVector3 = "/images/icon-generic.svg";
+const imgVuesaxLinearClipboardText = "/images/icon-generic.svg";
+const imgRiParentLine = "/images/icon-generic.svg";
+const imgVuesaxOutlineCalendar = "/images/icon-generic.svg";
 
 const URGENCY_OPTIONS = ["Urgent", "All"] as const;
 

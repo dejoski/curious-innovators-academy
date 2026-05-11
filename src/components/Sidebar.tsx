@@ -30,17 +30,17 @@ import {
   DASHBOARD_TEXT_SECONDARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
 
-const imgChatGptImage23012026141937Photoroom1 = "https://www.figma.com/api/mcp/asset/5dc60a92-eda0-4bd1-ad30-94ebd1e67b40";
-const imgImage1 = "https://www.figma.com/api/mcp/asset/284d1982-5798-4470-af56-1c1fd8be1d2f";
-const imgSiDashboardLine = "https://www.figma.com/api/mcp/asset/f695ae24-04f0-4c4d-a610-dba71ef2f66b";
-const imgGroup = "https://www.figma.com/api/mcp/asset/e23c6eec-3df4-4756-b947-a056bf57c68a";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/a88bd945-6312-4fcc-b837-6f5ef27b5c8a";
-const imgHugeiconsStudent = "https://www.figma.com/api/mcp/asset/5650813a-c8dc-4710-aa84-fad365ec2921";
-const imgRiParentLine = "https://www.figma.com/api/mcp/asset/2f653d06-ee2a-49a1-a7f8-b4bb0dce100a";
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/98b42c56-3a3a-4dd7-bf51-5702dc8e6732";
-const imgVuesaxLinearSetting2 = "https://www.figma.com/api/mcp/asset/b6950267-9a60-492f-94a9-03872030a01b";
-const imgHugeiconsStudent1 = "https://www.figma.com/api/mcp/asset/caaf68f1-25be-4b44-bb6d-4a2095b02866";
-const imgPolygon1 = "https://www.figma.com/api/mcp/asset/82bc28fc-c4f9-4a77-b31f-c99b4627e0fe";
+const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
+const imgImage1 = "/images/lightbulb-fresh.png";
+const imgSiDashboardLine = "/images/icon-dashboard.svg";
+const imgGroup = "/images/icon-group.svg";
+const imgChevronDown = "/images/icon-chevron-down.svg";
+const imgHugeiconsStudent = "/images/icon-student.svg";
+const imgRiParentLine = "/images/icon-parent.svg";
+const imgGroup1 = "/images/icon-group.svg";
+const imgVuesaxLinearSetting2 = "/images/icon-settings.svg";
+const imgHugeiconsStudent1 = "/images/icon-student.svg";
+const imgPolygon1 = "/images/mask-group.png";
 
 type SidebarProps = {
   className?: string;

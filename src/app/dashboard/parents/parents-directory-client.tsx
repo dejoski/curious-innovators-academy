@@ -10,15 +10,15 @@ import {
 } from "@/lib/dashboard-shell-classes";
 import { exportQueuedToast, fallbackDirectoryBannerText, messagingDialogDisclaimer } from "@/lib/product-copy";
 
-const imgEllipse2735 = "https://www.figma.com/api/mcp/asset/0836cdc9-a46a-4af1-9ce4-c2d78a5687b1";
-const imgEllipse2736 = "https://www.figma.com/api/mcp/asset/cec90de7-31dd-41ca-a0c6-68bf3eef3409";
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/8b924d8e-9944-4fd7-a143-5b972d23f195";
-const imgVector = "https://www.figma.com/api/mcp/asset/c1e2a9ae-b7c1-4a59-ad69-e834d210eae6";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/4a484470-f50e-4836-892a-38b8df909232";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/d0d58e57-bc5e-4d6f-9b38-9e46533f037e";
-const imgChevronDown2 = "https://www.figma.com/api/mcp/asset/0c634e28-3ff4-4f7e-b080-5090eadc7f40";
-const imgChevronDown3 = "https://www.figma.com/api/mcp/asset/0cf12711-502e-41c4-88c5-b14817fda4bc";
-const imgHugeiconsFamilies = "https://www.figma.com/api/mcp/asset/7a890e53-59c1-468e-b39e-2bde451a56e3";
+const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2736 = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown2 = "/images/icon-generic.svg";
+const imgChevronDown3 = "/images/icon-generic.svg";
+const imgHugeiconsFamilies = "/images/icon-generic.svg";
 
 export type ParentsDirectoryPageClientProps = {
   initialParents: ParentSummary[];

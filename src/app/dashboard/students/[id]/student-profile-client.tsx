@@ -9,15 +9,15 @@ import {
   studentProfileSupportNotesPlaceholder,
 } from "@/lib/product-copy";
 
-const imgEllipse2735 = "https://www.figma.com/api/mcp/asset/68fed239-b6f3-4576-94a0-0022ea0220f0";
-const imgEllipse2736 = "https://www.figma.com/api/mcp/asset/cec90de7-31dd-41ca-a0c6-68bf3eef3409";
-const imgGroup = "https://www.figma.com/api/mcp/asset/d596c871-37c5-4f67-ba5a-83f3349071bc";
-const imgMaskGroup = "https://www.figma.com/api/mcp/asset/276c4346-2fed-48a4-8e6b-04cf716e9c91";
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/3fe17a58-58b6-4160-abfb-441a2bf5d209";
-const imgIcRoundPlus = "https://www.figma.com/api/mcp/asset/25b84a33-fe66-4647-b7f0-161a0232aa7c";
-const imgVuesaxLinearClipboardText = "https://www.figma.com/api/mcp/asset/b781d40d-3296-4dc8-8307-5769b143ab36";
-const imgRiParentLine = "https://www.figma.com/api/mcp/asset/fd7cf041-0581-4881-9cd6-0e9738fdab12";
-const imgVuesaxOutlineCalendar = "https://www.figma.com/api/mcp/asset/12251e28-8d72-4ebf-82da-76c3894d431b";
+const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2736 = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-generic.svg";
+const imgMaskGroup = "/images/icon-generic.svg";
+const imgGroup1 = "/images/icon-generic.svg";
+const imgIcRoundPlus = "/images/icon-generic.svg";
+const imgVuesaxLinearClipboardText = "/images/icon-generic.svg";
+const imgRiParentLine = "/images/icon-generic.svg";
+const imgVuesaxOutlineCalendar = "/images/icon-generic.svg";
 
 type StudentDetailsState = {
   name: string;

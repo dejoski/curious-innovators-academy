@@ -4,20 +4,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-const imgEllipse2735 = "https://www.figma.com/api/mcp/asset/3d6258e3-7b4f-446f-bbd6-26622357f4c6";
-const imgEllipse2736 = "https://www.figma.com/api/mcp/asset/1acf0e10-2fdb-481a-8d6f-07d8368a39fa";
-const imgEllipse2737 = "https://www.figma.com/api/mcp/asset/f5cb8294-5d10-49f7-af10-5ba3d7e7a2e9";
-const imgEllipse2738 = "https://www.figma.com/api/mcp/asset/4f43bed2-7645-4009-bcc7-4e5845396f6c";
-const imgEllipse2739 = "https://www.figma.com/api/mcp/asset/7fe1a92d-8f54-4e2d-9134-83aeb04992c5";
-const imgEllipse2740 = "https://www.figma.com/api/mcp/asset/b7ccd63c-816d-4c61-9fc5-65b9844b2712";
-const imgGroup = "https://www.figma.com/api/mcp/asset/9e440644-a6f6-49c1-8c88-211c85dede80";
-const imgIcon = "https://www.figma.com/api/mcp/asset/368dea4b-9e63-4aee-8b4b-bc729b912111";
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/40b579a3-18de-456c-8a5a-7991e9244001";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/00d5f3bc-0675-4d59-a1f5-b0994aef9ce2";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/bf6b3ac1-37ad-4ded-8c9d-f996cd9e365d";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/1a7819cd-5196-406b-9160-36b941d192d4";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/03702f12-5429-4ed0-b8d8-08cd45004c48";
-const imgChevronDown1 = "https://www.figma.com/api/mcp/asset/2517d415-24eb-4a21-9abe-260136040c40";
+const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2736 = "/images/icon-generic.svg";
+const imgEllipse2737 = "/images/icon-generic.svg";
+const imgEllipse2738 = "/images/icon-generic.svg";
+const imgEllipse2739 = "/images/icon-generic.svg";
+const imgEllipse2740 = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-generic.svg";
+const imgIcon = "/images/icon-generic.svg";
+const imgGroup1 = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-generic.svg";
+const imgChevronDown1 = "/images/icon-generic.svg";
 
 const INITIAL_STUDENTS = [
   { id: "1", name: "Anna Lee", parent: "Mr. Lee", age: 14, status: "Pending" as const, avatar: imgEllipse2735, classRef: "Robotics Lab" as const, blockRef: "Block 3" as const, levelRef: "Level 2" as const },

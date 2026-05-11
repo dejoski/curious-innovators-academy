@@ -1,9 +1,9 @@
 import type { TeacherRow } from "@/lib/data/types";
 
 const imgEllipse2735 =
-  "https://www.figma.com/api/mcp/asset/9b319d8e-0643-4128-937c-57cbbea5614a";
+  "/images/icon-generic.svg";
 const imgEllipse2736 =
-  "https://www.figma.com/api/mcp/asset/04ed910b-6f2a-4b59-bccd-419b2fd9e07b";
+  "/images/icon-generic.svg";
 
 /** Demo seed when Supabase is not configured or queries fail. */
 export const TEACHERS_FALLBACK: TeacherRow[] = [

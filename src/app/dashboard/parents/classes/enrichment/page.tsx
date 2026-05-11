@@ -2,11 +2,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/f5cdc762-f925-49a0-9f88-7d3483658e21";
-const imgVector3 = "https://www.figma.com/api/mcp/asset/826a5dcd-cb2d-45b9-9f4e-1e7c5725e1db";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/f5c7286a-e285-4040-a328-cef5c18585c3";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/f704991c-b4a0-4f41-be8f-8fdd87bf541d";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/25ad6967-879a-42b3-8dc8-13cd0568565b";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector3 = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
 
 const initialEnrichmentClasses = [
   {

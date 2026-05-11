@@ -9,11 +9,11 @@ import { Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { fallbackClassesStripText } from "@/lib/product-copy";
 
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/8d086073-c813-40ce-80e4-139fcd05986c";
-const imgIcRoundPlus = "https://www.figma.com/api/mcp/asset/da49372a-163e-48f3-9110-74993b417a27";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/417b45a6-a4d8-48d5-8e2f-a3faa0c99b39";
-const imgChevronPrev = "https://www.figma.com/api/mcp/asset/81823489-7b9f-4a32-9806-b8c402a13f05";
-const imgChevronNext = "https://www.figma.com/api/mcp/asset/bdf28fd9-093c-4ee7-93b2-313af7a03634";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgIcRoundPlus = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronPrev = "/images/icon-generic.svg";
+const imgChevronNext = "/images/icon-generic.svg";
 
 type ClassStatus = "Active" | "Full";
 

@@ -12,7 +12,7 @@ import {
 } from "@/lib/dashboard-shell-classes";
 
 const imgHugeiconsStudentPicker =
-  "https://www.figma.com/api/mcp/asset/5650813a-c8dc-4710-aa84-fad365ec2921";
+  "/images/icon-generic.svg";
 
 export default function ParentStudentContextSelector() {
   const pathname = usePathname() ?? "";

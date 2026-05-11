@@ -1,6 +1,6 @@
 import React from "react";
 
-const imgGroup = "https://www.figma.com/api/mcp/asset/ef407803-dd11-41c6-a0dd-2d07f60d226a";
+const imgGroup = "/images/icon-generic.svg";
 
 export type Frame40902Props = {
   count?: number;

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 const imgSolarLogout2Outline =
-  "https://www.figma.com/api/mcp/asset/e2d9c71c-eec6-4035-87ed-3165d07f8d16";
+  "/images/icon-generic.svg";
 
 type Props = {
   className?: string;

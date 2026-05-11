@@ -14,7 +14,7 @@ import {
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 
-const imgVector = "https://www.figma.com/api/mcp/asset/1de409e8-0d33-4e15-81de-31bd2036b2f3";
+const imgVector = "/images/icon-generic.svg";
 
 function daysInCalendarMonth(year: number, monthIndex: number) {
   return new Date(year, monthIndex + 1, 0).getDate();

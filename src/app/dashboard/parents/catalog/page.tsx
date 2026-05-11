@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 
-const imgImage1 = "https://www.figma.com/api/mcp/asset/8c883a17-0b3c-4ac9-b3b1-f91036c351f0";
-const imgGroup = "https://www.figma.com/api/mcp/asset/9677da71-4681-473e-9037-df50df844ea3";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/9bf6a4a7-ed8d-4d52-aff9-cb8a25963f83";
+const imgImage1 = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-generic.svg";
 
 type EnrichmentClass = {
   id: string;

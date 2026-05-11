@@ -12,23 +12,23 @@ import {
   messagingDialogDisclaimer,
 } from "@/lib/product-copy";
 
-const imgEllipse2735 = "https://www.figma.com/api/mcp/asset/c2c02888-0015-4631-9271-ad15c71bbe42";
-const imgEllipse2736 = "https://www.figma.com/api/mcp/asset/5d34c686-8de5-45d0-869e-782333131133";
-const imgEllipse2737 = "https://www.figma.com/api/mcp/asset/d0890d1c-999f-4d0e-883b-3de00156d029";
-const imgEllipse2738 = "https://www.figma.com/api/mcp/asset/b9c9dd0d-494c-4fcb-8ceb-b4a91b7d6c37";
-const imgEllipse2739 = "https://www.figma.com/api/mcp/asset/42c1621c-dce0-47b9-a7df-d71c14599b9e";
-const imgEllipse2740 = "https://www.figma.com/api/mcp/asset/f0ad95d2-e7dd-44e9-a31c-87d2b72f06d9";
-const imgHugeiconsStudent1 = "https://www.figma.com/api/mcp/asset/7a890e53-59c1-468e-b39e-2bde451a56e3";
-const imgMaskGroup = "https://www.figma.com/api/mcp/asset/aa73823f-a8c1-46f8-b92d-a692a46c967b";
-const imgGroup2 = "https://www.figma.com/api/mcp/asset/9fdf59df-30ff-4f7b-877f-0feb649982c9";
-const imgGroup3 = "https://www.figma.com/api/mcp/asset/4b420a5d-bfdd-46ac-a38d-3c8a2b68e735";
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/daf86d81-9adf-4279-b5af-cd47a50bef4b";
-const imgVector = "https://www.figma.com/api/mcp/asset/47fa8f02-07df-4c6e-a77b-1a5f1fafa5f2";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/0e508005-1b5b-452b-9382-67d21f052ecb";
-const imgIcRoundPlus = "https://www.figma.com/api/mcp/asset/257592ec-b1b6-4a5e-a388-7a06ecb6b251";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/d322ab29-182b-41a6-b831-89d5cda6ad61";
-const imgChevronDown2 = "https://www.figma.com/api/mcp/asset/c849c377-645c-478f-b5b4-4aea168c9674";
-const imgChevronDown3 = "https://www.figma.com/api/mcp/asset/27d23c69-de2a-49cd-9f1f-3ecf52bd8fc7";
+const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2736 = "/images/icon-generic.svg";
+const imgEllipse2737 = "/images/icon-generic.svg";
+const imgEllipse2738 = "/images/icon-generic.svg";
+const imgEllipse2739 = "/images/icon-generic.svg";
+const imgEllipse2740 = "/images/icon-generic.svg";
+const imgHugeiconsStudent1 = "/images/icon-generic.svg";
+const imgMaskGroup = "/images/icon-generic.svg";
+const imgGroup2 = "/images/icon-generic.svg";
+const imgGroup3 = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgIcRoundPlus = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown2 = "/images/icon-generic.svg";
+const imgChevronDown3 = "/images/icon-generic.svg";
 
 function TableRow({
   studentId,

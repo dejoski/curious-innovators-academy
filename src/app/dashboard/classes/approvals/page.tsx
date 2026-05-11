@@ -5,16 +5,16 @@ import { X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/e535e1d5-acdd-4a29-af7a-690e9a61eb97";
-const imgVector3 = "https://www.figma.com/api/mcp/asset/cc52590e-8418-4f5a-b7a9-625d779c14c4";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/ad0fcedd-dc98-4926-9b26-1563177e73a6";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/afec833b-99bc-4a19-a7d5-bad8e9389fed";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/8d8ab2be-db9a-492b-afe5-9b958bf90731";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/2ac02185-ba90-4497-ac44-6da9e4d8d90d";
-const imgChevronDown1 = "https://www.figma.com/api/mcp/asset/4ac084ae-6f95-4887-b998-4b2f595d4ffc";
-const imgMaskGroup = "https://www.figma.com/api/mcp/asset/e4ce2f16-1c8a-418c-8a1f-c095b1583f29";
-const imgMaskGroup1 = "https://www.figma.com/api/mcp/asset/ce7275ad-ce97-4949-a909-9b648cb7cc33";
-const imgMaskGroup2 = "https://www.figma.com/api/mcp/asset/04ddddbf-ce24-4c78-99b8-621c323383ce";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector3 = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-generic.svg";
+const imgChevronDown1 = "/images/icon-generic.svg";
+const imgMaskGroup = "/images/icon-generic.svg";
+const imgMaskGroup1 = "/images/icon-generic.svg";
+const imgMaskGroup2 = "/images/icon-generic.svg";
 
 type ApprovalStatus = "Approved" | "Rejected";
 

@@ -8,8 +8,8 @@ import {
   type DashboardDailyBlockRow,
 } from "@/lib/dashboard-metrics";
 
-const imgGroup = "https://www.figma.com/api/mcp/asset/5323fcfd-65c8-4954-a7ee-30c70a060aca";
-const imgVector = "https://www.figma.com/api/mcp/asset/cc247972-e669-4c2d-b9fd-615e750d90d9";
+const imgGroup = "/images/icon-generic.svg";
+const imgVector = "/images/icon-generic.svg";
 
 const DEFAULT_ROWS = getDashboardDailyBlocks(DASHBOARD_METRICS);
 

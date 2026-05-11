@@ -1,9 +1,9 @@
 import type { ParentSummary } from "@/lib/data/types";
 
 const av1 =
-  "https://www.figma.com/api/mcp/asset/0836cdc9-a46a-4af1-9ce4-c2d78a5687b1";
+  "/images/icon-generic.svg";
 const av2 =
-  "https://www.figma.com/api/mcp/asset/cec90de7-31dd-41ca-a0c6-68bf3eef3409";
+  "/images/icon-generic.svg";
 
 /** Bundled guardians for admin directory when cloud `parents` is missing or unreachable. */
 export const PARENTS_FALLBACK: ParentSummary[] = [

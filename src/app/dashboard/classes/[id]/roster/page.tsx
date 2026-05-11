@@ -4,20 +4,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-const imgEllipse2735 = "https://www.figma.com/api/mcp/asset/0d8b6ade-6468-4b22-aed8-a6a4b129e2b5";
-const imgEllipse2736 = "https://www.figma.com/api/mcp/asset/23baae24-f09d-4168-8444-d4c356b8c19c";
-const imgEllipse2737 = "https://www.figma.com/api/mcp/asset/9fe16fcf-ef96-4560-aafa-4cef2e696dff";
-const imgEllipse2738 = "https://www.figma.com/api/mcp/asset/8a09242e-4478-46bb-a6ab-98f22ab34c37";
-const imgEllipse2739 = "https://www.figma.com/api/mcp/asset/502ab9ea-653b-4e49-99ec-375cbf629f34";
-const imgEllipse2740 = "https://www.figma.com/api/mcp/asset/15fff6e5-1c79-4e57-82bd-d98898a1b417";
-const imgGroup = "https://www.figma.com/api/mcp/asset/19712125-ad94-4ec2-9673-3233105b3eb3";
-const imgIcon = "https://www.figma.com/api/mcp/asset/3d6bd037-f27d-411c-b8a0-5c3bee9bb5b7";
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/f00e65e5-f06d-4ea8-9d32-b6ec46cc8cd7";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/e630cd81-1525-4428-a2f5-c7cd00436876";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/b2106645-b84f-4b5c-b32d-8215d8387c54";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/75dfc2f7-e333-4819-991b-8adbebfb6491";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/a1ab44be-6df6-415d-b5cf-0837396ff414";
-const imgChevronDown1 = "https://www.figma.com/api/mcp/asset/107a0c39-9315-4973-8d9b-2b505a579382";
+const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2736 = "/images/icon-generic.svg";
+const imgEllipse2737 = "/images/icon-generic.svg";
+const imgEllipse2738 = "/images/icon-generic.svg";
+const imgEllipse2739 = "/images/icon-generic.svg";
+const imgEllipse2740 = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-generic.svg";
+const imgIcon = "/images/icon-generic.svg";
+const imgGroup1 = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-generic.svg";
+const imgChevronDown1 = "/images/icon-generic.svg";
 
 type RosterStatus = "Pending" | "Waitlist" | "Approved";
 

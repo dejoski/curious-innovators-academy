@@ -7,17 +7,17 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
-const imgGroup1 = "https://www.figma.com/api/mcp/asset/983aedea-1819-48f3-8de8-d9bb3bf8cd91";
-const imgGroup2 = "https://www.figma.com/api/mcp/asset/2e599a04-0124-468a-9455-7136fc5b54d0";
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/1b3186b9-b54d-409c-88d1-5cc750a989ca";
-const imgVector = "https://www.figma.com/api/mcp/asset/617040ed-7fed-47d3-b8c1-7431ef76cf6f";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/4001d44d-778e-4ce7-a14b-10e63d550478";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/e776b74b-3a8a-4056-b267-6477019cf050";
-const imgIcRoundPlus = "https://www.figma.com/api/mcp/asset/75fef1d1-165b-47aa-bc79-9891cad1239f";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/708af1a1-62ea-4c98-b771-ceeb2abd2b07";
-const imgChevronDown3 = "https://www.figma.com/api/mcp/asset/b4801efa-7612-4f6e-bd2c-172be8f337ef";
-const imgChevronDown4 = "https://www.figma.com/api/mcp/asset/42ef1e2b-5c32-4931-a90d-a9234d5dc873";
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/4b7708a1-5b38-460a-8c49-b763ef8c6d17";
+const imgGroup1 = "/images/icon-generic.svg";
+const imgGroup2 = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgIcRoundPlus = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown3 = "/images/icon-generic.svg";
+const imgChevronDown4 = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-generic.svg";
 
 type Status = "Approved" | "Pending" | "Rejected";
 

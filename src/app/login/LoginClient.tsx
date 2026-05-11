@@ -10,11 +10,11 @@ import { bootstrapDemoSession } from "@/lib/demo-session-bootstrap";
 import { isDemoLoginUiEnabled } from "@/lib/demo-login";
 import { isDemoAdjacentWording } from "@/lib/product-copy";
 
-const imgChatGptImage23012026141937Photoroom1 = "https://www.figma.com/api/mcp/asset/b65c9d1d-d557-4898-9f6c-c278cfff1563";
-const imgImage1 = "https://www.figma.com/api/mcp/asset/766f7ad4-a303-4e0a-80a2-6f4283574317";
-const imgEllipse2731 = "https://www.figma.com/api/mcp/asset/a93d8d98-7f5c-47df-9ab4-3afdf0176e5a";
-const imgEllipse2732 = "https://www.figma.com/api/mcp/asset/fae5229a-f4ea-44dc-a0af-3c98c7710293";
-const imgEllipse2733 = "https://www.figma.com/api/mcp/asset/6ff62730-23bb-4217-b7a6-656c422fc2a7";
+const imgChatGptImage23012026141937Photoroom1 = "/images/icon-generic.svg";
+const imgImage1 = "/images/icon-generic.svg";
+const imgEllipse2731 = "/images/icon-generic.svg";
+const imgEllipse2732 = "/images/icon-generic.svg";
+const imgEllipse2733 = "/images/icon-generic.svg";
 
 /**
  * Login UI wired to Supabase when env is set; otherwise demo mode (same validation, navigates to dashboard).

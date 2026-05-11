@@ -6,9 +6,9 @@ import { Bell, CalendarDays, ChevronRight } from "lucide-react";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 
 const imgHugeiconsStudent1 =
-  "https://www.figma.com/api/mcp/asset/477431a3-f100-4cb1-b1d5-08853a8b1e0f";
+  "/images/icon-generic.svg";
 const imgGroup1 =
-  "https://www.figma.com/api/mcp/asset/69658baa-ec93-4b2d-ab9a-8b2546221e28";
+  "/images/icon-generic.svg";
 
 function RowArrow() {
   return (

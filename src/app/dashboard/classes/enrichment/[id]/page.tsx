@@ -6,20 +6,20 @@ import { useRouter } from "next/navigation";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
 // Figma Image Constants
-const imgChevronDown = "https://www.figma.com/api/mcp/asset/e804790a-8259-40e6-8004-a256b87acab6";
-const imgGroup = "https://www.figma.com/api/mcp/asset/8f457543-c3cc-41ac-a491-8a0bde81080a";
-const imgChevronDown1 = "https://www.figma.com/api/mcp/asset/e9a44aab-3c68-460f-97b9-f6583e07f62c";
-const imgGroup2 = "https://www.figma.com/api/mcp/asset/38b9e7c1-a6c7-4139-9a85-41cd29e4fa2f";
-const imgGroup3 = "https://www.figma.com/api/mcp/asset/e54f9756-58ef-4376-96ce-00616ca7e012";
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/ea624514-b870-4430-a166-9e39cc41540e";
-const imgVector = "https://www.figma.com/api/mcp/asset/571bee20-1073-484d-935e-8e388caa9330";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/189fc177-f38e-49bc-99ba-c2031edda93f";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/83de2cca-3cad-43de-a5b1-3fa4befcf009";
-const imgIcRoundPlus = "https://www.figma.com/api/mcp/asset/11324f59-d5bc-4317-b404-55f34f89ef56";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/0472ba78-2dec-4fb7-a689-e613cd72b214";
-const imgWeuiMoreOutlined1 = "https://www.figma.com/api/mcp/asset/77c02cf3-f410-4548-954f-46dd8056e2dc";
-const imgChevronDown4 = "https://www.figma.com/api/mcp/asset/873a5cd4-b708-4613-a683-6293c111b499";
-const imgChevronDown5 = "https://www.figma.com/api/mcp/asset/04612a2c-aa5d-4860-b19e-948387c7a16d";
+const imgChevronDown = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-generic.svg";
+const imgChevronDown1 = "/images/icon-generic.svg";
+const imgGroup2 = "/images/icon-generic.svg";
+const imgGroup3 = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgIcRoundPlus = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined1 = "/images/icon-generic.svg";
+const imgChevronDown4 = "/images/icon-generic.svg";
+const imgChevronDown5 = "/images/icon-generic.svg";
 
 type StudentStatus = 'Approved' | 'Pending' | 'Rejected';
 

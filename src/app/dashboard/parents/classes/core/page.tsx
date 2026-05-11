@@ -2,13 +2,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-const imgMaterialSymbolsSearch = "https://www.figma.com/api/mcp/asset/ce229c30-510d-44d0-b786-45f891df0a69";
-const imgVector3 = "https://www.figma.com/api/mcp/asset/00637e46-757f-4bef-afbf-6eea8864d1d8";
-const imgIconCaretDown = "https://www.figma.com/api/mcp/asset/d5000fad-d912-4c34-a995-6111a638c90c";
-const imgFlowbiteSortOutline = "https://www.figma.com/api/mcp/asset/5a2510f7-727e-4967-8e32-380c64902346";
-const imgWeuiMoreOutlined = "https://www.figma.com/api/mcp/asset/b0297cdd-0d9d-4966-9861-c9e659c81053";
-const imgChevronDown2 = "https://www.figma.com/api/mcp/asset/27ebbf68-d2ae-4dcc-b6a8-9332e7cff894";
-const imgChevronDown3 = "https://www.figma.com/api/mcp/asset/737167c0-09b4-4278-85c9-d089fa73a196";
+const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgVector3 = "/images/icon-generic.svg";
+const imgIconCaretDown = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-generic.svg";
+const imgWeuiMoreOutlined = "/images/icon-generic.svg";
+const imgChevronDown2 = "/images/icon-generic.svg";
+const imgChevronDown3 = "/images/icon-generic.svg";
 
 const initialClassesData = [
   {

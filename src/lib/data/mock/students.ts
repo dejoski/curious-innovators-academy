@@ -1,17 +1,11 @@
 import type { StudentListItem } from "@/lib/data/types";
 
-const imgEllipse2735 =
-  "https://www.figma.com/api/mcp/asset/c2c02888-0015-4631-9271-ad15c71bbe42";
-const imgEllipse2736 =
-  "https://www.figma.com/api/mcp/asset/5d34c686-8de5-45d0-869e-782333131133";
-const imgEllipse2737 =
-  "https://www.figma.com/api/mcp/asset/d0890d1c-999f-4d0e-883b-3de00156d029";
-const imgEllipse2738 =
-  "https://www.figma.com/api/mcp/asset/b9c9dd0d-494c-4fcb-8ceb-b4a91b7d6c37";
-const imgEllipse2739 =
-  "https://www.figma.com/api/mcp/asset/42c1621c-dce0-47b9-a7df-d71c14599b9e";
-const imgEllipse2740 =
-  "https://www.figma.com/api/mcp/asset/f0ad95d2-e7dd-44e9-a31c-87d2b72f06d9";
+const imgEllipse2735 = "/images/avatars/student-1.png";
+const imgEllipse2736 = "/images/avatars/student-2.png";
+const imgEllipse2737 = "/images/avatars/student-3.png";
+const imgEllipse2738 = "/images/avatars/student-4.png";
+const imgEllipse2739 = "/images/avatars/student-5.png";
+const imgEllipse2740 = "/images/avatars/student-6.png";
 
 /** Demo seed when Supabase is not configured or queries fail. */
 export const STUDENTS_FALLBACK: StudentListItem[] = [
