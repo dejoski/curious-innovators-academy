@@ -7,19 +7,12 @@ import Frame40904 from "@/components/Frame40904";
 import DailyBlocks from "@/components/DailyBlocks";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { DataSource } from "@/lib/data/fetch-source";
 
 interface DashboardMetrics {
   studentCount: number;
   teacherCount: number;
   coreClassCount: number;
   enrichmentOfferingCount: number;
-}
-
-interface DailyRow {
-  id: string;
-  title: string;
-  description: string;
 }
 
 export default function AlternateDashboard() {
@@ -29,7 +22,6 @@ export default function AlternateDashboard() {
     coreClassCount: 0,
     enrichmentOfferingCount: 0,
   });
-  const [dailyRows, setDailyRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +31,6 @@ export default function AlternateDashboard() {
         if (res.ok) {
           const data = await res.json();
           setMetrics(data.metrics || metrics);
-          setDailyRows(data.dailyRows || []);
         }
       } catch (error) {
         console.error("Failed to load dashboard:", error);
@@ -81,11 +72,11 @@ export default function AlternateDashboard() {
         </div>
 
         {/* Daily Blocks Section */}
-        {dailyRows.length > 0 && (
-          <div className="grid grid-cols-1 gap-[24px]">
-            <DailyBlocks rows={dailyRows} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[24px]">
+          <div className="lg:col-span-2">
+            <DailyBlocks />
           </div>
-        )}
+        </div>
 
         {/* Quick Links */}
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 flex flex-col gap-4">

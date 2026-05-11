@@ -62,12 +62,12 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
       return fallbackPresentation();
     }
 
-    const metrics = {
+    const metrics: DashboardHeadCounts = {
       studentCount,
       teacherCount,
       coreClassCount,
       enrichmentOfferingCount,
-    } as const;
+    };
 
     return {
       metrics,

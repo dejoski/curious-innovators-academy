@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect } from "react";
+import { Suspense, useMemo, useRef, useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
@@ -115,7 +115,15 @@ function getVisiblePages(current: number, total: number): (number | "ellipsis")[
   return [1, "ellipsis", current, "ellipsis", total];
 }
 
-export default function ClassesApprovalHistory() {
+export default function ClassesApprovalHistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-[#666d80]">Loading...</div>}>
+      <ClassesApprovalHistory />
+    </Suspense>
+  );
+}
+
+function ClassesApprovalHistory() {
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
 

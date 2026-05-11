@@ -23,11 +23,7 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
 
   const [formData, setFormData] = useState({
     name: student?.name || "",
-    email: student?.email || "",
     level: student?.level || "",
-    strengths: student?.strengths || "",
-    supportNotes: student?.supportNotes || "",
-    learningProfile: student?.learningProfile || "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -144,20 +140,6 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label htmlFor="email" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="px-3 py-2 border border-[#f0f0f0] rounded-[8px] text-[#0d0d12] text-[13px] disabled:bg-[#fafafa] disabled:text-[#666d80]"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
                 <label htmlFor="level" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
                   Level
                 </label>
@@ -171,60 +153,11 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
                   className="px-3 py-2 border border-[#f0f0f0] rounded-[8px] text-[#0d0d12] text-[13px] disabled:bg-[#fafafa] disabled:text-[#666d80]"
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <label htmlFor="learningProfile" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
-                  Learning Profile
-                </label>
-                <input
-                  id="learningProfile"
-                  type="text"
-                  name="learningProfile"
-                  value={formData.learningProfile}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="px-3 py-2 border border-[#f0f0f0] rounded-[8px] text-[#0d0d12] text-[13px] disabled:bg-[#fafafa] disabled:text-[#666d80]"
-                />
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Learning Notes Section */}
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 flex flex-col gap-4">
-          <h2 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Learning Notes</h2>
-
-          <div className="flex flex-col gap-2">
-            <label htmlFor="strengths" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
-              Strengths
-            </label>
-            <textarea
-              id="strengths"
-              name="strengths"
-              value={formData.strengths}
-              onChange={handleChange}
-              disabled={loading}
-              rows={4}
-              className="px-3 py-2 border border-[#f0f0f0] rounded-[8px] text-[#0d0d12] text-[13px] resize-none disabled:bg-[#fafafa] disabled:text-[#666d80]"
-              placeholder="Describe the student's strengths and abilities..."
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label htmlFor="supportNotes" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
-              Support Notes
-            </label>
-            <textarea
-              id="supportNotes"
-              name="supportNotes"
-              value={formData.supportNotes}
-              onChange={handleChange}
-              disabled={loading}
-              rows={4}
-              className="px-3 py-2 border border-[#f0f0f0] rounded-[8px] text-[#0d0d12] text-[13px] resize-none disabled:bg-[#fafafa] disabled:text-[#666d80]"
-              placeholder="Any support needs or accommodation notes..."
-            />
-          </div>
-        </div>
+        {/* Learning Notes Section - Removed pending data model expansion */}
 
         {/* Action Buttons */}
         <div className="flex gap-3 justify-end">
