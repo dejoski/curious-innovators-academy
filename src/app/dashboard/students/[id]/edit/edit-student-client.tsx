@@ -39,7 +39,7 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
     setSuccess(false);
 
     try {
-      const response = await fetch(`/api/data/students/${studentId}`, {
+      const response = await fetch(`/api/data/students?id=${encodeURIComponent(studentId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

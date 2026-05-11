@@ -225,6 +225,39 @@ export async function serverDeleteStudent(id: string): Promise<{ ok: true } | Wr
   }
 }
 
+export async function serverUpdateStudent(
+  id: string,
+  input: {
+    name?: string;
+    level?: string;
+  },
+): Promise<WriteOk<StudentListItem> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  try {
+    const supabase = await createSupabaseServerClient();
+    const payload: Record<string, unknown> = {};
+    if (input.name != null) payload.display_name = input.name.trim();
+    if (input.level != null) payload.level = input.level.trim();
+    if (Object.keys(payload).length === 0) {
+      return { ok: false, message: "No fields to update" };
+    }
+    const { data, error } = await supabase
+      .from("students")
+      .update(payload)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "No row updated" };
+    const mapped = mapStudentRow(data as Record<string, unknown>);
+    if (!mapped) return { ok: false, message: "Could not map updated student" };
+    return { ok: true, row: mapped };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
 const teacherListSelect =
   "id, profile_id, subjects, phone, program, profiles ( display_name, email )";
 
