@@ -9,15 +9,15 @@ import {
 } from "@/lib/dashboard-shell-classes";
 import { fallbackDirectoryBannerText, exportQueuedToast, messagingDialogDisclaimer } from "@/lib/product-copy";
 
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 
-const imgVector = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgIcRoundPlus = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown = "/images/icon-generic.svg";
-const imgChevronDown1 = "/images/icon-generic.svg";
-const imgHugeiconsTeacher = "/images/icon-generic.svg";
+const imgVector = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgIcRoundPlus = "/images/icon-plus.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown = "/images/icon-chevron-down.svg";
+const imgChevronDown1 = "/images/icon-chevron-down2.svg";
+const imgHugeiconsTeacher = "/images/icon-group.svg";
 
 type ProgramKind = "core" | "enrichment";
 

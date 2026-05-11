@@ -8,8 +8,8 @@ import {
   type DashboardDailyBlockRow,
 } from "@/lib/dashboard-metrics";
 
-const imgGroup = "/images/icon-generic.svg";
-const imgVector = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-group.svg";
+const imgVector = "/images/vector.png";
 
 const DEFAULT_ROWS = getDashboardDailyBlocks(DASHBOARD_METRICS);
 

@@ -10,15 +10,15 @@ import {
 } from "@/lib/dashboard-shell-classes";
 import { exportQueuedToast, fallbackDirectoryBannerText, messagingDialogDisclaimer } from "@/lib/product-copy";
 
-const imgEllipse2735 = "/images/icon-generic.svg";
-const imgEllipse2736 = "/images/icon-generic.svg";
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
-const imgVector = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown2 = "/images/icon-generic.svg";
-const imgChevronDown3 = "/images/icon-generic.svg";
-const imgHugeiconsFamilies = "/images/icon-generic.svg";
+const imgEllipse2735 = "/images/ellipse-2735.png";
+const imgEllipse2736 = "/images/ellipse-2735.png";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown2 = "/images/icon-chevron-down2.svg";
+const imgChevronDown3 = "/images/icon-chevron-down3.svg";
+const imgHugeiconsFamilies = "/images/icon-parent.svg";
 
 export type ParentsDirectoryPageClientProps = {
   initialParents: ParentSummary[];

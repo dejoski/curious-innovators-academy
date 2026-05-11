@@ -3,18 +3,28 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { signInWithPasswordOrDemo } from "@/lib/supabase/auth-bridge";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { bootstrapDemoSession } from "@/lib/demo-session-bootstrap";
 import { isDemoLoginUiEnabled } from "@/lib/demo-login";
 import { isDemoAdjacentWording } from "@/lib/product-copy";
 
-const imgChatGptImage23012026141937Photoroom1 = "/images/icon-generic.svg";
-const imgImage1 = "/images/icon-generic.svg";
-const imgEllipse2731 = "/images/icon-generic.svg";
-const imgEllipse2732 = "/images/icon-generic.svg";
-const imgEllipse2733 = "/images/icon-generic.svg";
+// Fresh Figma assets (downloaded 2026-05-11)
+// UUID Mapping:
+// ef2775a1-2b28-498b-9737-4820ffe362c7 -> 10f75eed (ChatGPT logo)
+// 8ba4550b-f222-47cb-8d42-8ba2c9a5cdd6 -> 6fa1804e (lightbulb)
+// 78e95a92-e6e1-4f3a-b759-99c8a79b3106 -> 8a074aec (ellipse 1)
+// 06b87d23-8d79-485a-b782-d2e467410276 -> eac5653b (ellipse 2)
+// 72ce7a53-e9ee-4e30-8c53-b29bb84a5141 -> a139c090 (ellipse 3)
+// b66897e8-ca57-4ee7-8f5a-1fb42ccbac50 -> 45000a87 (email icon)
+
+const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
+const imgImage1 = "/images/lightbulb-fresh.png";
+const imgEllipse2731 = "/images/ellipse-2735-fresh.png";
+const imgEllipse2732 = "/images/ellipse-2735-fresh.png";
+const imgEllipse2733 = "/images/ellipse-2735-fresh.png";
+const imgGroup = "/images/icon-group.svg";
 
 /**
  * Login UI wired to Supabase when env is set; otherwise demo mode (same validation, navigates to dashboard).
@@ -147,8 +157,8 @@ export default function LoginClient() {
                   E-mail
                 </label>
                 <div className={`bg-white border flex gap-[8px] h-[52px] items-center px-[12px] py-[8px] rounded-[10px] w-full transition-colors ${emailError ? "border-red-500 focus-within:border-red-500" : "border-[#dfe1e7] focus-within:border-[#14c1d5]"}`}>
-                  <div className="shrink-0 flex items-center justify-center text-[#818898]">
-                    <Mail size={20} />
+                  <div className="shrink-0 flex items-center justify-center size-[24px]">
+                    <img alt="email icon" src={imgGroup} className="w-full h-full" />
                   </div>
                   <input
                     type="email"

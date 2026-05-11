@@ -2,13 +2,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
-const imgVector3 = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgFlowbiteSortOutline = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown2 = "/images/icon-generic.svg";
-const imgChevronDown3 = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector3 = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgFlowbiteSortOutline = "/images/icon-sort.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown2 = "/images/icon-chevron-down2.svg";
+const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
 const initialClassesData = [
   {

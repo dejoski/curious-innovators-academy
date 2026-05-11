@@ -1,6 +1,6 @@
 import React from "react";
 
-const imgHugeiconsStudent = "/images/icon-generic.svg";
+const imgHugeiconsStudent = "/images/icon-student.svg";
 
 export type Frame40901Props = {
   /** Stat value shown in large type */

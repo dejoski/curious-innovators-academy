@@ -15,7 +15,7 @@ import {
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 
-const imgVector = "/images/icon-generic.svg";
+const imgVector = "/images/vector.png";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
 

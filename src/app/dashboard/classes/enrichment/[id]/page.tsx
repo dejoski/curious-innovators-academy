@@ -6,20 +6,20 @@ import { useRouter } from "next/navigation";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
 // Figma Image Constants
-const imgChevronDown = "/images/icon-generic.svg";
-const imgGroup = "/images/icon-generic.svg";
-const imgChevronDown1 = "/images/icon-generic.svg";
-const imgGroup2 = "/images/icon-generic.svg";
-const imgGroup3 = "/images/icon-generic.svg";
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
-const imgVector = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgFlowbiteSortOutline = "/images/icon-generic.svg";
-const imgIcRoundPlus = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined1 = "/images/icon-generic.svg";
-const imgChevronDown4 = "/images/icon-generic.svg";
-const imgChevronDown5 = "/images/icon-generic.svg";
+const imgChevronDown = "/images/icon-chevron-down.svg";
+const imgGroup = "/images/icon-group.svg";
+const imgChevronDown1 = "/images/icon-chevron-down2.svg";
+const imgGroup2 = "/images/icon-group.svg";
+const imgGroup3 = "/images/icon-generic2.svg";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgFlowbiteSortOutline = "/images/icon-sort.svg";
+const imgIcRoundPlus = "/images/icon-plus.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgWeuiMoreOutlined1 = "/images/icon-more.svg";
+const imgChevronDown4 = "/images/icon-chevron-down3.svg";
+const imgChevronDown5 = "/images/icon-chevron-down4.svg";
 
 type StudentStatus = 'Approved' | 'Pending' | 'Rejected';
 

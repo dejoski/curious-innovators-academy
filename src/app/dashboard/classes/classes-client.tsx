@@ -9,11 +9,11 @@ import { Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { fallbackClassesStripText } from "@/lib/product-copy";
 
-const imgFlowbiteSortOutline = "/images/icon-generic.svg";
-const imgIcRoundPlus = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronPrev = "/images/icon-generic.svg";
-const imgChevronNext = "/images/icon-generic.svg";
+const imgFlowbiteSortOutline = "/images/icon-sort.svg";
+const imgIcRoundPlus = "/images/icon-plus.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronPrev = "/images/icon-chevron-down3.svg";
+const imgChevronNext = "/images/icon-chevron-down4.svg";
 
 type ClassStatus = "Active" | "Full";
 

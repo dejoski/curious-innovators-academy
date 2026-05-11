@@ -18,17 +18,17 @@ const imgEllipse2737 = "/images/icon-generic.svg";
 const imgEllipse2738 = "/images/icon-generic.svg";
 const imgEllipse2739 = "/images/icon-generic.svg";
 const imgEllipse2740 = "/images/icon-generic.svg";
-const imgHugeiconsStudent1 = "/images/icon-generic.svg";
-const imgMaskGroup = "/images/icon-generic.svg";
-const imgGroup2 = "/images/icon-generic.svg";
-const imgGroup3 = "/images/icon-generic.svg";
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
-const imgVector = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgIcRoundPlus = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown2 = "/images/icon-generic.svg";
-const imgChevronDown3 = "/images/icon-generic.svg";
+const imgHugeiconsStudent1 = "/images/icon-student.svg";
+const imgMaskGroup = "/images/mask-group.png";
+const imgGroup2 = "/images/icon-group.svg";
+const imgGroup3 = "/images/icon-generic2.svg";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgIcRoundPlus = "/images/icon-plus.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown2 = "/images/icon-chevron-down2.svg";
+const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
 function TableRow({
   studentId,

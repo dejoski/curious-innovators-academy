@@ -7,17 +7,17 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
-const imgGroup1 = "/images/icon-generic.svg";
-const imgGroup2 = "/images/icon-generic.svg";
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
-const imgVector = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgFlowbiteSortOutline = "/images/icon-generic.svg";
-const imgIcRoundPlus = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown3 = "/images/icon-generic.svg";
-const imgChevronDown4 = "/images/icon-generic.svg";
-const imgChevronDown = "/images/icon-generic.svg";
+const imgGroup1 = "/images/icon-group.svg";
+const imgGroup2 = "/images/icon-generic2.svg";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgFlowbiteSortOutline = "/images/icon-sort.svg";
+const imgIcRoundPlus = "/images/icon-plus.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown3 = "/images/icon-chevron-down3.svg";
+const imgChevronDown4 = "/images/icon-chevron-down4.svg";
+const imgChevronDown = "/images/icon-chevron-down.svg";
 
 type Status = "Approved" | "Pending" | "Rejected";
 

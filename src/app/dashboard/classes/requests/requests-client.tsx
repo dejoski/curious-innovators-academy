@@ -1,8 +1,9 @@
 "use client";
 
 import type { DataSource } from "@/lib/data/fetch-source";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
@@ -40,6 +41,9 @@ export default function ClassesEnrichmentRequests({
   initialRequests,
   dataSource,
 }: ClassesEnrichmentRequestsProps) {
+  const searchParams = useSearchParams();
+  const detailIdFromUrl = searchParams.get("detail");
+
   const [requests, setRequests] = useState<EnrichmentRequestRow[]>(() => [...initialRequests]);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -68,6 +72,13 @@ export default function ClassesEnrichmentRequests({
     | { type: "approve" | "reject"; id: string; student: string }
   >(null);
   const [detailRequest, setDetailRequest] = useState<EnrichmentRequestRow | null>(null);
+
+  useEffect(() => {
+    if (detailIdFromUrl) {
+      const request = requests.find((r) => r.id === detailIdFromUrl);
+      if (request) setDetailRequest(request);
+    }
+  }, [detailIdFromUrl, requests]);
 
   const pendingCount = useMemo(() => requests.filter((r) => r.status === "Pending").length, [requests]);
   const approvedCount = useMemo(() => requests.filter((r) => r.status === "Approved").length, [requests]);

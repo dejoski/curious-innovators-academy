@@ -1,20 +1,21 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
-const imgMaterialSymbolsSearch = "/images/icon-generic.svg";
-const imgVector3 = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgFlowbiteSortOutline = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown = "/images/icon-generic.svg";
-const imgChevronDown1 = "/images/icon-generic.svg";
-const imgMaskGroup = "/images/icon-generic.svg";
-const imgMaskGroup1 = "/images/icon-generic.svg";
-const imgMaskGroup2 = "/images/icon-generic.svg";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector3 = "/images/vector.png";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgFlowbiteSortOutline = "/images/icon-sort.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown = "/images/icon-chevron-down.svg";
+const imgChevronDown1 = "/images/icon-chevron-down2.svg";
+const imgMaskGroup = "/images/mask-group.png";
+const imgMaskGroup1 = "/images/mask-group.png";
+const imgMaskGroup2 = "/images/mask-group.png";
 
 type ApprovalStatus = "Approved" | "Rejected";
 
@@ -115,6 +116,9 @@ function getVisiblePages(current: number, total: number): (number | "ellipsis")[
 }
 
 export default function ClassesApprovalHistory() {
+  const searchParams = useSearchParams();
+  const detailIdFromUrl = searchParams.get("detail");
+
   const stats = useMemo(() => {
     const approved = approvalsData.filter((r) => r.status === "Approved").length;
     const rejected = approvalsData.filter((r) => r.status === "Rejected").length;
@@ -138,6 +142,14 @@ export default function ClassesApprovalHistory() {
   const [sortOpen, setSortOpen] = useState(false);
   const [rowMenuId, setRowMenuId] = useState<number | null>(null);
   const [detailRow, setDetailRow] = useState<ApprovalRow | null>(null);
+
+  useEffect(() => {
+    if (detailIdFromUrl) {
+      const rowId = parseInt(detailIdFromUrl, 10);
+      const row = approvalsData.find((r) => r.id === rowId);
+      if (row) setDetailRow(row);
+    }
+  }, [detailIdFromUrl]);
 
   const filterRef = useRef<HTMLDivElement | null>(null);
   const sortRef = useRef<HTMLDivElement | null>(null);
