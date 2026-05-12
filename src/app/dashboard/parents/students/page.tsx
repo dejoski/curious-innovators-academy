@@ -9,10 +9,10 @@ import { getParentDemoStudent } from "@/lib/parent-student-profile-demo";
 import { photoUploadUnavailableToast } from "@/lib/product-copy";
 
 const imgEllipse2735 = "/images/icon-generic.svg";
-const imgGroup1 = "/images/icon-generic.svg";
+const imgGroup1 = "/images/icon-group1.svg";
 const imgLine10 = "/images/icon-generic.svg";
-const imgMaskGroup = "/images/icon-generic.svg";
-const imgGroup2 = "/images/icon-generic.svg";
+const imgMaskGroup = "/images/mask-group.png";
+const imgGroup2 = "/images/icon-group2.svg";
 const imgVector3 = "/images/icon-generic.svg";
 const imgVuesaxLinearClipboardText = "/images/icon-generic.svg";
 const imgRiParentLine = "/images/icon-generic.svg";
