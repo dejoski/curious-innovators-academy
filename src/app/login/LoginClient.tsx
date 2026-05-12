@@ -96,26 +96,10 @@ export default function LoginClient() {
   };
 
   return (
-    <div className="bg-white relative min-h-screen w-full flex items-center justify-center overflow-hidden font-sans">
-      <div className="absolute h-[460px] lg:left-[696px] left-[50%] top-[-80px] w-[833px] pointer-events-none">
-        <div className="absolute inset-[-64%_-35%]">
-          <img alt="" className="block max-w-none size-full" src={imgEllipse2731} />
-        </div>
-      </div>
-      <div className="absolute flex h-[494.45px] items-center justify-center left-0 top-[-217px] w-[1162.5px] pointer-events-none">
-        <div className="-scale-y-100 flex-none rotate-180">
-          <div className="h-[494.45px] relative w-[1162.5px]">
-            <div className="absolute inset-[-59%_-25%]">
-              <img alt="" className="block max-w-none size-full" src={imgEllipse2732} />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="absolute h-[308px] lg:left-[479px] left-[20%] top-0 w-[455px] pointer-events-none">
-        <div className="absolute inset-[-82%_-56%]">
-          <img alt="" className="block max-w-none size-full" src={imgEllipse2733} />
-        </div>
-      </div>
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden font-sans" style={{
+      background: 'linear-gradient(135deg, #E8F8FB 0%, #DAFBFF 25%, #B0E8F0 50%, #7DD9E8 75%, #14C1D5 100%)'
+    }}>
+      {/* Gradient background - using CSS instead of SVG overlays for better rendering */}
 
       <div className="relative z-10 flex flex-col lg:flex-row items-center justify-center max-w-[1200px] w-full px-6 lg:px-16 gap-12 lg:gap-32">
         <div className="flex flex-col gap-[10px] w-full lg:w-[416px] text-center lg:text-left">
