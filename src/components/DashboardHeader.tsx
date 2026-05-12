@@ -31,6 +31,7 @@ import {
   DASHBOARD_TEXT_SECONDARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
 const imgAvatarsPeople = "/images/avatars-people-fresh.png";
+const imgParentAvatar = "/images/mary-lee-avatar.png";
 const imgSolarLogout2Outline = "/images/logout-icon.png";
 const imgContainer = "/images/container.png";
 const imgDivider = "/images/icon-divider.svg";
@@ -272,7 +273,7 @@ export default function DashboardHeader() {
                       {avatarInitials}
                     </span>
                   ) : (
-                    <img alt="Profile" className="absolute block inset-0 max-w-none size-full rounded-full object-cover" height="32" src={imgAvatarsPeople} width="32" />
+                    <img alt="Profile" className="absolute block inset-0 max-w-none size-full rounded-full object-cover" height="32" src={persona === "parent" ? imgParentAvatar : imgAvatarsPeople} width="32" />
                   )}
                 </div>
               </div>

@@ -8,7 +8,7 @@ import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 import { getParentDemoStudent } from "@/lib/parent-student-profile-demo";
 import { photoUploadUnavailableToast } from "@/lib/product-copy";
 
-const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2735 = "/images/mary-lee-parent.png";
 const imgGroup1 = "/images/icon-group1.svg";
 const imgLine10 = "/images/icon-generic.svg";
 const imgMaskGroup = "/images/mask-group.png";
