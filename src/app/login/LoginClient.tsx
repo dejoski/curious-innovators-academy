@@ -14,16 +14,16 @@ import { isDemoAdjacentWording } from "@/lib/product-copy";
 // UUID Mapping:
 // ef2775a1-2b28-498b-9737-4820ffe362c7 -> 10f75eed (ChatGPT logo)
 // 8ba4550b-f222-47cb-8d42-8ba2c9a5cdd6 -> 6fa1804e (lightbulb)
-// 78e95a92-e6e1-4f3a-b759-99c8a79b3106 -> 8a074aec (ellipse 1)
-// 06b87d23-8d79-485a-b782-d2e467410276 -> eac5653b (ellipse 2)
-// 72ce7a53-e9ee-4e30-8c53-b29bb84a5141 -> a139c090 (ellipse 3)
+// 78e95a92-e6e1-4f3a-b759-99c8a79b3106 -> 8a074aec (ellipse 1 - cyan gradient)
+// 06b87d23-8d79-485a-b782-d2e467410276 -> eac5653b (ellipse 2 - cyan gradient)
+// 72ce7a53-e9ee-4e30-8c53-b29bb84a5141 -> a139c090 (ellipse 3 - cyan gradient)
 // b66897e8-ca57-4ee7-8f5a-1fb42ccbac50 -> 45000a87 (email icon)
 
 const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
 const imgImage1 = "/images/lightbulb-fresh.png";
-const imgEllipse2731 = "/images/ellipse-2735-fresh.png";
-const imgEllipse2732 = "/images/ellipse-2735-fresh.png";
-const imgEllipse2733 = "/images/ellipse-2735-fresh.png";
+const imgEllipse2731 = "/images/login-ellipse-1.png";
+const imgEllipse2732 = "/images/login-ellipse-2.png";
+const imgEllipse2733 = "/images/login-ellipse-3.png";
 const imgGroup = "/images/icon-group.svg";
 
 /**
