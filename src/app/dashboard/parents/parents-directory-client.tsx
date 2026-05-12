@@ -10,8 +10,8 @@ import {
 } from "@/lib/dashboard-shell-classes";
 import { exportQueuedToast, fallbackDirectoryBannerText, messagingDialogDisclaimer } from "@/lib/product-copy";
 
-const imgEllipse2735 = "/images/ellipse-2735.png";
-const imgEllipse2736 = "/images/ellipse-2735.png";
+const imgEllipse2735 = "/images/parent-female-dark-hair.png";
+const imgEllipse2736 = "/images/parent-female-dark-hair.png";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.png";
 const imgIconCaretDown = "/images/icon-caret-down.svg";

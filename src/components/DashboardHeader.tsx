@@ -33,7 +33,7 @@ import {
 const imgAvatarsPeople = "/images/avatars-people-fresh.png";
 const imgParentAvatar = "/images/mary-lee-avatar.png";
 const imgSolarLogout2Outline = "/images/logout-icon.png";
-const imgContainer = "/images/container.png";
+const imgContainer = "/images/icon-notification-bell.svg";
 const imgDivider = "/images/icon-divider.svg";
 /** Match parent sidebar Feedback nav affordance */
 const imgRiParentLine = "/images/icon-parent.svg";

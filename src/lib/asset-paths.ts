@@ -36,16 +36,16 @@ export const ASSET_PATHS = {
   },
 
   illustrations: {
-    avatarsPeople: "/images/avatars-people.png",
+    avatarsPeople: "/images/admin-profile.png",
     avatarsPeopleFresh: "/images/avatars-people-fresh.png",
     chatgpt: "/images/chatgpt-photoroom.png",
     chatgptFresh: "/images/chatgpt-fresh.png",
-    container: "/images/container.png",
-    ellipse2735: "/images/ellipse-2735.png",
-    ellipse2735Fresh: "/images/ellipse-2735-fresh.png",
+    container: "/images/icon-notification-bell.svg",
+    ellipse2735: "/images/parent-female-dark-hair.png",
+    ellipse2735Fresh: "/images/parent-female-dark-hair-fresh.png",
     lightbulbFresh: "/images/lightbulb-fresh.png",
     maskGroup: "/images/mask-group.png",
-    image1: "/images/image-1.png",
+    image1: "/images/parent-female-light-hair.png",
     vector: "/images/vector.png",
   },
 
