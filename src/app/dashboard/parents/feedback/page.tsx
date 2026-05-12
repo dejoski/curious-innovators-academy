@@ -4,12 +4,13 @@ import React, { useEffect, useState } from "react";
 import { isDemoLoginUiEnabled, isDemoUiBypassStored } from "@/lib/demo-login";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-const imgGroup1 = "/images/icon-generic.svg";
-const imgHealthiconsNeutralOutline24Px = "/images/icon-generic.svg";
-const imgGroup2 = "/images/icon-generic.svg";
-const imgBoxiconsHappyHeartEyes = "/images/icon-generic.svg";
-const imgSolarStarBold = "/images/icon-generic.svg";
-const imgSolarStarBold1 = "/images/icon-generic.svg";
+const imgGroup1 = "/images/feedback-angry-face.svg";
+const imgHealthiconsNeutralOutline24Px = "/images/feedback-neutral-face.svg";
+const imgGroup2 = "/images/feedback-great-face.svg";
+const imgBoxiconsHappyHeartEyes = "/images/feedback-excellent-face.svg";
+const imgSolarStarBold = "/images/feedback-star-filled.svg";
+const imgSolarStarBold1 = "/images/feedback-star-empty.svg";
+const imgFluentPersonFeedback24Regular = "/images/icon-generic.svg"; // TODO: Replace with correct Figma asset if different
 
 type Mood = "angry" | "average" | "great" | "excellent";
 
