@@ -9,7 +9,7 @@ import {
   studentProfileSupportNotesPlaceholder,
 } from "@/lib/product-copy";
 
-const imgEllipse2735 = "/images/icon-generic.svg";
+const imgEllipse2735 = "/images/anna-lee-avatar.png";
 const imgEllipse2736 = "/images/icon-generic.svg";
 const imgGroup = "/images/icon-generic.svg";
 const imgMaskGroup = "/images/icon-generic.svg";
