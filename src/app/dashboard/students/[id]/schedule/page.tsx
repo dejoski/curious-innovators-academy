@@ -1,416 +1,353 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import type { DataSource } from "@/lib/data/fetch-source";
-import {
-  type CalendarEvent,
-  cloneExtras,
-  DAYS_OF_WEEK,
-  seedEventsForDate,
-  toDateKey,
-  typeLabel,
-} from "@/lib/dashboard/schedule-calendar-shared";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 
-const imgVector = "/images/icon-generic.svg";
+const imgEllipse2735 = "/images/figma-ellipse2735.png";
+const imgEllipse2736 = "/images/figma-ellipse2736.png";
+const imgEllipse2737 = "/images/figma-ellipse2737.png";
+const imgEllipse2738 = "/images/figma-ellipse2738.png";
+const imgEllipse2739 = "/images/figma-ellipse2739.png";
+const imgEllipse2740 = "/images/figma-ellipse2740.png";
+const imgMaterialSymbolsSearch = "/images/icon-search.svg";
+const imgVector = "/images/icon-filter-funnel.svg";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown2 = "/images/icon-chevron-down2.svg";
+const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
-function daysInCalendarMonth(year: number, monthIndex: number) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
+type BadgeTone = "core" | "approved" | "pending" | "empty";
 
-function startOfWeekSunday(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  x.setDate(x.getDate() - x.getDay());
-  return x;
-}
+type BadgeData = {
+  label: string;
+  tone: BadgeTone;
+};
 
-function addMonths(d: Date, delta: number) {
-  const x = new Date(d);
-  x.setMonth(x.getMonth() + delta);
-  return x;
-}
+type RowData = {
+  name: string;
+  parent: string;
+  avatar: string;
+  b1: BadgeData[];
+  b2: BadgeData[];
+  b3Tue: BadgeData[];
+  b3Wed: BadgeData[];
+  b3Thu: BadgeData[];
+  b4Tue: BadgeData[];
+  b4Wed: BadgeData[];
+  b4Thu: BadgeData[];
+};
 
-function addDays(d: Date, delta: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + delta);
-  return x;
-}
+const rows: RowData[] = [
+  {
+    name: "Anna Lee",
+    parent: "Mr. Lee",
+    avatar: imgEllipse2735,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [
+      { label: "Economics", tone: "pending" },
+      { label: "Health Sci", tone: "pending" },
+    ],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [{ label: "Chem Lab", tone: "approved" }],
+    b4Tue: [{ label: "Robotics", tone: "approved" }],
+    b4Wed: [{ label: "Health", tone: "approved" }],
+    b4Thu: [{ label: "Painting", tone: "approved" }],
+  },
+  {
+    name: "George Lee",
+    parent: "Mr. Lee",
+    avatar: imgEllipse2736,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [{ label: "Motion", tone: "approved" }],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [{ label: "Digital Story", tone: "approved" }],
+    b4Tue: [{ label: "Health", tone: "approved" }],
+    b4Wed: [{ label: "Painting", tone: "approved" }],
+    b4Thu: [{ label: "Robotics", tone: "approved" }],
+  },
+  {
+    name: "Bruna Lee",
+    parent: "Mr. Lee",
+    avatar: imgEllipse2737,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [{ label: "Biz Lab", tone: "approved" }],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [
+      { label: "Calligraphy L2", tone: "pending" },
+      { label: "Handwriting L1", tone: "pending" },
+    ],
+    b4Tue: [{ label: "Agility", tone: "approved" }],
+    b4Wed: [{ label: "Motion", tone: "approved" }],
+    b4Thu: [{ label: "Robotics", tone: "approved" }],
+  },
+  {
+    name: "James Smith",
+    parent: "Ms. Smith",
+    avatar: imgEllipse2738,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [{ label: "Chem Lab", tone: "approved" }],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [
+      { label: "Drawing", tone: "pending" },
+      { label: "Cyber", tone: "pending" },
+    ],
+    b4Tue: [
+      { label: "Singing", tone: "pending" },
+      { label: "Graphic D.", tone: "pending" },
+    ],
+    b4Wed: [{ label: "Motion", tone: "approved" }],
+    b4Thu: [{ label: "Robotics", tone: "approved" }],
+  },
+  {
+    name: "Bruce Collins",
+    parent: "Ms. Collins",
+    avatar: imgEllipse2739,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [{ label: "Chem Lab", tone: "approved" }],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [{ label: "Robotics", tone: "approved" }],
+    b4Tue: [{ label: "Painting", tone: "approved" }],
+    b4Wed: [{ label: "Motion", tone: "approved" }],
+    b4Thu: [{ label: "Ocean Sci", tone: "approved" }],
+  },
+  {
+    name: "Maria Collins",
+    parent: "Ms. Collins",
+    avatar: imgEllipse2740,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [
+      { label: "Chem Lab", tone: "pending" },
+      { label: "Anatomy", tone: "pending" },
+    ],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [{ label: "Ocean Sci", tone: "approved" }],
+    b4Tue: [{ label: "--", tone: "empty" }],
+    b4Wed: [{ label: "--", tone: "empty" }],
+    b4Thu: [{ label: "--", tone: "empty" }],
+  },
+  {
+    name: "James Smith",
+    parent: "Ms. Smith",
+    avatar: imgEllipse2738,
+    b1: [{ label: "Math", tone: "core" }],
+    b2: [{ label: "ELA", tone: "core" }],
+    b3Tue: [{ label: "Chem Lab", tone: "approved" }],
+    b3Wed: [{ label: "--", tone: "empty" }],
+    b3Thu: [
+      { label: "Drawing", tone: "pending" },
+      { label: "Cyber", tone: "pending" },
+    ],
+    b4Tue: [
+      { label: "Singing", tone: "pending" },
+      { label: "Graphic D.", tone: "pending" },
+    ],
+    b4Wed: [{ label: "Motion", tone: "approved" }],
+    b4Thu: [{ label: "Robotics", tone: "approved" }],
+  },
+];
 
-type ViewMode = "month" | "week" | "day";
+function Badge({ item }: { item: BadgeData }) {
+  if (item.tone === "empty") {
+    return (
+      <div className="w-full text-center font-['Inter:Italic',sans-serif] text-[12px] italic leading-[1.25] text-[#666d80]">
+        {item.label}
+      </div>
+    );
+  }
 
-const EventBadge = ({ event, onClick }: { event: CalendarEvent; onClick?: (e: MouseEvent) => void }) => {
-  let bgClass = "";
-  if (event.type === "core") bgClass = "bg-[#d2f1f5]";
-  if (event.type === "enrichment-pending") bgClass = "bg-[#ffd9d9]";
-  if (event.type === "enrichment-approved") bgClass = "bg-[#ccdbce]";
-  if (event.type === "event") bgClass = "bg-[#dcc3fc]";
+  const toneClass =
+    item.tone === "core"
+      ? "bg-[#d2f1f5] border-[rgba(20,193,213,0.5)] text-[#1392a0]"
+      : item.tone === "approved"
+        ? "bg-[rgba(0,77,8,0.2)] border-[rgba(0,77,8,0.5)] text-[#004d08]"
+        : "bg-[#ffd9d9] border-[rgba(216,5,9,0.5)] text-[#d80509]";
 
   return (
     <div
-      className={`${bgClass} rounded-[4px] p-1 mb-1 w-full overflow-hidden ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
-      onClick={onClick}
+      className={`h-[20px] whitespace-nowrap rounded-[6px] border px-[8px] pt-[3px] pb-[2px] font-['Inter:Regular',sans-serif] text-[10px] leading-[1.4] ${toneClass}`}
     >
-      <p className="text-[#666d80] text-[7px] leading-none mb-[2px]">{event.time}</p>
-      <p className="text-[#0d0d12] text-[9px] leading-tight truncate">{event.title}</p>
+      {item.label}
     </div>
   );
-};
+}
+
+function LegendItem({ colorClass, label }: { colorClass: string; label: string }) {
+  return (
+    <div className="flex items-center gap-[6px]">
+      <div className={`size-[17px] rounded-[4px] border ${colorClass}`} />
+      <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.25] text-[#0d0d12]">{label}</p>
+    </div>
+  );
+}
+
+function CellColumn({ width, items }: { width: number; items: BadgeData[] }) {
+  return (
+    <div className="flex h-full shrink-0 flex-col items-center gap-[2px] overflow-hidden px-[10px] py-[8px]" style={{ width }}>
+      {items.map((item, idx) => (
+        <Badge key={`${item.label}-${idx}`} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function DataRow({ row }: { row: RowData }) {
+  return (
+    <div className="flex h-[61px] w-[1068px] items-start border-b border-[#f0f0f0] bg-white">
+      <div className="flex h-full w-[158px] items-start overflow-hidden py-[2px]">
+        <div className="flex items-center gap-[12px]">
+          <div className="size-[14px] shrink-0 rounded-[4px] border border-[#14c1d5] bg-[#d2f1f5] opacity-50" />
+          <div className="flex items-center gap-[6px]">
+            <img alt="" className="size-[32px] rounded-full object-cover" src={row.avatar} />
+            <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-[#0d0d12]">{row.name}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex h-full w-[86px] items-start overflow-hidden px-[10px] py-[8px]">
+        <p className="whitespace-nowrap font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-[#0d0d12]">{row.parent}</p>
+      </div>
+
+      <CellColumn width={98} items={row.b1} />
+      <CellColumn width={86} items={row.b2} />
+      <CellColumn width={99} items={row.b3Tue} />
+      <CellColumn width={86} items={row.b3Wed} />
+      <CellColumn width={86} items={row.b3Thu} />
+      <CellColumn width={86} items={row.b4Tue} />
+      <CellColumn width={86} items={row.b4Wed} />
+      <CellColumn width={86} items={row.b4Thu} />
+
+      <div className="flex h-full w-[110px] items-center justify-center overflow-hidden px-[10px] py-[8px]">
+        <img alt="More" className="size-[24px]" src={imgWeuiMoreOutlined} />
+      </div>
+    </div>
+  );
+}
+
+function DayHead({ width, blockLabel, dayLabel }: { width: number; blockLabel: string; dayLabel: string }) {
+  return (
+    <div className="relative h-[44px] shrink-0 overflow-hidden" style={{ width }}>
+      <div className="absolute top-[-4px] flex w-full flex-col items-center gap-[4px] text-center">
+        <p className="font-['Inter:Semi_Bold',sans-serif] text-[14px] font-semibold leading-[1.25] text-[#0d0d12]">{blockLabel}</p>
+        <p className="font-['Inter:Regular',sans-serif] text-[11px] leading-[11px] text-[#666d80]">{dayLabel}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function StudentSchedulePage() {
-  const params = useParams();
-  const studentId = String(params.id ?? "");
-
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [cursorDate, setCursorDate] = useState(() => new Date());
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [extrasByDateKey, setExtrasByDateKey] = useState<Record<string, CalendarEvent[]>>({});
-  const [extrasSource, setExtrasSource] = useState<DataSource | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/data/schedule-extras");
-        if (cancelled) return;
-        if (!res.ok) {
-          setExtrasSource("fallback");
-          return;
-        }
-        const body = (await res.json()) as { extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource };
-        if (cancelled) return;
-        setExtrasByDateKey(cloneExtras(body.extrasByDate ?? {}));
-        setExtrasSource(body.source ?? "fallback");
-      } catch {
-        if (!cancelled) setExtrasSource("fallback");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const eventsForDate = useMemo(() => {
-    return (date: Date): CalendarEvent[] => {
-      const key = toDateKey(date);
-      const seed = seedEventsForDate(date);
-      const extra = extrasByDateKey[key] ?? [];
-      return [...seed, ...extra];
-    };
-  }, [extrasByDateKey]);
-
-  const titleCenter = useMemo(() => {
-    if (viewMode === "month") {
-      return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(cursorDate);
-    }
-    if (viewMode === "week") {
-      const start = startOfWeekSunday(cursorDate);
-      const end = addDays(start, 6);
-      const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
-      return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}`;
-    }
-    return cursorDate.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, [cursorDate, viewMode]);
-
-  const viewLabel = viewMode === "month" ? "Month" : viewMode === "week" ? "Week" : "Day";
-
-  const navigatePrev = () => {
-    if (viewMode === "month") setCursorDate((d) => addMonths(d, -1));
-    else if (viewMode === "week") setCursorDate((d) => addDays(d, -7));
-    else setCursorDate((d) => addDays(d, -1));
-  };
-
-  const navigateNext = () => {
-    if (viewMode === "month") setCursorDate((d) => addMonths(d, 1));
-    else if (viewMode === "week") setCursorDate((d) => addDays(d, 7));
-    else setCursorDate((d) => addDays(d, 1));
-  };
-
-  const goToday = () => setCursorDate(new Date());
-
-  const monthYear = cursorDate.getFullYear();
-  const monthIndex = cursorDate.getMonth();
-  const dim = daysInCalendarMonth(monthYear, monthIndex);
-  const firstDayOffset = new Date(monthYear, monthIndex, 1).getDay();
-
-  const weekStart = startOfWeekSunday(cursorDate);
-
-  const handleEventClick = (e: MouseEvent, event: CalendarEvent) => {
-    e.stopPropagation();
-    setSelectedEvent(event);
-  };
-
-  const dayEvents = eventsForDate(cursorDate);
-
   return (
-    <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
-      <div className="flex flex-col gap-[4px] items-start">
-        <h1 className="font-sans font-bold text-[#272932] text-[24px] leading-[1.1]">Schedule ({viewLabel})</h1>
-        <p className="font-sans font-normal text-[#666d80] text-[16px] leading-[1.4]">
-          This student’s classes and school events (template weekdays plus organization extras from the shared calendar).
+    <div className="relative flex w-full min-h-full flex-col gap-[24px] px-[32px] py-[32px] font-sans">
+      <div className="flex flex-col gap-[4px]">
+        <h1 className="font-['Inter:Bold',sans-serif] text-[28px] font-bold leading-[1.1] text-[#272932]">
+          Student Schedule
+        </h1>
+        <p className="font-['Inter:Regular',sans-serif] text-[16px] leading-[1.4] text-[#666d80]">
+          View and compare student schedules across all blocks.
         </p>
-        {extrasSource === "fallback" && (
-          <p className="mt-2 max-w-3xl rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
-            Cloud extras unavailable — showing template schedule only.
-          </p>
-        )}
       </div>
 
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full">
-        <div className="bg-[#edeff3] flex gap-[2px] items-center p-[4px] rounded-[10px]">
-          <button
-            type="button"
-            className={
-              viewMode === "month"
-                ? "bg-white flex items-center justify-center px-[24px] py-[4px] rounded-[6px] shadow-sm"
-                : "flex items-center justify-center px-[24px] py-[4px] rounded-[10px] hover:bg-gray-200 transition-colors"
-            }
-            onClick={() => setViewMode("month")}
-          >
-            <span className="font-sans font-medium text-[#272932] text-[12px]">Month</span>
-          </button>
-          <button
-            type="button"
-            className={
-              viewMode === "week"
-                ? "bg-white flex items-center justify-center px-[24px] py-[4px] rounded-[6px] shadow-sm"
-                : "flex items-center justify-center px-[24px] py-[4px] rounded-[10px] hover:bg-gray-200 transition-colors"
-            }
-            onClick={() => setViewMode("week")}
-          >
-            <span className="font-sans font-medium text-[#272932] text-[12px]">Week</span>
-          </button>
-          <button
-            type="button"
-            className={
-              viewMode === "day"
-                ? "bg-white flex items-center justify-center px-[24px] py-[4px] rounded-[6px] shadow-sm"
-                : "flex items-center justify-center px-[24px] py-[4px] rounded-[10px] hover:bg-gray-200 transition-colors"
-            }
-            onClick={() => setViewMode("day")}
-          >
-            <span className="font-sans font-medium text-[#272932] text-[12px]">Day</span>
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-[10px] items-center">
-          <div className="flex gap-[6px] items-center">
-            <div className="bg-[#d2f1f5] border border-[#14c1d5] rounded-[4px] size-[17px]" />
-            <span className="text-[#0d0d12] text-[12px]">Core (school assigned)</span>
-          </div>
-          <div className="flex gap-[6px] items-center">
-            <div className="bg-[rgba(0,77,8,0.2)] border border-[#004d08] rounded-[4px] size-[17px]" />
-            <span className="text-[#0d0d12] text-[12px]">Enrichment approved</span>
-          </div>
-          <div className="flex gap-[6px] items-center">
-            <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] size-[17px]" />
-            <span className="text-[#0d0d12] text-[12px]">Enrichment pending</span>
-          </div>
-          <div className="flex gap-[6px] items-center">
-            <div className="bg-[rgba(138,56,245,0.3)] border border-[#a555f1] rounded-[4px] size-[17px]" />
-            <span className="text-[#0d0d12] text-[12px]">Event</span>
-          </div>
+      <div className="flex items-center">
+        <div className="flex items-start gap-[10px]">
+          <LegendItem colorClass="border-[#14c1d5] bg-[#d2f1f5]" label="Core (School assigned)" />
+          <LegendItem colorClass="border-[#004d08] bg-[rgba(0,77,8,0.2)]" label="Enrichment approved" />
+          <LegendItem colorClass="border-[#d80509] bg-[#ffd9d9]" label="Enrichment pending" />
+          <LegendItem colorClass="border-[#a555f1] bg-[rgba(138,56,245,0.3)]" label="Others" />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between w-full gap-4">
-        <div className="flex gap-[14px] items-center flex-wrap">
-          <button
-            type="button"
-            className="bg-white border border-[#f0f0f0] px-3 py-1 rounded-[8px] text-[14px] hover:bg-gray-50 transition-colors font-medium text-[#0d0d12]"
-            onClick={goToday}
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            className="bg-white border border-[#f0f0f0] flex items-center justify-center rounded-[8px] size-[40px] hover:bg-gray-50 transition-colors"
-            onClick={navigatePrev}
-            aria-label={viewMode === "month" ? "Previous month" : viewMode === "week" ? "Previous week" : "Previous day"}
-          >
-            <img alt="Prev" className="size-[18px] rotate-90" src={imgVector} />
-          </button>
-          <h2 className="font-sans font-semibold text-[#0d0d12] text-[18px] min-w-[200px] text-center">{titleCenter}</h2>
-          <button
-            type="button"
-            className="bg-white border border-[#f0f0f0] flex items-center justify-center rounded-[8px] size-[40px] hover:bg-gray-50 transition-colors"
-            onClick={navigateNext}
-            aria-label={viewMode === "month" ? "Next month" : viewMode === "week" ? "Next week" : "Next day"}
-          >
-            <img alt="Next" className="size-[18px] -rotate-90" src={imgVector} />
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-3 items-center">
-          {studentId ? (
-            <>
-              <Link
-                href={`/dashboard/students/${studentId}`}
-                className="bg-white border border-[#f0f0f0] flex items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                <span className="font-sans font-semibold text-[#0d0d12] text-[16px]">Student profile</span>
-              </Link>
-              <Link
-                href={`/dashboard/students/${studentId}/roster`}
-                className="bg-white border border-[#f0f0f0] flex items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                <span className="font-sans font-semibold text-[#0d0d12] text-[16px]">Student roster</span>
-              </Link>
-            </>
-          ) : null}
-          <Link
-            href="/dashboard/classes"
-            className="bg-[#14c1d5] flex items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#12aebd] transition-colors shadow-sm"
-          >
-            <span className="font-sans font-semibold text-white text-[16px]">View classes</span>
-          </Link>
-        </div>
-      </div>
-
-      {viewMode === "month" && (
-        <div className={`${DASHBOARD_PANEL_CLASS} p-4 w-full overflow-x-auto`}>
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-7 gap-4 mb-4">
-              {DAYS_OF_WEEK.map((day) => (
-                <div key={day} className="text-center text-[#625f6e] text-[12px] font-sans">
-                  {day}
-                </div>
-              ))}
+      <section className={`${DASHBOARD_PANEL_CLASS} relative h-[695px] w-full max-w-[1104px] px-[18px] py-[16px]`}>
+        <div className="flex w-full flex-col gap-[20px]">
+          <div className="flex w-full items-center justify-between">
+            <div className="flex items-center gap-[6px]">
+              <img alt="Search" className="size-[14px]" src={imgMaterialSymbolsSearch} />
+              <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">Search...</p>
             </div>
-            <div className="grid grid-cols-7 gap-2">
-              {Array.from({ length: firstDayOffset }).map((_, i) => (
-                <div key={`pad-${i}`} className="bg-gray-50 border border-[#f0f0f0] rounded-[8px] h-[120px] p-2" />
-              ))}
-              {Array.from({ length: dim }).map((_, i) => {
-                const day = i + 1;
-                const cellDate = new Date(monthYear, monthIndex, day);
-                const events = eventsForDate(cellDate);
-                const isToday = cellDate.toDateString() === new Date().toDateString();
-                return (
-                  <div
-                    key={day}
-                    className="bg-white border border-[#f0f0f0] rounded-[8px] h-[120px] p-2 flex flex-col overflow-hidden"
-                  >
-                    <span
-                      className={`text-[12px] mb-1 font-sans ${isToday ? "bg-[#14c1d5] text-white w-5 h-5 flex items-center justify-center rounded-full" : "text-[#020204]"}`}
-                    >
-                      {day}
-                    </span>
-                    <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-1">
-                      {events.map((ev) => (
-                        <EventBadge key={ev.id} event={ev} onClick={(e) => handleEventClick(e, ev)} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex items-center gap-[16px]">
+              <button type="button" className="flex items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px]">
+                <span className="flex items-center pr-[2px]">
+                  <img alt="Filter" className="size-[14px]" src={imgVector} />
+                </span>
+                <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">Active Students</span>
+                <span className="flex items-center py-[2px]">
+                  <img alt="Expand" className="size-[14px]" src={imgIconCaretDown} />
+                </span>
+              </button>
+              <button type="button" className="rounded-[8px] bg-[#fafafa] p-[8px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">
+                Select All
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-[#f0f0f0] py-[20px]">
+            <div className="flex h-[44px] w-[1068px] items-center overflow-hidden">
+              <div className="shrink-0" style={{ width: 93 }}>
+                <p className="pl-[20px] pt-[2px] font-['Inter:Semi_Bold',sans-serif] text-[14px] font-semibold leading-[1.25] text-[#0d0d12]">Student</p>
+              </div>
+              <div className="flex shrink-0 items-start justify-center" style={{ width: 147 }}>
+                <p className="pt-[2px] font-['Inter:Semi_Bold',sans-serif] text-[14px] font-semibold leading-[1.25] text-[#0d0d12]">Parent</p>
+              </div>
+              <DayHead width={113} blockLabel="B1" dayLabel="Tue Wed Thu" />
+              <DayHead width={93} blockLabel="B2" dayLabel="Tue Wed Thu" />
+              <DayHead width={93} blockLabel="B3" dayLabel="Tue" />
+              <DayHead width={64} blockLabel="B3" dayLabel="Wed" />
+              <DayHead width={93} blockLabel="B3" dayLabel="Thu" />
+              <DayHead width={93} blockLabel="B4" dayLabel="Tue" />
+              <DayHead width={93} blockLabel="B4" dayLabel="Wed" />
+              <DayHead width={93} blockLabel="B4" dayLabel="Thu" />
+              <div className="flex h-[44px] shrink-0 items-start justify-center" style={{ width: 93 }}>
+                <p className="pt-[2px] font-['Inter:Semi_Bold',sans-serif] text-[14px] font-semibold leading-[1.25] text-[#0d0d12]">Action</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
 
-      {viewMode === "week" && (
-        <div className={`${DASHBOARD_PANEL_CLASS} p-4 w-full overflow-x-auto`}>
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-7 gap-4 mb-4">
-              {Array.from({ length: 7 }).map((_, i) => {
-                const cellDate = addDays(weekStart, i);
-                const isToday = cellDate.toDateString() === new Date().toDateString();
-                const label = `${DAYS_OF_WEEK[cellDate.getDay()]} ${cellDate.getDate()}`;
-                return (
-                  <div
-                    key={`week-h-${i}`}
-                    className={`text-center text-[12px] font-sans ${isToday ? "text-[#14c1d5] font-semibold" : "text-[#625f6e]"}`}
-                  >
-                    {label}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-              {Array.from({ length: 7 }).map((_, i) => {
-                const cellDate = addDays(weekStart, i);
-                const events = eventsForDate(cellDate);
-                return (
-                  <div
-                    key={`week-${cellDate.getFullYear()}-${cellDate.getMonth()}-${cellDate.getDate()}`}
-                    className="bg-white border border-[#f0f0f0] rounded-[8px] h-[120px] p-2 flex flex-col overflow-hidden"
-                  >
-                    <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-1">
-                      {events.map((ev) => (
-                        <EventBadge key={ev.id} event={ev} onClick={(e) => handleEventClick(e, ev)} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        <div className="w-full overflow-x-auto">
+          <div className="w-[1068px]">
+            {rows.map((row, index) => (
+              <DataRow key={`${row.name}-${index}`} row={row} />
+            ))}
           </div>
         </div>
-      )}
 
-      {viewMode === "day" && (
-        <div className={`${DASHBOARD_PANEL_CLASS} p-4 w-full overflow-x-auto`}>
-          <div className="min-w-[800px]">
-            <p
-              className={`text-sm font-semibold mb-3 ${cursorDate.toDateString() === new Date().toDateString() ? "text-[#14c1d5]" : "text-[#0d0d12]"}`}
-            >
-              {DAYS_OF_WEEK[cursorDate.getDay()]},{" "}
-              {cursorDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-            <div className="flex flex-col gap-3 max-w-xl">
-              {dayEvents.length === 0 ? (
-                <p className="font-sans text-[14px] text-[#666d80]">No classes or events scheduled for this day.</p>
-              ) : (
-                dayEvents.map((ev) => <EventBadge key={ev.id} event={ev} onClick={(e) => handleEventClick(e, ev)} />)
-              )}
+        <div className="mt-[10px] flex w-full items-center justify-center gap-[12px]">
+          <button type="button" className="flex size-[18px] items-center justify-center">
+            <img alt="Previous" className="size-[18px] rotate-90" src={imgChevronDown2} />
+          </button>
+          <div className="flex items-center gap-[3px]">
+            <div className="flex size-[18px] items-center justify-center rounded-[9px] bg-[#14c1d5] px-[5px] py-[9px]">
+              <span className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-none text-white">1</span>
+            </div>
+            <div className="flex size-[18px] items-center justify-center rounded-[9px] px-[5px] py-[9px]">
+              <span className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-none text-[#666d80]">2</span>
+            </div>
+            <div className="flex size-[18px] items-center justify-center rounded-[9px] px-[5px] py-[9px]">
+              <span className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-none text-[#666d80]">3</span>
+            </div>
+            <div className="flex size-[18px] items-center justify-center rounded-[9px] px-[5px] py-[9px]">
+              <span className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-none text-[#666d80]">...</span>
+            </div>
+            <div className="flex size-[18px] items-center justify-center rounded-[9px] px-[5px] py-[9px]">
+              <span className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-none text-[#666d80]">9</span>
             </div>
           </div>
+          <button type="button" className="flex size-[18px] items-center justify-center">
+            <img alt="Next" className="size-[18px] -rotate-90" src={imgChevronDown3} />
+          </button>
         </div>
-      )}
 
-      {selectedEvent && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setSelectedEvent(null)}
+        <button
+          type="button"
+          className="absolute flex h-[42px] w-[200px] items-center justify-center rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] text-center font-['Inter_Tight:Medium',sans-serif] text-[16px] tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
+          style={{ right: 20, bottom: -27 }}
         >
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold">{selectedEvent.title}</h3>
-              <button type="button" onClick={() => setSelectedEvent(null)} className="text-gray-500 hover:text-gray-800 text-xl font-bold">
-                &times;
-              </button>
-            </div>
-            <div className="flex flex-col gap-3 text-[#0d0d12]">
-              <p>
-                <strong>Time:</strong> {selectedEvent.time}
-              </p>
-              <p>
-                <strong>Type:</strong> {typeLabel(selectedEvent.type)}
-              </p>
-              <p>
-                <strong>Description:</strong>{" "}
-                {selectedEvent.description?.trim() ? selectedEvent.description : "No additional description."}
-              </p>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 bg-[#14c1d5] text-white rounded-lg font-medium hover:bg-[#12aebd]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          Upload to Spreadsheet
+        </button>
+      </section>
     </div>
   );
 }

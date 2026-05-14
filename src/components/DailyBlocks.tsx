@@ -8,8 +8,8 @@ import {
   type DashboardDailyBlockRow,
 } from "@/lib/dashboard-metrics";
 
-const imgGroup = "/images/icon-group.svg";
-const imgVector = "/images/vector.png";
+const imgGroup = "/images/icon-calendar-linear.svg";
+const imgArrowRightThin = "/images/icon-arrow-right-thin.svg";
 
 const DEFAULT_ROWS = getDashboardDailyBlocks(DASHBOARD_METRICS);
 
@@ -112,8 +112,8 @@ export default function DailyBlocks({ rows = DEFAULT_ROWS }: DailyBlocksProps) {
                 <div className="relative size-[14px]" data-node-id="549:1240" data-name="Icon/ArrowLeft">
                   <div className="absolute flex inset-[18.75%_12.5%] items-center justify-center" style={{ containerType: "size" }}>
                     <div className="flex-none h-[100cqw] rotate-90 w-[100cqh]">
-                      <div className="relative size-full" data-node-id="I549:1240;4:224" data-name="Vector">
-                        <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgVector} />
+                        <div className="relative size-full" data-node-id="I549:1240;4:224" data-name="Vector">
+                        <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgArrowRightThin} />
                       </div>
                     </div>
                   </div>

@@ -1,2 +1,19 @@
 
 @import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter);
+}
+
+.font-inter-tight {
+  font-family: var(--font-inter-tight), var(--font-inter), sans-serif;
+}
+
+/* Hide Next.js dev UI overlays to keep Figma parity screenshots clean. */
+nextjs-portal,
+#nextjs__container,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay],
+[data-nextjs-dev-tools-button] {
+  display: none !important;
+}

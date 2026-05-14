@@ -32,7 +32,7 @@ export const ASSET_PATHS = {
     sort: "/images/icon-sort.svg",
     divider: "/images/icon-divider.svg",
     more: "/images/icon-more.svg",
-    logout: "/images/logout-icon.png",
+    logout: "/images/logout-icon.svg",
   },
 
   illustrations: {
@@ -44,9 +44,9 @@ export const ASSET_PATHS = {
     ellipse2735: "/images/parent-female-dark-hair.png",
     ellipse2735Fresh: "/images/parent-female-dark-hair-fresh.png",
     lightbulbFresh: "/images/lightbulb-fresh.png",
-    maskGroup: "/images/mask-group.png",
+    maskGroup: "/images/mask-group.svg",
     image1: "/images/parent-female-light-hair.png",
-    vector: "/images/vector.png",
+    vector: "/images/vector.svg",
   },
 
   avatars: {

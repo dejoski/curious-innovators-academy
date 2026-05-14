@@ -10,7 +10,7 @@ import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 const imgGroup1 = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-generic2.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
-const imgVector = "/images/vector.png";
+const imgVector = "/images/vector.svg";
 const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";

@@ -10,14 +10,14 @@ import {
 } from "@/lib/product-copy";
 
 const imgEllipse2735 = "/images/anna-lee-avatar.png";
-const imgEllipse2736 = "/images/icon-generic.svg";
-const imgGroup = "/images/icon-generic.svg";
-const imgMaskGroup = "/images/icon-generic.svg";
-const imgGroup1 = "/images/icon-generic.svg";
-const imgIcRoundPlus = "/images/icon-generic.svg";
-const imgVuesaxLinearClipboardText = "/images/icon-generic.svg";
-const imgRiParentLine = "/images/icon-generic.svg";
-const imgVuesaxOutlineCalendar = "/images/icon-generic.svg";
+const imgEllipse2736 = "/images/anna-lee-avatar.png";
+const imgGroup = "/images/icon-settings.svg";
+const imgMaskGroup = "/images/icon-group.svg";
+const imgGroup1 = "/images/icon-notification-bell.svg";
+const imgIcRoundPlus = "/images/icon-plus.svg";
+const imgVuesaxLinearClipboardText = "/images/icon-dashboard.svg";
+const imgRiParentLine = "/images/icon-parent.svg";
+const imgVuesaxOutlineCalendar = "/images/icon-dashboard.svg";
 
 type StudentDetailsState = {
   name: string;

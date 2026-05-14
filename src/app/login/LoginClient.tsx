@@ -1,256 +1,120 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Lock } from "lucide-react";
-import { signInWithPasswordOrDemo } from "@/lib/supabase/auth-bridge";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { bootstrapDemoSession } from "@/lib/demo-session-bootstrap";
 import { isDemoLoginUiEnabled } from "@/lib/demo-login";
-import { isDemoAdjacentWording } from "@/lib/product-copy";
 
-// Fresh Figma assets (downloaded 2026-05-11)
-// UUID Mapping:
-// ef2775a1-2b28-498b-9737-4820ffe362c7 -> 10f75eed (ChatGPT logo)
-// 8ba4550b-f222-47cb-8d42-8ba2c9a5cdd6 -> 6fa1804e (lightbulb)
-// 78e95a92-e6e1-4f3a-b759-99c8a79b3106 -> 8a074aec (ellipse 1 - cyan gradient)
-// 06b87d23-8d79-485a-b782-d2e467410276 -> eac5653b (ellipse 2 - cyan gradient)
-// 72ce7a53-e9ee-4e30-8c53-b29bb84a5141 -> a139c090 (ellipse 3 - cyan gradient)
-// b66897e8-ca57-4ee7-8f5a-1fb42ccbac50 -> 45000a87 (email icon)
+const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
+const imgImage1 = "/images/login-logo-lightbulb.png";
+const imgEllipse2731 = "/images/login-ellipse-1.svg";
+const imgEllipse2732 = "/images/login-ellipse-2.svg";
+const imgEllipse2733 = "/images/login-ellipse-3.svg";
+const imgGroup = "/images/login-email-icon.svg";
 
-const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
-const imgImage1 = "/images/lightbulb-fresh.png";
-const imgEllipse2731 = "/images/login-ellipse-1.png";
-const imgEllipse2732 = "/images/login-ellipse-2.png";
-const imgEllipse2733 = "/images/login-ellipse-3.png";
-const imgGroup = "/images/icon-group.svg";
-
-/**
- * Login UI wired to Supabase when env is set; otherwise demo mode (same validation, navigates to dashboard).
- * Use as default export from `page.tsx`: `export { default } from "./LoginClient";`
- */
 export default function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const demoButtonVisible = isDemoLoginUiEnabled() && isSupabaseConfigured();
-
-  const validateEmail = (val: string) => {
-    if (!val) return "Email is required";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return "Invalid email address";
-    return "";
-  };
-
-  const validatePassword = (val: string) => {
-    if (!val) return "Password is required";
-    if (val.length < 6) return "Password must be at least 6 characters";
-    return "";
-  };
-
-  const handleContinueDemoAs = (kind: "admin" | "parent"): void => {
-    setAuthError("");
-    router.push(bootstrapDemoSession(kind));
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const eError = validateEmail(email);
-    const pError = validatePassword(password);
-
-    setEmailError(eError);
-    setPasswordError(pError);
-    setAuthError("");
-
-    if (eError || pError) return;
-
-    setIsSubmitting(true);
-    try {
-      const result = await signInWithPasswordOrDemo(email, password);
-      if (!result.ok) {
-        setAuthError(result.message);
-        return;
-      }
-      router.push("/dashboard");
-    } finally {
-      setIsSubmitting(false);
+    if (isDemoLoginUiEnabled()) {
+      router.push(bootstrapDemoSession("admin"));
+      return;
     }
-  };
-
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    setAuthError("");
-    if (emailError) setEmailError(validateEmail(e.target.value));
-  };
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value);
-    setAuthError("");
-    if (passwordError) setPasswordError(validatePassword(e.target.value));
-  };
+    router.push("/dashboard");
+  }
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden font-sans" style={{
-      background: 'linear-gradient(135deg, #E8F8FB 0%, #DAFBFF 25%, #B0E8F0 50%, #7DD9E8 75%, #14C1D5 100%)'
-    }}>
-      {/* Gradient background - using CSS instead of SVG overlays for better rendering */}
-
-      <div className="relative z-10 flex flex-col lg:flex-row items-center justify-center max-w-[1200px] w-full px-6 lg:px-16 gap-12 lg:gap-32">
-        <div className="flex flex-col gap-[10px] w-full lg:w-[416px] text-center lg:text-left">
-          <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[36px] lg:text-[48px]">
-            Fast, efficient, and productive
-          </h1>
-          <p className="font-normal leading-[1.64] text-[#2f2f2d] text-[16px] lg:text-[18px]">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
-          </p>
+    <div className="relative h-screen w-full overflow-hidden bg-white font-sans">
+      <div className="absolute h-[460px] left-[696px] top-[-80px] w-[833px]">
+        <div className="absolute inset-[-63.91%_-35.29%]">
+          <img alt="" className="block size-full max-w-none" src={imgEllipse2731} />
         </div>
+      </div>
 
-        <div className="bg-[#fafafa] flex flex-col items-center justify-center w-full max-w-[423px] px-6 sm:px-[42px] py-[40px] sm:py-[51px] rounded-[8px] shadow-[0px_0px_29px_0px_rgba(0,0,0,0.08)]">
-          <div className="flex flex-col gap-[24px] w-full">
-            <div className="h-[44px] overflow-hidden relative shrink-0 w-[196px] mx-auto lg:mx-0">
-              <div className="absolute h-[31.659px] left-[47.07px] top-[5.47px] w-[132.782px]">
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <img alt="" className="absolute h-[430%] left-[-50%] max-w-none top-[-152%] w-[154%]" src={imgChatGptImage23012026141937Photoroom1} />
-                </div>
-              </div>
-              <div className="absolute h-[45px] left-0 top-[-1px] w-[43px]">
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <img alt="" className="absolute h-full left-0 max-w-none top-0 w-[384.62%]" src={imgImage1} />
-                </div>
-              </div>
+      <div className="absolute left-0 top-[-217px] flex h-[494.45px] w-[1162.5px] items-center justify-center">
+        <div className="-scale-y-100 rotate-180">
+          <div className="relative h-[494.45px] w-[1162.5px]">
+            <div className="absolute inset-[-59.46%_-25.29%]">
+              <img alt="" className="block size-full max-w-none" src={imgEllipse2732} />
             </div>
-
-            <div className="flex flex-col gap-[2px] w-full text-center lg:text-left">
-              <h2 className="font-semibold leading-[1.1] text-[#05080b] text-[22px]">
-                Log in to the school
-              </h2>
-              <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
-                Welcome back! Log in to continue
-              </p>
-            </div>
-
-            <form className="flex flex-col gap-[14px] w-full" onSubmit={handleLogin} noValidate>
-              <div className="flex flex-col gap-[8px] w-full">
-                <label className="font-medium leading-[1.5] text-[#2f2f2d] text-[14px] tracking-[0.28px] text-left">
-                  E-mail
-                </label>
-                <div className={`bg-white border flex gap-[8px] h-[52px] items-center px-[12px] py-[8px] rounded-[10px] w-full transition-colors ${emailError ? "border-red-500 focus-within:border-red-500" : "border-[#dfe1e7] focus-within:border-[#14c1d5]"}`}>
-                  <div className="shrink-0 flex items-center justify-center size-[24px]">
-                    <img alt="email icon" src={imgGroup} className="w-full h-full" />
-                  </div>
-                  <input
-                    type="email"
-                    placeholder="name.example@gmail.com"
-                    value={email}
-                    onChange={handleEmailChange}
-                    onBlur={() => setEmailError(validateEmail(email))}
-                    className="flex-1 font-normal leading-[1.5] text-[#05080b] placeholder:text-[#818898] text-[16px] tracking-[0.32px] outline-none bg-transparent w-full"
-                  />
-                </div>
-                {emailError && <span className="text-red-500 text-sm font-medium">{emailError}</span>}
-              </div>
-
-              <div className="flex flex-col gap-[8px] w-full">
-                <div className="flex justify-between items-center w-full">
-                  <label className="font-medium leading-[1.5] text-[#2f2f2d] text-[14px] tracking-[0.28px] text-left">
-                    Password
-                  </label>
-                  <Link href="/forgot-password" className="text-[#14c1d5] text-[14px] hover:underline font-medium">
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className={`bg-white border flex gap-[8px] h-[52px] items-center px-[12px] py-[8px] rounded-[10px] w-full transition-colors ${passwordError ? "border-red-500 focus-within:border-red-500" : "border-[#dfe1e7] focus-within:border-[#14c1d5]"}`}>
-                  <div className="shrink-0 flex items-center justify-center text-[#818898]">
-                    <Lock size={20} />
-                  </div>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={handlePasswordChange}
-                    onBlur={() => setPasswordError(validatePassword(password))}
-                    className="flex-1 font-normal leading-[1.5] text-[#05080b] placeholder:text-[#818898] text-[16px] tracking-[0.32px] outline-none bg-transparent w-full"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="shrink-0 flex items-center justify-center text-[#818898] hover:text-[#05080b] transition-colors focus:outline-none"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-                {passwordError && <span className="text-red-500 text-sm font-medium">{passwordError}</span>}
-              </div>
-
-              {authError && (
-                <p className="text-red-600 text-sm font-medium" role="alert">
-                  {authError}
-                </p>
-              )}
-
-              {!isSupabaseConfigured() && (
-                <p className="text-[#818898] text-xs leading-relaxed">
-                  {isDemoAdjacentWording()
-                    ? "Demo mode: Supabase env not set. Use any valid email and password to continue."
-                    : "Preview: Supabase is not configured. Use any valid email and password to continue."}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="mt-[10px] bg-[#14c1d5] flex items-center justify-center h-[42px] px-[16px] py-[8px] rounded-[6px] w-full cursor-pointer hover:bg-[#12aebd] transition-colors drop-shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#14c1d5]"
-              >
-                <span className="font-semibold leading-[1.5] text-white text-[16px] tracking-[0.32px] whitespace-nowrap">
-                  {isSubmitting ? "Signing in…" : "Start your journey"}
-                </span>
-              </button>
-
-              <p className="text-center text-[14px] text-[#2f2f2d]">
-                <Link href="/signup" className="text-[#14c1d5] font-medium hover:underline">
-                  Need an account? Create one with invite code.
-                </Link>
-              </p>
-
-              {demoButtonVisible && (
-                <div className="mt-[6px] flex flex-col gap-[10px] w-full rounded-[10px] border border-dashed border-[#c9ccd4] bg-white/90 px-[12px] py-[14px]">
-                  <p className="text-left text-[13px] leading-snug text-[#5c5f69] font-medium">
-                    Prototype / QA
-                  </p>
-                  <p className="text-left text-[12px] leading-relaxed text-[#818898]">
-                    Skip Supabase for a walkthrough. Pick staff or parent — not a substitute for production
-                    auth.
-                  </p>
-                  <div className="flex flex-col gap-[8px]">
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => handleContinueDemoAs("admin")}
-                      className="w-full rounded-[6px] bg-[#14c1d5] px-[14px] py-[10px] text-[14px] font-semibold text-white transition-colors hover:bg-[#12aebd] disabled:opacity-60"
-                    >
-                      Continue as Admin
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => handleContinueDemoAs("parent")}
-                      className="w-full rounded-[6px] border border-[#dfe1e7] bg-[#f7f7f8] px-[14px] py-[10px] text-[14px] font-semibold text-[#272932] transition-colors hover:bg-[#ededee] disabled:opacity-60"
-                    >
-                      Continue as Parent
-                    </button>
-                  </div>
-                </div>
-              )}
-            </form>
           </div>
         </div>
+      </div>
+
+      <div className="absolute left-[479px] top-0 h-[308px] w-[455px]">
+        <div className="absolute inset-[-82.47%_-55.82%]">
+          <img alt="" className="block size-full max-w-none" src={imgEllipse2733} />
+        </div>
+      </div>
+
+      <div className="absolute left-[821px] top-[324px] flex h-[376px] w-[423px] flex-col items-center justify-center rounded-[8px] bg-[#fafafa] px-[42px] py-[51px] shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)]">
+        <div className="flex w-[339px] flex-col gap-[24px]">
+          <div className="relative h-[44px] w-[196px] overflow-clip">
+            <div className="absolute left-[47.07px] top-[5.47px] h-[31.659px] w-[132.782px]">
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <img
+                  alt=""
+                  className="absolute left-[-49.86%] top-[-152.43%] h-[430.1%] w-[153.88%] max-w-none"
+                  src={imgChatGptImage23012026141937Photoroom1}
+                />
+              </div>
+            </div>
+            <div className="absolute left-0 top-[-1.41px] h-[45.405px] w-[43.322px]">
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <img alt="" className="absolute left-0 top-0 h-full w-[384.62%] max-w-none" src={imgImage1} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex w-[261px] flex-col gap-[2px]">
+            <p className="text-[22px] font-semibold leading-[1.1] text-[#05080b]">
+              Log in to the school
+            </p>
+            <p className="text-[14px] font-normal leading-[1.5] text-[#87888a]">
+              Welcome back! Log in to continue
+            </p>
+          </div>
+
+          <form className="flex w-full flex-col gap-[14px]" onSubmit={handleSubmit}>
+            <div className="flex h-[81px] w-full flex-col gap-[8px] overflow-clip">
+              <label className="text-[14px] font-medium leading-[1.5] tracking-[0.28px] text-[#2f2f2d]">
+                E-mail
+              </label>
+              <div className="flex h-[52px] w-full items-center gap-[8px] rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px]">
+                <div className="relative size-[24px] shrink-0 overflow-clip">
+                  <img alt="" className="absolute inset-0 block size-full max-w-none" src={imgGroup} />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name.xample@gmail.com"
+                  className="min-w-0 flex-1 bg-transparent text-[16px] font-normal leading-[1.5] tracking-[0.32px] text-[#05080b] outline-none placeholder:text-[#818898]"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)]"
+            >
+              <span className="font-inter-tight text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
+                Start your journey
+              </span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="absolute left-[165px] top-1/2 flex h-[176px] w-[416px] -translate-y-1/2 flex-col gap-[10px]">
+        <p className="text-[48px] font-semibold leading-[1.1] text-[#05080b]">
+          Fast, efficient, and productive
+        </p>
+        <p className="flex-1 text-[18px] font-normal leading-[1.64] text-[#2f2f2d]">
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+        </p>
       </div>
     </div>
   );

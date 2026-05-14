@@ -1,8 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { isDemoLoginUiEnabled, isDemoUiBypassStored } from "@/lib/demo-login";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import React, { useState } from "react";
 
 const imgGroup1 = "/images/feedback-angry-face.svg";
 const imgHealthiconsNeutralOutline24Px = "/images/feedback-neutral-face.svg";
@@ -10,28 +8,9 @@ const imgGroup2 = "/images/feedback-great-face.svg";
 const imgBoxiconsHappyHeartEyes = "/images/feedback-excellent-face.svg";
 const imgSolarStarBold = "/images/feedback-star-filled.svg";
 const imgSolarStarBold1 = "/images/feedback-star-empty.svg";
-const imgFluentPersonFeedback24Regular = "/images/icon-generic.svg"; // TODO: Replace with correct Figma asset if different
+const imgSolarStarBold2 = "/images/feedback-star-mid.svg";
 
 type Mood = "angry" | "average" | "great" | "excellent";
-
-const MOOD_SHELL: Record<Mood, { active: string; idle: string }> = {
-  angry: {
-    idle: "bg-[#fafafa] hover:bg-[#f0f0f0]",
-    active: "bg-[#fafafa] ring-2 ring-[#14c1d5]/35",
-  },
-  average: {
-    idle: "bg-[#fafafa] hover:bg-[#f0f0f0]",
-    active: "bg-[#fafafa] ring-2 ring-[#14c1d5]/35",
-  },
-  great: {
-    idle: "bg-[#fafafa] hover:bg-[#f0f0f0]",
-    active: "bg-[rgba(0,77,8,0.2)] border border-[rgba(0,77,8,0.3)]",
-  },
-  excellent: {
-    idle: "bg-[#fafafa] hover:bg-[#f0f0f0]",
-    active: "bg-[#fafafa] ring-2 ring-[#14c1d5]/35",
-  },
-};
 
 const STAR_ROW_KEYS = ["teaching", "communication", "engagement", "organization"] as const;
 const STAR_LABELS: Record<(typeof STAR_ROW_KEYS)[number], string> = {
@@ -43,7 +22,7 @@ const STAR_LABELS: Record<(typeof STAR_ROW_KEYS)[number], string> = {
 
 const INITIAL_STARS: Record<(typeof STAR_ROW_KEYS)[number], number> = {
   teaching: 3,
-  communication: 3,
+  communication: 4,
   engagement: 3,
   organization: 5,
 };
@@ -60,31 +39,42 @@ const CHIP_DEFS = [
 ] as const;
 
 const DEFAULT_CHIPS = new Set<string>(["clear-communication", "schedule-conflicts", "lack-communication"]);
-
 const NPS_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 function StarRow({
+  rowKey,
   label,
   value,
   onChange,
 }: {
+  rowKey: (typeof STAR_ROW_KEYS)[number];
   label: string;
   value: number;
   onChange: (n: number) => void;
 }) {
   return (
-    <div className="border-[#f0f0f0] border-b flex flex-wrap gap-4 items-center justify-between py-4">
-      <span className="font-normal text-[#0d0d12] text-sm sm:text-base">{label}</span>
-      <div className="flex gap-2 items-center">
+    <div className="flex w-full items-center justify-between border-b border-[#f0f0f0] pb-[14px]">
+      <span className="font-['Inter:Regular',sans-serif] text-[16px] leading-[1.6] tracking-[-0.32px] text-[#0d0d12]">{label}</span>
+      <div className="flex items-center gap-[7px]">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
             onClick={() => onChange(n)}
-            className="p-0 border-0 bg-transparent cursor-pointer leading-none"
+            className="border-0 bg-transparent p-0 leading-none"
             aria-label={`${n} stars`}
           >
-            <img alt="" className="size-6" src={n <= value ? imgSolarStarBold : imgSolarStarBold1} />
+            <img
+              alt=""
+              className="size-[24px]"
+              src={
+                rowKey === "communication" && n === 4 && value >= 4
+                  ? imgSolarStarBold2
+                  : n <= value
+                    ? imgSolarStarBold
+                    : imgSolarStarBold1
+              }
+            />
           </button>
         ))}
       </div>
@@ -99,17 +89,6 @@ export default function ParentFeedback() {
   const [thoughts, setThoughts] = useState("");
   const [highlight, setHighlight] = useState("");
   const [nps, setNps] = useState<number>(8);
-  const [submitted, setSubmitted] = useState(false);
-  const [previewUiBypass, setPreviewUiBypass] = useState(false);
-
-  useEffect(() => {
-    setPreviewUiBypass(isDemoLoginUiEnabled() && isDemoUiBypassStored());
-  }, []);
-
-  const submitThankYouDetail =
-    previewUiBypass || !isSupabaseConfigured()
-      ? "This preview keeps your responses on this device only until feedback sync is enabled."
-      : null;
 
   const toggleChip = (id: string) => {
     setSelectedChips((prev) => {
@@ -120,220 +99,164 @@ export default function ParentFeedback() {
     });
   };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    window.setTimeout(() => setSubmitted(false), 8000);
-  };
-
-  const resetForm = () => {
-    setMood("great");
-    setStars({ ...INITIAL_STARS });
-    setSelectedChips(new Set(DEFAULT_CHIPS));
-    setThoughts("");
-    setHighlight("");
-    setNps(8);
-    setSubmitted(false);
-  };
-
   const moodButton = (m: Mood, icon: string, alt: string, text: string) => {
     const active = mood === m;
-    const shell = active ? MOOD_SHELL[m].active : MOOD_SHELL[m].idle;
-    const labelClass = active && m === "great" ? "text-[#004d08]" : "text-[#0d0d12]";
+    const activeClass =
+      m === "great" && active
+        ? "bg-[rgba(0,77,8,0.2)] text-[#004d08]"
+        : "bg-[#fafafa] text-[#0d0d12]";
+
     return (
-      <button type="button" onClick={() => setMood(m)} className={`${shell} transition-colors flex gap-2 items-center p-2 rounded-lg`}>
-        <div className="relative size-6">
-          <img alt={alt} className="absolute inset-0 size-full" src={icon} />
-        </div>
-        <div className="px-1">
-          <span className={`font-normal text-xs ${labelClass}`}>{text}</span>
-        </div>
+      <button
+        type="button"
+        onClick={() => setMood(m)}
+        className={`${activeClass} flex items-center gap-[4px] rounded-[8px] p-[8px] transition-colors`}
+      >
+        <img alt={alt} className="size-[24px]" src={icon} />
+        <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{text}</span>
       </button>
     );
   };
 
   return (
-    <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-8 font-sans">
-      <div className="flex flex-col gap-2 items-start w-full">
-        <p className="text-[11px] font-normal uppercase tracking-wide text-[#818898]">
-          {previewUiBypass || !isSupabaseConfigured() ? "Preview" : "Feedback"}
-        </p>
-        <h1 className="font-bold leading-[1.1] text-[#272932] text-[28px]">
-          Feedback
-        </h1>
-        <p className="font-normal leading-[1.4] text-[#666d80] text-[16px]">
-          Tell us how things are going — ratings and notes help the school prioritize improvements.
-        </p>
+    <div
+      className="relative mx-auto flex min-h-[1757px] w-full max-w-[1104px] flex-col gap-0 pb-[0px] pt-0 font-['Inter:Regular',sans-serif]"
+      style={{ paddingTop: "32px" }}
+    >
+      <div className="flex w-[503px] max-w-full flex-col gap-[4px]" style={{ marginBottom: "23px" }}>
+        <h1 className="font-['Inter:Bold',sans-serif] text-[28px] font-bold leading-[1.1] text-[#272932]">Share Your Feedback</h1>
+        <p className="font-['Inter:Regular',sans-serif] text-[16px] leading-[1.4] text-[#666d80]">Help us improve your child&apos;s learning experience this period.</p>
       </div>
 
-      {submitThankYouDetail && (
-        <div
-          className="rounded-[18px] border border-[#d2f1f5] bg-[#f6fcfd] px-5 py-4 text-sm text-[#272932]"
-          role="note"
-        >
-          <span className="font-semibold">Session-only flow:</span> {submitThankYouDetail}
-        </div>
-      )}
-
-      {submitted && (
-        <div
-          role="status"
-          className="rounded-[18px] border border-[rgba(0,77,8,0.35)] bg-[rgba(0,77,8,0.08)] px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-[#004d08]"
-        >
-          <div className="flex flex-col gap-1 font-medium">
-            <span>Thank you for your feedback.</span>
+      <section className="h-[150px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
+        <div className="flex flex-col gap-[16px]">
+          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">How would you rate your overall experience?</p>
+          <div className="flex w-[405px] items-center justify-between">
+            {moodButton("angry", imgGroup1, "Angry", "Angry")}
+            {moodButton("average", imgHealthiconsNeutralOutline24Px, "Average", "Average")}
+            {moodButton("great", imgGroup2, "Great", "Great")}
+            {moodButton("excellent", imgBoxiconsHappyHeartEyes, "Excellent", "Excellent")}
           </div>
-          <button
-            type="button"
-            onClick={() => setSubmitted(false)}
-            className="text-xs font-semibold uppercase tracking-wide text-[#004d08] underline-offset-2 hover:underline shrink-0 self-start sm:self-center"
-          >
-            Dismiss
-          </button>
         </div>
-      )}
+      </section>
 
-      <div className="bg-white border border-[#f0f0f0] flex flex-col gap-4 items-start p-6 rounded-[18px] w-full shadow-sm">
-        <h2 className="font-bold leading-tight text-[#272932] text-lg sm:text-xl">
-          How would you rate your overall experience?
-        </h2>
-        <div className="flex flex-wrap gap-4 items-center">
-          {moodButton("angry", imgGroup1, "Angry", "Angry")}
-          {moodButton("average", imgHealthiconsNeutralOutline24Px, "Average", "Average")}
-          {moodButton("great", imgGroup2, "Great", "Great")}
-          {moodButton("excellent", imgBoxiconsHappyHeartEyes, "Excellent", "Excellent")}
-        </div>
-      </div>
-
-      <div className="bg-white border border-[#f0f0f0] flex flex-col gap-4 items-start p-6 rounded-[18px] w-full shadow-sm">
-          <h2 className="font-bold leading-tight text-[#272932] text-lg sm:text-xl">
-            Tell us more
-          </h2>
-
-          <div className="flex flex-col w-full max-w-[480px]">
+      <section className="h-[353px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
+        <div className="flex flex-col gap-[16px]">
+          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Tell us more</p>
+          <div className="flex w-[480px] flex-col gap-[14px]">
             {STAR_ROW_KEYS.map((key) => (
               <StarRow
                 key={key}
+                rowKey={key}
                 label={STAR_LABELS[key]}
                 value={stars[key]}
                 onChange={(n) => setStars((s) => ({ ...s, [key]: n }))}
               />
             ))}
           </div>
-
-          <p className="font-normal text-[#666d80] text-xs mt-2">
-            Your feedback helps us understand what’s working and what can improve.
+          <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.6] tracking-[-0.24px] text-[#666d80]">
+            Your feedback helps us understand what&apos;s working and what can improve.
           </p>
         </div>
+      </section>
 
-        <div className="bg-white border border-[#f0f0f0] flex flex-col gap-4 items-start p-6 rounded-[18px] w-full shadow-sm">
-          <h2 className="font-bold leading-tight text-[#272932] text-lg sm:text-xl">
-            What stood out this semester?
-          </h2>
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-3">
+      <section className="h-[268px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
+        <div className="flex flex-col gap-[16px]">
+          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">What stood out this semester?</p>
+          <div className="flex w-[432px] flex-col gap-[12px]">
+            <div className="flex items-center gap-[12px]">
               {CHIP_DEFS.slice(0, 3).map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => toggleChip(c.id)}
-                  className={`px-3 py-2 rounded-lg transition-colors ${selectedChips.has(c.id) ? "bg-[#14c1d5] hover:bg-[#12aebf]" : "bg-[#fafafa] hover:bg-[#f0f0f0]"}`}
+                  className={`${selectedChips.has(c.id) ? "bg-[#14c1d5] text-white" : "bg-[#fafafa] text-[#0d0d12]"} rounded-[8px] p-[8px]`}
                 >
-                  <span className={`text-xs ${selectedChips.has(c.id) ? "text-white" : "text-[#0d0d12]"}`}>{c.label}</span>
+                  <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{c.label}</span>
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-[12px]">
               {CHIP_DEFS.slice(3, 5).map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => toggleChip(c.id)}
-                  className={`px-3 py-2 rounded-lg transition-colors ${selectedChips.has(c.id) ? "bg-[#14c1d5] hover:bg-[#12aebf]" : "bg-[#fafafa] hover:bg-[#f0f0f0]"}`}
+                  className={`${selectedChips.has(c.id) ? "bg-[#14c1d5] text-white" : "bg-[#fafafa] text-[#0d0d12]"} rounded-[8px] p-[8px]`}
                 >
-                  <span className={`text-xs ${selectedChips.has(c.id) ? "text-white" : "text-[#0d0d12]"}`}>{c.label}</span>
+                  <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{c.label}</span>
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-[12px]">
               {CHIP_DEFS.slice(5).map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => toggleChip(c.id)}
-                  className={`px-3 py-2 rounded-lg transition-colors ${selectedChips.has(c.id) ? "bg-[#14c1d5] hover:bg-[#12aebf]" : "bg-[#fafafa] hover:bg-[#f0f0f0]"}`}
+                  className={`${selectedChips.has(c.id) ? "bg-[#14c1d5] text-white" : "bg-[#fafafa] text-[#0d0d12]"} rounded-[8px] p-[8px]`}
                 >
-                  <span className={`text-xs ${selectedChips.has(c.id) ? "text-white" : "text-[#0d0d12]"}`}>{c.label}</span>
+                  <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{c.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <p className="font-normal text-[#666d80] text-xs">
-            Select multiple options
-          </p>
+          <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.6] tracking-[-0.24px] text-[#666d80]">Select multiple options</p>
         </div>
+      </section>
 
-        <div className="bg-white border border-[#f0f0f0] flex flex-col gap-4 items-start p-6 rounded-[18px] w-full shadow-sm">
-          <h2 className="font-bold leading-tight text-[#272932] text-lg sm:text-xl">
-            Share your thoughts
-          </h2>
+      <section className="h-[260px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
+        <div className="flex w-[824px] flex-col gap-[16px]">
+          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Share your thoughts</p>
           <textarea
             value={thoughts}
             onChange={(e) => setThoughts(e.target.value)}
-            className="w-full max-w-[824px] h-[150px] p-4 bg-white border border-[#dfe1e7] rounded-lg text-sm sm:text-base text-[#0d0d12] placeholder-[#818898] outline-none focus:border-[#14c1d5] resize-y"
+            className="h-[150px] w-full resize-none rounded-[10px] border border-[#dfe1e7] bg-white p-[12px] text-[16px] tracking-[0.32px] text-[#0d0d12] outline-none placeholder:text-[#818898]"
             placeholder="Tell us more about your experience, suggestions, or concerns..."
           />
         </div>
+      </section>
 
-        <div className="bg-white border border-[#f0f0f0] flex flex-col gap-4 items-start p-6 rounded-[18px] w-full shadow-sm">
-          <h2 className="font-bold leading-tight text-[#272932] text-lg sm:text-xl">
-            Anything you&apos;d like to highlight about your child&apos;s experience?
-          </h2>
+      <section className="h-[260px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
+        <div className="flex w-[824px] flex-col gap-[16px]">
+          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Anything you&apos;d like to highlight about your child&apos;s experience?</p>
           <textarea
             value={highlight}
             onChange={(e) => setHighlight(e.target.value)}
-            className="w-full max-w-[824px] h-[150px] p-4 bg-white border border-[#dfe1e7] rounded-lg text-sm sm:text-base text-[#0d0d12] placeholder-[#818898] outline-none focus:border-[#14c1d5] resize-y"
+            className="h-[150px] w-full resize-none rounded-[10px] border border-[#dfe1e7] bg-white p-[12px] text-[16px] tracking-[0.32px] text-[#0d0d12] outline-none placeholder:text-[#818898]"
             placeholder="Do you feel your child is progressing well?"
           />
         </div>
+      </section>
 
-        <div className="bg-white border border-[#f0f0f0] flex flex-col gap-4 items-start p-6 rounded-[18px] w-full shadow-sm">
-          <h2 className="font-bold leading-tight text-[#272932] text-lg sm:text-xl">
-            Would you recommend our program to other parents?
-          </h2>
-          <div className="flex flex-wrap gap-4 items-center">
-            <span className="font-normal text-[#0d0d12] text-xs sm:text-sm">Not Likely</span>
-            <div className="flex flex-wrap gap-2">
+      <section className="h-[151px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
+        <div className="flex flex-col gap-[16px]">
+          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Would you recommend our program to other parents?</p>
+          <div className="flex items-center gap-[13px]">
+            <span className="rounded-[8px] bg-[#fafafa] p-[8px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">Not Likely</span>
+            <div className="flex items-center gap-[8px]">
               {NPS_NUMBERS.map((num) => (
                 <button
                   key={num}
                   type="button"
                   onClick={() => setNps(num)}
-                  className={`transition-colors flex items-center justify-center p-2 rounded-lg min-w-[33px] ${nps === num ? "bg-[#14c1d5] hover:bg-[#12aebf]" : "bg-[#fafafa] hover:bg-[#f0f0f0]"}`}
+                  className={`${nps === num ? "bg-[#14c1d5] text-white font-['Inter:Semi_Bold',sans-serif] font-semibold" : "bg-[#fafafa] text-[#0d0d12] font-['Inter:Regular',sans-serif]"} flex w-[33px] items-center justify-center rounded-[8px] p-[8px] text-[12px] leading-[1.4]`}
                 >
-                  <span className={`text-xs ${nps === num ? "font-semibold text-white" : "text-[#0d0d12]"}`}>{num}</span>
+                  {num}
                 </button>
               ))}
             </div>
-            <span className="font-semibold text-[#14c1d5] px-2 py-1 rounded-lg text-xs sm:text-sm">
-              Very likely
-            </span>
+            <span className="rounded-[8px] bg-[#14c1d5] p-[8px] font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-[1.4] text-white">Very likely</span>
           </div>
-      </div>
+        </div>
+      </section>
 
-      <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 w-full">
+      <div className="-mx-[32px] flex h-[114px] items-center justify-end bg-white px-[32px] py-[36px] shadow-[5px_5px_25px_rgba(26,32,44,0.12),0px_8px_25px_rgba(26,32,44,0.06)]">
         <button
           type="button"
-          onClick={resetForm}
-          className="border border-[#dfe1e7] hover:bg-[#fafafa] rounded-lg px-6 py-2 w-full sm:w-[180px] h-[42px] flex items-center justify-center transition-colors"
+          className="flex h-[42px] w-[180px] items-center justify-center rounded-[6px] border border-[#14c1d5] bg-[#14c1d5] px-[16px] py-[8px]"
         >
-          <span className="font-medium text-[#4b4d4f] text-base">Reset</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="bg-[#14c1d5] hover:bg-[#12aebf] shadow-md hover:shadow-lg transition-all rounded-lg px-6 py-2 w-full sm:w-[180px] h-[42px] flex items-center justify-center"
-        >
-          <span className="font-medium text-white text-base">Submit</span>
+          <span className="font-['Inter_Tight:Medium',sans-serif] text-[16px] tracking-[0.32px] text-white">Submit</span>
         </button>
       </div>
     </div>

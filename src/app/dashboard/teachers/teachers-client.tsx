@@ -11,7 +11,7 @@ import { fallbackDirectoryBannerText, exportQueuedToast, messagingDialogDisclaim
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 
-const imgVector = "/images/vector.png";
+const imgVector = "/images/vector.svg";
 const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";

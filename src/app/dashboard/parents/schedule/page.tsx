@@ -18,7 +18,16 @@ export default async function ParentSchedulePage() {
         dataSource={source}
         scheduleRouteBase={PARENT_SCHEDULE_HREF}
         viewClassesHref="/dashboard/parents/classes/core"
-        heroSubtitle="Your child’s classes and school events — same calendar as the school schedule, while you stay in the parent dashboard."
+        heroSubtitle="View your child’s schedule"
+        titleByView={{
+          Month: "Month Class Schedule",
+          Week: "Week Class Schedule",
+          Day: "Day Class Schedule",
+        }}
+        showDataSourceBanner={false}
+        showTodayButton={false}
+        dayLabels={["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]}
+        initialDateIso="2026-02-01"
       />
     </Suspense>
   );

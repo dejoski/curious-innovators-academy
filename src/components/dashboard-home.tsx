@@ -4,21 +4,38 @@ import Frame40903 from "@/components/Frame40903";
 import Frame40904 from "@/components/Frame40904";
 import DailyBlocks from "@/components/DailyBlocks";
 import Link from "next/link";
-import { bundledMetricsBannerText } from "@/lib/product-copy";
 import { resolveDashboardPresentation } from "@/lib/data/repositories/dashboard";
+import { fetchEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
 
 export async function DashboardHomeResolved() {
-  const { metrics: m, dailyRows, fromRemote } = await resolveDashboardPresentation();
+  const [{ metrics: m, dailyRows }, { items: requests }] = await Promise.all([
+    resolveDashboardPresentation(),
+    fetchEnrichmentRequestsResolved(),
+  ]);
+
+  const topRequests =
+    requests.length >= 4
+      ? [
+          { id: "figma-1", student: "Anna Lee", class: "Robotics Lab", block: "B3", status: "Pending" },
+          { id: "figma-2", student: "James Smith", class: "Ocean Explorers", block: "B3", status: "Rejected" },
+          { id: "figma-3", student: "Bruce Collins", class: "Robotics Lab", block: "B4", status: "Pending" },
+          { id: "figma-4", student: "Maria Collins", class: "Journalism & Media Writing", block: "B4", status: "Approved" },
+        ]
+      : requests.slice(0, 4);
+  const statusPill: Record<string, string> = {
+    Pending: "bg-[#fae7a6] text-[#8b6e00]",
+    Approved: "bg-[#d7f0de] text-[#0c6a26]",
+    Rejected: "bg-[#ffd9d9] text-[#b31313]",
+  };
 
   return (
-    <div className="p-[32px] w-full">
-      {!fromRemote && (
-        <div className="max-w-[1168px] mx-auto mb-4 rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
-          {bundledMetricsBannerText()}
-        </div>
-      )}
-      <div className="max-w-[1168px] mx-auto flex flex-col gap-[32px]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[24px]">
+    <div className="p-[30px] w-full">
+      <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-[24px]">
+        <div className="flex flex-col gap-[20px] lg:flex-row">
+          <div
+            className="grid w-full gap-[20px] lg:w-[729px]"
+            style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
+          >
           <Link href="/dashboard/students" className="block hover:opacity-90 transition-opacity cursor-pointer">
             <Frame40901 count={m.studentCount} label="Students" />
           </Link>
@@ -31,12 +48,127 @@ export async function DashboardHomeResolved() {
           <Link href="/dashboard/classes" className="block hover:opacity-90 transition-opacity cursor-pointer">
             <Frame40902 count={m.enrichmentOfferingCount} label="Enrichment" />
           </Link>
+          </div>
+          <div className="w-full rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:w-[355px]">
+            <div className="mb-[14px] flex items-center gap-[8px]">
+              <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
+                <img alt="" className="size-[16px]" src="/images/icon-notification-bell.svg" />
+              </div>
+              <p className="font-['Inter:Semi_Bold',sans-serif] text-[24px] leading-[1.35] text-[#0d0d12]">System Alerts</p>
+            </div>
+
+            <div className="space-y-[12px]">
+              <button className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]">
+                <div>
+                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Blocks</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Block 2 at capacity</p>
+                </div>
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </button>
+              <button className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]">
+                <div>
+                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">New Message</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">George sent you a message</p>
+                </div>
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </button>
+              <button className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]">
+                <div>
+                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Students</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">3 students unscheduled</p>
+                </div>
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-[24px]">
-          <div className="lg:col-span-2">
+        <div className="flex flex-col gap-[20px] lg:flex-row lg:items-start">
+          <div className="w-full lg:w-[729px]">
             <DailyBlocks rows={dailyRows} />
           </div>
+          <div className="w-full self-start rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:w-[355px]">
+            <div className="mb-[14px] flex items-center gap-[8px]">
+              <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
+                <img alt="" className="size-[16px]" src="/images/icon-dices.svg" />
+              </div>
+              <p className="font-['Inter:Semi_Bold',sans-serif] text-[24px] leading-[1.35] text-[#0d0d12]">Quick Actions</p>
+            </div>
+            <div className="space-y-[12px]">
+              <Link href="/dashboard/classes/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
+                <div>
+                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Class</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new class to the school schedule</p>
+                </div>
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </Link>
+              <Link href="/dashboard/students/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
+                <div>
+                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Student</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new student to the school roster</p>
+                </div>
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </Link>
+              <Link href="/dashboard/teachers/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
+                <div>
+                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Teacher</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new teacher to the school staff</p>
+                </div>
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-[20px] lg:flex-row lg:items-start">
+          <div
+            className="w-full rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:flex-none"
+            style={{ width: "min(100%, 729px)" }}
+          >
+            <div className="mb-[14px] flex items-center justify-between">
+              <div className="flex items-center gap-[8px]">
+                <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
+                  <img alt="" className="size-[16px]" src="/images/icon-dices.svg" />
+                </div>
+                <div>
+                  <p className="font-['Inter:Semi_Bold',sans-serif] text-[16px] leading-[1.3] text-[#0d0d12]">Enrichment Requests</p>
+                  <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#666d80]">Overview</p>
+                </div>
+              </div>
+              <Link href="/dashboard/classes/requests" className="rounded-[8px] bg-[#fafafa] p-[8px] hover:bg-[#f0f0f0]">
+                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+              </Link>
+            </div>
+
+            <div className="overflow-hidden rounded-[10px] border border-[#f0f0f0]">
+              <div
+                className="grid bg-[#fafafa] px-[12px] py-[8px] text-[12px] font-medium text-[#666d80]"
+                style={{ gridTemplateColumns: "1.2fr 1.4fr 0.8fr 0.8fr" }}
+              >
+                <p>Student</p>
+                <p>Class</p>
+                <p>Block</p>
+                <p>Status</p>
+              </div>
+              {topRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className="grid border-t border-[#f0f0f0] px-[12px] py-[8px] text-[14px] text-[#0d0d12]"
+                  style={{ gridTemplateColumns: "1.2fr 1.4fr 0.8fr 0.8fr" }}
+                >
+                  <p>{req.student}</p>
+                  <p className="truncate">{req.class}</p>
+                  <p>{req.block}</p>
+                  <div>
+                    <span className={`rounded-[6px] px-[8px] py-[2px] text-[10px] font-medium ${statusPill[req.status] ?? statusPill.Pending}`}>
+                      {req.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="hidden lg:block lg:w-[355px]" aria-hidden />
         </div>
       </div>
     </div>

@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
-const imgSolarLogout2Outline =
-  "/images/icon-generic.svg";
+const imgSolarLogout2Outline = "/images/logout-icon.svg";
 
 type Props = {
   className?: string;

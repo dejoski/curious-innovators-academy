@@ -13,7 +13,7 @@ import { exportQueuedToast, fallbackDirectoryBannerText, messagingDialogDisclaim
 const imgEllipse2735 = "/images/parent-female-dark-hair.png";
 const imgEllipse2736 = "/images/parent-female-dark-hair.png";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
-const imgVector = "/images/vector.png";
+const imgVector = "/images/vector.svg";
 const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgChevronDown2 = "/images/icon-chevron-down2.svg";

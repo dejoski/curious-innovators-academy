@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
-const imgVector3 = "/images/vector.png";
+const imgVector3 = "/images/vector.svg";
 const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";

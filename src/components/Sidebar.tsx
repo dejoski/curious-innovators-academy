@@ -4,8 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BookOpen,
-  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -33,14 +31,20 @@ import {
 const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
 const imgImage1 = "/images/lightbulb-fresh.png";
 const imgSiDashboardLine = "/images/icon-dashboard.svg";
-const imgGroup = "/images/icon-group.svg";
+const imgGroup = "/images/icon-notebook-outline.svg";
 const imgChevronDown = "/images/icon-chevron-down.svg";
-const imgHugeiconsStudent = "/images/icon-student.svg";
+const imgChevronDownGray = "/images/icon-chevron-down2.svg";
+const imgHugeiconsStudent = "/images/figma-icon-student.svg";
+const imgHugeiconsStudentActive = "/images/icon-student-active.svg";
+const imgHugeiconsStudentInactive = "/images/icon-student.svg";
 const imgRiParentLine = "/images/icon-parent.svg";
-const imgGroup1 = "/images/icon-group.svg";
+const imgGroup1 = "/images/icon-class-lesson-sidebar.svg";
 const imgVuesaxLinearSetting2 = "/images/icon-settings.svg";
-const imgHugeiconsStudent1 = "/images/icon-student.svg";
-const imgPolygon1 = "/images/mask-group.png";
+const imgHugeiconsStudent1 = "/images/figma-icon-student.svg";
+const imgPolygon1 = "/images/mask-group.svg";
+const imgNotebookOneSidebar = "/images/icon-notebook-one-sidebar.svg";
+const imgCalendarLinear = "/images/icon-calendar-linear.svg";
+const imgCalendarOutline = "/images/icon-calendar-outline.svg";
 
 type SidebarProps = {
   className?: string;
@@ -53,46 +57,48 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const isCloseOrWTooltip = ["close", "w/ tooltip"].includes(internalState);
   const isOpen = internalState === "open";
   const isWTooltip = internalState === "w/ tooltip";
-  const [isClient, setIsClient] = React.useState(false);
 
   const { persona, demoStudentId } = useDashboardPersona();
   const studentDemoRoot = `/dashboard/students/${demoStudentId}`;
-
-  const [classesExpanded, setClassesExpanded] = React.useState(false);
-  const [studentsExpanded, setStudentsExpanded] = React.useState(false);
-  const [teachersExpanded, setTeachersExpanded] = React.useState(false);
-  const [parentStudentsNavExpanded, setParentStudentsNavExpanded] =
-    React.useState(false);
-  const [parentClassesNavExpanded, setParentClassesNavExpanded] =
-    React.useState(false);
-
   const pathname = usePathname() ?? "";
+
+  const [classesExpanded, setClassesExpanded] = React.useState(() =>
+    pathname.startsWith("/dashboard/classes"),
+  );
+  const [studentsExpanded, setStudentsExpanded] = React.useState(() =>
+    pathname.startsWith("/dashboard/students"),
+  );
+  const [teachersExpanded, setTeachersExpanded] = React.useState(() =>
+    pathname.startsWith("/dashboard/teachers"),
+  );
+  const [parentStudentsNavExpanded, setParentStudentsNavExpanded] =
+    React.useState(() => pathname.startsWith("/dashboard/parents/students"));
+  const [parentClassesNavExpanded, setParentClassesNavExpanded] =
+    React.useState(
+      () =>
+        pathname.startsWith("/dashboard/parents/catalog") ||
+        pathname.startsWith("/dashboard/parents/classes"),
+    );
 
   const inParentRoutes = pathname.startsWith("/dashboard/parents");
   const parentStudentsBranchActive = pathname.startsWith(
     "/dashboard/parents/students",
   );
 
-  React.useEffect(() => {
-    setIsClient(true); // eslint-disable-line react-hooks/set-state-in-effect -- mount flip post-hydration for SSR-safe sidebar
-  }, []);
-
   const toggleSidebar = () => {
     setInternalState(prev => prev === "open" ? "close" : "open");
   };
 
   React.useEffect(() => {
-    /* Expand submenus when deep-linked so active items are visible (pathname-driven, not arbitrary external stores). */
-    if (pathname.startsWith("/dashboard/classes")) setClassesExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    if (pathname.startsWith("/dashboard/students")) setStudentsExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    if (pathname.startsWith("/dashboard/teachers")) setTeachersExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    if (pathname.startsWith("/dashboard/parents/students"))
-      setParentStudentsNavExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    if (
+    /* Keep submenu expansion deterministic per-route so visual state matches Figma targets after navigation. */
+    setClassesExpanded(pathname.startsWith("/dashboard/classes")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+    setStudentsExpanded(pathname.startsWith("/dashboard/students")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+    setTeachersExpanded(pathname.startsWith("/dashboard/teachers")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+    setParentStudentsNavExpanded(pathname.startsWith("/dashboard/parents/students")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+    setParentClassesNavExpanded(
       pathname.startsWith("/dashboard/parents/catalog") ||
-      pathname.startsWith("/dashboard/parents/classes")
-    )
-      setParentClassesNavExpanded(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+        pathname.startsWith("/dashboard/parents/classes"),
+    ); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
   }, [pathname]);
 
   function navRow(active: boolean) {
@@ -102,13 +108,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   }
   function navLabel(active: boolean) {
     return `${DASHBOARD_SIDEBAR_NAV_LABEL_BASE_CLASS} ${DASHBOARD_FONT_NAV_PRIMARY_CLASS} ${
-      active ? DASHBOARD_TEXT_PRIMARY_CLASS : DASHBOARD_TEXT_SECONDARY_CLASS
+      active ? "text-[#14c1d5]" : DASHBOARD_TEXT_SECONDARY_CLASS
     }`;
   }
   function subNavClass(on: boolean) {
     return `${DASHBOARD_SIDEBAR_SUB_LINK_BASE_CLASS} ${
       on
-        ? `${DASHBOARD_TEXT_PRIMARY_CLASS} ${DASHBOARD_SIDEBAR_NAV_ACTIVE_BG_CLASS}`
+        ? `text-[#14c1d5] ${DASHBOARD_SIDEBAR_NAV_ACTIVE_BG_CLASS}`
         : `${DASHBOARD_TEXT_MUTED_CLASS} hover:text-[#272932] hover:bg-black/[0.04]`
     }`;
   }
@@ -134,7 +140,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const adminStudentsActive = pathname.startsWith("/dashboard/students");
   const adminParentsActive = pathname.startsWith("/dashboard/parents");
   const adminTeachersActive = pathname.startsWith("/dashboard/teachers");
-  const adminScheduleActive = pathname.startsWith("/dashboard/schedule");
   const adminSettingsActive = pathname.startsWith("/dashboard/settings");
 
   const parentOverviewActive =
@@ -155,9 +160,17 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentStudentsActive = pathname.startsWith(
     "/dashboard/parents/students",
   );
+  const parentInactiveStudentIcon = parentCatalogActive
+    ? imgHugeiconsStudentInactive
+    : imgHugeiconsStudent;
   const parentFeedbackActive =
     pathname.startsWith("/dashboard/parents/feedback");
   const parentScheduleActive = pathname.startsWith(PARENT_SCHEDULE_HREF);
+  const parentFeedbackStudentsContext = parentFeedbackActive;
+  const parentStudentsOpen =
+    parentStudentsNavExpanded || parentFeedbackStudentsContext;
+  const parentStudentsVisualActive =
+    parentStudentsBranchActive || parentFeedbackStudentsContext;
 
   const studentProfileActive =
     pathname === studentDemoRoot || pathname === `${studentDemoRoot}/`;
@@ -179,15 +192,14 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
 
   function scheduleGlyph(active: boolean) {
     return (
-      <CalendarDays
+      <img
+        alt=""
         aria-hidden
-        strokeWidth={1.75}
-        className={`size-[18px] shrink-0 ${active ? "text-[#272932]" : "text-[#666d80]"}`}
+        className="size-[18px] shrink-0"
+        src={active ? imgCalendarLinear : imgCalendarOutline}
       />
     );
   }
-
-  if (!isClient) return null;
 
   return (
     <div className={className || `${DASHBOARD_SIDEBAR_SURFACE_CLASS} content-stretch flex flex-col h-screen items-start relative ${isCloseOrWTooltip ? "w-[72px]" : "w-[272px]"}`} id={isWTooltip ? "node-8_1122" : isClose ? "node-8_1087" : "node-8_1041"}>
@@ -200,7 +212,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <div className="absolute contents left-0 top-0" data-node-id="8:1091" data-name="Group">
                     <div className="absolute h-[32px] left-0 overflow-clip top-0 w-[142px]" data-node-id="8:1525" data-name="logo-1 1">
                       <div className="absolute contents left-0 top-[-1px]" data-node-id="8:1526">
-                        <div className="absolute h-[34px] left-0 top-[-1px] w-[32px]" data-node-id="8:1528" data-name="image 1">
+                    <div className="absolute h-[33.81px] left-0 top-[-1.41px] w-[32.259px]" data-node-id="8:1528" data-name="image 1">
                           <div className="absolute inset-0 overflow-hidden pointer-events-none">
                             <img alt="" className="absolute h-full left-0 max-w-none top-0 w-[384.62%]" src={imgImage1} />
                           </div>
@@ -243,7 +255,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                         <img alt="" className="absolute h-[430%] left-[-50%] max-w-none top-[-152%] w-[154%]" src={imgChatGptImage23012026141937Photoroom1} />
                       </div>
                     </div>
-                    <div className="absolute h-[34px] left-0 top-[-1px] w-[32px]" data-node-id="8:1523" data-name="image 1">
+                    <div className="absolute h-[33.81px] left-0 top-[-1.41px] w-[32.259px]" data-node-id="8:1523" data-name="image 1">
                       <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         <img alt="" className="absolute h-full left-0 max-w-none top-0 w-[384.62%]" src={imgImage1} />
                       </div>
@@ -292,14 +304,18 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <button
                     type="button"
                     onClick={() => setClassesExpanded(!classesExpanded)}
-                    className={`${navRow(adminClassesActive)} text-left`}
+                    className={`content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] text-left ${DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS}`}
                     data-node-id="8:2814"
                     data-name="Dropdown menu"
                   >
                     <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`} data-node-id="10:3095" data-name="icon-park-outline:notebook-one">
                       <div className="absolute inset-[8.33%_16.67%]" data-node-id="10:3096" data-name="Group">
                         <div className="absolute inset-[-5%_-6%]">
-                          <img alt="" className="block max-w-none size-full" src={imgGroup} />
+                          <img
+                            alt=""
+                            className="block max-w-none size-full"
+                            src={adminClassesActive ? imgNotebookOneSidebar : imgGroup}
+                          />
                         </div>
                       </div>
                     </div>
@@ -307,28 +323,23 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       Classes
                     </p>
                     <div className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} transition-transform duration-200 ${classesExpanded ? "rotate-180" : ""}`} data-node-id="8:2817" data-name="chevron-down">
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgChevronDown} />
+                      <img
+                        alt=""
+                        className="absolute block inset-0 max-w-none size-full"
+                        src={adminClassesActive || classesExpanded ? imgChevronDown : imgChevronDownGray}
+                      />
                     </div>
                   </button>
                   {classesExpanded && (
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link href="/dashboard/classes" className={subNavClass(adminAllClassesPath(pathname))}>
-                        Class Setup
-                      </Link>
-                      <Link href="/dashboard/classes/core" className={subNavClass(pathname.startsWith("/dashboard/classes/core"))}>
-                        Core Classes
-                      </Link>
-                      <Link href="/dashboard/classes/enrichment" className={subNavClass(pathname.startsWith("/dashboard/classes/enrichment"))}>
-                        Enrichment
-                      </Link>
-                      <Link href="/dashboard/classes/approvals" className={subNavClass(pathname.startsWith("/dashboard/classes/approvals"))}>
-                        Approval History
+                      <Link href="/dashboard/classes/core" className={subNavClass(adminAllClassesPath(pathname) || pathname.startsWith("/dashboard/classes/core") || pathname.startsWith("/dashboard/classes/enrichment"))}>
+                        Classes List
                       </Link>
                       <Link href="/dashboard/classes/requests" className={subNavClass(pathname.startsWith("/dashboard/classes/requests"))}>
                         Enrichment Requests
                       </Link>
-                      <Link href="/dashboard/classes/new" className={subNavClass(pathname.startsWith("/dashboard/classes/new"))}>
-                        Add Class
+                      <Link href="/dashboard/classes/approvals" className={subNavClass(pathname.startsWith("/dashboard/classes/approvals"))}>
+                        Approval History
                       </Link>
                     </div>
                   )}
@@ -337,28 +348,70 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <button
                     type="button"
                     onClick={() => setStudentsExpanded(!studentsExpanded)}
-                    className={`${navRow(adminStudentsActive)} text-left`}
+                    className={`content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] text-left ${DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS}`}
                     data-node-id="8:2801"
                     data-name="Dropdown menu"
                   >
                     <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="8:2922" data-name="hugeicons:student">
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                      <img
+                        alt=""
+                        className="absolute block inset-0 max-w-none size-full"
+                        src={adminStudentsActive ? imgHugeiconsStudentActive : imgHugeiconsStudent}
+                      />
                     </div>
                     <p className={`flex-[1_0_0] text-left ${navLabel(adminStudentsActive)}`} data-node-id="8:2803">
                       Students
                     </p>
-                    <div className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} transition-transform duration-200 ${studentsExpanded ? "rotate-180" : ""}`} data-node-id="8:2804" data-name="chevron-down">
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgChevronDown} />
+                    <div className="flex items-center justify-center relative shrink-0" data-node-id="8:2804" data-name="chevron-down">
+                      <div className={`${studentsExpanded ? "-scale-y-100" : ""} flex-none`}>
+                        <div className="relative size-[18px]">
+                          <img
+                            alt=""
+                            className="absolute block inset-0 max-w-none size-full"
+                            src={adminStudentsActive || studentsExpanded ? imgChevronDown : imgChevronDownGray}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </button>
                   {studentsExpanded && (
-                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link href="/dashboard/students" className={subNavClass(adminStudentsActive)}>
-                        Profiles
-                      </Link>
-                      <Link href="/dashboard/students/new" className={subNavClass(pathname.startsWith("/dashboard/students/new"))}>
-                        Add Student
-                      </Link>
+                    <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative mt-[8px]">
+                      <div className="col-1 row-1 ml-0 mt-0 content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
+                        <Link
+                          href="/dashboard/students"
+                          className="bg-[#d2f1f5] content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full"
+                        >
+                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
+                            Student List
+                          </p>
+                        </Link>
+                      </div>
+                      <div className="col-1 row-1 ml-0 mt-[40px] content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
+                        <Link
+                          href={`${studentDemoRoot}/schedule`}
+                          className={`content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full transition-colors hover:bg-black/[0.04] ${
+                            pathname.startsWith("/dashboard/students/") && pathname.includes("/schedule")
+                              ? "text-[#14c1d5]"
+                              : "text-[#666d80]"
+                          }`}
+                        >
+                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4]">
+                            Student Schedule
+                          </p>
+                        </Link>
+                        <Link
+                          href={`${studentDemoRoot}/roster`}
+                          className={`content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full transition-colors hover:bg-black/[0.04] ${
+                            pathname.startsWith("/dashboard/students/") && pathname.includes("/roster")
+                              ? "text-[#14c1d5]"
+                              : "text-[#666d80]"
+                          }`}
+                        >
+                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4]">
+                            Student Roster
+                          </p>
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -389,7 +442,11 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       Teachers
                     </p>
                     <div className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} transition-transform duration-200 ${teachersExpanded ? "rotate-180" : ""}`} data-node-id="8:2791" data-name="chevron-down">
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgChevronDown} />
+                      <img
+                        alt=""
+                        className="absolute block inset-0 max-w-none size-full"
+                        src={adminTeachersActive || teachersExpanded ? imgChevronDown : imgChevronDownGray}
+                      />
                     </div>
                   </button>
                   {teachersExpanded && (
@@ -403,14 +460,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   )}
                 </div>
-                <Link href="/dashboard/schedule" className={navRow(adminScheduleActive)} data-name="schedule-nav">
-                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
-                    {scheduleGlyph(adminScheduleActive)}
-                  </div>
-                  <p className={navLabel(adminScheduleActive)}>
-                    Schedule
-                  </p>
-                </Link>
               </>
             )}
             {isOpen && persona === "teacher" && (
@@ -457,34 +506,30 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     onClick={() =>
                       setParentClassesNavExpanded(!parentClassesNavExpanded)
                     }
-                    className={`${DASHBOARD_SIDEBAR_NAV_ROW_BASE_CLASS} ${
+                    className={`content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] ${
                       parentClassesHeaderAccent
-                        ? "bg-[#e8f7fa] hover:bg-[#d8f0f5]"
+                        ? "hover:bg-[#f0f0f0]/60"
                         : DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS
                     } text-left`}
                     data-name="parent-classes-submenu"
                   >
-                    <div
-                      className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center shrink-0`}
-                    >
-                      {parentClassesHeaderAccent ? (
-                        <BookOpen
-                          aria-hidden
-                          strokeWidth={1.75}
-                          className="size-[18px] shrink-0 text-[#14c1d5]"
-                        />
-                      ) : (
-                        <>
-                          <div className="absolute inset-[8.33%_16.67%]">
-                            <div className="absolute inset-[-5%_-6%]">
-                              <img alt="" className="block max-w-none size-full" src={imgGroup} />
-                            </div>
+                    <div className="overflow-clip relative shrink-0 size-[18px]">
+                      {parentClassesBrandActive ? (
+                        <div className="absolute inset-[8.33%_16.67%]">
+                          <div className="absolute inset-[-5%_-6%]">
+                            <img alt="" className="block max-w-none size-full" src={imgNotebookOneSidebar} />
                           </div>
-                        </>
+                        </div>
+                      ) : (
+                        <div className="absolute inset-[8.33%_16.67%]">
+                          <div className="absolute inset-[-5%_-6%]">
+                            <img alt="" className="block max-w-none size-full" src={imgGroup} />
+                          </div>
+                        </div>
                       )}
                     </div>
                     <p
-                      className={`flex-[1_0_0] text-left ${DASHBOARD_SIDEBAR_NAV_LABEL_BASE_CLASS} ${DASHBOARD_FONT_NAV_PRIMARY_CLASS} ${
+                      className={`flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] ${
                         parentClassesHeaderAccent
                           ? "text-[#14c1d5]"
                           : parentClassesNavActive
@@ -494,33 +539,37 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     >
                       Classes
                     </p>
-                    <div
-                      className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} relative flex items-center justify-center transition-transform duration-200 ${parentClassesNavExpanded ? "rotate-180" : ""}`}
-                    >
-                      {parentClassesHeaderAccent ? (
-                        <ChevronDown
-                          aria-hidden
-                          strokeWidth={2}
-                          className="size-[18px] text-[#14c1d5]"
-                        />
-                      ) : (
-                        <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgChevronDown} />
-                      )}
+                    <div className="flex items-center justify-center relative shrink-0">
+                      <div className={`${parentClassesNavExpanded ? "-scale-y-100" : ""} flex-none`}>
+                        <div className="relative size-[18px]">
+                          <img
+                            alt=""
+                            className="absolute block inset-0 max-w-none size-full"
+                            src={parentClassesHeaderAccent ? imgChevronDown : imgChevronDownGray}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </button>
                   {parentClassesNavExpanded && (
-                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link
-                        href="/dashboard/parents/catalog"
-                        className={parentNavSubLinkClass(parentCatalogActive)}
-                      >
-                        Class Selection
-                      </Link>
+                    <div className="relative h-[72px] w-[240px]">
+                      <div className="bg-[#d2f1f5] rounded-[8px] h-[32px] w-full">
+                        <Link
+                          href="/dashboard/parents/catalog"
+                          className="content-stretch flex h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] w-full"
+                        >
+                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
+                            Class Selection
+                          </p>
+                        </Link>
+                      </div>
                       <Link
                         href="/dashboard/parents/classes/core"
-                        className={parentNavSubLinkClass(parentClassListNavActive)}
+                        className="absolute left-0 top-[40px] content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full text-[#666d80] hover:text-[#272932] hover:bg-black/[0.04] transition-colors"
                       >
-                        Class List
+                        <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4]">
+                          Class List
+                        </p>
                       </Link>
                     </div>
                   )}
@@ -529,36 +578,61 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <button
                     type="button"
                     onClick={() =>
-                      setParentStudentsNavExpanded(!parentStudentsNavExpanded)
+                      setParentStudentsNavExpanded(!parentStudentsOpen)
                     }
-                    className={`${navRow(parentStudentsBranchActive)} text-left`}
+                    className={`content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] text-left ${
+                      parentStudentsVisualActive
+                        ? "hover:bg-[#f0f0f0]/60"
+                        : DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS
+                    }`}
                   >
                     <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                      <img
+                        alt=""
+                        className="absolute block inset-0 max-w-none size-full"
+                        src={parentStudentsVisualActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon}
+                      />
                     </div>
-                    <p className={`flex-[1_0_0] text-left ${navLabel(parentStudentsBranchActive)}`}>
+                    <p
+                      className={`flex-[1_0_0] text-left ${DASHBOARD_SIDEBAR_NAV_LABEL_BASE_CLASS} ${DASHBOARD_FONT_NAV_PRIMARY_CLASS} ${
+                        parentStudentsVisualActive
+                          ? "text-[#14c1d5]"
+                          : DASHBOARD_TEXT_SECONDARY_CLASS
+                      }`}
+                    >
                       Students
                     </p>
-                    <div className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} transition-transform duration-200 ${parentStudentsNavExpanded ? "rotate-180" : ""}`}>
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgChevronDown} />
+                    <div className="flex items-center justify-center relative shrink-0">
+                      <div className={`${parentStudentsOpen ? "-scale-y-100" : ""} flex-none`}>
+                        <div className="relative size-[18px]">
+                          <img
+                            alt=""
+                            className="absolute block inset-0 max-w-none size-full"
+                            src={
+                              parentStudentsVisualActive || parentStudentsOpen
+                                ? imgChevronDown
+                                : imgChevronDownGray
+                            }
+                          />
+                        </div>
+                      </div>
                     </div>
                   </button>
-                  {parentStudentsNavExpanded && (
-                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link href="/dashboard/parents/students" className={subNavClass(parentStudentsActive)}>
-                        Student Profile
-                      </Link>
+                  {parentStudentsOpen && (
+                    <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative">
+                      <div className="bg-[#d2f1f5] col-1 row-1 ml-0 mt-0 content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
+                        <Link
+                          href="/dashboard/parents/students"
+                          className="content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full"
+                        >
+                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
+                            Student Profile
+                          </p>
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </div>
-                <Link href="/dashboard/parents/feedback" className={navRow(parentFeedbackActive)}>
-                  <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
-                  </div>
-                  <p className={navLabel(parentFeedbackActive)}>
-                    Feedback
-                  </p>
-                </Link>
               </>
             )}
             {isOpen && persona === "student" && !inParentRoutes && (
@@ -624,11 +698,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   </div>
                 </Link>
-                <Link href="/dashboard/schedule" title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminScheduleActive)}`} data-name="Icon schedule">
-                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
-                    {scheduleGlyph(adminScheduleActive)}
-                  </div>
-                </Link>
               </div>
             )}
             {isClose && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
@@ -646,7 +715,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 <Link href="/dashboard/parents/catalog" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
-                      <BookOpen aria-hidden strokeWidth={1.75} className="size-[18px] shrink-0 text-[#14c1d5]" />
+                      <img alt="" className="block size-[18px] max-w-none" src={imgNotebookOneSidebar} />
                     ) : (
                       <>
                         <div className="absolute inset-[8.33%_16.67%]">
@@ -660,7 +729,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href="/dashboard/parents/students" title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
                 </Link>
                 <Link href="/dashboard/parents/feedback" title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
@@ -742,11 +811,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   </div>
                 </Link>
-                <Link href="/dashboard/schedule" title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminScheduleActive)}`}>
-                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
-                    {scheduleGlyph(adminScheduleActive)}
-                  </div>
-                </Link>
               </>
             )}
             {isWTooltip && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
@@ -764,7 +828,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 <Link href="/dashboard/parents/catalog" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
-                      <BookOpen aria-hidden strokeWidth={1.75} className="size-[18px] shrink-0 text-[#14c1d5]" />
+                      <img alt="" className="block size-[18px] max-w-none" src={imgNotebookOneSidebar} />
                     ) : (
                       <>
                         <div className="absolute inset-[8.33%_16.67%]">
@@ -778,7 +842,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href="/dashboard/parents/students" title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
                 </Link>
                 <Link href="/dashboard/parents/feedback" title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>

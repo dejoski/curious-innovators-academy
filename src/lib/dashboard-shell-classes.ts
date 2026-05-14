@@ -64,7 +64,7 @@ export const DASHBOARD_SIDEBAR_SURFACE_CLASS =
   `${DASHBOARD_SHELL_BG_CLASS} ${DASHBOARD_BORDER_SUBTLE_CLASS} border-r border-solid` as const;
 
 export const DASHBOARD_SIDEBAR_NAV_ROW_BASE_CLASS =
-  "content-stretch flex gap-[10px] min-h-[36px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-full max-w-[240px] transition-colors cursor-pointer" as const;
+  "content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] transition-colors cursor-pointer" as const;
 
 export const DASHBOARD_SIDEBAR_NAV_LABEL_BASE_CLASS =
   "flex-[1_0_0] min-w-px not-italic relative" as const;
@@ -77,30 +77,30 @@ export const DASHBOARD_SIDEBAR_CHEVRON_CLASS =
 
 /** Expanded nav secondary links (indented stack) */
 export const DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS =
-  "flex flex-col gap-[2px] mt-[6px] ml-[34px]" as const;
+  "flex flex-col gap-[8px] mt-[8px] w-full" as const;
 
 export const DASHBOARD_SIDEBAR_SUB_LINK_BASE_CLASS =
-  "block rounded-[6px] px-[10px] py-[5px] transition-colors font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-[1.4]" as const;
+  "block rounded-[6px] px-[12px] py-[6px] transition-colors font-['Inter:Medium',sans-serif] text-[14px] font-medium leading-[1.4]" as const;
 
-export const DASHBOARD_SIDEBAR_NAV_ACTIVE_BG_CLASS = "bg-[#f0f0f0]" as const;
+export const DASHBOARD_SIDEBAR_NAV_ACTIVE_BG_CLASS = "bg-[#d2f1f5]" as const;
 export const DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS = "hover:bg-[#f0f0f0]/60" as const;
 
 /* --- Sidebar header / collapse --- */
 export const DASHBOARD_SIDEBAR_HEADER_BORDER_CLASS =
-  `${DASHBOARD_BORDER_STRONG_CLASS} border-b border-solid` as const;
+  `border-[#dfe1e7] border-b border-solid` as const;
 
 export const DASHBOARD_SIDEBAR_COLLAPSE_BTN_CLASS =
-  `${DASHBOARD_SURFACE_CLASS} border ${DASHBOARD_BORDER_STRONG_CLASS} border-solid overflow-clip ${DASHBOARD_RADIUS_CONTROL} shadow-[0px_0.75px_1.5px_0px_rgba(13,13,18,0.06)] shrink-0 size-[24px] cursor-pointer hover:bg-[#fafafa] transition-colors relative inline-flex items-center justify-center p-0` as const;
+  `${DASHBOARD_SURFACE_CLASS} border border-[#dfe1e7] border-solid overflow-clip ${DASHBOARD_RADIUS_CONTROL} shadow-[0px_0.75px_1.5px_0px_rgba(13,13,18,0.06)] shrink-0 size-[24px] cursor-pointer hover:bg-[#fafafa] transition-colors relative inline-flex items-center justify-center p-0` as const;
 
 /* --- Main header chrome --- */
 export const DASHBOARD_MAIN_HEADER_WRAP_CLASS =
   `${DASHBOARD_SURFACE_CLASS} min-h-[88px] shrink-0 w-full z-50` as const;
 
 export const DASHBOARD_MAIN_HEADER_ROW_CLASS =
-  `content-stretch flex items-center justify-between pt-[18px] px-[28px] pb-0 shrink-0 w-full` as const;
+  `content-stretch flex items-center justify-between pt-[20px] px-[32px] pb-0 shrink-0 w-full` as const;
 
 export const DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS =
-  `${DASHBOARD_BORDER_STRONG_CLASS} border-b border-solid pb-[18px]` as const;
+  `${DASHBOARD_BORDER_STRONG_CLASS} border-b border-solid pb-[20px]` as const;
 
 export const DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS =
   `${DASHBOARD_SURFACE_CLASS} ${DASHBOARD_RADIUS_INSET} shadow-lg ${DASHBOARD_BORDER_SUBTLE_CLASS} border border-solid py-2 z-50` as const;

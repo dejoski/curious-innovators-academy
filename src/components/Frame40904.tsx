@@ -1,6 +1,6 @@
 import React from "react";
 
-const imgGroup = "/images/icon-generic.svg";
+const imgGroup = "/images/icon-notebook-one.svg";
 
 export type Frame40904Props = {
   count?: number;

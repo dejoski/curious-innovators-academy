@@ -7,15 +7,15 @@ import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
-const imgVector3 = "/images/vector.png";
+const imgVector3 = "/images/vector.svg";
 const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgChevronDown = "/images/icon-chevron-down.svg";
 const imgChevronDown1 = "/images/icon-chevron-down2.svg";
-const imgMaskGroup = "/images/mask-group.png";
-const imgMaskGroup1 = "/images/mask-group.png";
-const imgMaskGroup2 = "/images/mask-group.png";
+const imgMaskGroup = "/images/mask-group.svg";
+const imgMaskGroup1 = "/images/mask-group.svg";
+const imgMaskGroup2 = "/images/mask-group.svg";
 
 type ApprovalStatus = "Approved" | "Rejected";
 

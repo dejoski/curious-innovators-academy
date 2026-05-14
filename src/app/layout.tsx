@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Inter_Tight } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
+  subsets: ["latin"],
+});
+const interTight = Inter_Tight({
+  variable: "--font-inter-tight",
   subsets: ["latin"],
 });
 
@@ -36,9 +40,54 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-full antialiased font-sans`}
+      className={`${inter.variable} ${interTight.variable} h-full antialiased font-sans`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                function readHashParams() {
+                  var hash = window.location.hash || "";
+                  if (!hash) return null;
+                  var q = hash.charAt(0) === "#" ? hash.slice(1) : hash;
+                  var params = new URLSearchParams(q);
+                  var captureId = params.get("figmacapture");
+                  var endpoint = params.get("figmaendpoint");
+                  var delay = Number(params.get("figmadelay") || "1000");
+                  if (!captureId || !endpoint) return null;
+                  return { captureId: captureId, endpoint: endpoint, delay: Number.isFinite(delay) ? delay : 1000 };
+                }
+
+                function trySubmitCapture() {
+                  var cfg = readHashParams();
+                  if (!cfg || !window.figma || typeof window.figma.captureForDesign !== "function") return false;
+                  window.setTimeout(function () {
+                    window.figma.captureForDesign({
+                      captureId: cfg.captureId,
+                      endpoint: cfg.endpoint,
+                      selector: "body"
+                    });
+                  }, cfg.delay);
+                  return true;
+                }
+
+                if (typeof window !== "undefined") {
+                  if (!trySubmitCapture()) {
+                    var tries = 0;
+                    var timer = window.setInterval(function () {
+                      tries += 1;
+                      if (trySubmitCapture() || tries > 40) window.clearInterval(timer);
+                    }, 250);
+                  }
+                }
+              })();
+            `,
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

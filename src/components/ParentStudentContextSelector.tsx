@@ -5,14 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PARENT_DEMO_STUDENTS } from "@/lib/parent-student-profile-demo";
 import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import {
-  DASHBOARD_BORDER_SUBTLE_CLASS,
-  DASHBOARD_RADIUS_CONTROL,
-  DASHBOARD_TEXT_MUTED_CLASS,
   DASHBOARD_TEXT_PRIMARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
 
-const imgHugeiconsStudentPicker =
-  "/images/icon-generic.svg";
+const imgHugeiconsStudentPicker = "/images/figma-icon-student.svg";
+const imgChevronDown = "/images/icon-caret-down.svg";
 
 export default function ParentStudentContextSelector() {
   const pathname = usePathname() ?? "";
@@ -34,9 +31,9 @@ export default function ParentStudentContextSelector() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+    <div className="flex w-[448px] max-w-full items-center justify-between">
       <span
-        className={`font-['Inter:Regular',sans-serif] text-[12px] leading-tight tracking-[-0.01em] ${DASHBOARD_TEXT_MUTED_CLASS}`}
+        className={`font-['Inter:Semi_Bold',sans-serif] font-semibold text-[16px] leading-[1.4] ${DASHBOARD_TEXT_PRIMARY_CLASS}`}
       >
         {label}
       </span>
@@ -44,31 +41,42 @@ export default function ParentStudentContextSelector() {
         Select student
       </label>
       <div
-        className={`flex h-12 max-h-12 items-center gap-2 ${DASHBOARD_RADIUS_CONTROL} border ${DASHBOARD_BORDER_SUBTLE_CLASS} bg-white pl-3 pr-2`}
+        className="flex h-[48px] w-[260px] items-center overflow-hidden rounded-[10px] bg-white px-[12px] py-[8px] shadow-[0px_0px_0px_1px_#f0f0f0]"
       >
-        <div className="relative size-[20px] shrink-0 overflow-hidden rounded-full bg-[#e8fafc] ring-1 ring-black/[0.04] flex items-center justify-center">
+        <div className="flex h-[40px] min-w-px flex-[1_0_0] items-center gap-[12px] overflow-hidden rounded-[8px] px-[12px] py-[8px]">
           <img
             alt=""
-            className="size-[14px] object-contain"
+            className="size-[20px] shrink-0 object-contain"
             src={imgHugeiconsStudentPicker}
             aria-hidden
           />
+          <select
+            id="parent-student-picker"
+            value={studentPickerValue}
+            onChange={(e) => setStudentQuery(e.target.value)}
+            className={`h-full min-w-px flex-[1_0_0] border-0 bg-transparent font-['Inter:Regular',sans-serif] ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[16px] leading-[1.6] tracking-[-0.32px] outline-none cursor-pointer [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden`}
+          >
+            {PARENT_DEMO_STUDENTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.displayName}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          id="parent-student-picker"
-          value={studentPickerValue}
-          onChange={(e) => setStudentQuery(e.target.value)}
-          className={`h-full min-w-[132px] max-w-[240px] flex-1 border-0 bg-transparent py-0 font-['Inter:Medium',sans-serif] ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[12px] leading-tight outline-none cursor-pointer [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden pr-7 bg-[length:14px_14px] bg-[right_8px_center] bg-no-repeat`}
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666d80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-          }}
-        >
-          {PARENT_DEMO_STUDENTS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.displayName}
-            </option>
-          ))}
-        </select>
+        <div className="relative flex shrink-0 items-center justify-center">
+          <div className="-scale-y-100 flex-none">
+            <div className="overflow-clip relative size-[20px]">
+              <div className="absolute bottom-[37.5%] left-1/4 right-1/4 top-[37.5%]">
+                <img
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-[-9.76%_-8.33%_-16.67%_-8.33%] max-w-none size-full"
+                  src={imgChevronDown}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

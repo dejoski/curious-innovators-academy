@@ -7,7 +7,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentListItem } from "@/lib/data/types";
 import { ArrowLeft, Save, AlertCircle } from "lucide-react";
 
-const imgMaskGroup = "/images/icon-generic.svg";
+const imgMaskGroup = "/images/icon-settings.svg";
 
 type EditStudentClientProps = {
   studentId: string;

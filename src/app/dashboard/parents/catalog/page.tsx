@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 
-const imgImage1 = "/images/icon-generic.svg";
-const imgGroup = "/images/icon-generic.svg";
-const imgChevronDown = "/images/icon-generic.svg";
+const imgImage1 = "/images/icon-lightbulb-only.png";
+const imgGroup = "/images/icon-group2.svg";
+const imgChevronDown = "/images/icon-caret-down.svg";
+const imgHistoryLine = "/images/icon-history-line-catalog.svg";
+const imgUnion = "/images/parent-deadline-union.svg";
 
 type EnrichmentClass = {
   id: string;
@@ -53,6 +55,7 @@ type SlotRequests = {
 };
 
 export default function ParentClassesEnrichmentCatalog() {
+  const scheduleGridCols = "133px 133px 133px 133px";
   const [requests, setRequests] = useState<Record<string, SlotRequests>>({
     block3_day3: { firstChoice: null, secondChoice: null },
     block4_day3: { firstChoice: null, secondChoice: null },
@@ -108,9 +111,12 @@ export default function ParentClassesEnrichmentCatalog() {
   };
 
   return (
-    <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
-      {/* Page title + submit */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 w-full">
+    <div
+      className="w-full mx-auto py-8 flex flex-col gap-6 font-sans"
+      style={{ maxWidth: "1104px", fontFamily: "var(--font-inter), sans-serif" }}
+    >
+      {/* Page title */}
+      <div className="flex flex-col gap-1 items-start w-full">
         <div className="flex flex-col gap-1 items-start">
           <h1 className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[28px] leading-[1.1]">
             Class Selection
@@ -119,16 +125,6 @@ export default function ParentClassesEnrichmentCatalog() {
             Pick enrichment classes for your available blocks. You can select a first and second preference.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitted}
-          className={`shrink-0 self-start sm:self-center px-6 py-3 rounded-lg font-semibold text-white transition-colors ${
-            submitted ? "bg-green-600 cursor-not-allowed" : "bg-[#14c1d5] hover:bg-[#11a9ba]"
-          }`}
-        >
-          {submitted ? "Selections Submitted" : "Submit Selections"}
-        </button>
       </div>
 
       {submitted && (
@@ -177,114 +173,116 @@ export default function ParentClassesEnrichmentCatalog() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-col lg:flex-row gap-6 w-full">
+      <div className="flex flex-col lg:flex-row w-full" style={{ columnGap: "20px" }}>
         {/* Schedule Grid */}
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex-1 overflow-x-auto shadow-sm">
-          <div className="min-w-[600px]">
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 shrink-0 overflow-hidden" style={{ width: "565px" }}>
+          <div style={{ width: "533px" }}>
             {/* Header Row */}
-            <div className="grid grid-cols-[100px_1fr_1fr_1fr] gap-2 mb-2">
+            <div className="grid gap-0" style={{ gridTemplateColumns: scheduleGridCols }}>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-tl-[8px] h-[65px] flex flex-col justify-center px-4">
                 <span className="font-['Inter:Bold',sans-serif] font-bold text-[#625f6e] text-[12px] leading-[1.29]">90 minutes</span>
-                <span className="text-[#625f6e] text-[12px] leading-[1.29]">per block</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#625f6e] text-[12px] leading-[1.29]">per block</span>
               </div>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] h-[65px] flex flex-col items-center justify-center">
-                <span className="text-[#020204] text-[12px]">Day</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#020204] text-[14px]">1</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#020204] text-[12px] leading-none tracking-[0.12px]">Day</span>
+                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#020204] text-[14px] leading-none tracking-[0.14px]">1</span>
               </div>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] h-[65px] flex flex-col items-center justify-center">
-                <span className="text-[#020204] text-[12px]">Day</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#020204] text-[14px]">2</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#020204] text-[12px] leading-none tracking-[0.12px]">Day</span>
+                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#020204] text-[14px] leading-none tracking-[0.14px]">2</span>
               </div>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-tr-[8px] h-[65px] flex flex-col items-center justify-center">
-                <span className="text-[#020204] text-[12px]">Day</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#020204] text-[14px]">3</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#020204] text-[12px] leading-none tracking-[0.12px]">Day</span>
+                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#020204] text-[14px] leading-none tracking-[0.14px]">3</span>
               </div>
             </div>
 
             {/* Block 1 */}
-            <div className="grid grid-cols-[100px_1fr_1fr_1fr] gap-2 mb-2">
+            <div className="grid gap-0" style={{ gridTemplateColumns: scheduleGridCols }}>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] h-[52px] flex flex-col justify-center px-4">
                 <span className="font-['Inter:Bold',sans-serif] font-bold text-[#625f6e] text-[10px]">Block 1</span>
-                <span className="text-[#625f6e] text-[12px]">7:00 - 8:30 am</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#625f6e] text-[12px]">7:00 - 8:30 am</span>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[#d2f1f5] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">School assigned</span>
-                  <span className="text-[#0d0d12] text-[10px]">Math</span>
+                <div className="relative bg-[#d2f1f5] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Math</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">School assigned</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[#d2f1f5] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">School assigned</span>
-                  <span className="text-[#0d0d12] text-[10px]">Math</span>
+                <div className="relative bg-[#d2f1f5] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Math</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">School assigned</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[#d2f1f5] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">School assigned</span>
-                  <span className="text-[#0d0d12] text-[10px]">Math</span>
+                <div className="relative bg-[#d2f1f5] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Math</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">School assigned</span>
                 </div>
               </div>
             </div>
 
             {/* Block 2 */}
-            <div className="grid grid-cols-[100px_1fr_1fr_1fr] gap-2 mb-2">
+            <div className="grid gap-0" style={{ gridTemplateColumns: scheduleGridCols }}>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] h-[52px] flex flex-col justify-center px-4">
                 <span className="font-['Inter:Bold',sans-serif] font-bold text-[#625f6e] text-[10px]">Block 2</span>
-                <span className="text-[#625f6e] text-[12px]">8:40 - 10:10 am</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#625f6e] text-[12px]">8:40 - 10:10 am</span>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[#d2f1f5] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">School assigned</span>
-                  <span className="text-[#0d0d12] text-[10px]">ELA - Core</span>
+                <div className="relative bg-[#d2f1f5] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">ELA - Core</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">School assigned</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[#d2f1f5] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">School assigned</span>
-                  <span className="text-[#0d0d12] text-[10px]">ELA - Core</span>
+                <div className="relative bg-[#d2f1f5] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">ELA - Core</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">School assigned</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[#d2f1f5] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">School assigned</span>
-                  <span className="text-[#0d0d12] text-[10px]">ELA - Core</span>
+                <div className="relative bg-[#d2f1f5] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">ELA - Core</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">School assigned</span>
                 </div>
               </div>
             </div>
 
             {/* Block 3 */}
-            <div className="grid grid-cols-[100px_1fr_1fr_1fr] gap-2 mb-2">
+            <div className="grid gap-0" style={{ gridTemplateColumns: scheduleGridCols }}>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] h-[52px] flex flex-col justify-center px-4">
                 <span className="font-['Inter:Bold',sans-serif] font-bold text-[#625f6e] text-[10px]">Block 3</span>
-                <span className="text-[#625f6e] text-[12px]">10:20 - 11:50 am</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#625f6e] text-[12px]">10:20 - 11:50 am</span>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[rgba(0,77,8,0.2)] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Enric. Approved</span>
-                  <span className="text-[#0d0d12] text-[10px] truncate">Economics & Financial Literacy</span>
+                <div className="relative bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                    Economics & Financial Literacy- Enrichment
+                  </span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Approved</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
-                <div className="bg-[rgba(0,77,8,0.2)] rounded-[4px] h-full p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Enric. Approved</span>
-                  <span className="text-[#0d0d12] text-[10px] truncate">Ocean Explorers</span>
+                <div className="relative bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[40px]">
+                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Ocean Exporers</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Approved</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
                 {requests.block3_day3.firstChoice ? (
                   submitted ? (
-                    <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] h-full p-1 flex flex-col justify-center">
+                    <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] h-[40px] p-1 flex flex-col justify-center">
                       <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Request pending</span>
-                      <span className="text-[#0d0d12] text-[10px] truncate">1st: {requests.block3_day3.firstChoice.name}</span>
+                      <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] truncate">1st: {requests.block3_day3.firstChoice.name}</span>
                       {requests.block3_day3.secondChoice && (
-                        <span className="text-[#0d0d12] text-[9px] truncate">2nd: {requests.block3_day3.secondChoice.name}</span>
+                        <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[9px] truncate">2nd: {requests.block3_day3.secondChoice.name}</span>
                       )}
                     </div>
                   ) : (
                     <div
                       onClick={() => openCatalog("block3_day3")}
-                      className="bg-yellow-100 border border-yellow-400 rounded-[4px] h-full p-1 flex flex-col justify-center cursor-pointer hover:bg-yellow-200 transition-colors"
+                      className="bg-yellow-100 border border-yellow-400 rounded-[4px] h-[40px] p-1 flex flex-col justify-center cursor-pointer hover:bg-yellow-200 transition-colors"
                     >
                       <span className="font-bold text-yellow-800 text-[10px]">1st: {requests.block3_day3.firstChoice.name}</span>
                       {requests.block3_day3.secondChoice && (
@@ -297,35 +295,37 @@ export default function ParentClassesEnrichmentCatalog() {
                     type="button"
                     disabled={submitted}
                     onClick={() => openCatalog("block3_day3")}
-                    className="bg-[#f9fafb] border border-dashed border-[#d1d5db] rounded-[4px] w-full h-full flex flex-col justify-center items-center hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-[#f9fafb] rounded-[4px] w-full h-[40px] px-[5px] pt-[7px] flex flex-col items-start hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">+ Choose class</span>
-                    <span className="text-[#0d0d12] text-[10px]">Available slot</span>
+                  <span className="w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Available slot</span>
+                  <span className="mt-[4px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">+ Choose class</span>
                   </button>
                 )}
               </div>
             </div>
 
             {/* Block 4 */}
-            <div className="grid grid-cols-[100px_1fr_1fr_1fr] gap-2 mb-2">
+            <div className="grid gap-0" style={{ gridTemplateColumns: scheduleGridCols }}>
               <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-bl-[8px] h-[95px] flex flex-col justify-center px-4">
                 <span className="font-['Inter:Bold',sans-serif] font-bold text-[#625f6e] text-[10px]">Block 4</span>
-                <span className="text-[#625f6e] text-[12px]">12:30 - 2:00 pm</span>
+                <span className="font-['Inter:Regular',sans-serif] text-[#625f6e] text-[12px]">7:00 - 8:30 am</span>
               </div>
-              <div className="bg-white border border-[#f0f0f0] h-[95px] p-1 flex flex-col gap-1">
-                <div className="bg-[#ffd9d9] rounded-[4px] shrink-0 flex-1 min-h-0 p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Enric. Pending</span>
-                  <span className="text-[#0d0d12] text-[10px] truncate">Force & Motion</span>
+              <div className="bg-white border border-[#f0f0f0] h-[95px] p-1 flex flex-col gap-[3px]">
+                <div className="relative bg-[#ffd9d9] rounded-[4px] h-[40px] shrink-0">
+                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Force & Motion</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Pending</span>
                 </div>
-                <div className="bg-[#ffd9d9] rounded-[4px] shrink-0 flex-1 min-h-0 p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Enric. Pending</span>
-                  <span className="text-[#0d0d12] text-[10px] truncate">Digital Storytelling & Animation</span>
+                <div className="relative bg-[#ffd9d9] rounded-[4px] h-[40px] shrink-0">
+                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                    Digital Storytelling & Animation
+                  </span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Pending</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[95px] p-1">
-                <div className="bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[83px] p-1 flex flex-col justify-center">
-                  <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Enric. Approved</span>
-                  <span className="text-[#0d0d12] text-[10px] truncate">Health Sciences Lab</span>
+                <div className="relative bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[83px]">
+                  <span className="absolute left-[5px] top-[13px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Health Sciences Lab</span>
+                  <span className="absolute left-[5px] top-[27px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Approved</span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] rounded-br-[8px] h-[95px] p-1">
@@ -333,9 +333,9 @@ export default function ParentClassesEnrichmentCatalog() {
                   submitted ? (
                     <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] h-[83px] p-1 flex flex-col justify-center">
                       <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Request pending</span>
-                      <span className="text-[#0d0d12] text-[10px] truncate">1st: {requests.block4_day3.firstChoice.name}</span>
+                      <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] truncate">1st: {requests.block4_day3.firstChoice.name}</span>
                       {requests.block4_day3.secondChoice && (
-                        <span className="text-[#0d0d12] text-[9px] truncate">2nd: {requests.block4_day3.secondChoice.name}</span>
+                        <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[9px] truncate">2nd: {requests.block4_day3.secondChoice.name}</span>
                       )}
                     </div>
                   ) : (
@@ -354,10 +354,10 @@ export default function ParentClassesEnrichmentCatalog() {
                     type="button"
                     disabled={submitted}
                     onClick={() => openCatalog("block4_day3")}
-                    className="bg-[#f9fafb] border border-dashed border-[#d1d5db] rounded-[4px] w-full h-[83px] flex flex-col justify-center items-center hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-[#f9fafb] rounded-[4px] w-full h-[83px] px-[5px] pt-[13px] flex flex-col items-start hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">+ Choose class</span>
-                    <span className="text-[#0d0d12] text-[10px]">Available slot</span>
+                  <span className="w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Available slot</span>
+                  <span className="mt-[4px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">+ Choose class</span>
                   </button>
                 )}
               </div>
@@ -366,88 +366,125 @@ export default function ParentClassesEnrichmentCatalog() {
         </div>
 
         {/* How it works sidebar */}
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 w-full lg:w-[400px] shrink-0 flex flex-col gap-6 shadow-sm">
+        <div
+          className="bg-white border border-[#f0f0f0] rounded-[18px] shrink-0 flex flex-col"
+          style={{ width: "519px", height: "345px", padding: "16px 24px", rowGap: "20px" }}
+        >
           <h2 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px]">
             How it works
           </h2>
 
-          <div className="flex flex-col gap-6 relative">
-            <div className="absolute left-[15px] top-[16px] bottom-[16px] w-px bg-gray-200" />
-
-            <div className="flex gap-4 items-start relative z-10">
-              <div className="bg-[#f6fcfd] rounded-full size-[32px] flex items-center justify-center shrink-0 border-2 border-white">
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#14c1d5] text-[14px]">1</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px]">Choose classes for each available block</p>
-                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px]">Browse the available enrichment classes and select one option for each open block in your child’s schedule.</p>
+          <div className="relative h-[271px]">
+            <div aria-hidden className="absolute left-[17px] top-[4.21px] h-[237.213px] w-0">
+              <img alt="" className="absolute inset-[0_-0.5px] max-w-none size-full" src={imgHistoryLine} />
+            </div>
+            <div className="relative z-10 flex h-full flex-col items-start justify-between">
+              <div className="flex gap-[10px] items-start">
+                <div className="bg-[#f6fcfd] overflow-clip relative rounded-[42px] size-[32px] shrink-0">
+                  <p className="-translate-x-1/2 absolute font-['Inter:Semi_Bold',sans-serif] font-semibold leading-[1.4] left-[15.5px] top-[6px] text-[#14c1d5] text-[14px] text-center whitespace-nowrap">
+                    1
+                  </p>
+                </div>
+              <div className="flex flex-col gap-[6px] min-w-0 items-start leading-[1.4] text-[#666d80]" style={{ width: "400px" }}>
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px] leading-[1.4] whitespace-nowrap">Choose classes for each available block</p>
+                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px] leading-[1.4] w-[400px]">Browse the available enrichment classes and select one option for each open block in your child’s schedule.</p>
               </div>
             </div>
 
-            <div className="flex gap-4 items-start relative z-10">
-              <div className="bg-[#f6fcfd] rounded-full size-[32px] flex items-center justify-center shrink-0 border-2 border-white">
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#14c1d5] text-[14px]">2</span>
+            <div className="flex gap-[10px] items-start">
+              <div className="bg-[#f6fcfd] overflow-clip relative rounded-[42px] size-[32px] shrink-0">
+                <p className="-translate-x-1/2 absolute font-['Inter:Semi_Bold',sans-serif] font-semibold leading-[1.4] left-[15.5px] top-[6px] text-[#14c1d5] text-[14px] text-center whitespace-nowrap">
+                  2
+                </p>
               </div>
-              <div className="flex flex-col gap-1">
-                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px]">Select a 1st and 2nd preference if possible</p>
-                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px]">Choosing a second preference helps the school place your child in another option if the first choice becomes full.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 items-start relative z-10">
-              <div className="bg-[#f6fcfd] rounded-full size-[32px] flex items-center justify-center shrink-0 border-2 border-white">
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#14c1d5] text-[14px]">3</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px]">The school reviews and confirms placements</p>
-                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px]">After submission, the school team reviews all requests and assigns students based on availability and scheduling.</p>
+              <div className="flex flex-col gap-[6px] min-w-0 items-start justify-center leading-[1.4] text-[#666d80]" style={{ width: "400px" }}>
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px] leading-[1.4] whitespace-nowrap">Select a 1st and 2nd preference if possible</p>
+                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px] leading-[1.4] w-[400px]">Choosing a second preference helps the school place your child in another option if the first choice becomes full.</p>
               </div>
             </div>
 
-            <div className="flex gap-4 items-start relative z-10">
-              <div className="bg-[#f6fcfd] rounded-full size-[32px] flex items-center justify-center shrink-0 border-2 border-white">
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#14c1d5] text-[14px]">4</span>
+            <div className="flex gap-[10px] items-start w-full">
+              <div className="bg-[#f6fcfd] overflow-clip relative rounded-[42px] size-[32px] shrink-0">
+                <p className="-translate-x-1/2 absolute font-['Inter:Semi_Bold',sans-serif] font-semibold leading-[1.4] left-[15px] top-[6px] text-[#14c1d5] text-[14px] text-center whitespace-nowrap">
+                  3
+                </p>
               </div>
-              <div className="flex flex-col gap-1">
-                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px]">Approved classes will appear in the schedule</p>
-                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px]">Once confirmed, the approved enrichment classes will automatically be added to your child’s weekly schedule.</p>
+              <div className="flex flex-col gap-[6px] min-w-0 items-start justify-center leading-[1.4] text-[#666d80]" style={{ width: "400px" }}>
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px] leading-[1.4] whitespace-nowrap">The school reviews and confirms placements</p>
+                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px] leading-[1.4] w-[400px]">After submission, the school team reviews all requests and assigns students based on availability and scheduling.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-[10px] items-start w-full">
+              <div className="bg-[#f6fcfd] overflow-clip relative rounded-[42px] size-[32px] shrink-0">
+                <p className="-translate-x-1/2 absolute font-['Inter:Semi_Bold',sans-serif] font-semibold leading-[1.4] left-[15px] top-[6px] text-[#14c1d5] text-[14px] text-center whitespace-nowrap">
+                  4
+                </p>
+              </div>
+              <div className="flex flex-col gap-[6px] min-w-0 items-start justify-center leading-[1.4] text-[#666d80]" style={{ width: "400px" }}>
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] text-[14px] leading-[1.4] whitespace-nowrap">Approved classes will appear in the schedule</p>
+                <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[12px] leading-[1.4] w-[400px]">Once confirmed, the approved enrichment classes will automatically be added to your child’s weekly schedule.</p>
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
 
       {/* Bottom Banners */}
-      <div className="flex flex-col gap-4 w-full">
-        <div className="bg-[#f6fcfd] border border-[#d2f1f5] rounded-[18px] p-4 flex items-center gap-4 shadow-sm">
-          <div className="bg-[#d2f1f5] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-            <img alt="Info" className="size-[24px]" src={imgImage1} />
-          </div>
-          <div className="flex flex-col gap-1 w-full">
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Enrichment Selection Deadline</p>
-            <p className="font-['Inter:Regular',sans-serif] text-[#272932] text-[14px]">
-              Please remember to submit your child’s enrichment class requests before the school’s deadline.<br />
-              Submitting on time helps the school organize class groups and ensures your child has the best chance of getting their preferred classes.
-            </p>
+      <div className="flex flex-col w-full" style={{ marginTop: "174px", rowGap: "14px" }}>
+        <div className="relative h-[102px] w-[1113px] max-w-[calc(100%+9px)] -ml-[9px]">
+          <img alt="" className="absolute inset-0 h-full w-full" src={imgUnion} />
+          <div className="relative flex gap-[8px] items-start px-[23px] py-[16px] w-[1076px]">
+            <div className="bg-[#d2f1f5] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
+              <div className="h-[24px] relative w-[22px] overflow-hidden">
+                <img
+                  alt=""
+                  className="absolute h-full left-0 max-w-none top-0 w-[384.62%]"
+                  src={imgImage1}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-[4px] items-start justify-center">
+              <div className="flex items-center w-[1028px]">
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4] whitespace-nowrap">
+                  Enrichment Selection Deadline
+                </p>
+              </div>
+              <div className="flex items-center w-[1028px]">
+                <p className="font-['Inter:Regular',sans-serif] text-[#272932] text-[14px] leading-[1.6] tracking-[-0.28px] whitespace-nowrap">
+                  Please remember to submit your child’s enrichment class requests before the school’s deadline.<br />
+                  Submitting on time helps the school organize class groups and ensures your child has the best chance of getting their preferred classes.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-4">
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] px-[14px] py-[16px] flex items-start">
+          <div className="flex items-center gap-[8px] w-full">
             <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-              <img alt="Info" className="size-[24px]" src={imgGroup} />
+              <div className="overflow-clip relative size-[24px] shrink-0">
+                <div className="absolute inset-[9.38%]">
+                  <img alt="Info" className="absolute inset-[-5.13%] max-w-none size-full" src={imgGroup} />
+                </div>
+              </div>
             </div>
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] max-w-[700px]">
-              Enrichment classes allow students to explore interests beyond core subjects such as arts, technology, entrepreneurship and science.
-            </p>
+            <div className="flex flex-col items-start w-[97px]">
+              <div className="flex items-center justify-between w-[1028px]">
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4] w-[720px]">
+                  Enrichment classes allow students to explore interests beyond core subjects such as arts, technology, entrepreneurship and science.
+                </p>
+                <Link
+                  href="/dashboard/parents/students"
+                  className="flex items-center gap-[8px] hover:opacity-70 transition-opacity shrink-0"
+                >
+                  <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4] whitespace-nowrap">View profile</span>
+                  <img alt="" className="size-[18px] -rotate-90" src={imgChevronDown} />
+                </Link>
+              </div>
+            </div>
           </div>
-          <Link
-            href="/dashboard/parents/students"
-            className="flex items-center gap-2 hover:opacity-70 transition-opacity shrink-0"
-          >
-            <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">View profile</span>
-            <img alt="" className="size-[18px] -rotate-90" src={imgChevronDown} />
-          </Link>
         </div>
       </div>
 

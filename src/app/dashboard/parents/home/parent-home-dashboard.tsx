@@ -5,10 +5,8 @@ import Link from "next/link";
 import { Bell, CalendarDays, ChevronRight } from "lucide-react";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 
-const imgHugeiconsStudent1 =
-  "/images/icon-generic.svg";
-const imgGroup1 =
-  "/images/icon-generic.svg";
+const imgHugeiconsStudent1 = "/images/icon-student.svg";
+const imgGroup1 = "/images/icon-group.svg";
 
 function RowArrow() {
   return (

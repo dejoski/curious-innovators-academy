@@ -210,14 +210,14 @@
         "usage": "Ideas/suggestions indicator"
       },
       {
-        "name": "logout-icon.png",
-        "path": "/images/logout-icon.png",
+        "name": "logout-icon.svg",
+        "path": "/images/logout-icon.svg",
         "type": "icon",
         "usage": "Logout button"
       },
       {
-        "name": "mask-group.png",
-        "path": "/images/mask-group.png",
+        "name": "mask-group.svg",
+        "path": "/images/mask-group.svg",
         "type": "illustration",
         "usage": "Grouped masked elements"
       },
@@ -228,8 +228,8 @@
         "usage": "General purpose image"
       },
       {
-        "name": "vector.png",
-        "path": "/images/vector.png",
+        "name": "vector.svg",
+        "path": "/images/vector.svg",
         "type": "illustration",
         "usage": "Vector graphic element"
       }

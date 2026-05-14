@@ -14,7 +14,7 @@ export function getParentStudentContextLabel(pathname: string): string {
     return "Showing classes for";
   }
   if (pathname.startsWith(PARENT_SCHEDULE_HREF)) {
-    return "Showing schedule for";
+    return "Viewing schedule for";
   }
   if (pathname.startsWith("/dashboard/parents/classes")) {
     return "Showing classes for";

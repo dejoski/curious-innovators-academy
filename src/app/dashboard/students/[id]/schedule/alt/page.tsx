@@ -13,7 +13,7 @@ import {
   typeLabel,
 } from "@/lib/dashboard/schedule-calendar-shared";
 
-const imgVector = "/images/icon-generic.svg";
+const imgVector = "/images/icon-search.svg";
 
 function startOfWeekSunday(d: Date) {
   const x = new Date(d);

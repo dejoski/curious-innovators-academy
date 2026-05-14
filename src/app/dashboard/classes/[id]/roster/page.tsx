@@ -4,20 +4,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-const imgEllipse2735 = "/images/icon-generic.svg";
-const imgEllipse2736 = "/images/icon-generic.svg";
-const imgEllipse2737 = "/images/icon-generic.svg";
-const imgEllipse2738 = "/images/icon-generic.svg";
-const imgEllipse2739 = "/images/icon-generic.svg";
-const imgEllipse2740 = "/images/icon-generic.svg";
-const imgGroup = "/images/icon-generic.svg";
-const imgIcon = "/images/icon-generic.svg";
-const imgGroup1 = "/images/icon-generic.svg";
-const imgFlowbiteSortOutline = "/images/icon-generic.svg";
-const imgIconCaretDown = "/images/icon-generic.svg";
-const imgWeuiMoreOutlined = "/images/icon-generic.svg";
-const imgChevronDown = "/images/icon-generic.svg";
-const imgChevronDown1 = "/images/icon-generic.svg";
+const imgEllipse2735 = "/images/anna-lee-avatar.png";
+const imgEllipse2736 = "/images/mary-lee-avatar.png";
+const imgEllipse2737 = "/images/parent-female-dark-hair.png";
+const imgEllipse2738 = "/images/parent-female-light-hair.png";
+const imgEllipse2739 = "/images/anna-lee-avatar.png";
+const imgEllipse2740 = "/images/mary-lee-avatar.png";
+const imgGroup = "/images/icon-group.svg";
+const imgIcon = "/images/icon-caret-down.svg";
+const imgGroup1 = "/images/icon-search.svg";
+const imgFlowbiteSortOutline = "/images/icon-sort.svg";
+const imgIconCaretDown = "/images/icon-caret-down.svg";
+const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgChevronDown = "/images/icon-chevron-down.svg";
+const imgChevronDown1 = "/images/icon-chevron-down2.svg";
 
 type RosterStatus = "Pending" | "Waitlist" | "Approved";
 

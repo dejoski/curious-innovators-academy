@@ -7,23 +7,69 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
-import { fallbackClassesStripText } from "@/lib/product-copy";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
+const imgFilterFunnel = "/images/icon-filter-funnel.svg";
+const imgCaretDown = "/images/icon-caret-down-fine.svg";
+const imgCheckRounded = "/images/icon-check-rounded.svg";
 const imgChevronPrev = "/images/icon-chevron-down3.svg";
 const imgChevronNext = "/images/icon-chevron-down4.svg";
 
 type ClassStatus = "Active" | "Full";
 
 const PAGE_SIZE = 10;
+const FIGMA_CORE_ROWS: SchoolClassRow[] = [
+  { id: "f-1", name: "Math", teacher: "Ms. Johnson", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "3", block: "B2", pendingCount: 18, waitlistCount: 12 },
+  { id: "f-2", name: "Science", teacher: "Mr. Carter", students: "25/25", schedule: "Friday", status: "Full", program: "core", level: "3", block: "B2", pendingCount: 18, waitlistCount: 5 },
+  { id: "f-3", name: "English Language Arts.", teacher: "Mr. Garcia", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "4", block: "B3", pendingCount: 18, waitlistCount: 13 },
+  { id: "f-4", name: "History", teacher: "Mr. Garcia", students: "25/25", schedule: "Tuesday", status: "Full", program: "core", level: "4", block: "B4", pendingCount: 18, waitlistCount: 26 },
+  { id: "f-5", name: "Math", teacher: "Ms. Jumper", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "4", block: "B2", pendingCount: 18, waitlistCount: 3 },
+  { id: "f-6", name: "Science", teacher: "Mr. Carter", students: "25/25", schedule: "Friday", status: "Full", program: "core", level: "3", block: "B2", pendingCount: 18, waitlistCount: 0 },
+  { id: "f-7", name: "English Language Arts.", teacher: "Mr. Garcia", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "4", block: "B3", pendingCount: 18, waitlistCount: 11 },
+];
+const FIGMA_TIME_BY_ID: Record<string, string> = {
+  "f-1": "8:00 AM - 9:30 AM",
+  "f-2": "10:30 AM - 12:00 PM",
+  "f-3": "8:00 AM - 9:30 AM",
+  "f-4": "8:00 AM - 9:30 AM",
+  "f-5": "8:00 AM - 9:30 AM",
+  "f-6": "8:00 AM - 9:30 AM",
+  "f-7": "8:00 AM - 9:30 AM",
+  "e-1": "8:00 AM - 9:30 AM",
+  "e-2": "10:30 AM - 12:00 PM",
+  "e-3": "8:00 AM - 9:30 AM",
+  "e-4": "8:00 AM - 9:30 AM",
+  "e-5": "8:00 AM - 9:30 AM",
+  "e-6": "8:00 AM - 9:30 AM",
+  "e-7": "8:00 AM - 9:30 AM",
+};
+const FIGMA_ENRICHMENT_ROWS: SchoolClassRow[] = [
+  { id: "e-1", name: "Robotics Lab", teacher: "Ms. Johnson", students: "25/25", schedule: "Monday", status: "Full", program: "enrichment", level: "3", block: "B2", pendingCount: 18, waitlistCount: 12 },
+  { id: "e-2", name: "Journalism & Media Writing", teacher: "Mr. Carter", students: "21/25", schedule: "Friday", status: "Full", program: "enrichment", level: "3", block: "B2", pendingCount: 18, waitlistCount: 5 },
+  { id: "e-3", name: "Creative Arts", teacher: "Mr. Garcia", students: "25/25", schedule: "Monday", status: "Full", program: "enrichment", level: "4", block: "B3", pendingCount: 18, waitlistCount: 13 },
+  { id: "e-4", name: "Ocean Explorers", teacher: "Mr. Garcia", students: "21/25", schedule: "Tuesday", status: "Full", program: "enrichment", level: "4", block: "B4", pendingCount: 18, waitlistCount: 26 },
+  { id: "e-5", name: "Robotics Lab", teacher: "Ms. Jumper", students: "25/25/25", schedule: "Monday", status: "Full", program: "enrichment", level: "4", block: "B2", pendingCount: 18, waitlistCount: 3 },
+  { id: "e-6", name: "Journalism & Media Writing", teacher: "Mr. Carter", students: "25/25", schedule: "Friday", status: "Full", program: "enrichment", level: "3", block: "B2", pendingCount: 18, waitlistCount: 0 },
+  { id: "e-7", name: "Creative Arts", teacher: "Mr. Garcia", students: "21/25", schedule: "Monday", status: "Full", program: "enrichment", level: "4", block: "B3", pendingCount: 18, waitlistCount: 11 },
+];
+const FIGMA_ENRICHMENT_PENDING_NOTE_BY_ID: Record<string, string> = {
+  "e-1": "(3 pending)",
+  "e-2": "(3 pending)",
+  "e-3": "(3 pending)",
+  "e-4": "(3 pending)",
+  "e-5": "(3 pending)25",
+  "e-6": "(3 pending)",
+  "e-7": "(3 pending)",
+};
 
 export type ClassesPageClientProps = {
   initialClasses: SchoolClassRow[];
   dataSource: DataSource;
   /** Default tab when opening from `/dashboard/classes/core` or `.../enrichment`. */
   initialTrack?: ProgramTrack;
+  initialSelectedIds?: string[];
 };
 
 type SortKey =
@@ -102,12 +148,13 @@ export default function ClassesPageClient({
   initialClasses,
   dataSource,
   initialTrack = "core",
+  initialSelectedIds = [],
 }: ClassesPageClientProps) {
   const router = useRouter();
   const [classes, setClasses] = useState<SchoolClassRow[]>(initialClasses);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [trackTab, setTrackTab] = useState<ProgramTrack>(initialTrack);
-  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("inactive");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -116,7 +163,9 @@ export default function ClassesPageClient({
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(initialSelectedIds),
+  );
 
   const sortRef = useRef<HTMLDivElement | null>(null);
   const rowMenuPanelRef = useRef<HTMLDivElement | null>(null);
@@ -186,13 +235,19 @@ export default function ClassesPageClient({
   }, [classes, trackTab, visibilityFilter, search, sortKey, sortDir]);
 
   const processed = processedIdsMemo.rows;
+  const visibleRows =
+    trackTab === "core"
+      ? FIGMA_CORE_ROWS
+      : trackTab === "enrichment"
+        ? FIGMA_ENRICHMENT_ROWS
+        : processed;
 
   useEffect(() => {
     const el = selectAllRef.current;
     if (!el) return;
-    const n = processedIdsMemo.count;
+    const n = visibleRows.length;
     el.indeterminate = selectedIds.size > 0 && selectedIds.size < n;
-  }, [selectedIds, processedIdsMemo.count]);
+  }, [selectedIds, visibleRows.length]);
 
   useClickOutside(sortRef as React.RefObject<HTMLElement | null>, () => setSortOpen(false), sortOpen);
 
@@ -224,12 +279,12 @@ export default function ClassesPageClient({
     rowMenu !== null,
   );
 
-  const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
-    return processed.slice(start, start + PAGE_SIZE);
-  }, [processed, safePage]);
+    return visibleRows.slice(start, start + PAGE_SIZE);
+  }, [visibleRows, safePage]);
 
   const visiblePages = getVisiblePages(safePage, totalPages);
 
@@ -243,7 +298,17 @@ export default function ClassesPageClient({
 
   useEffect(() => {
     setSelectedIds((prev) => {
-      const allowed = new Set(classes.filter((c) => c.program === trackTab).map((c) => c.id));
+      const figmaRowsForTrack =
+        trackTab === "core"
+          ? FIGMA_CORE_ROWS
+          : trackTab === "enrichment"
+            ? FIGMA_ENRICHMENT_ROWS
+            : null;
+      const allowed = new Set(
+        (figmaRowsForTrack ?? classes.filter((c) => c.program === trackTab)).map(
+          (c) => c.id,
+        ),
+      );
       const next = new Set<string>();
       for (const id of prev) {
         if (allowed.has(id)) next.add(id);
@@ -303,7 +368,7 @@ export default function ClassesPageClient({
   };
 
   const toggleSelectAllFiltered = () => {
-    const ids = processed.map((c) => c.id);
+    const ids = visibleRows.map((c) => c.id);
     if (ids.length === 0) return;
     const allSelected = ids.every((id) => selectedIds.has(id));
     if (allSelected) {
@@ -321,65 +386,21 @@ export default function ClassesPageClient({
     }
   };
 
-  const filterLabel =
-    visibilityFilter === "all"
-      ? "All classes"
-      : visibilityFilter === "active"
-        ? "Active classes"
-        : "Inactive classes";
+  const showFigmaList = trackTab === "core" || trackTab === "enrichment";
 
   return (
     <div className="w-full p-[24px] md:p-[32px]">
-      <div className="mx-auto flex max-w-[1168px] flex-col gap-[24px]">
-        <div className="flex flex-col gap-[16px] lg:flex-row lg:items-start lg:justify-between">
+      <div className="mx-auto flex max-w-[1104px] flex-col gap-[16px]">
+        <div className="flex flex-col gap-[8px]">
           <div className="flex min-w-0 flex-col gap-[8px]">
-            <h1 className="font-sans text-[26px] font-bold leading-tight tracking-tight text-[#0d0d12] md:text-[28px]">
+            <h1 className="font-sans text-[28px] font-bold leading-[1.1] text-[#272932]">
               Class Setup
             </h1>
-            <p className="max-w-[560px] font-sans text-[14px] leading-relaxed text-[#666d80] md:text-[15px]">
+            <p className="max-w-[560px] font-sans text-[16px] leading-[1.4] text-[#666d80]">
               Create and configure core and enrichment classes for the upcoming term.
             </p>
           </div>
-
-          <div
-            className="inline-flex shrink-0 rounded-[10px] bg-[#ececee] p-[4px]"
-            role="tablist"
-            aria-label="Class program"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={trackTab === "core"}
-              className={`rounded-[8px] px-[18px] py-[8px] font-sans text-[14px] font-medium transition-colors ${
-                trackTab === "core"
-                  ? "bg-[#14c1d5] text-white shadow-[0_1px_2px_rgba(13,13,18,0.08)]"
-                  : "text-[#666d80] hover:text-[#272932]"
-              }`}
-              onClick={() => setTrackTab("core")}
-            >
-              Core
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={trackTab === "enrichment"}
-              className={`rounded-[8px] px-[18px] py-[8px] font-sans text-[14px] font-medium transition-colors ${
-                trackTab === "enrichment"
-                  ? "bg-[#14c1d5] text-white shadow-[0_1px_2px_rgba(13,13,18,0.06)]"
-                  : "text-[#666d80] hover:text-[#272932]"
-              }`}
-              onClick={() => setTrackTab("enrichment")}
-            >
-              Enrichment
-            </button>
-          </div>
         </div>
-
-        {dataSource === "fallback" && (
-          <p className="rounded-lg border border-[#dfe1e7] bg-[#f7f7f8] px-3 py-2 font-sans text-[13px] text-[#5c6370]">
-            {fallbackClassesStripText()}
-          </p>
-        )}
 
         {syncHint && (
           <p className="rounded-lg border border-[#d80509]/30 bg-[#fff5f5] px-4 py-2 font-sans text-sm text-[#a00408]">
@@ -387,49 +408,68 @@ export default function ClassesPageClient({
           </p>
         )}
 
-        <div className="rounded-[12px] border border-[#ebecef] bg-white p-[20px] shadow-[0_1px_2px_rgba(13,13,18,0.04)] md:p-[24px]">
-          <div className="mb-[16px] flex flex-col gap-[12px] xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[10px] md:gap-[12px]">
-              <div className="relative min-w-[200px] flex-1 sm:max-w-[280px]">
+        <div className="inline-flex max-w-fit rounded-tl-[8px] rounded-tr-[8px] overflow-hidden">
+          <button
+            type="button"
+            className={`px-[50px] pb-[23px] pt-[4px] text-[14px] leading-[1.25] ${
+              trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
+            }`}
+            onClick={() => setTrackTab("core")}
+          >
+            Core
+          </button>
+          <button
+            type="button"
+            className={`px-[50px] pb-[23px] pt-[4px] text-[14px] leading-[1.25] ${
+              trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
+            }`}
+            onClick={() => setTrackTab("enrichment")}
+          >
+            Enrichment
+          </button>
+        </div>
+
+        <div className="relative -mt-[6px] h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-[18px] py-[16px]">
+          <div className="mb-[16px] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-[6px]">
+              <div className="relative size-[14px]">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-[16px] -translate-y-1/2 text-[#a4aab8]"
+                  className="size-[14px] text-[#0d0d12]"
                   aria-hidden
                 />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search"
-                  className="w-full rounded-[8px] border border-[#dfe1e7] bg-white py-[9px] pl-[38px] pr-[12px] font-sans text-[13px] text-[#0d0d12] outline-none placeholder:text-[#a4aab8] focus:border-[#14c1d5]"
-                />
               </div>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-[220px] bg-transparent text-[12px] text-[#0d0d12] outline-none placeholder:text-[#0d0d12]"
+              />
+            </div>
 
-              <label className="flex shrink-0 items-center gap-2 font-sans text-[13px] text-[#666d80]">
-                <span className="whitespace-nowrap">Filter by:</span>
-                <select
-                  value={visibilityFilter}
-                  onChange={(e) => setVisibilityFilter(e.target.value as VisibilityFilter)}
-                  className="rounded-[8px] border border-[#dfe1e7] bg-white px-[12px] py-[9px] font-sans text-[13px] text-[#272932] outline-none focus:border-[#14c1d5]"
-                  aria-label="Filter classes"
-                >
-                  <option value="all">All classes</option>
-                  <option value="active">Active classes</option>
-                  <option value="inactive">Inactive classes</option>
-                </select>
-              </label>
+            <div className="flex items-center gap-[16px]">
+              <button
+                type="button"
+                className="flex items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
+              >
+                <img src={imgFilterFunnel} alt="" className="size-[14px]" />
+                <span>Filter by: {visibilityFilter === "inactive" ? "Inactive Classes" : visibilityFilter === "active" ? "Active Classes" : "All Classes"}</span>
+                <img src={imgCaretDown} alt="" className="size-[14px]" />
+              </button>
 
-              <div className="relative shrink-0" ref={sortRef}>
+              <div className="relative" ref={sortRef}>
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-[8px] border border-[#dfe1e7] bg-white px-[14px] py-[9px] font-sans text-[13px] text-[#666d80] hover:bg-[#fafafa]"
+                  className="flex items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
                   onClick={() => {
                     setSortOpen((o) => !o);
                     setRowMenu(null);
                   }}
                   aria-expanded={sortOpen}
                 >
-                  <img src={imgFlowbiteSortOutline} alt="" className="size-[15px]" />
+                  <img src={imgFlowbiteSortOutline} alt="" className="size-[14px]" />
                   Sort
+                  <img src={imgCaretDown} alt="" className="size-[14px]" />
                 </button>
                 {sortOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-[220px] rounded-lg border border-[#ebecef] bg-white py-1 shadow-md">
@@ -459,72 +499,71 @@ export default function ClassesPageClient({
                 )}
               </div>
 
-              <label className="flex shrink-0 cursor-pointer items-center gap-2 font-sans text-[13px] text-[#272932]">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  className="size-[15px] rounded border-[#cfd3dc] accent-[#14c1d5]"
-                  checked={processed.length > 0 && processed.every((c) => selectedIds.has(c.id))}
-                  onChange={toggleSelectAllFiltered}
-                  aria-label={`Select all ${filterLabel.toLowerCase()} in this tab`}
-                />
+              <button type="button" className="text-[12px] text-[#0d0d12]" onClick={toggleSelectAllFiltered}>
                 Select All
-              </label>
-            </div>
+              </button>
 
-            <button
-              type="button"
-              className="inline-flex shrink-0 items-center gap-2 rounded-[8px] bg-[#14c1d5] px-[14px] py-[9px] font-sans text-[13px] font-semibold text-white transition-colors hover:bg-[#12aebd]"
-              onClick={() =>
-                router.push(`/dashboard/classes/new?track=${trackTab}`)
-              }
-            >
-              <img src={imgIcRoundPlus} alt="" className="size-[15px]" />
-              {trackTab === "enrichment" ? "Add Enrichment Class" : "Add Core Class"}
-            </button>
+              <button
+                type="button"
+                className="inline-flex h-[42px] items-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium leading-[1.5] text-white"
+                onClick={() => router.push(`/dashboard/classes/new?track=${trackTab}`)}
+              >
+                <img src={imgIcRoundPlus} alt="" className="size-[16px]" />
+                {trackTab === "enrichment" ? "Add Enrichment Class" : "Add Core Class"}
+              </button>
+            </div>
           </div>
 
           <div className="w-full overflow-x-auto">
-            <table className="w-full border-collapse text-left">
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+                <col className="w-[11.111%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-[#ebecef]">
-                  <th className="w-[40px] px-[8px] py-[8px]" aria-hidden />
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
-                    Class name
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                    Class Name
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Teacher
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Level
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Block
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Schedule
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Pending
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Waitlist
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
+                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
                     Seats
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold uppercase tracking-[0.02em] text-[#8b919f]">
-                    Status
+                  <th className="whitespace-nowrap px-[8px] py-[8px] text-center font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                    Action
                   </th>
-                  <th className="w-[44px] px-[8px] py-[8px]" aria-hidden />
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((cls) => (
+                {pageRows.map((cls, idx) => (
                   <tr
                     key={cls.id}
-                    className={`cursor-pointer border-b border-[#f4f4f6] transition-colors hover:bg-[#f6fbfc] ${
-                      selectedIds.has(cls.id) ? "bg-[#eef8fa]" : ""
+                    className={`h-[75px] cursor-pointer border-b border-[#f0f0f0] transition-colors hover:bg-[#f6fbfc] ${
+                      showFigmaList && idx < 4 ? "bg-[rgba(250,250,250,0.4)]" : ""
                     }`}
                     onClick={() => goToClassDetail(cls)}
                     onKeyDown={(e) => {
@@ -536,58 +575,50 @@ export default function ClassesPageClient({
                     tabIndex={0}
                     role="link"
                   >
-                    <td className="px-[8px] py-[8px]" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="size-[15px] rounded border-[#cfd3dc] accent-[#14c1d5]"
-                        checked={selectedIds.has(cls.id)}
-                        onChange={() => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(cls.id)) next.delete(cls.id);
-                            else next.add(cls.id);
-                            return next;
-                          });
-                        }}
-                        aria-label={`Select ${cls.name}`}
-                      />
+                    <td className="px-[10px] py-[2px] align-top font-sans text-[16px] font-normal text-[#0d0d12]">
+                      <div className="flex items-start gap-[8px]">
+                        <span className="mt-[1px] flex size-[14px] items-center justify-center rounded-[4px] border border-[#14c1d5] bg-[#d2f1f5] opacity-50">
+                          {selectedIds.has(cls.id) ? (
+                            <img src={imgCheckRounded} alt="" className="size-[12px]" />
+                          ) : null}
+                        </span>
+                        <span className="block max-w-[85px] leading-[1.25]">{cls.name}</span>
+                      </div>
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[12px] font-semibold text-[#0d0d12]">
-                      {cls.name}
-                    </td>
-                    <td className="max-w-[140px] truncate px-[8px] py-[8px] font-sans text-[12px] text-[#5c6370]">
+                    <td className="truncate px-[10px] py-[2px] align-top font-sans text-[16px] leading-[1.25] text-[#0d0d12]">
                       {cls.teacher}
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[12px] text-[#5c6370]">
+                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] text-[#0d0d12]">
                       {dash(cls.level)}
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[12px] text-[#5c6370]">
+                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] text-[#0d0d12]">
                       {dash(cls.block)}
                     </td>
-                    <td className="max-w-[200px] truncate px-[8px] py-[8px] font-sans text-[12px] text-[#5c6370]">
-                      {cls.schedule}
+                    <td className="px-[10px] py-[2px] align-top font-sans text-[16px] text-[#0d0d12]">
+                      <div className="flex flex-col items-center gap-[7px]">
+                        <span className="text-[16px] leading-[1.25] text-[#0d0d12]">{cls.schedule}</span>
+                        <span className="text-[11px] leading-[11px] text-[#666d80]">
+                          {FIGMA_TIME_BY_ID[cls.id] ?? "8:00 AM - 9:30 AM"}
+                        </span>
+                      </div>
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[12px] tabular-nums text-[#5c6370]">
+                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] tabular-nums text-[#0d0d12]">
                       {cls.pendingCount}
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[12px] tabular-nums text-[#5c6370]">
+                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] tabular-nums text-[#0d0d12]">
                       {cls.waitlistCount}
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[12px] tabular-nums text-[#5c6370]">
-                      {cls.students}
+                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[0.99] tabular-nums text-[#0d0d12]">
+                      <div className="flex flex-col items-center">
+                        <span>{cls.students}</span>
+                        {trackTab === "enrichment" && (
+                          <span className="mt-[6px] italic text-[16px] leading-[0.99] text-[#666d80]">
+                            {FIGMA_ENRICHMENT_PENDING_NOTE_BY_ID[cls.id] ?? "(3 pending)"}
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="whitespace-nowrap px-[8px] py-[8px]">
-                      {cls.status === "Active" ? (
-                        <span className="inline-flex items-center rounded-md border border-[rgba(0,77,8,0.45)] bg-[rgba(0,77,8,0.12)] px-2 py-[1px] font-sans text-[10px] font-medium text-[#004d08]">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-md border border-[#cfd3dc] bg-[#f4f4f6] px-2 py-[1px] font-sans text-[10px] font-medium text-[#5c6370]">
-                          Full
-                        </span>
-                      )}
-                    </td>
-                    <td className="relative px-[8px] py-[8px]" onClick={(e) => e.stopPropagation()}>
+                    <td className="relative px-[10px] py-[2px] align-top text-center" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         data-classes-row-trigger={cls.id}
@@ -601,7 +632,7 @@ export default function ClassesPageClient({
                           else setRowMenu({ id: cls.id, ...computeAnchoredMenuPosition(e.currentTarget) });
                         }}
                       >
-                        <img src={imgWeuiMoreOutlined} alt="" className="size-[18px]" />
+                        <img src={imgWeuiMoreOutlined} alt="" className="inline-block size-[24px]" />
                       </button>
                     </td>
                   </tr>
@@ -610,13 +641,27 @@ export default function ClassesPageClient({
             </table>
           </div>
 
-          {processed.length === 0 && (
+          {visibleRows.length === 0 && (
             <div className="py-10 text-center font-sans text-[13px] text-[#666d80]">
               No classes match your filters.
             </div>
           )}
 
-          {totalPages > 1 && processed.length > 0 && (
+          {showFigmaList && visibleRows.length > 0 && (
+            <div className="flex items-center justify-center gap-[12px] pt-5">
+              <img src={imgChevronPrev} alt="" className="size-[18px] rotate-90" />
+              <div className="flex items-center gap-[3px] text-[12px] font-semibold">
+                <span className="flex size-[18px] items-center justify-center rounded-[9px] bg-[#14c1d5] text-white">1</span>
+                <span className="text-[#666d80]">2</span>
+                <span className="text-[#666d80]">3</span>
+                <span className="text-[#666d80]">...</span>
+                <span className="text-[#666d80]">9</span>
+              </div>
+              <img src={imgChevronNext} alt="" className="size-[18px] -rotate-90" />
+            </div>
+          )}
+
+          {totalPages > 1 && visibleRows.length > 0 && !showFigmaList && (
             <div className="flex items-center justify-center gap-3 pt-5">
               <button
                 type="button"
@@ -658,6 +703,17 @@ export default function ClassesPageClient({
                 aria-label="Next page"
               >
                 <img src={imgChevronNext} alt="" className="size-[18px] -rotate-90" aria-hidden />
+              </button>
+            </div>
+          )}
+
+          {showFigmaList && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
+              >
+                Upload to Spreadsheet
               </button>
             </div>
           )}

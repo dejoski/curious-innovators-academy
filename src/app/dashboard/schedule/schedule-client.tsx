@@ -15,7 +15,7 @@ import {
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 
-const imgVector = "/images/vector.png";
+const imgVector = "/images/vector.svg";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
 
@@ -68,6 +68,16 @@ export type ScheduleMonthProps = {
   viewClassesHref?: string;
   /** Optional hero line under the title. */
   heroSubtitle?: string;
+  /** Override heading by active canvas view. */
+  titleByView?: Partial<Record<ScheduleCanvasView, string>>;
+  /** Whether to show the source/sync warning banners beneath the hero copy. */
+  showDataSourceBanner?: boolean;
+  /** Whether to show the Today shortcut in date navigation. */
+  showTodayButton?: boolean;
+  /** Labels for week-day headings, indexed 0..6. */
+  dayLabels?: readonly string[];
+  /** Optional starting date in YYYY-MM-DD format for parity snapshots. */
+  initialDateIso?: string;
 };
 
 export default function ScheduleMonth({
@@ -76,6 +86,11 @@ export default function ScheduleMonth({
   scheduleRouteBase = "/dashboard/schedule",
   viewClassesHref = "/dashboard/classes",
   heroSubtitle = "Organization-wide class and event calendar — add extras that sync when Supabase is connected.",
+  titleByView,
+  showDataSourceBanner = true,
+  showTodayButton = true,
+  dayLabels = DAYS_OF_WEEK,
+  initialDateIso,
 }: ScheduleMonthProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,7 +113,11 @@ export default function ScheduleMonth({
     [router, searchParams, scheduleRouteBase],
   );
 
-  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (!initialDateIso) return new Date();
+    const fromIso = new Date(`${initialDateIso}T00:00:00`);
+    return Number.isNaN(fromIso.getTime()) ? new Date() : fromIso;
+  });
 
   const [extrasByDateKey, setExtrasByDateKey] = useState<Record<string, CalendarEvent[]>>(() =>
     cloneExtras(initialExtrasByDate),
@@ -271,7 +290,7 @@ export default function ScheduleMonth({
     return (
       <div className="min-w-[800px]">
         <div className="grid grid-cols-7 gap-4 mb-4">
-          {DAYS_OF_WEEK.map((day) => (
+          {dayLabels.map((day) => (
             <div key={day} className="text-center text-[#625f6e] text-[12px] font-sans">
               {day}
             </div>
@@ -298,7 +317,7 @@ export default function ScheduleMonth({
                 key={i}
                 className={`text-center text-[12px] font-sans ${isToday ? "text-[#14c1d5] font-bold" : "text-[#625f6e]"}`}
               >
-                {DAYS_OF_WEEK[d.getDay()]} {d.getDate()}
+                {dayLabels[d.getDay()] ?? DAYS_OF_WEEK[d.getDay()]} {d.getDate()}
               </div>
             );
           })}
@@ -338,7 +357,7 @@ export default function ScheduleMonth({
           onClick={() => handleSlotClick(currentDate)}
         >
           <div className={`text-lg font-bold mb-4 ${isToday ? "text-[#14c1d5]" : "text-[#020204]"}`}>
-            {DAYS_OF_WEEK[currentDate.getDay()]} {currentDate.getDate()}
+            {dayLabels[currentDate.getDay()] ?? DAYS_OF_WEEK[currentDate.getDay()]} {currentDate.getDate()}
           </div>
           <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-2">
             {events.length === 0 && <p className="text-gray-400">No events for this day.</p>}
@@ -379,12 +398,12 @@ export default function ScheduleMonth({
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       <div className="flex flex-col gap-[4px] items-start">
         <h1 className="font-sans font-bold text-[#272932] text-[24px] leading-[1.1]">
-          Schedule ({view})
+          {titleByView?.[view] ?? `Schedule (${view})`}
         </h1>
         <p className="font-sans font-normal text-[#666d80] text-[16px] leading-[1.4]">
           {heroSubtitle}
         </p>
-        {(dataSource === "fallback" || syncHint) && (
+        {showDataSourceBanner && (dataSource === "fallback" || syncHint) && (
           <div className="mt-2 flex flex-col gap-2 max-w-3xl">
             {dataSource === "fallback" && (
               <p className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
@@ -436,13 +455,15 @@ export default function ScheduleMonth({
 
       <div className="flex flex-wrap items-center justify-between w-full gap-4">
         <div className="flex gap-[14px] items-center flex-wrap">
-          <button
-            type="button"
-            onClick={handleToday}
-            className="bg-white border border-[#f0f0f0] px-3 py-1 rounded-[8px] text-[14px] hover:bg-gray-50 transition-colors font-medium"
-          >
-            Today
-          </button>
+          {showTodayButton && (
+            <button
+              type="button"
+              onClick={handleToday}
+              className="bg-white border border-[#f0f0f0] px-3 py-1 rounded-[8px] text-[14px] hover:bg-gray-50 transition-colors font-medium"
+            >
+              Today
+            </button>
+          )}
           <button
             type="button"
             onClick={handlePrev}
