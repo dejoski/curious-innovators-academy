@@ -295,10 +295,14 @@ export default function ParentClassesEnrichmentCatalog() {
                     type="button"
                     disabled={submitted}
                     onClick={() => openCatalog("block3_day3")}
-                    className="bg-[#f9fafb] rounded-[4px] w-full h-[40px] px-[5px] pt-[7px] flex flex-col items-start hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-[#f9fafb] relative rounded-[4px] w-full h-[40px] hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
-                  <span className="w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Available slot</span>
-                  <span className="mt-[4px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">+ Choose class</span>
+                    <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                      Available slot
+                    </span>
+                    <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                      + Choose class
+                    </span>
                   </button>
                 )}
               </div>
@@ -354,10 +358,14 @@ export default function ParentClassesEnrichmentCatalog() {
                     type="button"
                     disabled={submitted}
                     onClick={() => openCatalog("block4_day3")}
-                    className="bg-[#f9fafb] rounded-[4px] w-full h-[83px] px-[5px] pt-[13px] flex flex-col items-start hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-[#f9fafb] relative rounded-[4px] w-full h-[83px] hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
-                  <span className="w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Available slot</span>
-                  <span className="mt-[4px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">+ Choose class</span>
+                    <span className="absolute left-[5px] top-[13px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                      Available slot
+                    </span>
+                    <span className="absolute left-[5px] top-[27px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                      + Choose class
+                    </span>
                   </button>
                 )}
               </div>

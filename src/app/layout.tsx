@@ -56,7 +56,7 @@ export default function RootLayout({
                   var captureId = params.get("figmacapture");
                   var endpoint = params.get("figmaendpoint");
                   var delay = Number(params.get("figmadelay") || "1000");
-                  if (!captureId || !endpoint) return null;
+                  if (!captureId) return null;
                   return { captureId: captureId, endpoint: endpoint, delay: Number.isFinite(delay) ? delay : 1000 };
                 }
 
@@ -64,11 +64,12 @@ export default function RootLayout({
                   var cfg = readHashParams();
                   if (!cfg || !window.figma || typeof window.figma.captureForDesign !== "function") return false;
                   window.setTimeout(function () {
-                    window.figma.captureForDesign({
+                    var payload = {
                       captureId: cfg.captureId,
-                      endpoint: cfg.endpoint,
                       selector: "body"
-                    });
+                    };
+                    if (cfg.endpoint) payload.endpoint = cfg.endpoint;
+                    window.figma.captureForDesign(payload);
                   }, cfg.delay);
                   return true;
                 }
