@@ -3,7 +3,7 @@
 Next.js + Supabase school operations app for roster, class setup, parent enrichment requests, schedules, invoices, support tickets, parent feedback, notifications, and directory workflows.
 
 ## Local Development
-
+ 
 ```bash
 npm install
 npm run dev
