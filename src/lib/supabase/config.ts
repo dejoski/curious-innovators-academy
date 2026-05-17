@@ -5,7 +5,7 @@
 import {
   getSupabaseAnonKey as getAnon,
   getSupabaseUrl as getUrl,
-  isSupabaseConfigured as configured,
+  isSupabaseConfigured as runtimeConfigured,
 } from "@/lib/data/env";
 
 export function getSupabasePublicUrl(): string | undefined {
@@ -17,5 +17,6 @@ export function getSupabaseAnonKey(): string | undefined {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return configured();
+  if (typeof window === "undefined") return runtimeConfigured();
+  return Boolean(getUrl() && getAnon());
 }

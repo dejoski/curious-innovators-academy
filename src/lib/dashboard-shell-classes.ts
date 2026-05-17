@@ -94,13 +94,13 @@ export const DASHBOARD_SIDEBAR_COLLAPSE_BTN_CLASS =
 
 /* --- Main header chrome --- */
 export const DASHBOARD_MAIN_HEADER_WRAP_CLASS =
-  `${DASHBOARD_SURFACE_CLASS} min-h-[88px] shrink-0 w-full z-50` as const;
+  `${DASHBOARD_SURFACE_CLASS} min-h-[72px] shrink-0 w-full z-50 md:min-h-[88px]` as const;
 
 export const DASHBOARD_MAIN_HEADER_ROW_CLASS =
-  `content-stretch flex items-center justify-between pt-[20px] px-[32px] pb-0 shrink-0 w-full` as const;
+  `content-stretch flex items-center justify-between px-4 pb-0 pt-3 shrink-0 w-full md:px-[32px] md:pt-[20px]` as const;
 
 export const DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS =
-  `${DASHBOARD_BORDER_STRONG_CLASS} border-b border-solid pb-[20px]` as const;
+  `${DASHBOARD_BORDER_STRONG_CLASS} border-b border-solid pb-3 md:pb-[20px]` as const;
 
 export const DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS =
   `${DASHBOARD_SURFACE_CLASS} ${DASHBOARD_RADIUS_INSET} shadow-lg ${DASHBOARD_BORDER_SUBTLE_CLASS} border border-solid py-2 z-50` as const;

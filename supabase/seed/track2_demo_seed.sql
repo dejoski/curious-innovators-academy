@@ -35,6 +35,30 @@ UPDATE public.profiles
 SET role = 'student'::public.app_role, display_name = 'Anna Lee'
 WHERE lower(email) = lower('student.anna@cia.demo');
 
+DO $$
+DECLARE
+  missing text;
+BEGIN
+  SELECT string_agg(required.email, ', ' ORDER BY required.email)
+  INTO missing
+  FROM (VALUES
+    ('name.example@gmail.com'),
+    ('parent.lee@cia.demo'),
+    ('parent.collins@cia.demo'),
+    ('teacher.emily@cia.demo'),
+    ('student.anna@cia.demo')
+  ) AS required(email)
+  LEFT JOIN public.profiles p ON lower(p.email) = lower(required.email)
+  WHERE p.id IS NULL;
+
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION
+      'Missing required Supabase Auth/profile rows: %. Run npm run provision:supabase-users after migrations, then rerun this seed.',
+      missing;
+  END IF;
+END;
+$$;
+
 DELETE FROM public.notifications;
 DELETE FROM public.feedback;
 DELETE FROM public.student_records;
@@ -43,6 +67,7 @@ DELETE FROM public.class_requests;
 DELETE FROM public.enrollments;
 DELETE FROM public.classes;
 DELETE FROM public.parent_students;
+DELETE FROM public.invoices;
 DELETE FROM public.students;
 DELETE FROM public.parents;
 DELETE FROM public.teachers;
@@ -82,17 +107,158 @@ JOIN public.profiles pr ON pr.id = p.profile_id
 JOIN public.students s ON s.display_name IN ('Bruce Collins', 'Maria Collins')
 WHERE lower(pr.email) = lower('parent.collins@cia.demo');
 
-INSERT INTO public.classes (name, teacher_id, program, capacity, schedule_summary, status)
-SELECT c.name, t.id, c.program, c.capacity, c.schedule_summary, c.status
+INSERT INTO public.classes (
+  name,
+  teacher_id,
+  program,
+  capacity,
+  schedule_summary,
+  status,
+  level,
+  block,
+  location,
+  description,
+  prerequisites
+)
+SELECT
+  c.name,
+  t.id,
+  c.program,
+  c.capacity,
+  c.schedule_summary,
+  c.status,
+  c.level,
+  c.block,
+  c.location,
+  c.description,
+  c.prerequisites
 FROM public.teachers t
 JOIN public.profiles p ON p.id = t.profile_id AND lower(p.email) = lower('teacher.emily@cia.demo')
 CROSS JOIN (VALUES
-  ('Robotics Lab', 'enrichment'::public.program_track, 20, 'Tue, Thu', 'active'::public.class_status),
-  ('Journalism & Media Writing', 'enrichment'::public.program_track, 18, 'Mon, Wed', 'active'::public.class_status),
-  ('Creative Arts', 'enrichment'::public.program_track, 22, 'Fri', 'active'::public.class_status),
-  ('Ocean Explorers', 'enrichment'::public.program_track, 16, 'B3 block', 'active'::public.class_status),
-  ('Mathematics 101', 'core'::public.program_track, 30, 'Mon, Wed, Fri', 'active'::public.class_status)
-) AS c(name, program, capacity, schedule_summary, status);
+  (
+    'Robotics Lab',
+    'enrichment'::public.program_track,
+    20,
+    'Monday · 8:00 AM - 9:30 AM',
+    'active'::public.class_status,
+    '3',
+    'B2',
+    'Room 101',
+    'Students design, build, and program robots to solve collaborative engineering challenges.',
+    'None'
+  ),
+  (
+    'Journalism & Media Writing',
+    'enrichment'::public.program_track,
+    18,
+    'Friday · 10:30 AM - 12:00 PM',
+    'active'::public.class_status,
+    '3',
+    'B2',
+    'Room 302',
+    'Students report, write, edit, and publish school stories across digital formats.',
+    'Comfort with paragraph writing'
+  ),
+  (
+    'Creative Arts',
+    'enrichment'::public.program_track,
+    22,
+    'Monday · 8:00 AM - 9:30 AM',
+    'active'::public.class_status,
+    '4',
+    'B3',
+    'Room 203',
+    'Studio course for drawing, mixed media, critique, and portfolio development.',
+    'None'
+  ),
+  (
+    'Ocean Explorers',
+    'enrichment'::public.program_track,
+    16,
+    'Tuesday · 8:00 AM - 9:30 AM',
+    'active'::public.class_status,
+    '4',
+    'B4',
+    'Room 104',
+    'Marine science investigations with research, observation, and lab notebooks.',
+    'Intro science recommended'
+  ),
+  (
+    'Mathematics 101',
+    'core'::public.program_track,
+    30,
+    'Monday · 9:00 AM',
+    'active'::public.class_status,
+    '2',
+    'B1',
+    'Room 201',
+    'Core math foundations covering arithmetic, reasoning, and problem-solving.',
+    'School assigned'
+  )
+) AS c(name, program, capacity, schedule_summary, status, level, block, location, description, prerequisites);
+
+UPDATE public.students
+SET
+  learning_profile = 'Curious and engaged learner who enjoys collaborative activities',
+  strengths = 'Strong communication and creativity',
+  support_notes = 'Benefits from structured guidance on long tasks',
+  attendance_rate = 98.00
+WHERE display_name = 'Anna Lee';
+
+UPDATE public.students
+SET
+  learning_profile = 'Prefers hands-on projects and pair work',
+  strengths = 'Quick problem solver in STEM activities',
+  support_notes = 'Check in before major assessments',
+  attendance_rate = 96.00
+WHERE display_name = 'George Lee';
+
+INSERT INTO public.invoices (
+  student_id,
+  family_label,
+  invoice_number,
+  amount_cents,
+  currency,
+  status,
+  issued_date,
+  due_date,
+  line_items,
+  payment_url
+)
+SELECT st.id, v.family_label, v.invoice_number, v.amount_cents, 'USD', v.status, v.issued_date::date, v.due_date::date, v.line_items::jsonb, NULL
+FROM (VALUES
+  (
+    'Anna Lee',
+    'Lee Family',
+    'CIA-2026-001',
+    22500,
+    'open',
+    '2026-05-01',
+    '2026-05-31',
+    '[{"description":"Robotics Lab enrichment fee"},{"description":"Materials kit"}]'
+  ),
+  (
+    'George Lee',
+    'Lee Family',
+    'CIA-2026-002',
+    15000,
+    'paid',
+    '2026-04-01',
+    '2026-04-30',
+    '[{"description":"Journalism & Media Writing tuition"}]'
+  ),
+  (
+    'Maria Collins',
+    'Collins Family',
+    'CIA-2026-003',
+    17500,
+    'past_due',
+    '2026-03-01',
+    '2026-03-31',
+    '[{"description":"Creative Arts studio fee"},{"description":"Supplies"}]'
+  )
+) AS v(student_name, family_label, invoice_number, amount_cents, status, issued_date, due_date, line_items)
+JOIN public.students st ON st.display_name = v.student_name;
 
 INSERT INTO public.enrollments (class_id, student_id, status)
 SELECT cl.id, st.id, v.status::public.workflow_status

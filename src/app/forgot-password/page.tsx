@@ -3,10 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, CheckCircle2 } from "lucide-react";
+import { requestPasswordReset } from "@/lib/supabase/auth-bridge";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const validateEmail = (val: string) => {
@@ -15,12 +18,23 @@ export default function ForgotPasswordPage() {
     return "";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validateEmail(email);
     setEmailError(err);
+    setResetError("");
     if (err) return;
-    setSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      const result = await requestPasswordReset(email);
+      if (!result.ok) {
+        setResetError(result.message);
+        return;
+      }
+      setSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,12 +82,19 @@ export default function ForgotPasswordPage() {
                 {emailError ? <span className="text-red-500 text-sm font-medium">{emailError}</span> : null}
               </div>
 
+              {resetError ? (
+                <div role="alert" className="rounded-[8px] border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm font-medium text-[#8c1f1f]">
+                  {resetError}
+                </div>
+              ) : null}
+
               <button
                 type="submit"
-                className="mt-[10px] bg-[#14c1d5] flex items-center justify-center h-[42px] px-[16px] py-[8px] rounded-[6px] w-full cursor-pointer hover:bg-[#12aebd] transition-colors drop-shadow-[0px_1px_1px_rgba(13,13,18,0.06)]"
+                disabled={isSubmitting}
+                className="mt-[10px] bg-[#14c1d5] flex items-center justify-center h-[42px] px-[16px] py-[8px] rounded-[6px] w-full cursor-pointer hover:bg-[#12aebd] transition-colors drop-shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
               >
                 <span className="font-semibold leading-[1.5] text-white text-[16px] tracking-[0.32px]">
-                  Send reset link
+                  {isSubmitting ? "Sending..." : "Send reset link"}
                 </span>
               </button>
             </form>

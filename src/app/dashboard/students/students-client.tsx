@@ -6,16 +6,7 @@ import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
-import {
-  exportQueuedToast,
-  messagingDialogDisclaimer,
-} from "@/lib/product-copy";
-const imgEllipse2735 = "/images/figma-ellipse2735.png";
-const imgEllipse2736 = "/images/figma-ellipse2736.png";
-const imgEllipse2737 = "/images/figma-ellipse2737.png";
-const imgEllipse2738 = "/images/figma-ellipse2738.png";
-const imgEllipse2739 = "/images/figma-ellipse2739.png";
-const imgEllipse2740 = "/images/figma-ellipse2740.png";
+import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 const imgHugeiconsStudent1 = "/images/figma-icon-student.svg";
 const imgMaskGroup = "/images/figma-icon-pending-mask.svg";
 const imgGroup2 = "/images/figma-icon-fully-scheduled.svg";
@@ -27,14 +18,7 @@ const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgChevronDown2 = "/images/icon-chevron-down2.svg";
 const imgChevronDown3 = "/images/icon-chevron-down3.svg";
-const figmaAvatarByName: Record<string, string> = {
-  "Anna Lee": imgEllipse2735,
-  "George Lee": imgEllipse2736,
-  "Bruna Lee": imgEllipse2737,
-  "James Smith": imgEllipse2738,
-  "Bruce Collins": imgEllipse2739,
-  "Maria Collins": imgEllipse2740,
-};
+
 function TableRow({
   studentId,
   studentName,
@@ -281,10 +265,17 @@ export default function StudentsStudentsList({
       return res.statusText;
     }
   }
-  const stats = useMemo(
-    () => ({ total: 70, completed: 52, openBlocks: 14, pct: 72, pend: 18 }),
-    [],
-  );
+  const stats = useMemo(() => {
+    const total = students.length;
+    const completed = students.filter((student) => student.status === "Completed").length;
+    const openBlocks = Math.max(0, total - completed);
+    const pendingRequests = students.filter((student) => {
+      const match = /^(\d+)\s*\/\s*(\d+)$/.exec(student.enrichment.trim());
+      return match ? Number(match[1]) < Number(match[2]) : student.status !== "Completed";
+    }).length;
+    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, openBlocks, pct, pend: pendingRequests };
+  }, [students]);
   const filteredStudents = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return students.filter((student) => {
@@ -319,6 +310,25 @@ export default function StudentsStudentsList({
       setCurrentPage(page);
       setActiveDropdown(null);
     }
+  };
+  const exportStudents = () => {
+    const selected = selectedStudents.length
+      ? filteredStudents.filter((student) => selectedStudents.includes(student.id))
+      : filteredStudents;
+    downloadCsv(
+      "students-directory.csv",
+      ["Name", "Parent", "Level", "Schedule status", "Enrichment", "Track", "Notes"],
+      selected.map((student) => [
+        student.name,
+        student.parent,
+        student.level,
+        student.status,
+        student.enrichment,
+        student.track,
+        student.notes,
+      ]),
+    );
+    setSpreadsheetBanner(`Downloaded ${selected.length} student row(s) as CSV.`);
   };
   const handleSelectStudent = (id: string) => {
     if (selectedStudents.includes(id)) {
@@ -674,7 +684,7 @@ export default function StudentsStudentsList({
                     key={student.id}
                     studentId={student.id}
                     studentName={student.name}
-                    avatar={figmaAvatarByName[student.name] ?? student.avatar}
+                    avatar={student.avatar}
                     parentName={student.parent}
                     level={student.level}
                     coreStatus={student.status}
@@ -762,11 +772,11 @@ export default function StudentsStudentsList({
           )}
           <button
             type="button"
-            onClick={() => setSpreadsheetBanner(exportQueuedToast())}
+            onClick={exportStudents}
             className="bg-[#d2f1f5] shadow-sm flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#bce6ec] transition-colors cursor-pointer"
           >
             <p className="font-inter-tight text-[#14c1d5] text-[16px] tracking-[0.32px]">
-              Upload to Spreadsheet
+              Download CSV
             </p>
           </button>
         </div>
@@ -782,11 +792,8 @@ export default function StudentsStudentsList({
               Message parent
             </h2>
             <p className="mt-2 text-sm text-[#666d80]">
-              A message composer for
-              <span className="font-semibold">{messageTarget.parent}</span>
-              about <span className="font-semibold">{messageTarget.name}</span>
-              will open when messaging is enabled.
-              {messagingDialogDisclaimer()}
+              Open an email draft about <span className="font-semibold">{messageTarget.name}</span>. Add the parent
+              recipient in your mail app before sending.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -796,6 +803,15 @@ export default function StudentsStudentsList({
               >
                 Close
               </button>
+              <a
+                className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
+                href={mailtoHref({
+                  subject: `Message about ${messageTarget.name}`,
+                  body: `Hi ${messageTarget.parent},\n\nRegarding ${messageTarget.name}:\n\n`,
+                })}
+              >
+                Open email draft
+              </a>
             </div>
           </div>
         </div>

@@ -44,8 +44,21 @@ export const PERSONA_ORDER: DashboardPersona[] = [
   "student",
 ];
 
-const PRODUCTION_DISPLAY_NAME = "Joseph Collins";
-const PRODUCTION_ROLE_LABEL = "Administrator";
+const PRODUCTION_ACCOUNT_DEFAULT = {
+  persona: "admin" as DashboardPersona,
+  displayName: "Signed-in user",
+  roleLabel: "User",
+  avatarInitials: "U",
+  studentId: DEMO_STUDENT_FALLBACK_ID,
+};
+
+type ProductionAccount = typeof PRODUCTION_ACCOUNT_DEFAULT;
+
+type CurrentAccountProfile = {
+  displayName?: string;
+  role?: string;
+  defaultStudentId?: string | null;
+};
 
 type DashboardPersonaContextValue = {
   persona: DashboardPersona;
@@ -73,6 +86,28 @@ function readLegacyPersona(
   return null;
 }
 
+function roleToPersona(raw: unknown): DashboardPersona {
+  if (raw === "parent" || raw === "teacher" || raw === "student") return raw;
+  return "admin";
+}
+
+function roleToLabel(role: DashboardPersona): string {
+  if (role === "admin") return "Administrator";
+  return PERSONA_LABELS[role];
+}
+
+function productionAccountFromProfile(profile: CurrentAccountProfile): ProductionAccount {
+  const persona = roleToPersona(profile.role);
+  const displayName = profile.displayName?.trim() || PRODUCTION_ACCOUNT_DEFAULT.displayName;
+  return {
+    persona,
+    displayName,
+    roleLabel: roleToLabel(persona),
+    avatarInitials: initialsFromDisplayName(displayName),
+    studentId: profile.defaultStudentId || DEMO_STUDENT_FALLBACK_ID,
+  };
+}
+
 export function DashboardPersonaProvider({
   children,
 }: {
@@ -80,6 +115,9 @@ export function DashboardPersonaProvider({
 }) {
   const [demoAccountId, setDemoAccountIdState] = useState<DemoAccountId>(
     DEFAULT_DEMO_ACCOUNT_ID,
+  );
+  const [productionAccount, setProductionAccount] = useState<ProductionAccount>(
+    PRODUCTION_ACCOUNT_DEFAULT,
   );
 
   useEffect(() => {
@@ -118,6 +156,42 @@ export function DashboardPersonaProvider({
     }
   }, []);
 
+  useEffect(() => {
+    if (isTestPersonaSwitcherEnabled()) return;
+
+    let cancelled = false;
+    async function loadCurrentProfile() {
+      try {
+        const res = await fetch("/api/data/me", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as {
+          profile?: CurrentAccountProfile | null;
+        };
+        const profile = body.profile;
+        if (cancelled || !profile) return;
+        setProductionAccount(productionAccountFromProfile(profile)); // eslint-disable-line react-hooks/set-state-in-effect -- account chrome is hydrated from the authenticated profile API
+      } catch {
+        /* keep neutral account chrome */
+      }
+    }
+    void loadCurrentProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isTestPersonaSwitcherEnabled()) return;
+
+    function handleAccountUpdated(event: Event) {
+      const detail = (event as CustomEvent<CurrentAccountProfile>).detail;
+      if (detail) setProductionAccount(productionAccountFromProfile(detail));
+    }
+
+    window.addEventListener("cia-account-profile-updated", handleAccountUpdated);
+    return () => window.removeEventListener("cia-account-profile-updated", handleAccountUpdated);
+  }, []);
+
   const persistAccount = useCallback((id: DemoAccountId) => {
     if (!isTestPersonaSwitcherEnabled()) return;
     try {
@@ -148,17 +222,17 @@ export function DashboardPersonaProvider({
 
   const value = useMemo((): DashboardPersonaContextValue => {
     const active = getDemoAccountById(demoAccountId);
-    const persona = qa ? active.persona : "admin";
+    const persona = qa ? active.persona : productionAccount.persona;
     const activeAccount = qa ? active : getDemoAccountById(DEFAULT_DEMO_ACCOUNT_ID);
 
-    const displayName = qa ? activeAccount.displayName : PRODUCTION_DISPLAY_NAME;
-    const roleLabel = qa ? activeAccount.roleLabel : PRODUCTION_ROLE_LABEL;
+    const displayName = qa ? activeAccount.displayName : productionAccount.displayName;
+    const roleLabel = qa ? activeAccount.roleLabel : productionAccount.roleLabel;
     const avatarInitials = qa
       ? initialsFromDisplayName(activeAccount.displayName)
-      : initialsFromDisplayName(PRODUCTION_DISPLAY_NAME);
+      : productionAccount.avatarInitials;
     const demoStudentId = qa
       ? activeAccount.studentId
-      : DEMO_STUDENT_FALLBACK_ID;
+      : productionAccount.studentId;
 
     return {
       persona,
@@ -171,7 +245,7 @@ export function DashboardPersonaProvider({
       avatarInitials,
       demoStudentId,
     };
-  }, [qa, demoAccountId, setPersona, setDemoAccount]);
+  }, [qa, demoAccountId, setPersona, setDemoAccount, productionAccount]);
 
   return (
     <DashboardPersonaContext.Provider value={value}>

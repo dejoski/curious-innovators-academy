@@ -4,18 +4,38 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "check:routes": "node scripts/check-routes.mjs",
+    "check:workspace-hygiene": "node scripts/check-workspace-hygiene.cjs",
+    "check:operator-scripts": "node scripts/check-operator-scripts.cjs",
+    "check:ci-workflows": "node scripts/check-ci-workflows.cjs",
+    "check:production-todo": "node scripts/check-production-todo.cjs",
+    "check:env-contract": "node scripts/check-env-contract.cjs",
+    "check:data-boundaries": "node scripts/check-data-boundaries.cjs",
+    "check:api-auth-guards": "node scripts/check-api-auth-guards.cjs",
+    "check:sql-security": "node scripts/check-sql-security.cjs",
+    "check:server-secret-boundaries": "node scripts/check-server-secret-boundaries.cjs",
+    "check:restore-target-guard": "node scripts/check-restore-target-guard.cjs",
+    "check:security-headers": "node scripts/check-security-headers.cjs",
+    "check:production-health-guards": "node scripts/check-production-health-guards.cjs",
+    "check:production-auth-guard": "node scripts/check-production-auth-guard.cjs",
+    "check:responsive": "playwright test e2e/responsive.spec.ts",
     "test:e2e": "playwright test",
+    "provision:supabase-users": "node scripts/provision-supabase-users.cjs",
+    "verify:production": "node scripts/verify-production-readiness.cjs",
+    "verify:restore-target": "CIA_VERIFY_RESTORE_TARGET=true node scripts/verify-production-readiness.cjs",
+    "monitor:production": "node scripts/monitor-production.cjs",
+    "check:supabase-backups": "node scripts/check-supabase-backups.cjs",
+    "drill:logical-backup-restore": "node scripts/drill-logical-backup-restore.cjs",
     "verify:supabase-login": "node scripts/verify-supabase-login.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.90.1",
     "lucide-react": "^1.12.0",
-    "next": "16.2.4",
+    "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -26,8 +46,16 @@
     "@types/react": "^19",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.6",
+    "eslint-plugin-react-hooks": "7.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "8.5.14"
+  },
+  "optionalDependencies": {
+    "@next/swc-darwin-arm64": "^16.2.6",
+    "lightningcss-darwin-arm64": "^1.32.0"
   }
 }

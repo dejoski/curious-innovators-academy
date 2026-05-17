@@ -9,7 +9,6 @@ import {
   type CalendarEventType,
   cloneExtras,
   DAYS_OF_WEEK,
-  seedEventsForDate,
   toDateKey,
   typeLabel,
 } from "@/lib/dashboard/schedule-calendar-shared";
@@ -122,6 +121,7 @@ export default function ScheduleMonth({
   const [extrasByDateKey, setExtrasByDateKey] = useState<Record<string, CalendarEvent[]>>(() =>
     cloneExtras(initialExtrasByDate),
   );
+  const [activeDataSource, setActiveDataSource] = useState<DataSource>(dataSource);
 
   const [syncHint, setSyncHint] = useState<string | null>(null);
 
@@ -132,13 +132,40 @@ export default function ScheduleMonth({
   const [createTime, setCreateTime] = useState("");
   const [createType, setCreateType] = useState<CalendarEventType>("event");
   const [createDescription, setCreateDescription] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+
+  useEffect(() => {
+    setExtrasByDateKey(cloneExtras(initialExtrasByDate));
+    setActiveDataSource(dataSource);
+  }, [dataSource, initialExtrasByDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/data/schedule-extras", {
+          cache: "no-store",
+          headers: { accept: "application/json" },
+        });
+        if (cancelled || !res.ok) return;
+        const body = (await res.json()) as { extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource };
+        if (cancelled) return;
+        setExtrasByDateKey(cloneExtras(body.extrasByDate ?? {}));
+        setActiveDataSource(body.source ?? "unavailable");
+      } catch {
+        /* Keep server-rendered rows when the client refresh cannot complete. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const eventsForDate = useMemo(() => {
     return (date: Date): CalendarEvent[] => {
       const key = toDateKey(date);
-      const seed = seedEventsForDate(date);
-      const extra = extrasByDateKey[key] ?? [];
-      return [...seed, ...extra];
+      return extrasByDateKey[key] ?? [];
     };
   }, [extrasByDateKey]);
 
@@ -173,6 +200,7 @@ export default function ScheduleMonth({
     setCreateTime("");
     setCreateType("event");
     setCreateDescription("");
+    setCreateError(null);
     setIsCreateModalOpen(true);
   };
 
@@ -182,6 +210,7 @@ export default function ScheduleMonth({
     setCreateType("event");
     setCreateDescription("");
     setCreateEventDate(null);
+    setCreateError(null);
   };
 
   async function readApiError(res: Response): Promise<string> {
@@ -198,38 +227,45 @@ export default function ScheduleMonth({
     if (!createEventDate || !createTitle.trim() || !createTime) return;
     const key = toDateKey(createEventDate);
     const timeDisplay = formatTimeFromInput(createTime);
-    let id = `user-${key}-${Date.now()}`;
+    setCreateError(null);
+    setIsCreatingEvent(true);
     const newEvent: CalendarEvent = {
-      id,
+      id: "",
       time: timeDisplay,
       title: createTitle.trim(),
       type: createType,
       description: createDescription.trim() || undefined,
     };
-    const res = await fetch("/api/data/schedule-extras", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventDate: key,
-        timeLabel: timeDisplay,
-        title: newEvent.title,
-        eventType: createType,
-        description: newEvent.description,
-      }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/data/schedule-extras", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventDate: key,
+          timeLabel: timeDisplay,
+          title: newEvent.title,
+          eventType: createType,
+          description: newEvent.description,
+        }),
+      });
+      if (!res.ok) {
+        setCreateError(await readApiError(res));
+        return;
+      }
       const body = (await res.json()) as { id: string };
-      id = body.id;
-      newEvent.id = id;
-    } else {
-      setSyncHint(`Event saved in view only (${await readApiError(res)}).`);
+      newEvent.id = body.id;
+      setExtrasByDateKey((prev) => ({
+        ...prev,
+        [key]: [...(prev[key] ?? []), newEvent],
+      }));
+      setIsCreateModalOpen(false);
+      resetCreateForm();
+      setSyncHint("Event saved.");
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Event could not be saved.");
+    } finally {
+      setIsCreatingEvent(false);
     }
-    setExtrasByDateKey((prev) => ({
-      ...prev,
-      [key]: [...(prev[key] ?? []), newEvent],
-    }));
-    setIsCreateModalOpen(false);
-    resetCreateForm();
   };
 
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -403,11 +439,11 @@ export default function ScheduleMonth({
         <p className="font-sans font-normal text-[#666d80] text-[16px] leading-[1.4]">
           {heroSubtitle}
         </p>
-        {showDataSourceBanner && (dataSource === "fallback" || syncHint) && (
+        {showDataSourceBanner && (activeDataSource === "fallback" || syncHint) && (
           <div className="mt-2 flex flex-col gap-2 max-w-3xl">
-            {dataSource === "fallback" && (
+            {activeDataSource === "fallback" && (
               <p className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
-                Weekday template active — cloud extras unavailable or query failed.
+                Sample schedule template active — cloud schedule data unavailable or query failed.
               </p>
             )}
             {syncHint && (
@@ -560,6 +596,11 @@ export default function ScheduleMonth({
               </button>
             </div>
             <form className="flex flex-col gap-4" onSubmit={handleCreateSubmit}>
+              {createError ? (
+                <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                  {createError}
+                </div>
+              ) : null}
               <div>
                 <label className="block text-sm font-medium mb-1">Date</label>
                 <input
@@ -623,8 +664,12 @@ export default function ScheduleMonth({
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-[#14c1d5] text-white rounded-lg font-medium hover:bg-[#12aebd]">
-                  Create Event
+                <button
+                  type="submit"
+                  disabled={isCreatingEvent}
+                  className="px-4 py-2 bg-[#14c1d5] text-white rounded-lg font-medium hover:bg-[#12aebd] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+                >
+                  {isCreatingEvent ? "Saving..." : "Create Event"}
                 </button>
               </div>
             </form>

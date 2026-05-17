@@ -1,6 +1,6 @@
 /**
- * Single source of truth for dashboard mock counts (no API).
- * Stat cards, links targets, and Daily Blocks snapshots derive from this.
+ * Bundled fallback counts used only when the dashboard repository cannot read
+ * live Supabase metrics.
  */
 export const DASHBOARD_METRICS = {
   studentCount: 70,

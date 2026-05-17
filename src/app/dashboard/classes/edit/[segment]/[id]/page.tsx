@@ -79,10 +79,26 @@ export default function EditClassPage() {
   }
 
   const draft = row!;
+  const seatsPattern = /^\d+\s*\/\s*\d+$/;
+  const canSave = Boolean(draft.name.trim() && draft.teacher.trim() && seatsPattern.test(draft.students.trim())) && !submitting;
 
   const save = async () => {
     const trimmed = draft.name.trim();
-    if (!trimmed || submitting) return;
+    const teacherName = draft.teacher.trim();
+    const studentsLabel = draft.students.trim();
+    if (submitting) return;
+    if (!trimmed) {
+      setSyncHint("Class name is required.");
+      return;
+    }
+    if (!teacherName) {
+      setSyncHint("Choose an existing teacher from the roster before saving this class.");
+      return;
+    }
+    if (!seatsPattern.test(studentsLabel)) {
+      setSyncHint("Seats must use the enrolled/capacity format, such as 12/30.");
+      return;
+    }
     setSubmitting(true);
     setSyncHint(null);
     try {
@@ -92,9 +108,9 @@ export default function EditClassPage() {
         body: JSON.stringify({
           id: draft.id,
           name: trimmed,
-          teacher: draft.teacher.trim() || "TBD",
-          students: draft.students.trim() || "0/1",
-          schedule: draft.schedule.trim() || "TBD",
+          teacher: teacherName,
+          students: studentsLabel,
+          schedule: draft.schedule.trim(),
           status: draft.status,
           track: draft.program,
         }),
@@ -123,9 +139,6 @@ export default function EditClassPage() {
           <h1 className="font-sans text-[26px] font-bold leading-tight text-[#0d0d12] md:text-[28px]">
             Edit class
           </h1>
-          <p className="font-sans text-[14px] leading-relaxed text-[#666d80]">
-            Figma: Classes / Edit Class (<span className="font-mono text-[13px]">363:4181</span>).
-          </p>
           {syncHint && (
             <p className="rounded-lg border border-[#d80509]/30 bg-[#fff5f5] px-4 py-2 text-sm text-[#a00408]">{syncHint}</p>
           )}
@@ -141,10 +154,11 @@ export default function EditClassPage() {
             />
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
-            Teacher
+            Teacher roster name
             <input
               value={draft.teacher}
               onChange={(e) => setRow({ ...draft, teacher: e.target.value })}
+              aria-required="true"
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
@@ -153,6 +167,7 @@ export default function EditClassPage() {
             <input
               value={draft.students}
               onChange={(e) => setRow({ ...draft, students: e.target.value })}
+              aria-required="true"
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
@@ -185,7 +200,7 @@ export default function EditClassPage() {
             </Link>
             <button
               type="button"
-              disabled={!draft.name.trim() || submitting}
+              disabled={!canSave}
               onClick={() => void save()}
               className="rounded-md bg-[#14c1d5] px-4 py-2 font-sans text-sm font-semibold text-white hover:bg-[#12aebd] disabled:opacity-50"
             >

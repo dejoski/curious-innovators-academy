@@ -4,7 +4,7 @@ import {
   type DashboardDailyBlockRow,
   type DashboardHeadCounts,
 } from "@/lib/dashboard-metrics";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ResolvedDashboardPresentation = {
@@ -21,6 +21,24 @@ function fallbackPresentation(): ResolvedDashboardPresentation {
     dailyRows: getDashboardDailyBlocks(m),
     fromRemote: false,
   };
+}
+
+function unavailablePresentation(): ResolvedDashboardPresentation {
+  const metrics = {
+    studentCount: 0,
+    teacherCount: 0,
+    coreClassCount: 0,
+    enrichmentOfferingCount: 0,
+  };
+  return {
+    metrics,
+    dailyRows: getDashboardDailyBlocks(metrics),
+    fromRemote: false,
+  };
+}
+
+function nonRemotePresentation(): ResolvedDashboardPresentation {
+  return canUseBundledFallbackData() ? fallbackPresentation() : unavailablePresentation();
 }
 
 async function countExact(
@@ -42,7 +60,7 @@ async function countExact(
  * Uses authenticated server client (RLS); column is `program` on `classes`.
  */
 export async function resolveDashboardPresentation(): Promise<ResolvedDashboardPresentation> {
-  if (!isSupabaseConfigured()) return fallbackPresentation();
+  if (!isSupabaseConfigured()) return nonRemotePresentation();
 
   try {
     const [studentCount, teacherCount, coreClassCount, enrichmentOfferingCount] =
@@ -59,7 +77,7 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
       coreClassCount === null ||
       enrichmentOfferingCount === null
     ) {
-      return fallbackPresentation();
+      return nonRemotePresentation();
     }
 
     const metrics: DashboardHeadCounts = {
@@ -75,6 +93,6 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
       fromRemote: true,
     };
   } catch {
-    return fallbackPresentation();
+    return nonRemotePresentation();
   }
 }

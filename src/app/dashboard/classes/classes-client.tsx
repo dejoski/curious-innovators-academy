@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { downloadCsv } from "@/lib/client-directory-actions";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
@@ -20,49 +21,6 @@ const imgChevronNext = "/images/icon-chevron-down4.svg";
 type ClassStatus = "Active" | "Full";
 
 const PAGE_SIZE = 10;
-const FIGMA_CORE_ROWS: SchoolClassRow[] = [
-  { id: "f-1", name: "Math", teacher: "Ms. Johnson", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "3", block: "B2", pendingCount: 18, waitlistCount: 12 },
-  { id: "f-2", name: "Science", teacher: "Mr. Carter", students: "25/25", schedule: "Friday", status: "Full", program: "core", level: "3", block: "B2", pendingCount: 18, waitlistCount: 5 },
-  { id: "f-3", name: "English Language Arts.", teacher: "Mr. Garcia", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "4", block: "B3", pendingCount: 18, waitlistCount: 13 },
-  { id: "f-4", name: "History", teacher: "Mr. Garcia", students: "25/25", schedule: "Tuesday", status: "Full", program: "core", level: "4", block: "B4", pendingCount: 18, waitlistCount: 26 },
-  { id: "f-5", name: "Math", teacher: "Ms. Jumper", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "4", block: "B2", pendingCount: 18, waitlistCount: 3 },
-  { id: "f-6", name: "Science", teacher: "Mr. Carter", students: "25/25", schedule: "Friday", status: "Full", program: "core", level: "3", block: "B2", pendingCount: 18, waitlistCount: 0 },
-  { id: "f-7", name: "English Language Arts.", teacher: "Mr. Garcia", students: "25/25", schedule: "Monday", status: "Full", program: "core", level: "4", block: "B3", pendingCount: 18, waitlistCount: 11 },
-];
-const FIGMA_TIME_BY_ID: Record<string, string> = {
-  "f-1": "8:00 AM - 9:30 AM",
-  "f-2": "10:30 AM - 12:00 PM",
-  "f-3": "8:00 AM - 9:30 AM",
-  "f-4": "8:00 AM - 9:30 AM",
-  "f-5": "8:00 AM - 9:30 AM",
-  "f-6": "8:00 AM - 9:30 AM",
-  "f-7": "8:00 AM - 9:30 AM",
-  "e-1": "8:00 AM - 9:30 AM",
-  "e-2": "10:30 AM - 12:00 PM",
-  "e-3": "8:00 AM - 9:30 AM",
-  "e-4": "8:00 AM - 9:30 AM",
-  "e-5": "8:00 AM - 9:30 AM",
-  "e-6": "8:00 AM - 9:30 AM",
-  "e-7": "8:00 AM - 9:30 AM",
-};
-const FIGMA_ENRICHMENT_ROWS: SchoolClassRow[] = [
-  { id: "e-1", name: "Robotics Lab", teacher: "Ms. Johnson", students: "25/25", schedule: "Monday", status: "Full", program: "enrichment", level: "3", block: "B2", pendingCount: 18, waitlistCount: 12 },
-  { id: "e-2", name: "Journalism & Media Writing", teacher: "Mr. Carter", students: "21/25", schedule: "Friday", status: "Full", program: "enrichment", level: "3", block: "B2", pendingCount: 18, waitlistCount: 5 },
-  { id: "e-3", name: "Creative Arts", teacher: "Mr. Garcia", students: "25/25", schedule: "Monday", status: "Full", program: "enrichment", level: "4", block: "B3", pendingCount: 18, waitlistCount: 13 },
-  { id: "e-4", name: "Ocean Explorers", teacher: "Mr. Garcia", students: "21/25", schedule: "Tuesday", status: "Full", program: "enrichment", level: "4", block: "B4", pendingCount: 18, waitlistCount: 26 },
-  { id: "e-5", name: "Robotics Lab", teacher: "Ms. Jumper", students: "25/25/25", schedule: "Monday", status: "Full", program: "enrichment", level: "4", block: "B2", pendingCount: 18, waitlistCount: 3 },
-  { id: "e-6", name: "Journalism & Media Writing", teacher: "Mr. Carter", students: "25/25", schedule: "Friday", status: "Full", program: "enrichment", level: "3", block: "B2", pendingCount: 18, waitlistCount: 0 },
-  { id: "e-7", name: "Creative Arts", teacher: "Mr. Garcia", students: "21/25", schedule: "Monday", status: "Full", program: "enrichment", level: "4", block: "B3", pendingCount: 18, waitlistCount: 11 },
-];
-const FIGMA_ENRICHMENT_PENDING_NOTE_BY_ID: Record<string, string> = {
-  "e-1": "(3 pending)",
-  "e-2": "(3 pending)",
-  "e-3": "(3 pending)",
-  "e-4": "(3 pending)",
-  "e-5": "(3 pending)25",
-  "e-6": "(3 pending)",
-  "e-7": "(3 pending)",
-};
 
 export type ClassesPageClientProps = {
   initialClasses: SchoolClassRow[];
@@ -113,15 +71,6 @@ function parseStudentsSort(s: string): [number, number] {
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(s.trim());
   if (!m) return [0, 0];
   return [Number(m[1]), Number(m[2])];
-}
-
-function nextClassId(classes: SchoolClassRow[]) {
-  let max = 0;
-  for (const c of classes) {
-    const n = Number.parseInt(String(c.id), 10);
-    if (Number.isFinite(n)) max = Math.max(max, n);
-  }
-  return String(max + 1);
 }
 
 function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
@@ -235,12 +184,7 @@ export default function ClassesPageClient({
   }, [classes, trackTab, visibilityFilter, search, sortKey, sortDir]);
 
   const processed = processedIdsMemo.rows;
-  const visibleRows =
-    trackTab === "core"
-      ? FIGMA_CORE_ROWS
-      : trackTab === "enrichment"
-        ? FIGMA_ENRICHMENT_ROWS
-        : processed;
+  const visibleRows = processed;
 
   useEffect(() => {
     const el = selectAllRef.current;
@@ -288,6 +232,29 @@ export default function ClassesPageClient({
 
   const visiblePages = getVisiblePages(safePage, totalPages);
 
+  const exportClasses = () => {
+    const selected = selectedIds.size
+      ? visibleRows.filter((row) => selectedIds.has(row.id))
+      : visibleRows;
+    downloadCsv(
+      "classes-directory.csv",
+      ["Class", "Teacher", "Level", "Block", "Schedule", "Seats", "Status", "Track", "Pending", "Waitlist"],
+      selected.map((row) => [
+        row.name,
+        row.teacher,
+        row.level,
+        row.block,
+        row.schedule,
+        row.students,
+        row.status,
+        row.program,
+        row.pendingCount,
+        row.waitlistCount,
+      ]),
+    );
+    setSyncHint(`Downloaded ${selected.length} class row(s) as CSV.`);
+  };
+
   useEffect(() => {
     setPage(1);
   }, [search, sortKey, sortDir, trackTab, visibilityFilter]);
@@ -298,16 +265,8 @@ export default function ClassesPageClient({
 
   useEffect(() => {
     setSelectedIds((prev) => {
-      const figmaRowsForTrack =
-        trackTab === "core"
-          ? FIGMA_CORE_ROWS
-          : trackTab === "enrichment"
-            ? FIGMA_ENRICHMENT_ROWS
-            : null;
       const allowed = new Set(
-        (figmaRowsForTrack ?? classes.filter((c) => c.program === trackTab)).map(
-          (c) => c.id,
-        ),
+        classes.filter((c) => c.program === trackTab).map((c) => c.id),
       );
       const next = new Set<string>();
       for (const id of prev) {
@@ -353,13 +312,7 @@ export default function ClassesPageClient({
       setClasses((prev) => [...prev, body.class]);
       return;
     }
-    const copy: SchoolClassRow = {
-      ...row,
-      id: nextClassId(classes),
-      name,
-    };
-    setClasses((prev) => [...prev, copy]);
-    setSyncHint(`Duplicated locally only (${await readApiError(res)}).`);
+    setSyncHint(`Could not duplicate class (${await readApiError(res)}).`);
   };
 
   const goToClassDetail = (row: SchoolClassRow) => {
@@ -386,8 +339,6 @@ export default function ClassesPageClient({
     }
   };
 
-  const showFigmaList = trackTab === "core" || trackTab === "enrichment";
-
   return (
     <div className="w-full p-[24px] md:p-[32px]">
       <div className="mx-auto flex max-w-[1104px] flex-col gap-[16px]">
@@ -408,10 +359,10 @@ export default function ClassesPageClient({
           </p>
         )}
 
-        <div className="inline-flex max-w-fit rounded-tl-[8px] rounded-tr-[8px] overflow-hidden">
+        <div className="flex w-full max-w-full overflow-hidden rounded-tl-[8px] rounded-tr-[8px] sm:inline-flex sm:w-auto">
           <button
             type="button"
-            className={`px-[50px] pb-[23px] pt-[4px] text-[14px] leading-[1.25] ${
+            className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
               trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
             }`}
             onClick={() => setTrackTab("core")}
@@ -420,7 +371,7 @@ export default function ClassesPageClient({
           </button>
           <button
             type="button"
-            className={`px-[50px] pb-[23px] pt-[4px] text-[14px] leading-[1.25] ${
+            className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
               trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
             }`}
             onClick={() => setTrackTab("enrichment")}
@@ -429,9 +380,9 @@ export default function ClassesPageClient({
           </button>
         </div>
 
-        <div className="relative -mt-[6px] h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-[18px] py-[16px]">
-          <div className="mb-[16px] flex items-center justify-between gap-4">
-            <div className="flex items-center gap-[6px]">
+        <div className="relative -mt-[6px] h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] sm:px-[18px]">
+          <div className="mb-[16px] flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+            <div className="flex w-full min-w-0 items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 py-2 md:w-auto md:bg-transparent md:px-0 md:py-0">
               <div className="relative size-[14px]">
                 <Search
                   className="size-[14px] text-[#0d0d12]"
@@ -443,17 +394,17 @@ export default function ClassesPageClient({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="w-[220px] bg-transparent text-[12px] text-[#0d0d12] outline-none placeholder:text-[#0d0d12]"
+                className="min-w-0 flex-1 bg-transparent text-[12px] text-[#0d0d12] outline-none placeholder:text-[#0d0d12] md:w-[220px] md:flex-none"
               />
             </div>
 
-            <div className="flex items-center gap-[16px]">
+            <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:gap-[16px]">
               <button
                 type="button"
-                className="flex items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
+                className="flex min-w-0 max-w-full items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
               >
                 <img src={imgFilterFunnel} alt="" className="size-[14px]" />
-                <span>Filter by: {visibilityFilter === "inactive" ? "Inactive Classes" : visibilityFilter === "active" ? "Active Classes" : "All Classes"}</span>
+                <span className="truncate">Filter by: {visibilityFilter === "inactive" ? "Inactive Classes" : visibilityFilter === "active" ? "Active Classes" : "All Classes"}</span>
                 <img src={imgCaretDown} alt="" className="size-[14px]" />
               </button>
 
@@ -505,17 +456,17 @@ export default function ClassesPageClient({
 
               <button
                 type="button"
-                className="inline-flex h-[42px] items-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium leading-[1.5] text-white"
+                className="inline-flex h-[42px] min-w-0 flex-1 items-center justify-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[14px] py-[8px] font-inter-tight text-[14px] font-medium leading-[1.5] text-white sm:flex-none sm:text-[16px]"
                 onClick={() => router.push(`/dashboard/classes/new?track=${trackTab}`)}
               >
                 <img src={imgIcRoundPlus} alt="" className="size-[16px]" />
-                {trackTab === "enrichment" ? "Add Enrichment Class" : "Add Core Class"}
+                <span className="truncate">{trackTab === "enrichment" ? "Add Enrichment Class" : "Add Core Class"}</span>
               </button>
             </div>
           </div>
 
-          <div className="w-full overflow-x-auto">
-            <table className="w-full table-fixed border-collapse text-left">
+          <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+            <table className="min-w-[980px] table-fixed border-collapse text-left">
               <colgroup>
                 <col className="w-[11.111%]" />
                 <col className="w-[11.111%]" />
@@ -563,7 +514,7 @@ export default function ClassesPageClient({
                   <tr
                     key={cls.id}
                     className={`h-[75px] cursor-pointer border-b border-[#f0f0f0] transition-colors hover:bg-[#f6fbfc] ${
-                      showFigmaList && idx < 4 ? "bg-[rgba(250,250,250,0.4)]" : ""
+                      idx % 2 === 1 ? "bg-[rgba(250,250,250,0.4)]" : ""
                     }`}
                     onClick={() => goToClassDetail(cls)}
                     onKeyDown={(e) => {
@@ -598,7 +549,7 @@ export default function ClassesPageClient({
                       <div className="flex flex-col items-center gap-[7px]">
                         <span className="text-[16px] leading-[1.25] text-[#0d0d12]">{cls.schedule}</span>
                         <span className="text-[11px] leading-[11px] text-[#666d80]">
-                          {FIGMA_TIME_BY_ID[cls.id] ?? "8:00 AM - 9:30 AM"}
+                          {cls.location || "Room not assigned"}
                         </span>
                       </div>
                     </td>
@@ -613,7 +564,7 @@ export default function ClassesPageClient({
                         <span>{cls.students}</span>
                         {trackTab === "enrichment" && (
                           <span className="mt-[6px] italic text-[16px] leading-[0.99] text-[#666d80]">
-                            {FIGMA_ENRICHMENT_PENDING_NOTE_BY_ID[cls.id] ?? "(3 pending)"}
+                            {cls.pendingCount > 0 ? `(${cls.pendingCount} pending)` : "No pending requests"}
                           </span>
                         )}
                       </div>
@@ -647,21 +598,7 @@ export default function ClassesPageClient({
             </div>
           )}
 
-          {showFigmaList && visibleRows.length > 0 && (
-            <div className="flex items-center justify-center gap-[12px] pt-5">
-              <img src={imgChevronPrev} alt="" className="size-[18px] rotate-90" />
-              <div className="flex items-center gap-[3px] text-[12px] font-semibold">
-                <span className="flex size-[18px] items-center justify-center rounded-[9px] bg-[#14c1d5] text-white">1</span>
-                <span className="text-[#666d80]">2</span>
-                <span className="text-[#666d80]">3</span>
-                <span className="text-[#666d80]">...</span>
-                <span className="text-[#666d80]">9</span>
-              </div>
-              <img src={imgChevronNext} alt="" className="size-[18px] -rotate-90" />
-            </div>
-          )}
-
-          {totalPages > 1 && visibleRows.length > 0 && !showFigmaList && (
+          {totalPages > 1 && visibleRows.length > 0 && (
             <div className="flex items-center justify-center gap-3 pt-5">
               <button
                 type="button"
@@ -707,16 +644,15 @@ export default function ClassesPageClient({
             </div>
           )}
 
-          {showFigmaList && (
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
-              >
-                Upload to Spreadsheet
-              </button>
-            </div>
-          )}
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
+              onClick={exportClasses}
+            >
+              Download CSV
+            </button>
+          </div>
         </div>
       </div>
 

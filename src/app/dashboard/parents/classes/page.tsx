@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Parent “Class List” IA: land on the Figma-derived core list (tabs switch to Enrichment). */
+/** Parent class list IA: land on the core list; tabs switch to enrichment. */
 export default function ParentClassesIndexPage() {
   redirect("/dashboard/parents/classes/core");
 }

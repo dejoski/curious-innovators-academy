@@ -8,6 +8,7 @@ import { signUpWithInviteOrDemo } from "@/lib/supabase/auth-bridge";
 import { getExpectedSignupInviteCode, PUBLIC_SIGNUP_INVITE_DEFAULT } from "@/lib/signup-invite";
 import { isDemoAdjacentWording } from "@/lib/product-copy";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isRemoteDataRequired } from "@/lib/data/env";
 
 const MIN_PW = 6;
 
@@ -34,6 +35,8 @@ export default function SignupClient() {
   const [authError, setAuthError] = useState("");
   const [successInfo, setSuccessInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const supabaseConfigured = isSupabaseConfigured();
+  const remoteDataRequired = isRemoteDataRequired();
 
   const validateEmail = (val: string) => {
     if (!val.trim()) return "Email is required";
@@ -105,7 +108,8 @@ export default function SignupClient() {
             <div className="mb-6 text-center lg:text-left">
               <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px] mb-2">Create your account</h1>
               <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
-                Enter your details and invite code. {!isSupabaseConfigured() && "Demo mode: no Supabase env — signup only navigates locally."}
+                Enter your details and invite code. {!supabaseConfigured && !remoteDataRequired && "Demo mode: no Supabase env — signup only navigates locally."}
+                {!supabaseConfigured && remoteDataRequired && "Account creation requires the Supabase project to be configured."}
               </p>
             </div>
 
@@ -306,6 +310,14 @@ export default function SignupClient() {
           <Link href="/login" className="text-[#14c1d5] text-[14px] font-medium hover:underline inline-flex items-center justify-center">
             Already have an account? Log in
           </Link>
+          <div className="mt-4 flex items-center justify-center gap-4 text-[12px] text-[#666d80]">
+            <Link href="/privacy" className="hover:text-[#14c1d5] hover:underline">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-[#14c1d5] hover:underline">
+              Terms
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { StudentListItem } from "@/lib/data/types";
-import {
-  studentProfileLearningSample,
-  studentProfileSupportNotesPlaceholder,
-} from "@/lib/product-copy";
+import type {
+  StudentProfileBundle,
+  StudentProfileDetails,
+  StudentProfileTimelineEvent,
+} from "@/lib/data/types";
 
-const imgEllipse2735 = "/images/anna-lee-avatar.png";
-const imgEllipse2736 = "/images/anna-lee-avatar.png";
 const imgGroup = "/images/icon-settings.svg";
 const imgMaskGroup = "/images/icon-group.svg";
 const imgGroup1 = "/images/icon-notification-bell.svg";
@@ -19,284 +17,32 @@ const imgVuesaxLinearClipboardText = "/images/icon-dashboard.svg";
 const imgRiParentLine = "/images/icon-parent.svg";
 const imgVuesaxOutlineCalendar = "/images/icon-dashboard.svg";
 
-type StudentDetailsState = {
-  name: string;
-  age: string;
-  level: string;
-  learningProfile: string;
-  strengths: string;
-  supportNotes: string;
-};
-
-type TimelineEvent = {
-  id: number;
-  type: string;
-  author: string;
-  role: string;
-  date: string;
-  time: string;
-  urgent: boolean;
-  title: string;
-  content: string;
-};
-
-type ClassChip = { id: string; name: string };
-
-type MockStudentBundle = {
-  avatar: string;
-  details: StudentDetailsState;
-  parentName: string;
-  parentHref: string;
-  coreSummaryLabel: string;
-  enrichmentSummaryLabel: string;
-  pendingLabel: string;
-  attendanceLabel: string;
-  coreClasses: ClassChip[];
-  enrichmentClasses: ClassChip[];
-  events: TimelineEvent[];
-  /** When true, class chips and history are deferred to live data sources. */
-  directoryDataOnly?: boolean;
-};
-
-const defaultEvents: TimelineEvent[] = [
-  {
-    id: 1,
-    type: "Academic",
-    author: "Mr. Mendes",
-    role: "Academic Coordination",
-    date: "02/08/2026",
-    time: "16:35 PM",
-    urgent: true,
-    title: "Dear families,",
-    content:
-      "Reminder: enrichment selections close soon. Complete choices in the student portal so we can finalize schedules.",
-  },
-  {
-    id: 2,
-    type: "Behavioral",
-    author: "Mr. Drummond",
-    role: "Student Life Coordinator",
-    date: "02/02/2026",
-    time: "10:35 AM",
-    urgent: false,
-    title: "Wellness check-in",
-    content:
-      "Student visited the office with minor discomfort. Family was contacted; early pickup completed with standard dismissal form.",
-  },
-];
-
-const MOCK_BY_ID: Record<string, MockStudentBundle> = {
-  "1": {
-    avatar: imgEllipse2735,
-    details: {
-      name: "Anna Lee",
-      age: "14",
-      level: "3",
-      learningProfile: "Curious and engaged learner who enjoys collaborative activities",
-      strengths: "Strong communication and creativity",
-      supportNotes: "Benefits from structured guidance on long tasks",
-    },
-    parentName: "Mr. Lee",
-    parentHref: "/dashboard/parents",
-    coreSummaryLabel: "Core: 2 / 2",
-    enrichmentSummaryLabel: "Enrichment: 4 / 6",
-    pendingLabel: "Pending Requests: 2",
-    attendanceLabel: "Attendance: 98%",
-    coreClasses: [
-      { id: "1", name: "Math 101" },
-      { id: "2", name: "Science 101" },
-    ],
-    enrichmentClasses: [
-      { id: "1", name: "Art" },
-      { id: "2", name: "Music" },
-      { id: "3", name: "PE" },
-      { id: "4", name: "Coding" },
-    ],
-    events: [
-      {
-        id: 1,
-        type: "Academic",
-        author: "Mr. Mendes",
-        role: "Academic Coordination",
-        date: "02/08/2026",
-        time: "16:35 PM",
-        urgent: true,
-        title: "Dear Mrs. Mary Lee,",
-        content:
-          "I hope this message finds you well.\n\nI am writing to remind you that the enrollment deadline for Ana Lee to select her Enrichment classes is approaching quickly.\n\nOur records indicate that her activity choices have not yet been submitted. To ensure that Ana secures a spot in her preferred courses before they reach full capacity, we kindly request that the selection be completed no later than March 12th.\n\nKey Information:\n- Deadline: March 12th, 2026.\n- Procedure: Selections must be made through the student portal.\n\nIf you have already completed this process or require any assistance regarding the available options, please do not hesitate to contact me.\n\nBest regards,",
-      },
-      {
-        id: 2,
-        type: "Behavioral",
-        author: "Mr. Drummond",
-        role: "Student Life Coordinator",
-        date: "02/02/2026",
-        time: "10:35 AM",
-        urgent: false,
-        title: "Incident Log",
-        content:
-          "At 10:15 AM, Ana Lee reported to the coordination office feeling unwell, complaining of abdominal pain and slight dizziness. After resting in the infirmary with no significant improvement, her family was contacted.\n\nOutcome:\nThe student's father, Mr. Johnson, arrived at 11:00 AM to pick her up early. The student was released following the signing of the early dismissal form. The coordination advised the family to keep the school updated should there be a need for an extended absence.",
-      },
-    ],
-  },
-  "2": {
-    avatar: imgEllipse2736,
-    details: {
-      name: "George Lee",
-      age: "12",
-      level: "2",
-      learningProfile: "Prefers hands-on projects and pair work",
-      strengths: "Quick problem solver in STEM activities",
-      supportNotes: "Check in before major assessments",
-    },
-    parentName: "Mr. Lee",
-    parentHref: "/dashboard/parents",
-    coreSummaryLabel: "Core: 2 / 2",
-    enrichmentSummaryLabel: "Enrichment: 3 / 6",
-    pendingLabel: "Pending Requests: 1",
-    attendanceLabel: "Attendance: 96%",
-    coreClasses: [
-      { id: "1", name: "Math 101" },
-      { id: "3", name: "ELA Workshop" },
-    ],
-    enrichmentClasses: [
-      { id: "2", name: "Robotics" },
-      { id: "3", name: "PE" },
-      { id: "5", name: "Debate" },
-    ],
-    events: defaultEvents,
-  },
-  "3": {
-    avatar: imgEllipse2735,
-    details: {
-      name: "Bruna Lee",
-      age: "14",
-      level: "2",
-      learningProfile: "Thoughtful reader; benefits from discussion time",
-      strengths: "Written expression and peer collaboration",
-      supportNotes: "Parent open to alternative enrichment if sections fill",
-    },
-    parentName: "Mr. Lee",
-    parentHref: "/dashboard/parents",
-    coreSummaryLabel: "Core: 2 / 2",
-    enrichmentSummaryLabel: "Enrichment: 1 / 6",
-    pendingLabel: "Pending Requests: 3",
-    attendanceLabel: "Attendance: 99%",
-    coreClasses: [
-      { id: "2", name: "Science 101" },
-      { id: "3", name: "ELA Workshop" },
-    ],
-    enrichmentClasses: [{ id: "1", name: "Art" }],
-    events: defaultEvents,
-  },
-};
-
-function resolveMock(id: string): MockStudentBundle {
-  return MOCK_BY_ID[id] ?? {
-    avatar: imgEllipse2735,
-    details: {
-      name: `Student #${id}`,
-      age: "13",
-      level: "3",
-      learningProfile: studentProfileLearningSample(),
-      strengths: "Adaptable and punctual",
-      supportNotes: studentProfileSupportNotesPlaceholder(),
-    },
-    parentName: "Directory contact",
-    parentHref: "/dashboard/parents",
-    coreSummaryLabel: "Core: 1 / 2",
-    enrichmentSummaryLabel: "Enrichment: 2 / 6",
-    pendingLabel: "Pending Requests: 1",
-    attendanceLabel: "Attendance: 95%",
-    coreClasses: [{ id: "1", name: "Math 101" }],
-    enrichmentClasses: [
-      { id: "1", name: "Art" },
-      { id: "2", name: "Music" },
-    ],
-    events: defaultEvents,
-  };
-}
-
-function buildResolvedBundle(
-  studentId: string,
-  directoryStudent: StudentListItem | null,
-  dataSource: DataSource,
-): MockStudentBundle | null {
-  if (dataSource === "remote" && !directoryStudent) {
-    return null;
-  }
-
-  if (dataSource === "remote" && directoryStudent) {
-    const notes = directoryStudent.notes.trim();
-    return {
-      avatar: directoryStudent.avatar || imgEllipse2735,
-      details: {
-        name: directoryStudent.name,
-        age: "—",
-        level: directoryStudent.level,
-        learningProfile: notes || "—",
-        strengths: "—",
-        supportNotes: "—",
-      },
-      parentName: directoryStudent.parent,
-      parentHref: "/dashboard/parents",
-      coreSummaryLabel:
-        directoryStudent.status === "Completed" ? "Core scheduling: complete" : "Core scheduling: in progress",
-      enrichmentSummaryLabel: `Enrichment: ${directoryStudent.enrichment}`,
-      pendingLabel:
-        directoryStudent.status === "Incomplete"
-          ? "Action needed: finish core scheduling"
-          : "Pending requests: none",
-      attendanceLabel: "Attendance: —",
-      coreClasses: [],
-      enrichmentClasses: [],
-      events: [],
-      directoryDataOnly: true,
-    };
-  }
-
-  const base = resolveMock(studentId);
-  if (directoryStudent && directoryStudent.id === studentId) {
-    return {
-      ...base,
-      avatar: directoryStudent.avatar || base.avatar,
-      details: {
-        ...base.details,
-        name: directoryStudent.name,
-        level: directoryStudent.level,
-        learningProfile: directoryStudent.notes.trim()
-          ? directoryStudent.notes
-          : base.details.learningProfile,
-      },
-      parentName: directoryStudent.parent,
-      enrichmentSummaryLabel: `Enrichment: ${directoryStudent.enrichment}`,
-      directoryDataOnly: false,
-    };
-  }
-  return { ...base, directoryDataOnly: false };
-}
+type StudentDetailsState = StudentProfileDetails;
+type TimelineEvent = StudentProfileTimelineEvent;
 
 export type StudentProfileClientProps = {
   studentId: string;
-  directoryStudent: StudentListItem | null;
+  profile: StudentProfileBundle | null;
   dataSource: DataSource;
 };
 
 export default function StudentProfileClient({
   studentId,
-  directoryStudent,
+  profile,
   dataSource,
 }: StudentProfileClientProps) {
-  const bundle = useMemo(
-    () => buildResolvedBundle(studentId, directoryStudent, dataSource),
-    [studentId, dataSource, directoryStudent],
-  );
+  const bundle = profile;
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
   const [editModalBaseline, setEditModalBaseline] = useState<StudentDetailsState | null>(null);
   const [filterType, setFilterType] = useState("All");
   const [discardPrompt, setDiscardPrompt] = useState<null | "edit" | "note">(null);
+  const [profileBanner, setProfileBanner] = useState<null | { tone: "success" | "error"; message: string }>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
@@ -318,6 +64,11 @@ export default function StudentProfileClient({
     setIsAddNoteModalOpen(false);
     setEditModalBaseline(null);
     setDiscardPrompt(null);
+    setProfileBanner(null);
+    setEditError(null);
+    setNoteError(null);
+    setIsSavingProfile(false);
+    setIsSavingNote(false);
     setNewNoteTitle("");
     setNewNoteContent("");
     setNewNoteType("Academic");
@@ -340,6 +91,12 @@ export default function StudentProfileClient({
   const mock = bundle;
 
   const filteredEvents = events.filter((e) => filterType === "All" || e.type === filterType);
+  const dataHint =
+    dataSource === "fallback"
+      ? "Showing sample data because the student detail API is unavailable."
+      : dataSource === "unavailable"
+        ? "Remote student data is required, but no row is available."
+        : "";
 
   const resetAddNoteForm = () => {
     setNewNoteTitle("");
@@ -347,28 +104,88 @@ export default function StudentProfileClient({
     setNewNoteType("Academic");
   };
 
-  const handleAddNote = (e: React.FormEvent) => {
+  async function readApiError(res: Response): Promise<string> {
+    try {
+      const body = (await res.json()) as { error?: string };
+      return body.error ?? res.statusText;
+    } catch {
+      return res.statusText;
+    }
+  }
+
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newEvent: TimelineEvent = {
-      id: Date.now(),
-      type: newNoteType,
-      author: "Admin",
-      role: "System Administrator",
-      date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }),
-      time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      urgent: false,
-      title: newNoteTitle,
-      content: newNoteContent,
-    };
-    setEvents([newEvent, ...events]);
-    setIsAddNoteModalOpen(false);
-    resetAddNoteForm();
+    setNoteError(null);
+    setIsSavingNote(true);
+    try {
+      const res = await fetch(`/api/data/students/${encodeURIComponent(studentId)}/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newNoteTitle,
+          content: newNoteContent,
+          type: newNoteType,
+        }),
+      });
+      if (!res.ok) {
+        setNoteError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { event?: TimelineEvent | null };
+      if (!body.event) {
+        setNoteError("Student note could not be saved.");
+        return;
+      }
+      setEvents((prev) => [body.event as TimelineEvent, ...prev]);
+      setIsAddNoteModalOpen(false);
+      resetAddNoteForm();
+      setProfileBanner({ tone: "success", message: "Student note was saved." });
+    } catch (error) {
+      setNoteError(error instanceof Error ? error.message : "Student note could not be saved.");
+    } finally {
+      setIsSavingNote(false);
+    }
   };
 
-  const handleEditProfile = (e: React.FormEvent) => {
+  const handleEditProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsEditModalOpen(false);
-    setEditModalBaseline(null);
+    setEditError(null);
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch(`/api/data/students/${encodeURIComponent(studentId)}/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: studentDetails.name,
+          age: studentDetails.age,
+          level: studentDetails.level,
+          learningProfile: studentDetails.learningProfile,
+          strengths: studentDetails.strengths,
+          supportNotes: studentDetails.supportNotes,
+        }),
+      });
+      if (!res.ok) {
+        if (editModalBaseline) setStudentDetails({ ...editModalBaseline });
+        setEditError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { profile?: StudentProfileBundle | null };
+      if (!body.profile) {
+        if (editModalBaseline) setStudentDetails({ ...editModalBaseline });
+        setEditError("Student profile could not be saved.");
+        return;
+      }
+      setStudentDetails(body.profile.details);
+      setEvents(body.profile.events);
+      setIsEditModalOpen(false);
+      setEditModalBaseline(null);
+      setProfileBanner({ tone: "success", message: "Student profile was saved." });
+    } catch (error) {
+      if (editModalBaseline) setStudentDetails({ ...editModalBaseline });
+      setEditError(error instanceof Error ? error.message : "Student profile could not be saved.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const isEditProfileDirty =
@@ -412,6 +229,7 @@ export default function StudentProfileClient({
 
   const openEditModal = () => {
     setEditModalBaseline({ ...studentDetails });
+    setEditError(null);
     setIsEditModalOpen(true);
   };
 
@@ -457,11 +275,24 @@ export default function StudentProfileClient({
         <p className="font-['Inter:Regular',sans-serif] font-normal text-[#666d80] text-[16px] leading-[1.4]">
           View and manage the student’s profile, schedule, and notes.
         </p>
+        {profileBanner ? (
+          <div
+            role={profileBanner.tone === "error" ? "alert" : "status"}
+            className={`mt-2 rounded-[10px] border px-4 py-3 text-sm font-medium ${
+              profileBanner.tone === "success"
+                ? "border-[#c8f4f0] bg-[#e8fafb] text-[#0d5c56]"
+                : "border-[#f6c8c8] bg-[#fff1f1] text-[#8c1f1f]"
+            }`}
+          >
+            {profileBanner.message}
+          </div>
+        ) : null}
         {mock.directoryDataOnly ? (
           <p className="text-xs text-[#6b7280] max-w-2xl leading-relaxed">
             Directory data is live; class chips and history will appear as enrollments and notes are linked in Supabase.
           </p>
         ) : null}
+        {dataHint ? <p className="text-xs text-[#6b7280] max-w-2xl leading-relaxed">{dataHint}</p> : null}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 w-full">
@@ -599,7 +430,10 @@ export default function StudentProfileClient({
               ))}
             </div>
             <button
-              onClick={() => setIsAddNoteModalOpen(true)}
+              onClick={() => {
+                setNoteError(null);
+                setIsAddNoteModalOpen(true);
+              }}
               className="bg-[#14c1d5] flex gap-[8px] items-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#12aebd] transition-colors shadow-sm"
             >
               <img alt="Add" className="size-[24px]" src={imgIcRoundPlus} />
@@ -662,6 +496,11 @@ export default function StudentProfileClient({
         >
           <div className="bg-white rounded-[16px] p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Edit Profile</h2>
+            {editError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {editError}
+              </div>
+            ) : null}
             <form onSubmit={handleEditProfile} className="flex flex-col gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
@@ -721,8 +560,12 @@ export default function StudentProfileClient({
                 <button type="button" onClick={requestCloseEditModal} className="px-4 py-2 border rounded-md hover:bg-gray-50">
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-[#14c1d5] text-white rounded-md hover:bg-[#12aebd]">
-                  Save Changes
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-4 py-2 bg-[#14c1d5] text-white rounded-md hover:bg-[#12aebd] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+                >
+                  {isSavingProfile ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>
@@ -737,6 +580,11 @@ export default function StudentProfileClient({
         >
           <div className="bg-white rounded-[16px] p-6 w-full max-w-lg shadow-xl">
             <h2 className="text-xl font-bold mb-4">Add Note / Record</h2>
+            {noteError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {noteError}
+              </div>
+            ) : null}
             <form onSubmit={handleAddNote} className="flex flex-col gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Type</label>
@@ -775,8 +623,12 @@ export default function StudentProfileClient({
                 <button type="button" onClick={requestCloseAddNoteModal} className="px-4 py-2 border rounded-md hover:bg-gray-50">
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-[#14c1d5] text-white rounded-md hover:bg-[#12aebd]">
-                  Add Record
+                <button
+                  type="submit"
+                  disabled={isSavingNote}
+                  className="px-4 py-2 bg-[#14c1d5] text-white rounded-md hover:bg-[#12aebd] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+                >
+                  {isSavingNote ? "Saving..." : "Add Record"}
                 </button>
               </div>
             </form>

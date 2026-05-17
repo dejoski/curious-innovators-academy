@@ -1,6 +1,7 @@
 import {
   clearDemoUiBypass,
 } from "@/lib/demo-login";
+import { isRemoteDataRequired } from "@/lib/data/env";
 import { inviteCodesMatch } from "@/lib/signup-invite";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -13,6 +14,11 @@ export type SignupResult =
   | { ok: true; kind: "confirmation_required"; message: string }
   | { ok: false; message: string };
 
+export type PasswordResetResult = { ok: true } | { ok: false; message: string };
+
+const SUPABASE_AUTH_REQUIRED_MSG =
+  "This deployment requires Supabase auth. Ask an administrator to configure the Supabase URL and anon key.";
+
 /**
  * Sign in with email/password when Supabase env is set; otherwise no-op success for demo routing.
  * Clears any UI-demo bypass flag once a real session is established (client-only storage).
@@ -21,10 +27,18 @@ export async function signInWithPasswordOrDemo(
   email: string,
   password: string,
 ): Promise<LoginResult> {
-  if (!isSupabaseConfigured()) return { ok: true };
+  if (!isSupabaseConfigured()) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }
+      : { ok: true };
+  }
 
   const supabase = getBrowserSupabase();
-  if (!supabase) return { ok: true };
+  if (!supabase) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }
+      : { ok: true };
+  }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, message: error.message };
@@ -49,7 +63,7 @@ const ACCOUNT_PENDING_MSG =
 
 /**
  * Validates invite code client-side, then `signUp` when Supabase env is set.
- * Without Supabase env, returns demo success (same pattern as password login) — no account is created.
+ * Without Supabase env, returns demo success only outside remote-data mode; no account is created.
  */
 export async function signUpWithInviteOrDemo(params: {
   email: string;
@@ -61,10 +75,18 @@ export async function signUpWithInviteOrDemo(params: {
     return { ok: false, message: "Invalid invite code." };
   }
 
-  if (!isSupabaseConfigured()) return { ok: true, kind: "demo" };
+  if (!isSupabaseConfigured()) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }
+      : { ok: true, kind: "demo" };
+  }
 
   const supabase = getBrowserSupabase();
-  if (!supabase) return { ok: true, kind: "demo" };
+  if (!supabase) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }
+      : { ok: true, kind: "demo" };
+  }
 
   const trimmedName = params.fullName?.trim() ?? "";
 
@@ -89,4 +111,54 @@ export async function signUpWithInviteOrDemo(params: {
     ok: false,
     message: "Sign up could not be completed. Try again or contact support.",
   };
+}
+
+function passwordResetRedirectUrl(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}/reset-password`;
+}
+
+export async function requestPasswordReset(email: string): Promise<PasswordResetResult> {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Password reset requires Supabase to be configured for this deployment.",
+    };
+  }
+
+  const supabase = getBrowserSupabase();
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Password reset is unavailable because the Supabase client could not be created.",
+    };
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: passwordResetRedirectUrl(),
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+export async function updateRecoveredPassword(password: string): Promise<PasswordResetResult> {
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Password update requires Supabase to be configured for this deployment.",
+    };
+  }
+
+  const supabase = getBrowserSupabase();
+  if (!supabase) {
+    return {
+      ok: false,
+      message: "Password update is unavailable because the Supabase client could not be created.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { ok: false, message: error.message };
+  clearDemoUiBypass();
+  return { ok: true };
 }

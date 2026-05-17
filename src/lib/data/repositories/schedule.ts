@@ -1,8 +1,25 @@
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { ScheduleCalendarEvent } from "@/lib/data/types";
-import { isSupabaseConfigured } from "@/lib/data/env";
-import { scheduleEventTypeFromDb } from "@/lib/data/mock/schedule-seed";
+import type { ProgramTrack, ScheduleCalendarEvent } from "@/lib/data/types";
+import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
+import { SCHEDULE_SEED_BY_WEEKDAY, scheduleEventTypeFromDb } from "@/lib/data/mock/schedule-seed";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const DAY_INDEX: Record<string, number> = {
+  sunday: 0,
+  sun: 0,
+  monday: 1,
+  mon: 1,
+  tuesday: 2,
+  tue: 2,
+  wednesday: 3,
+  wed: 3,
+  thursday: 4,
+  thu: 4,
+  friday: 5,
+  fri: 5,
+  saturday: 6,
+  sat: 6,
+};
 
 function parseIsoDateOnly(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -14,6 +31,141 @@ function timeFromStartsAt(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const t = raw.match(/T(\d{2}:\d{2})/);
   return t ? t[1] : null;
+}
+
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function defaultScheduleWindow(): { start: Date; end: Date } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return {
+    start: addDays(today, -35),
+    end: addDays(today, 180),
+  };
+}
+
+function appendEvent(
+  acc: Record<string, ScheduleCalendarEvent[]>,
+  dateKey: string,
+  event: ScheduleCalendarEvent,
+) {
+  const list = acc[dateKey] ?? [];
+  list.push(event);
+  acc[dateKey] = list;
+}
+
+function buildFallbackTemplateEvents(): Record<string, ScheduleCalendarEvent[]> {
+  const { start, end } = defaultScheduleWindow();
+  const acc: Record<string, ScheduleCalendarEvent[]> = {};
+  for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+    const dateKey = toDateKey(d);
+    const dayOfWeek = d.getDay();
+    const isFirstSaturday = dayOfWeek === 6 && d.getDate() <= 7;
+    const templates =
+      SCHEDULE_SEED_BY_WEEKDAY[dayOfWeek] ??
+      (isFirstSaturday
+        ? [
+            {
+              time: "1:00 pm",
+              title: "Parent Meeting",
+              type: "event" as const,
+              description: "All-school parent information session.",
+            },
+          ]
+        : []);
+    templates.forEach((template, index) => {
+      appendEvent(acc, dateKey, {
+        ...template,
+        id: `fallback-${dateKey}-${dayOfWeek}-${index}`,
+      });
+    });
+  }
+  return acc;
+}
+
+function normalizeTimeLabel(raw: string): string {
+  const match = raw.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (!match) return raw.trim();
+  const hour = Number(match[1]);
+  const minute = match[2] ?? "00";
+  const suffix = match[3]?.toLowerCase() ?? "";
+  return `${hour}:${minute} ${suffix}`;
+}
+
+function parseScheduleSummary(summary: unknown): { dayIndex: number; time: string } | null {
+  const raw = String(summary ?? "").trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const dayName = Object.keys(DAY_INDEX)
+    .sort((a, b) => b.length - a.length)
+    .find((day) => new RegExp(`\\b${day}\\b`, "i").test(lower));
+  if (!dayName) return null;
+  const afterSeparator = raw.split(/[·|,]/).slice(1).join(" ").trim() || raw;
+  const firstTimeRange = afterSeparator.split(/\s+-\s+|–|—/)[0]?.trim() || afterSeparator;
+  return {
+    dayIndex: DAY_INDEX[dayName],
+    time: normalizeTimeLabel(firstTimeRange),
+  };
+}
+
+function classEventType(program: unknown): ScheduleCalendarEvent["type"] {
+  return program === "core" ? "core" : "enrichment-approved";
+}
+
+function buildClassScheduleEvents(rows: Record<string, unknown>[]): Record<string, ScheduleCalendarEvent[]> {
+  const { start, end } = defaultScheduleWindow();
+  const acc: Record<string, ScheduleCalendarEvent[]> = {};
+  for (const row of rows) {
+    const parsed = parseScheduleSummary(row.schedule_summary);
+    if (!parsed) continue;
+    const classId = String(row.id ?? "");
+    const name = String(row.name ?? "").trim();
+    if (!classId || !name) continue;
+    const location = String(row.location ?? "").trim();
+    const program = String(row.program ?? "") as ProgramTrack;
+    for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+      if (d.getDay() !== parsed.dayIndex) continue;
+      const dateKey = toDateKey(d);
+      appendEvent(acc, dateKey, {
+        id: `class-${classId}-${dateKey}`,
+        time: parsed.time,
+        title: name,
+        type: classEventType(program),
+        description: location
+          ? `${String(row.schedule_summary ?? "").trim()} · ${location}`
+          : String(row.schedule_summary ?? "").trim() || undefined,
+      });
+    }
+  }
+  return acc;
+}
+
+function mergeByDate(
+  ...sources: Record<string, ScheduleCalendarEvent[]>[]
+): Record<string, ScheduleCalendarEvent[]> {
+  const merged: Record<string, ScheduleCalendarEvent[]> = {};
+  for (const source of sources) {
+    for (const [dateKey, events] of Object.entries(source)) {
+      const list = merged[dateKey] ?? [];
+      list.push(...events);
+      merged[dateKey] = list;
+    }
+  }
+  for (const dateKey of Object.keys(merged)) {
+    merged[dateKey].sort((a, b) => a.time.localeCompare(b.time));
+  }
+  return merged;
 }
 
 function mapScheduleRow(row: Record<string, unknown>): {
@@ -83,7 +235,10 @@ export async function fetchScheduleExtrasByDate(): Promise<
 
 export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResolved> {
   if (!isSupabaseConfigured()) {
-    return { extrasByDate: {}, source: "fallback" };
+    return {
+      extrasByDate: canUseBundledFallbackData() ? buildFallbackTemplateEvents() : {},
+      source: canUseBundledFallbackData() ? "fallback" : "unavailable",
+    };
   }
 
   try {
@@ -94,25 +249,33 @@ export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResol
       .order("starts_at", { ascending: true });
 
     if (error) {
-      return { extrasByDate: {}, source: "fallback" };
+      return {
+        extrasByDate: canUseBundledFallbackData() ? buildFallbackTemplateEvents() : {},
+        source: canUseBundledFallbackData() ? "fallback" : "unavailable",
+      };
     }
 
-    if (!data?.length) {
-      return { extrasByDate: {}, source: "remote" };
-    }
+    const scheduleEvents: Record<string, ScheduleCalendarEvent[]> = {};
 
-    const acc: Record<string, ScheduleCalendarEvent[]> = {};
-
-    for (const row of data) {
+    for (const row of data ?? []) {
       const mapped = mapScheduleRow(row as unknown as Record<string, unknown>);
       if (!mapped) continue;
-      const list = acc[mapped.dateKey] ?? [];
-      list.push(mapped.event);
-      acc[mapped.dateKey] = list;
+      appendEvent(scheduleEvents, mapped.dateKey, mapped.event);
     }
 
-    return { extrasByDate: acc, source: "remote" };
+    const { data: classes } = await supabase
+      .from("classes")
+      .select("id, name, program, schedule_summary, location, status")
+      .eq("status", "active");
+
+    return {
+      extrasByDate: mergeByDate(buildClassScheduleEvents((classes ?? []) as Record<string, unknown>[]), scheduleEvents),
+      source: "remote",
+    };
   } catch {
-    return { extrasByDate: {}, source: "fallback" };
+    return {
+      extrasByDate: canUseBundledFallbackData() ? buildFallbackTemplateEvents() : {},
+      source: canUseBundledFallbackData() ? "fallback" : "unavailable",
+    };
   }
 }

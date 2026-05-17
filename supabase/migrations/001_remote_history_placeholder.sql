@@ -1,0 +1,3 @@
+-- Remote history placeholder.
+-- This linked Supabase project already had migration version 001 recorded
+-- before this repository's production contract was added.

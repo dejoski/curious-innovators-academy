@@ -3,9 +3,14 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import type {
+  ClassRosterStatus,
+  ClassRosterStudent,
+  SchoolClassRow,
+} from "@/lib/data/types";
 
 const imgGroup1 = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-generic2.svg";
@@ -19,27 +24,11 @@ const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 const imgChevronDown4 = "/images/icon-chevron-down4.svg";
 const imgChevronDown = "/images/icon-chevron-down.svg";
 
-type Status = "Approved" | "Pending" | "Rejected";
+type Status = ClassRosterStatus;
 
 type SortOption = "None" | "Name A-Z" | "Name Z-A" | "Age Low-High" | "Age High-Low";
 
-type Student = {
-  id: string;
-  name: string;
-  parent: string;
-  age: number;
-  level: number;
-  status: Status;
-  description: string;
-};
-
-const initialStudents: Student[] = [
-  { id: "1", name: "Anna Lee", parent: "Mary Lee", age: 14, level: 2, status: "Approved", description: "Focused and participative in group activities." },
-  { id: "2", name: "George Lee", parent: "Mary Lee", age: 12, level: 2, status: "Pending", description: "Curious learner, asks thoughtful questions." },
-  { id: "3", name: "Bruna Lee", parent: "Mary Lee", age: 14, level: 2, status: "Approved", description: "Needs occasional support to stay on task." },
-  { id: "4", name: "James Smith", parent: "Patricia Smith", age: 13, level: 3, status: "Rejected", description: "Strong collaboration and communication skills." },
-  { id: "5", name: "James Smith 2", parent: "Patricia Smith", age: 13, level: 3, status: "Rejected", description: "Strong collaboration and communication skills." },
-];
+type Student = ClassRosterStudent;
 
 type ClassMeta = {
   title: string;
@@ -51,21 +40,58 @@ type ClassMeta = {
   capacityMax: number;
 };
 
-const INITIAL_CLASS_META: ClassMeta = {
-  title: "Math",
-  description: "Builds strong foundations in arithmetic, problem-solving, and logical reasoning.",
-  teacher: "Ms. Johnson",
-  blockLevel: "B2 L3",
-  schedule: "8:00 AM - 9:30AM",
-  capacityEnrolled: 18,
-  capacityMax: 20,
+const EMPTY_CLASS_META: ClassMeta = {
+  title: "Class",
+  description: "Loading class details.",
+  teacher: "Teacher not assigned",
+  blockLevel: "Block not set",
+  schedule: "Schedule not set",
+  capacityEnrolled: 0,
+  capacityMax: 1,
 };
+
+function parseCapacity(label: string): { enrolled: number; max: number } {
+  const match = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
+  if (!match) return { enrolled: 0, max: 1 };
+  return {
+    enrolled: Number(match[1]) || 0,
+    max: Math.max(1, Number(match[2]) || 1),
+  };
+}
+
+function classMetaFromRow(row: SchoolClassRow): ClassMeta {
+  const capacity = parseCapacity(row.students);
+  return {
+    title: row.name,
+    description:
+      row.description ||
+      `${row.name} roster and class setup details are loaded from the class data source.`,
+    teacher: row.teacher || "Teacher not assigned",
+    blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
+    schedule: row.schedule || "Schedule not set",
+    capacityEnrolled: capacity.enrolled,
+    capacityMax: capacity.max,
+  };
+}
+
+function splitBlockLevelLabel(label: string): { block: string; level: string } {
+  const trimmed = label.trim();
+  const levelMatch = /\bL\s*([A-Za-z0-9-]+)\b/i.exec(trimmed);
+  if (!levelMatch) return { block: trimmed, level: "" };
+  return {
+    block: trimmed.replace(levelMatch[0], "").trim(),
+    level: levelMatch[1],
+  };
+}
 
 export default function ClassDetailsPage() {
   const router = useRouter();
-  const [students, setStudents] = useState<Student[]>(initialStudents);
-  const [classMeta, setClassMeta] = useState<ClassMeta>(INITIAL_CLASS_META);
-  const [classMetaDraft, setClassMetaDraft] = useState<ClassMeta>(INITIAL_CLASS_META);
+  const params = useParams();
+  const classId = typeof params?.id === "string" ? params.id : "";
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classMeta, setClassMeta] = useState<ClassMeta>(EMPTY_CLASS_META);
+  const [classMetaDraft, setClassMetaDraft] = useState<ClassMeta>(EMPTY_CLASS_META);
+  const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"All" | Status>("All");
   const [sortOption, setSortOption] = useState<SortOption>("None");
@@ -86,6 +112,15 @@ export default function ClassDetailsPage() {
   const [addStatus, setAddStatus] = useState<Status>("Pending");
   const [addDescription, setAddDescription] = useState("");
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
+  const [addStudentError, setAddStudentError] = useState<string | null>(null);
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [classEditError, setClassEditError] = useState<string | null>(null);
+  const [deleteClassError, setDeleteClassError] = useState<string | null>(null);
+  const [editStudentError, setEditStudentError] = useState<string | null>(null);
+  const [rowActionError, setRowActionError] = useState<string | null>(null);
+  const [isSavingClassMeta, setIsSavingClassMeta] = useState(false);
+  const [isDeletingClass, setIsDeletingClass] = useState(false);
+  const [isSavingStudent, setIsSavingStudent] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -94,6 +129,63 @@ export default function ClassDetailsPage() {
   const actionRef = useRef<HTMLDivElement | null>(null);
   const actionAnchorRef = useRef<HTMLButtonElement | null>(null);
   const actionMenuPlacement = useFixedMenuPlacement(openActionDropdownId !== null, actionAnchorRef, 140);
+
+  useEffect(() => {
+    if (!classId) return;
+    let cancelled = false;
+    async function loadClassData() {
+      try {
+        const [classesRes, rosterRes] = await Promise.all([
+          fetch("/api/data/classes", { cache: "no-store" }),
+          fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, { cache: "no-store" }),
+        ]);
+        if (!classesRes.ok) throw new Error(classesRes.statusText);
+        if (!rosterRes.ok) throw new Error(rosterRes.statusText);
+        const classesBody = (await classesRes.json()) as {
+          classes?: SchoolClassRow[];
+          source?: string;
+        };
+        const rosterBody = (await rosterRes.json()) as {
+          students?: ClassRosterStudent[];
+          source?: string;
+        };
+        if (cancelled) return;
+        const row = (classesBody.classes ?? []).find((item) => item.id === classId);
+        if (row) {
+          const nextMeta = classMetaFromRow(row);
+          setClassMeta(nextMeta);
+          setClassMetaDraft(nextMeta);
+        }
+        setStudents(rosterBody.students ?? []);
+        setCurrentPage(1);
+        const source = rosterBody.source === "unavailable" || classesBody.source === "unavailable"
+          ? "unavailable"
+          : rosterBody.source === "fallback" || classesBody.source === "fallback"
+            ? "fallback"
+            : "remote";
+        setDataHint(
+          source === "fallback"
+            ? "Showing sample roster because cloud class data is unavailable."
+            : source === "unavailable"
+              ? "Cloud class data is unavailable. Ask an administrator to configure Supabase."
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setStudents([]);
+          setDataHint(
+            `Could not load class roster: ${
+              error instanceof Error ? error.message : String(error)
+            }.`,
+          );
+        }
+      }
+    }
+    loadClassData();
+    return () => {
+      cancelled = true;
+    };
+  }, [classId]);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -183,52 +275,168 @@ export default function ClassDetailsPage() {
 
   const openEditInfo = () => {
     setClassMetaDraft(classMeta);
+    setClassEditError(null);
     setIsEditInfoModalOpen(true);
   };
 
-  const saveClassMeta = () => {
+  const saveClassMeta = async () => {
     const max = classMetaDraft.capacityMax <= 0 ? 1 : classMetaDraft.capacityMax;
     const enrolled = Math.min(Math.max(0, classMetaDraft.capacityEnrolled), max);
-    setClassMeta({ ...classMetaDraft, capacityMax: max, capacityEnrolled: enrolled });
-    setIsEditInfoModalOpen(false);
+    const { block, level } = splitBlockLevelLabel(classMetaDraft.blockLevel);
+    setClassEditError(null);
+    setIsSavingClassMeta(true);
+    try {
+      const res = await fetch("/api/data/classes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: classId,
+          name: classMetaDraft.title,
+          teacher: classMetaDraft.teacher,
+          students: `${enrolled}/${max}`,
+          schedule: classMetaDraft.schedule,
+          status: "Active",
+          track: "core",
+          description: classMetaDraft.description,
+          block,
+          level,
+        }),
+      });
+      if (!res.ok) {
+        setClassEditError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { class?: SchoolClassRow };
+      const nextMeta = body.class ? classMetaFromRow(body.class) : { ...classMetaDraft, capacityMax: max, capacityEnrolled: enrolled };
+      setClassMeta(nextMeta);
+      setClassMetaDraft(nextMeta);
+      setIsEditInfoModalOpen(false);
+    } catch (error) {
+      setClassEditError(error instanceof Error ? error.message : "Class could not be saved.");
+    } finally {
+      setIsSavingClassMeta(false);
+    }
   };
 
-  const submitAddStudent = () => {
+  async function readApiError(res: Response): Promise<string> {
+    try {
+      const body = (await res.json()) as { error?: string };
+      return body.error ?? res.statusText;
+    } catch {
+      return res.statusText;
+    }
+  }
+
+  const submitAddStudent = async () => {
     const name = addName.trim();
     if (!name) return;
-    const nextNum = Math.max(0, ...students.map((s) => Number.parseInt(s.id, 10) || 0)) + 1;
-    const id = String(nextNum);
-    setStudents((prev) => [
-      ...prev,
-      {
-        id,
-        name,
-        parent: addParent.trim() || "—",
-        age: Number.parseInt(addAge, 10) || 10,
-        level: Number.parseInt(addLevel, 10) || 1,
-        status: addStatus,
-        description: addDescription.trim(),
-      },
-    ]);
-    setIsAddStudentModalOpen(false);
-    setAddName("");
-    setAddParent("");
-    setAddAge("14");
-    setAddLevel("2");
-    setAddStatus("Pending");
-    setAddDescription("");
+    setAddStudentError(null);
+    setIsAddingStudent(true);
+    try {
+      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          parent: addParent,
+          age: addAge,
+          level: addLevel,
+          status: addStatus,
+          description: addDescription,
+        }),
+      });
+      if (!res.ok) {
+        setAddStudentError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { student?: Student };
+      if (!body.student) {
+        setAddStudentError("Student could not be added to this class.");
+        return;
+      }
+      setStudents((prev) => [...prev, body.student as Student]);
+      setIsAddStudentModalOpen(false);
+      setAddName("");
+      setAddParent("");
+      setAddAge("14");
+      setAddLevel("2");
+      setAddStatus("Pending");
+      setAddDescription("");
+    } catch (error) {
+      setAddStudentError(error instanceof Error ? error.message : "Student could not be added to this class.");
+    } finally {
+      setIsAddingStudent(false);
+    }
   };
 
-  const removeStudentById = (id: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id));
+  const removeStudentById = async (id: string) => {
+    setRowActionError(null);
     setOpenActionDropdownId(null);
-    setSelectedRows((rows) => rows.filter((r) => r !== id));
+    try {
+      const res = await fetch(
+        `/api/data/classes/${encodeURIComponent(classId)}/roster?studentId=${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        setRowActionError(await readApiError(res));
+        return;
+      }
+      setStudents((prev) => prev.filter((s) => s.id !== id));
+      setSelectedRows((rows) => rows.filter((r) => r !== id));
+    } catch (error) {
+      setRowActionError(error instanceof Error ? error.message : "Student could not be removed.");
+    }
   };
 
-  const saveEditedStudent = () => {
+  const saveEditedStudent = async () => {
     if (!editStudentDraft) return;
-    setStudents((prev) => prev.map((s) => (s.id === editStudentDraft.id ? editStudentDraft : s)));
-    setEditStudentDraft(null);
+    setEditStudentError(null);
+    setIsSavingStudent(true);
+    try {
+      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: editStudentDraft.id,
+          name: editStudentDraft.name,
+          parent: editStudentDraft.parent,
+          age: editStudentDraft.age,
+          level: editStudentDraft.level,
+          status: editStudentDraft.status,
+          description: editStudentDraft.description,
+        }),
+      });
+      if (!res.ok) {
+        setEditStudentError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { student?: Student };
+      const saved = body.student ?? editStudentDraft;
+      setStudents((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      setEditStudentDraft(null);
+    } catch (error) {
+      setEditStudentError(error instanceof Error ? error.message : "Student enrollment could not be saved.");
+    } finally {
+      setIsSavingStudent(false);
+    }
+  };
+
+  const removeClass = async () => {
+    setDeleteClassError(null);
+    setIsDeletingClass(true);
+    try {
+      const res = await fetch(`/api/data/classes?id=${encodeURIComponent(classId)}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeleteClassError(await readApiError(res));
+        return;
+      }
+      setIsRemoveClassModalOpen(false);
+      router.push("/dashboard/classes");
+    } catch (error) {
+      setDeleteClassError(error instanceof Error ? error.message : "Class could not be removed.");
+    } finally {
+      setIsDeletingClass(false);
+    }
   };
 
   return (
@@ -269,6 +477,17 @@ export default function ClassDetailsPage() {
           </button>
         </div>
       </div>
+
+      {dataHint && (
+        <div className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
+          {dataHint}
+        </div>
+      )}
+      {rowActionError && (
+        <div role="alert" className="rounded-lg border border-[#f6c8c8] bg-[#fff1f1] px-4 py-2 text-sm text-[#8c1f1f]">
+          {rowActionError}
+        </div>
+      )}
 
       {/* Info Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -422,6 +641,7 @@ export default function ClassDetailsPage() {
                   setAddLevel("2");
                   setAddStatus("Pending");
                   setAddDescription("");
+                  setAddStudentError(null);
                   setIsAddStudentModalOpen(true);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg font-semibold text-sm hover:bg-cyan-600 transition-colors shadow-sm"
@@ -510,6 +730,7 @@ export default function ClassDetailsPage() {
                               type="button"
                               className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
                               onClick={() => {
+                                setEditStudentError(null);
                                 setEditStudentDraft({ ...student });
                                 setOpenActionDropdownId(null);
                               }}
@@ -519,7 +740,7 @@ export default function ClassDetailsPage() {
                             <button
                               type="button"
                               className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                              onClick={() => removeStudentById(student.id)}
+                              onClick={() => void removeStudentById(student.id)}
                             >
                               Remove
                             </button>
@@ -586,7 +807,12 @@ export default function ClassDetailsPage() {
               <X className="w-5 h-5" />
             </button>
             <h3 className="text-xl font-bold mb-2 pr-8">Add Student</h3>
-            <p className="text-sm text-gray-500 mb-4">Add a row to the roster. Changes here update this view only until enrollments are synced from your SIS.</p>
+            <p className="text-sm text-gray-500 mb-4">Create a student row and enroll it in this class.</p>
+            {addStudentError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {addStudentError}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3">
               <input
                 value={addName}
@@ -642,9 +868,10 @@ export default function ClassDetailsPage() {
               <button
                 type="button"
                 onClick={submitAddStudent}
-                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600"
+                disabled={isAddingStudent}
+                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-cyan-200"
               >
-                Add
+                {isAddingStudent ? "Adding..." : "Add"}
               </button>
             </div>
           </div>
@@ -663,7 +890,12 @@ export default function ClassDetailsPage() {
               <X className="w-5 h-5" />
             </button>
             <h3 className="text-xl font-bold mb-2 pr-8">Edit Class Info</h3>
-            <p className="text-sm text-gray-500 mb-4">Changes apply to the summary cards on this page.</p>
+            <p className="text-sm text-gray-500 mb-4">Save writes this class record through the data API.</p>
+            {classEditError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {classEditError}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3">
               <label className="text-xs font-semibold text-gray-600">
                 Title
@@ -748,9 +980,10 @@ export default function ClassDetailsPage() {
               <button
                 type="button"
                 onClick={saveClassMeta}
-                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600"
+                disabled={isSavingClassMeta}
+                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-cyan-200"
               >
-                Save
+                {isSavingClassMeta ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
@@ -772,6 +1005,11 @@ export default function ClassDetailsPage() {
             <p className="text-sm text-gray-500 mb-6">
               Remove <span className="font-semibold">{classMeta.title}</span> from the class directory? Administrators will no longer see this class until it is restored from your source data.
             </p>
+            {deleteClassError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {deleteClassError}
+              </div>
+            ) : null}
             <div className="flex justify-end gap-3">
               <button
                 type="button"
@@ -782,13 +1020,11 @@ export default function ClassDetailsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setIsRemoveClassModalOpen(false);
-                  router.push("/dashboard/classes");
-                }}
-                className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700"
+                onClick={removeClass}
+                disabled={isDeletingClass}
+                className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
               >
-                Remove
+                {isDeletingClass ? "Removing..." : "Remove"}
               </button>
             </div>
           </div>
@@ -807,6 +1043,11 @@ export default function ClassDetailsPage() {
               <X className="w-5 h-5" />
             </button>
             <h3 className="text-xl font-bold mb-4 pr-8">Edit student</h3>
+            {editStudentError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {editStudentError}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3">
               <input
                 value={editStudentDraft.name}
@@ -833,12 +1074,11 @@ export default function ClassDetailsPage() {
                   placeholder="Age"
                 />
                 <input
-                  type="number"
                   value={editStudentDraft.level}
                   onChange={(e) =>
                     setEditStudentDraft({
                       ...editStudentDraft,
-                      level: Number.parseInt(e.target.value, 10) || 0,
+                      level: e.target.value,
                     })}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-1/2"
                   placeholder="Level"
@@ -872,9 +1112,10 @@ export default function ClassDetailsPage() {
               <button
                 type="button"
                 onClick={saveEditedStudent}
-                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600"
+                disabled={isSavingStudent}
+                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-cyan-200"
               >
-                Save
+                {isSavingStudent ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

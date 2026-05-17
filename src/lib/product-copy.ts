@@ -40,34 +40,24 @@ export function bundledMetricsBannerText(): string {
 
 export function messagingDialogDisclaimer(): string {
   return isDemoAdjacentWording()
-    ? "Nothing is sent in this demo."
-    : "Messaging is not connected in this build.";
-}
-
-export function photoUploadUnavailableToast(): string {
-  return isDemoAdjacentWording()
-    ? "Photo uploads aren’t connected in this local demo."
-    : "Photo uploads aren’t connected in this build.";
+    ? "Your mail app opens a draft; nothing is sent until you send it."
+    : "Your mail app opens a draft; nothing is sent until you send it.";
 }
 
 export function exportQueuedToast(): string {
   return isDemoAdjacentWording()
-    ? "Prepared export preview (CSV). Download would start here in demo mode."
-    : "Prepared export preview (CSV). Download would start here in production.";
+    ? "CSV download started."
+    : "CSV download started.";
 }
 
 /** Shown after failed POST when creating a student from the standalone form */
 export function studentCreatePartialSaveHint(): string {
-  return isDemoAdjacentWording()
-    ? "Adding from the Students directory supports an offline preview row."
-    : "Adding from the Students directory supports a local preview row until sync succeeds.";
+  return "No student record was created. Check the connection and try again.";
 }
 
 /** Shown after failed POST when creating a teacher from the standalone form */
 export function teacherCreateFailureExtraHint(): string {
-  return isDemoAdjacentWording()
-    ? "Creating from the Teachers directory supports an offline preview row when the API is unavailable."
-    : "Creating from the Teachers directory supports a local preview row when the API is unavailable.";
+  return "No teacher record was created. Check the connection and try again.";
 }
 
 /** Placeholder narrative for Learning profile when no LMS data was loaded. */

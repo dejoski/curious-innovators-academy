@@ -7,7 +7,8 @@ import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
-import { fallbackDirectoryBannerText, exportQueuedToast, messagingDialogDisclaimer } from "@/lib/product-copy";
+import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
+import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 
@@ -135,6 +136,24 @@ export default function TeachersTeacherList({
     }
   };
 
+  const exportTeachers = () => {
+    const selected = selectedTeachers.length
+      ? filteredTeachers.filter((teacher) => selectedTeachers.includes(teacher.id))
+      : filteredTeachers;
+    downloadCsv(
+      "teachers-directory.csv",
+      ["Name", "Subjects", "Email", "Phone", "Program"],
+      selected.map((teacher) => [
+        teacher.name,
+        teacher.subjects,
+        teacher.email,
+        teacher.phone,
+        teacher.program === "core" ? "Core" : "Enrichment",
+      ]),
+    );
+    setSpreadsheetBanner(`Downloaded ${selected.length} teacher row(s) as CSV.`);
+  };
+
   const openEdit = (t: TeacherRow) => {
     setEditTeacher(t);
     setEditDraft({
@@ -185,7 +204,7 @@ export default function TeachersTeacherList({
       setTeachers((prev) => prev.map((row) => (row.id === id ? prevSnapshot : row)));
     }
     setSyncHint(`Could not sync update (${await readApiError(res)}).`);
-    setToastMessage("Kept local edit only.");
+    setToastMessage("Teacher update was not saved.");
   };
 
   const filterLabel =
@@ -563,11 +582,11 @@ export default function TeachersTeacherList({
         )}
         <button
           type="button"
-          onClick={() => setSpreadsheetBanner(exportQueuedToast())}
+          onClick={exportTeachers}
           className="bg-[#d2f1f5] hover:bg-[#bce6ec] transition-colors drop-shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] w-fit cursor-pointer"
         >
           <p className="font-['Inter_Tight:Medium',sans-serif] leading-[1.5] text-[#14c1d5] text-[16px] text-center tracking-[0.32px]">
-            Upload to Spreadsheet
+            Download CSV
           </p>
         </button>
       </div>
@@ -680,13 +699,23 @@ export default function TeachersTeacherList({
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#0d0d12]">Message teacher</h2>
             <p className="mt-2 text-sm text-[#666d80]">
-              A message composer for <span className="font-semibold">{messageTeacher.name}</span> will open when
-              messaging is enabled. {messagingDialogDisclaimer()}
+              Open a draft to <span className="font-semibold">{messageTeacher.name}</span>. Nothing is sent until you
+              send it from your mail app.
             </p>
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end gap-3">
               <button type="button" className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100" onClick={() => setMessageTeacher(null)}>
                 Close
               </button>
+              <a
+                className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
+                href={mailtoHref({
+                  to: messageTeacher.email,
+                  subject: `Message from Curious Innovators Academy`,
+                  body: `Hi ${messageTeacher.name},\n\n`,
+                })}
+              >
+                Open email draft
+              </a>
             </div>
           </div>
         </div>

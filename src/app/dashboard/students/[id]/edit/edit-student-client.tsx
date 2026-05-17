@@ -86,7 +86,7 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
             Edit Student
           </h1>
           <p className="font-['Inter:Regular',sans-serif] font-normal text-[#666d80] text-[16px] leading-[1.4]">
-            Update {student.name}'s profile and learning information.
+            Update {student.name}&apos;s profile and learning information.
           </p>
         </div>
         <Link

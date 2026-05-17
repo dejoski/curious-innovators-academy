@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -10,102 +11,88 @@ const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgChevronDown2 = "/images/icon-chevron-down2.svg";
 const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
-const initialClassesData = [
-  {
-    id: "pc1",
-    name: "Math",
-    teacher: "Ms. Jonhson",
-    level: "3",
-    block: "B2",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 101",
+type ParentClassRow = {
+  id: string;
+  name: string;
+  teacher: string;
+  level: string;
+  block: string;
+  day: string;
+  time: string;
+  location: string;
+  status: string;
+  current: boolean;
+};
+
+function splitSchedule(schedule: string): { day: string; time: string } {
+  const parts = schedule.split("·").map((part) => part.trim()).filter(Boolean);
+  return {
+    day: parts[0] || schedule || "Schedule not set",
+    time: parts[1] || "Time not set",
+  };
+}
+
+function toParentClassRow(row: SchoolClassRow): ParentClassRow {
+  const { day, time } = splitSchedule(row.schedule);
+  return {
+    id: row.id,
+    name: row.name,
+    teacher: row.teacher || "Teacher not assigned",
+    level: row.level || "—",
+    block: row.block || "—",
+    day,
+    time,
+    location: row.location || "Room not assigned",
     status: "School Assigned",
-    current: true,
-  },
-  {
-    id: "pc2",
-    name: "Science",
-    teacher: "Mr. Carter",
-    level: "3",
-    block: "B2",
-    day: "Friday",
-    time: "10:30 AM - 12:00 PM",
-    location: "Room 302",
-    status: "School Assigned",
-    current: false,
-  },
-  {
-    id: "pc3",
-    name: "English Language Arts.",
-    teacher: "Mr. Garcia",
-    level: "4",
-    block: "B3",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 203",
-    status: "School Assigned",
-    current: true,
-  },
-  {
-    id: "pc4",
-    name: "History",
-    teacher: "Mr. Garcia",
-    level: "4",
-    block: "B4",
-    day: "Tuesday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 104",
-    status: "School Assigned",
-    current: false,
-  },
-  {
-    id: "pc5",
-    name: "Math",
-    teacher: "Ms. Jumper",
-    level: "4",
-    block: "B2",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 905",
-    status: "School Assigned",
-    current: false,
-  },
-  {
-    id: "pc6",
-    name: "Science",
-    teacher: "Mr. Carter",
-    level: "3",
-    block: "B2",
-    day: "Friday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 806",
-    status: "School Assigned",
-    current: false,
-  },
-  {
-    id: "pc7",
-    name: "English Language Arts.",
-    teacher: "Mr. Garcia",
-    level: "4",
-    block: "B3",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 107",
-    status: "School Assigned",
-    current: false,
-  },
-];
+    current: row.status === "Active",
+  };
+}
 
 export default function ParentClassesClassListCore() {
+  const [classes, setClasses] = useState<ParentClassRow[]>([]);
+  const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDay, setFilterDay] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("name");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadClasses() {
+      try {
+        const res = await fetch("/api/data/classes", { cache: "no-store" });
+        if (!res.ok) throw new Error(res.statusText);
+        const body = (await res.json()) as { classes?: SchoolClassRow[]; source?: string };
+        const rows = (body.classes ?? [])
+          .filter((row) => row.program === "core")
+          .map(toParentClassRow);
+        if (cancelled) return;
+        setClasses(rows);
+        setDataHint(
+          body.source === "fallback"
+            ? "Showing sample classes because cloud data is unavailable."
+            : body.source === "unavailable"
+              ? "Cloud classes are unavailable. Ask an administrator to configure Supabase."
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setClasses([]);
+          setDataHint(
+            `Could not load classes: ${error instanceof Error ? error.message : String(error)}.`,
+          );
+        }
+      }
+    }
+    loadClasses();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredAndSortedClasses = useMemo(() => {
-    let result = [...initialClassesData];
+    let result = [...classes];
 
     // Filter by Search Query
     if (searchQuery) {
@@ -135,7 +122,7 @@ export default function ParentClassesClassListCore() {
     });
 
     return result;
-  }, [searchQuery, filterDay, sortBy]);
+  }, [classes, searchQuery, filterDay, sortBy]);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -220,6 +207,12 @@ export default function ParentClassesClassListCore() {
       {toolbarBanner && (
         <div className="rounded-[12px] border border-[rgba(0,77,8,0.25)] bg-[rgba(0,77,8,0.06)] px-4 py-3 text-sm text-[#004d08] font-medium">
           {toolbarBanner}
+        </div>
+      )}
+
+      {dataHint && (
+        <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
+          {dataHint}
         </div>
       )}
 

@@ -1,10 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import {
-  getSupabaseAnonKey,
-  getSupabasePublicUrl,
+  getRuntimeSupabaseAnonKey,
+  getRuntimeSupabaseUrl,
   isSupabaseConfigured,
-} from "@/lib/supabase/config";
+} from "@/lib/data/env";
 
 /**
  * Server Components / Route Handlers. Call only when `isSupabaseConfigured()` is true.
@@ -16,8 +16,8 @@ export async function createSupabaseServerClient() {
     );
   }
   const cookieStore = await cookies();
-  const url = getSupabasePublicUrl()!;
-  const anonKey = getSupabaseAnonKey()!;
+  const url = getRuntimeSupabaseUrl()!;
+  const anonKey = getRuntimeSupabaseAnonKey()!;
 
   return createServerClient(url, anonKey, {
     cookies: {

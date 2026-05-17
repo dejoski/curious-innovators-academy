@@ -1,7 +1,7 @@
 import type { FeedbackSubmissionRecord } from "@/lib/data/types";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
 import { FEEDBACK_FALLBACK } from "@/lib/data/mock/feedback";
-import { restSelectRows } from "@/lib/supabase/rest";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function mapFeedbackRow(row: Record<string, unknown>): FeedbackSubmissionRecord | null {
   const id = String(row.id ?? "");
@@ -14,16 +14,25 @@ function mapFeedbackRow(row: Record<string, unknown>): FeedbackSubmissionRecord 
   };
 }
 
-/** Aggregated parent feedback rows — empty demo until telemetry lands in Supabase. */
+/** Aggregated parent feedback rows from the RLS-scoped feedback table. */
 export async function fetchFeedbackSubmissions(): Promise<FeedbackSubmissionRecord[]> {
-  if (!isSupabaseConfigured()) return [...FEEDBACK_FALLBACK];
+  if (!isSupabaseConfigured()) return canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
 
-  const { data, error } = await restSelectRows<Record<string, unknown>>("feedback_submissions", {
-    order: "id.desc",
-  });
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("feedback")
+      .select("id,mood,nps_score,rating,created_at")
+      .order("created_at", { ascending: false })
+      .limit(25);
 
-  if (error || !data?.length) return [...FEEDBACK_FALLBACK];
+    if (error || !data?.length) return canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
 
-  const mapped = data.map(mapFeedbackRow).filter((x): x is FeedbackSubmissionRecord => x !== null);
-  return mapped.length > 0 ? mapped : [...FEEDBACK_FALLBACK];
+    const mapped = (data as Record<string, unknown>[])
+      .map(mapFeedbackRow)
+      .filter((x): x is FeedbackSubmissionRecord => x !== null);
+    return mapped.length > 0 ? mapped : canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
+  } catch {
+    return canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
+  }
 }

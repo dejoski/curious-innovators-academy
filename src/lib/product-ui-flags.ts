@@ -8,7 +8,13 @@ export function isTestPersonaSwitcherEnabled(): boolean {
   return process.env.NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI === "true";
 }
 
-/** Header bell: mock unread badge + dropdown seeds. When false, bell links to `/dashboard/notifications`. */
-export function isMockNotificationDropdownEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER === "true";
+/** Header bell dropdown preview. When false, bell links to `/dashboard/notifications`. */
+export function isNotificationDropdownEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_ENABLE_NOTIFICATION_HEADER === "true" ||
+    process.env.NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER === "true"
+  );
 }
+
+/** @deprecated Use `isNotificationDropdownEnabled`; the dropdown now reads notifications from the data API. */
+export const isMockNotificationDropdownEnabled = isNotificationDropdownEnabled;

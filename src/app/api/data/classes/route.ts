@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import {
   serverDeleteClass,
   serverInsertClass,
@@ -7,11 +8,23 @@ import {
 import { fetchClassesResolved } from "@/lib/data/repositories/classes";
 
 export async function GET() {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { items: classes, source } = await fetchClassesResolved();
   return NextResponse.json({ classes, source });
 }
 
+function statusFromMessage(message: string): number {
+  if (/supabase/i.test(message)) return 503;
+  if (/sign/i.test(message)) return 401;
+  return 400;
+}
+
 export async function POST(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const body = (await req.json()) as Record<string, unknown>;
   const result = await serverInsertClass({
     name: String(body.name ?? ""),
@@ -20,14 +33,20 @@ export async function POST(req: Request) {
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
     track: body.track === "enrichment" ? "enrichment" : "core",
+    description: body.description != null ? String(body.description) : undefined,
+    level: body.level != null ? String(body.level) : undefined,
+    block: body.block != null ? String(body.block) : undefined,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return NextResponse.json({ error: result.message }, { status: statusFromMessage(result.message) });
   }
   return NextResponse.json({ class: result.row });
 }
 
 export async function PATCH(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const body = (await req.json()) as Record<string, unknown>;
   const id = typeof body.id === "string" ? body.id.trim() : "";
   if (!id) {
@@ -40,14 +59,20 @@ export async function PATCH(req: Request) {
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
     track: body.track === "enrichment" ? "enrichment" : "core",
+    description: body.description != null ? String(body.description) : undefined,
+    level: body.level != null ? String(body.level) : undefined,
+    block: body.block != null ? String(body.block) : undefined,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return NextResponse.json({ error: result.message }, { status: statusFromMessage(result.message) });
   }
   return NextResponse.json({ class: result.row });
 }
 
 export async function DELETE(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {
@@ -55,7 +80,7 @@ export async function DELETE(req: Request) {
   }
   const result = await serverDeleteClass(id);
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return NextResponse.json({ error: result.message }, { status: statusFromMessage(result.message) });
   }
   return NextResponse.json({ ok: true });
 }

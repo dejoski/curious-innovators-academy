@@ -1,3 +1,18 @@
 export async function GET() {
-  return Response.json({ ok: true, service: "curious-innovators-academy" });
+  const env = process.env as Record<string, string | undefined>;
+  const signupInvite = env.NEXT_PUBLIC_SIGNUP_INVITE_CODE?.trim() || "";
+
+  return Response.json({
+    ok: true,
+    service: "curious-innovators-academy",
+    productionGuards: {
+      requireRemoteData: env.NEXT_PUBLIC_REQUIRE_REMOTE_DATA?.trim() === "true",
+      demoLoginDisabled: env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "false",
+      testPersonaUiDisabled: env.NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI?.trim() !== "true",
+      figmaCaptureDisabled: env.NEXT_PUBLIC_ENABLE_FIGMA_CAPTURE?.trim() !== "true",
+      mockNotificationHeaderDisabled:
+        env.NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER?.trim() !== "true",
+      signupInviteConfigured: Boolean(signupInvite && signupInvite !== "CIA-DEMO-2026"),
+    },
+  });
 }

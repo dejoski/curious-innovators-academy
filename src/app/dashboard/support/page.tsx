@@ -1,10 +1,15 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 
 type FaqItem = { q: string; a: string; keywords: string };
+type SubmitState =
+  | { status: "idle" }
+  | { status: "submitting" }
+  | { status: "success"; ticketId: string }
+  | { status: "error"; message: string };
 
 const FAQ: FaqItem[] = [
   {
@@ -37,7 +42,31 @@ export default function DashboardSupportPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [contactEmail, setContactEmail] = useState("");
-  const [sentBanner, setSentBanner] = useState(false);
+  const [contactEmailTouched, setContactEmailTouched] = useState(false);
+  const [submitState, setSubmitState] = useState<SubmitState>({ status: "idle" });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfileEmail() {
+      try {
+        const res = await fetch("/api/data/me", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { profile?: { email?: string | null } | null };
+        const email = String(data.profile?.email ?? "").trim();
+        if (isMounted && email && !contactEmailTouched) {
+          setContactEmail((current) => current || email);
+        }
+      } catch {
+        /* Users can still enter a reply-to address manually. */
+      }
+    }
+
+    void loadProfileEmail();
+    return () => {
+      isMounted = false;
+    };
+  }, [contactEmailTouched]);
 
   const filteredFaq = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,10 +79,43 @@ export default function DashboardSupportPage() {
     );
   }, [query]);
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSentBanner(true);
-    window.setTimeout(() => setSentBanner(false), 5000);
+    setSubmitState({ status: "submitting" });
+
+    try {
+      const res = await fetch("/api/data/support-tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category,
+          contactEmail,
+          subject,
+          message,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ticket?: { id?: string };
+        error?: string;
+      };
+
+      if (!res.ok) {
+        setSubmitState({
+          status: "error",
+          message: data.error ?? "Support ticket could not be saved.",
+        });
+        return;
+      }
+
+      setSubject("");
+      setMessage("");
+      setSubmitState({ status: "success", ticketId: String(data.ticket?.id ?? "") });
+    } catch (error) {
+      setSubmitState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Support ticket could not be saved.",
+      });
+    }
   };
 
   return (
@@ -65,16 +127,35 @@ export default function DashboardSupportPage() {
         </p>
       </div>
 
-      {sentBanner ? (
+      {submitState.status === "success" ? (
         <div
           role="status"
           className="mb-6 rounded-[10px] border border-[#c8f4f0] bg-[#e8fafb] px-4 py-3 text-sm text-[#0d5c56] flex items-center justify-between gap-4"
         >
-          <span className="font-medium">Thanks — your message was recorded. We&apos;ll follow up by email.</span>
+          <span className="font-medium">
+            Thanks. Ticket {submitState.ticketId ? `#${submitState.ticketId.slice(0, 8)}` : ""} was saved and operations
+            will follow up by email.
+          </span>
           <button
             type="button"
-            onClick={() => setSentBanner(false)}
+            onClick={() => setSubmitState({ status: "idle" })}
             className="text-[#0d5c56]/80 hover:text-[#0d5c56] text-xs font-semibold shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {submitState.status === "error" ? (
+        <div
+          role="alert"
+          className="mb-6 rounded-[10px] border border-[#f6c8c8] bg-[#fff1f1] px-4 py-3 text-sm text-[#8c1f1f] flex items-center justify-between gap-4"
+        >
+          <span className="font-medium">{submitState.message}</span>
+          <button
+            type="button"
+            onClick={() => setSubmitState({ status: "idle" })}
+            className="text-[#8c1f1f]/80 hover:text-[#8c1f1f] text-xs font-semibold shrink-0"
           >
             Dismiss
           </button>
@@ -141,7 +222,10 @@ export default function DashboardSupportPage() {
                 required
                 autoComplete="email"
                 value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
+                onChange={(e) => {
+                  setContactEmailTouched(true);
+                  setContactEmail(e.target.value);
+                }}
                 placeholder="you@school.edu"
                 className="h-[44px] rounded-[10px] border border-[#dfe1e7] px-3 text-[15px] outline-none focus:border-[#14c1d5]"
               />
@@ -175,9 +259,10 @@ export default function DashboardSupportPage() {
             </div>
             <button
               type="submit"
-              className="w-full inline-flex items-center justify-center rounded-[6px] bg-[#14c1d5] text-white text-sm font-semibold px-4 py-2.5 hover:bg-[#12aebd] transition-colors"
+              disabled={submitState.status === "submitting"}
+              className="w-full inline-flex items-center justify-center rounded-[6px] bg-[#14c1d5] text-white text-sm font-semibold px-4 py-2.5 hover:bg-[#12aebd] transition-colors disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
             >
-              Send message
+              {submitState.status === "submitting" ? "Saving..." : "Send message"}
             </button>
           </form>
         </section>

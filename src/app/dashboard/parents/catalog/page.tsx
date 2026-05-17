@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
+import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgImage1 = "/images/icon-lightbulb-only.png";
 const imgGroup = "/images/icon-group2.svg";
@@ -16,46 +17,43 @@ type EnrichmentClass = {
   teacher: string;
   description: string;
   prerequisites: string;
+  block: string;
+  level: string;
 };
-
-const DUMMY_CLASSES: EnrichmentClass[] = [
-  {
-    id: "c1",
-    name: "Digital Storytelling & Animation",
-    teacher: "Ms. Adams",
-    description: "Learn how to craft compelling stories and animate them using industry-standard software.",
-    prerequisites: "None",
-  },
-  {
-    id: "c2",
-    name: "Health Sciences Lab",
-    teacher: "Mr. Brown",
-    description: "Hands-on experiments focusing on human biology and health sciences.",
-    prerequisites: "Intro to Biology",
-  },
-  {
-    id: "c3",
-    name: "Robotics 101",
-    teacher: "Mrs. Clark",
-    description: "Build and program your own robots to complete various challenges.",
-    prerequisites: "None",
-  },
-  {
-    id: "c4",
-    name: "Advanced Art",
-    teacher: "Ms. Davis",
-    description: "Explore various art mediums including painting, sculpture, and digital art.",
-    prerequisites: "Art I",
-  },
-];
 
 type SlotRequests = {
   firstChoice: EnrichmentClass | null;
   secondChoice: EnrichmentClass | null;
 };
 
+const SLOT_META: Record<string, { block: string; level: string }> = {
+  block3_day3: { block: "B3", level: "3" },
+  block4_day3: { block: "B4", level: "3" },
+};
+
+function catalogClassFromRow(row: SchoolClassRow): EnrichmentClass {
+  return {
+    id: row.id,
+    name: row.name,
+    teacher: row.teacher || "Teacher not assigned",
+    description:
+      row.description ||
+      `${row.name} gives students a structured enrichment option with placement managed by the school team.`,
+    prerequisites: row.prerequisites || "None listed",
+    block: row.block,
+    level: row.level,
+  };
+}
+
 export default function ParentClassesEnrichmentCatalog() {
   const scheduleGridCols = "133px 133px 133px 133px";
+  const [availableClasses, setAvailableClasses] = useState<EnrichmentClass[]>([]);
+  const [catalogHint, setCatalogHint] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitBanner, setSubmitBanner] = useState<{
+    tone: "success" | "warning";
+    message: string;
+  } | null>(null);
   const [requests, setRequests] = useState<Record<string, SlotRequests>>({
     block3_day3: { firstChoice: null, secondChoice: null },
     block4_day3: { firstChoice: null, secondChoice: null },
@@ -63,10 +61,8 @@ export default function ParentClassesEnrichmentCatalog() {
 
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [activeClass, setActiveClass] = useState<EnrichmentClass | null>(null);
-  const [submitted, setSubmitted] = useState(false);
 
   const openCatalog = (slotId: string) => {
-    if (submitted) return;
     setActiveSlot(slotId);
   };
 
@@ -92,14 +88,114 @@ export default function ParentClassesEnrichmentCatalog() {
     }
   };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
+  const selectedChoices = Object.entries(requests).flatMap(([slotId, slot]) => {
+    const meta = SLOT_META[slotId] ?? { block: slotId, level: "" };
+    return ([
+      slot.firstChoice
+        ? {
+            classId: slot.firstChoice.id,
+            block: slot.firstChoice.block || meta.block,
+            level: slot.firstChoice.level || meta.level,
+            option: "1st",
+          }
+        : null,
+      slot.secondChoice
+        ? {
+            classId: slot.secondChoice.id,
+            block: slot.secondChoice.block || meta.block,
+            level: slot.secondChoice.level || meta.level,
+            option: "2nd",
+          }
+        : null,
+    ]).filter((x): x is { classId: string; block: string; level: string; option: string } => x !== null);
+  });
+
+  const hasChoices = selectedChoices.length > 0;
+  const block3Offerings = availableClasses.filter((cls) => cls.block === "B3");
+  const block4Offerings = availableClasses.filter((cls) => cls.block === "B4");
+  const approvedBlock3Day1 = block3Offerings[0] ?? availableClasses[0] ?? null;
+  const approvedBlock3Day2 = block3Offerings[1] ?? availableClasses[1] ?? null;
+  const pendingBlock4Day1 = block4Offerings[0] ?? availableClasses[0] ?? null;
+  const pendingBlock4Day1Alt = block4Offerings[1] ?? availableClasses[1] ?? null;
+  const approvedBlock4Day2 = block4Offerings[2] ?? block4Offerings[0] ?? availableClasses[2] ?? null;
+
+  const submitSelections = async () => {
+    if (!hasChoices || submitting) return;
+    setSubmitting(true);
+    setSubmitBanner(null);
+    try {
+      const res = await fetch("/api/data/enrichment-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ choices: selectedChoices }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setSubmitBanner({
+          tone: "warning",
+          message: `Selections saved on this device, but cloud submission failed: ${body?.error ?? res.statusText}.`,
+        });
+        return;
+      }
+      setSubmitBanner({
+        tone: "success",
+        message: "Selections submitted for school review.",
+      });
+    } catch (error) {
+      setSubmitBanner({
+        tone: "warning",
+        message: `Selections saved on this device, but cloud submission failed: ${
+          error instanceof Error ? error.message : String(error)
+        }.`,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadClasses() {
+      try {
+        const res = await fetch("/api/data/classes", { cache: "no-store" });
+        if (!res.ok) throw new Error(res.statusText);
+        const body = (await res.json()) as { classes?: SchoolClassRow[]; source?: string };
+        const rows = Array.isArray(body.classes) ? body.classes : [];
+        const enrichment = rows
+          .filter((row) => row.program === "enrichment")
+          .map(catalogClassFromRow);
+        if (cancelled) return;
+        setAvailableClasses(enrichment);
+        setCatalogHint(
+          body.source === "fallback"
+            ? "Showing sample offerings because cloud data is unavailable."
+            : body.source === "unavailable"
+              ? "Cloud offerings are unavailable. Ask an administrator to configure Supabase."
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setAvailableClasses([]);
+          setCatalogHint(
+            `Could not load enrichment offerings: ${
+              error instanceof Error ? error.message : String(error)
+            }.`,
+          );
+        }
+      }
+    }
+    loadClasses();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem(
           PARENT_CATALOG_PENDING_KEY,
           JSON.stringify({
-            submittedAt: new Date().toISOString(),
             requests,
           })
         );
@@ -108,7 +204,7 @@ export default function ParentClassesEnrichmentCatalog() {
     } catch {
       /* ignore quota / privacy mode */
     }
-  };
+  }, [requests]);
 
   return (
     <div
@@ -127,28 +223,25 @@ export default function ParentClassesEnrichmentCatalog() {
         </div>
       </div>
 
-      {submitted && (
-        <div
-          role="status"
-          className="rounded-[18px] border border-[rgba(207,165,0,0.45)] bg-[rgba(207,165,0,0.12)] px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-        >
-          <p className="text-[#272932] text-[15px] leading-snug">
-            Your enrichment choices were submitted and are <strong>pending admin approval</strong>. You’ll see updates on your student’s enrichment list once reviewed.
-          </p>
-          <div className="flex flex-wrap gap-3 shrink-0">
-            <Link
-              href="/dashboard/parents/classes/enrichment"
-              className="inline-flex items-center justify-center rounded-lg bg-[#14c1d5] hover:bg-[#11a9ba] text-white text-sm font-semibold px-4 py-2 transition-colors"
+      {(catalogHint || submitBanner) && (
+        <div className="flex flex-col gap-2">
+          {catalogHint && (
+            <p className="rounded-[10px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
+              {catalogHint}
+            </p>
+          )}
+          {submitBanner && (
+            <p
+              role="status"
+              className={`rounded-[10px] border px-4 py-2 text-sm ${
+                submitBanner.tone === "success"
+                  ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]"
+                  : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"
+              }`}
             >
-              View enrichment classes
-            </Link>
-            <Link
-              href="/dashboard/parents/students"
-              className="inline-flex items-center justify-center rounded-lg border-2 border-[#14c1d5] text-[#14c1d5] hover:bg-[#f6fcfd] text-sm font-semibold px-4 py-2 transition-colors"
-            >
-              Student profile
-            </Link>
-          </div>
+              {submitBanner.message}
+            </p>
+          )}
         </div>
       )}
 
@@ -156,19 +249,19 @@ export default function ParentClassesEnrichmentCatalog() {
       <div className="flex flex-wrap gap-[10px] items-center">
         <div className="flex gap-[6px] items-center">
           <div className="bg-[#d2f1f5] border border-[#14c1d5] rounded-[4px] size-[17px]" />
-          <span className="text-[#0d0d12] text-[12px]">Core (School assigned)</span>
+          <span className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[12px] leading-[1.25]">Core (School assigned)</span>
         </div>
         <div className="flex gap-[6px] items-center">
           <div className="bg-[rgba(0,77,8,0.2)] border border-[#004d08] rounded-[4px] size-[17px]" />
-          <span className="text-[#0d0d12] text-[12px]">Enrichment approved</span>
+          <span className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[12px] leading-[1.25]">Enrichment approved</span>
         </div>
         <div className="flex gap-[6px] items-center">
           <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] size-[17px]" />
-          <span className="text-[#0d0d12] text-[12px]">Enrichment pending</span>
+          <span className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[12px] leading-[1.25]">Enrichment pending</span>
         </div>
         <div className="flex gap-[6px] items-center">
           <div className="bg-[#fafafa] border border-[#f0f0f0] rounded-[4px] size-[17px]" />
-          <span className="text-[#0d0d12] text-[12px]">Empty</span>
+          <span className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[12px] leading-[1.25]">Empty</span>
         </div>
       </div>
 
@@ -258,44 +351,41 @@ export default function ParentClassesEnrichmentCatalog() {
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
                 <div className="relative bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[40px]">
                   <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
-                    Economics & Financial Literacy- Enrichment
+                    {approvedBlock3Day1?.name ?? "Available slot"}
                   </span>
-                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Approved</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                    {approvedBlock3Day1 ? "Enric. Approved" : "Awaiting setup"}
+                  </span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
                 <div className="relative bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[40px]">
-                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Ocean Exporers</span>
-                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Approved</span>
+                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                    {approvedBlock3Day2?.name ?? "Available slot"}
+                  </span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                    {approvedBlock3Day2 ? "Enric. Approved" : "Awaiting setup"}
+                  </span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[52px] p-1">
                 {requests.block3_day3.firstChoice ? (
-                  submitted ? (
-                    <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] h-[40px] p-1 flex flex-col justify-center">
-                      <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Request pending</span>
-                      <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] truncate">1st: {requests.block3_day3.firstChoice.name}</span>
-                      {requests.block3_day3.secondChoice && (
-                        <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[9px] truncate">2nd: {requests.block3_day3.secondChoice.name}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => openCatalog("block3_day3")}
-                      className="bg-yellow-100 border border-yellow-400 rounded-[4px] h-[40px] p-1 flex flex-col justify-center cursor-pointer hover:bg-yellow-200 transition-colors"
-                    >
-                      <span className="font-bold text-yellow-800 text-[10px]">1st: {requests.block3_day3.firstChoice.name}</span>
-                      {requests.block3_day3.secondChoice && (
-                        <span className="text-yellow-700 text-[9px] truncate">2nd: {requests.block3_day3.secondChoice.name}</span>
-                      )}
-                    </div>
-                  )
+                  <div
+                    onClick={() => openCatalog("block3_day3")}
+                    className="relative bg-[#ffd9d9] rounded-[4px] h-[40px] cursor-pointer"
+                  >
+                    <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                      {requests.block3_day3.firstChoice.name}
+                    </span>
+                    <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                      Enric. Pending
+                    </span>
+                  </div>
                 ) : (
                   <button
                     type="button"
-                    disabled={submitted}
                     onClick={() => openCatalog("block3_day3")}
-                    className="bg-[#f9fafb] relative rounded-[4px] w-full h-[40px] hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-[#f9fafb] relative rounded-[4px] w-full h-[40px] hover:bg-gray-100 transition-colors"
                   >
                     <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
                       Available slot
@@ -316,49 +406,50 @@ export default function ParentClassesEnrichmentCatalog() {
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[95px] p-1 flex flex-col gap-[3px]">
                 <div className="relative bg-[#ffd9d9] rounded-[4px] h-[40px] shrink-0">
-                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Force & Motion</span>
-                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Pending</span>
+                  <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                    {pendingBlock4Day1?.name ?? "Available slot"}
+                  </span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                    {pendingBlock4Day1 ? "Enric. Pending" : "Awaiting setup"}
+                  </span>
                 </div>
                 <div className="relative bg-[#ffd9d9] rounded-[4px] h-[40px] shrink-0">
                   <span className="absolute left-[5px] top-[7px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
-                    Digital Storytelling & Animation
+                    {pendingBlock4Day1Alt?.name ?? "Available slot"}
                   </span>
-                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Pending</span>
+                  <span className="absolute left-[5px] top-[21px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                    {pendingBlock4Day1Alt ? "Enric. Pending" : "Awaiting setup"}
+                  </span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] h-[95px] p-1">
                 <div className="relative bg-[rgba(0,77,8,0.2)] rounded-[4px] h-[83px]">
-                  <span className="absolute left-[5px] top-[13px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">Health Sciences Lab</span>
-                  <span className="absolute left-[5px] top-[27px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">Enric. Approved</span>
+                  <span className="absolute left-[5px] top-[13px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                    {approvedBlock4Day2?.name ?? "Available slot"}
+                  </span>
+                  <span className="absolute left-[5px] top-[27px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                    {approvedBlock4Day2 ? "Enric. Approved" : "Awaiting setup"}
+                  </span>
                 </div>
               </div>
               <div className="bg-white border border-[#f0f0f0] rounded-br-[8px] h-[95px] p-1">
                 {requests.block4_day3.firstChoice ? (
-                  submitted ? (
-                    <div className="bg-[#ffd9d9] border border-[#d80509] rounded-[4px] h-[83px] p-1 flex flex-col justify-center">
-                      <span className="font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px]">Request pending</span>
-                      <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] truncate">1st: {requests.block4_day3.firstChoice.name}</span>
-                      {requests.block4_day3.secondChoice && (
-                        <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[9px] truncate">2nd: {requests.block4_day3.secondChoice.name}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => openCatalog("block4_day3")}
-                      className="bg-yellow-100 border border-yellow-400 rounded-[4px] h-[83px] p-1 flex flex-col justify-center cursor-pointer hover:bg-yellow-200 transition-colors"
-                    >
-                      <span className="font-bold text-yellow-800 text-[10px]">1st: {requests.block4_day3.firstChoice.name}</span>
-                      {requests.block4_day3.secondChoice && (
-                        <span className="text-yellow-700 text-[9px] truncate">2nd: {requests.block4_day3.secondChoice.name}</span>
-                      )}
-                    </div>
-                  )
+                  <div
+                    onClick={() => openCatalog("block4_day3")}
+                    className="relative bg-[#ffd9d9] rounded-[4px] h-[83px] cursor-pointer"
+                  >
+                    <span className="absolute left-[5px] top-[13px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
+                      {requests.block4_day3.firstChoice.name}
+                    </span>
+                    <span className="absolute left-[5px] top-[27px] font-['Inter:Bold',sans-serif] font-bold text-[#666d80] text-[10px] leading-[1.25] whitespace-nowrap">
+                      Enric. Pending
+                    </span>
+                  </div>
                 ) : (
                   <button
                     type="button"
-                    disabled={submitted}
                     onClick={() => openCatalog("block4_day3")}
-                    className="bg-[#f9fafb] relative rounded-[4px] w-full h-[83px] hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="bg-[#f9fafb] relative rounded-[4px] w-full h-[83px] hover:bg-gray-100 transition-colors"
                   >
                     <span className="absolute left-[5px] top-[13px] w-[113px] overflow-hidden text-ellipsis whitespace-nowrap font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[10px] leading-none tracking-[0.1px]">
                       Available slot
@@ -378,7 +469,7 @@ export default function ParentClassesEnrichmentCatalog() {
           className="bg-white border border-[#f0f0f0] rounded-[18px] shrink-0 flex flex-col"
           style={{ width: "519px", height: "345px", padding: "16px 24px", rowGap: "20px" }}
         >
-          <h2 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px]">
+          <h2 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px] leading-[1.4]">
             How it works
           </h2>
 
@@ -441,6 +532,16 @@ export default function ParentClassesEnrichmentCatalog() {
 
       {/* Bottom Banners */}
       <div className="flex flex-col w-full" style={{ marginTop: "174px", rowGap: "14px" }}>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={!hasChoices || submitting}
+            onClick={submitSelections}
+            className="rounded-[8px] bg-[#14c1d5] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#11a9ba] disabled:pointer-events-none disabled:opacity-50"
+          >
+            {submitting ? "Submitting..." : "Submit selections"}
+          </button>
+        </div>
         <div className="relative h-[102px] w-[1113px] max-w-[calc(100%+9px)] -ml-[9px]">
           <img alt="" className="absolute inset-0 h-full w-full" src={imgUnion} />
           <div className="relative flex gap-[8px] items-start px-[23px] py-[16px] w-[1076px]">
@@ -508,7 +609,7 @@ export default function ParentClassesEnrichmentCatalog() {
             </button>
             <h2 className="text-2xl font-bold text-[#272932] mb-6">Available Enrichment Classes</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {DUMMY_CLASSES.map((cls) => (
+              {availableClasses.map((cls) => (
                 <div
                   key={cls.id}
                   onClick={() => openClassDetails(cls)}
@@ -522,6 +623,11 @@ export default function ParentClassesEnrichmentCatalog() {
                   </div>
                 </div>
               ))}
+              {availableClasses.length === 0 && (
+                <div className="col-span-full rounded-xl border border-[#f0f0f0] p-6 text-sm text-[#666d80]">
+                  No enrichment offerings are available right now.
+                </div>
+              )}
             </div>
           </div>
         </div>

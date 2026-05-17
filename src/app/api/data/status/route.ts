@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/data/env";
+import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { getRuntimeSupabaseUrl, isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function redactedHost(url: string | undefined): string | null {
@@ -15,8 +16,11 @@ function redactedHost(url: string | undefined): string | null {
  * Safe diagnostics for `/api/data/*` — no secrets. Helps verify env + session without exposing keys.
  */
 export async function GET() {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const configured = isSupabaseConfigured();
-  const urlHost = redactedHost(getSupabaseUrl());
+  const urlHost = redactedHost(getRuntimeSupabaseUrl());
 
   let authUserPresent = false;
   let sessionError: string | null = null;

@@ -1,13 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
+import { downloadCsv } from "@/lib/client-directory-actions";
+import type { DataSource } from "@/lib/data/fetch-source";
+import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
-const imgEllipse2735 = "/images/figma-ellipse2735.png";
-const imgEllipse2736 = "/images/figma-ellipse2736.png";
-const imgEllipse2737 = "/images/figma-ellipse2737.png";
-const imgEllipse2738 = "/images/figma-ellipse2738.png";
-const imgEllipse2739 = "/images/figma-ellipse2739.png";
-const imgEllipse2740 = "/images/figma-ellipse2740.png";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/icon-filter-funnel.svg";
 const imgIconCaretDown = "/images/icon-caret-down.svg";
@@ -15,141 +14,9 @@ const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgChevronDown2 = "/images/icon-chevron-down2.svg";
 const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
-type BadgeTone = "core" | "approved" | "pending" | "empty";
+type BadgeData = StudentScheduleBadge;
 
-type BadgeData = {
-  label: string;
-  tone: BadgeTone;
-};
-
-type RowData = {
-  name: string;
-  parent: string;
-  avatar: string;
-  b1: BadgeData[];
-  b2: BadgeData[];
-  b3Tue: BadgeData[];
-  b3Wed: BadgeData[];
-  b3Thu: BadgeData[];
-  b4Tue: BadgeData[];
-  b4Wed: BadgeData[];
-  b4Thu: BadgeData[];
-};
-
-const rows: RowData[] = [
-  {
-    name: "Anna Lee",
-    parent: "Mr. Lee",
-    avatar: imgEllipse2735,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [
-      { label: "Economics", tone: "pending" },
-      { label: "Health Sci", tone: "pending" },
-    ],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [{ label: "Chem Lab", tone: "approved" }],
-    b4Tue: [{ label: "Robotics", tone: "approved" }],
-    b4Wed: [{ label: "Health", tone: "approved" }],
-    b4Thu: [{ label: "Painting", tone: "approved" }],
-  },
-  {
-    name: "George Lee",
-    parent: "Mr. Lee",
-    avatar: imgEllipse2736,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [{ label: "Motion", tone: "approved" }],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [{ label: "Digital Story", tone: "approved" }],
-    b4Tue: [{ label: "Health", tone: "approved" }],
-    b4Wed: [{ label: "Painting", tone: "approved" }],
-    b4Thu: [{ label: "Robotics", tone: "approved" }],
-  },
-  {
-    name: "Bruna Lee",
-    parent: "Mr. Lee",
-    avatar: imgEllipse2737,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [{ label: "Biz Lab", tone: "approved" }],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [
-      { label: "Calligraphy L2", tone: "pending" },
-      { label: "Handwriting L1", tone: "pending" },
-    ],
-    b4Tue: [{ label: "Agility", tone: "approved" }],
-    b4Wed: [{ label: "Motion", tone: "approved" }],
-    b4Thu: [{ label: "Robotics", tone: "approved" }],
-  },
-  {
-    name: "James Smith",
-    parent: "Ms. Smith",
-    avatar: imgEllipse2738,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [{ label: "Chem Lab", tone: "approved" }],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [
-      { label: "Drawing", tone: "pending" },
-      { label: "Cyber", tone: "pending" },
-    ],
-    b4Tue: [
-      { label: "Singing", tone: "pending" },
-      { label: "Graphic D.", tone: "pending" },
-    ],
-    b4Wed: [{ label: "Motion", tone: "approved" }],
-    b4Thu: [{ label: "Robotics", tone: "approved" }],
-  },
-  {
-    name: "Bruce Collins",
-    parent: "Ms. Collins",
-    avatar: imgEllipse2739,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [{ label: "Chem Lab", tone: "approved" }],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [{ label: "Robotics", tone: "approved" }],
-    b4Tue: [{ label: "Painting", tone: "approved" }],
-    b4Wed: [{ label: "Motion", tone: "approved" }],
-    b4Thu: [{ label: "Ocean Sci", tone: "approved" }],
-  },
-  {
-    name: "Maria Collins",
-    parent: "Ms. Collins",
-    avatar: imgEllipse2740,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [
-      { label: "Chem Lab", tone: "pending" },
-      { label: "Anatomy", tone: "pending" },
-    ],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [{ label: "Ocean Sci", tone: "approved" }],
-    b4Tue: [{ label: "--", tone: "empty" }],
-    b4Wed: [{ label: "--", tone: "empty" }],
-    b4Thu: [{ label: "--", tone: "empty" }],
-  },
-  {
-    name: "James Smith",
-    parent: "Ms. Smith",
-    avatar: imgEllipse2738,
-    b1: [{ label: "Math", tone: "core" }],
-    b2: [{ label: "ELA", tone: "core" }],
-    b3Tue: [{ label: "Chem Lab", tone: "approved" }],
-    b3Wed: [{ label: "--", tone: "empty" }],
-    b3Thu: [
-      { label: "Drawing", tone: "pending" },
-      { label: "Cyber", tone: "pending" },
-    ],
-    b4Tue: [
-      { label: "Singing", tone: "pending" },
-      { label: "Graphic D.", tone: "pending" },
-    ],
-    b4Wed: [{ label: "Motion", tone: "approved" }],
-    b4Thu: [{ label: "Robotics", tone: "approved" }],
-  },
-];
+type RowData = StudentScheduleRow;
 
 function Badge({ item }: { item: BadgeData }) {
   if (item.tone === "empty") {
@@ -240,6 +107,67 @@ function DayHead({ width, blockLabel, dayLabel }: { width: number; blockLabel: s
 }
 
 export default function StudentSchedulePage() {
+  const params = useParams<{ id: string }>();
+  const studentId = params.id;
+  const [rows, setRows] = useState<RowData[]>([]);
+  const [source, setSource] = useState<DataSource>("unavailable");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSchedule() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/data/students/${encodeURIComponent(studentId)}/schedule`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Schedule API failed: ${res.status}`);
+        const payload = (await res.json()) as { rows?: RowData[]; source?: DataSource };
+        if (cancelled) return;
+        setRows(Array.isArray(payload.rows) ? payload.rows : []);
+        setSource(payload.source ?? "unavailable");
+      } catch {
+        if (!cancelled) {
+          setRows([]);
+          setSource("unavailable");
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    void loadSchedule();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId]);
+
+  const dataHint =
+    source === "fallback"
+      ? "Showing sample schedule because cloud student schedule data is unavailable."
+      : source === "unavailable"
+        ? "Remote student schedule data is required, but no rows are available."
+        : "";
+
+  const exportSchedule = () => {
+    const label = (items: StudentScheduleBadge[]) => items.map((item) => item.label).join("; ");
+    downloadCsv(
+      "student-schedule.csv",
+      ["Student", "Parent", "B1", "B2", "B3 Tue", "B3 Wed", "B3 Thu", "B4 Tue", "B4 Wed", "B4 Thu"],
+      rows.map((row) => [
+        row.name,
+        row.parent,
+        label(row.b1),
+        label(row.b2),
+        label(row.b3Tue),
+        label(row.b3Wed),
+        label(row.b3Thu),
+        label(row.b4Tue),
+        label(row.b4Wed),
+        label(row.b4Thu),
+      ]),
+    );
+  };
+
   return (
     <div className="relative flex w-full min-h-full flex-col gap-[24px] px-[32px] py-[32px] font-sans">
       <div className="flex flex-col gap-[4px]">
@@ -249,6 +177,7 @@ export default function StudentSchedulePage() {
         <p className="font-['Inter:Regular',sans-serif] text-[16px] leading-[1.4] text-[#666d80]">
           View and compare student schedules across all blocks.
         </p>
+        {dataHint ? <p className="text-xs text-[#6b7280]">{dataHint}</p> : null}
       </div>
 
       <div className="flex items-center">
@@ -308,8 +237,14 @@ export default function StudentSchedulePage() {
 
         <div className="w-full overflow-x-auto">
           <div className="w-[1068px]">
+            {isLoading ? (
+              <div className="py-10 text-center text-sm text-[#666d80]">Loading schedule...</div>
+            ) : null}
+            {!isLoading && rows.length === 0 ? (
+              <div className="py-10 text-center text-sm text-[#666d80]">No schedule rows found for this student.</div>
+            ) : null}
             {rows.map((row, index) => (
-              <DataRow key={`${row.name}-${index}`} row={row} />
+              <DataRow key={`${row.id}-${row.name}-${index}`} row={row} />
             ))}
           </div>
         </div>
@@ -342,10 +277,11 @@ export default function StudentSchedulePage() {
 
         <button
           type="button"
+          onClick={exportSchedule}
           className="absolute flex h-[42px] w-[200px] items-center justify-center rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] text-center font-['Inter_Tight:Medium',sans-serif] text-[16px] tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
           style={{ right: 20, bottom: -27 }}
         >
-          Upload to Spreadsheet
+          Download CSV
         </button>
       </section>
     </div>

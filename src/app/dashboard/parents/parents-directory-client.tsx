@@ -8,7 +8,8 @@ import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
-import { exportQueuedToast, fallbackDirectoryBannerText, messagingDialogDisclaimer } from "@/lib/product-copy";
+import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
+import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
 const imgEllipse2735 = "/images/parent-female-dark-hair.png";
 const imgEllipse2736 = "/images/parent-female-dark-hair.png";
@@ -26,20 +27,26 @@ export type ParentsDirectoryPageClientProps = {
 };
 
 type ParentRow = {
-  id: number;
+  id: string;
   name: string;
   avatar: string;
   studentsLabel: string;
   email: string;
   phone: string;
   status: string;
-  linkedStudents: { id: number; name: string }[];
+  linkedStudents: { id: string; name: string }[];
 };
+
+function stableAvatarIndex(id: string): number {
+  let sum = 0;
+  for (const ch of id) sum += ch.charCodeAt(0);
+  return sum;
+}
 
 function toDisplayRow(p: ParentSummary): ParentRow {
   const avatar =
     p.avatar ??
-    (Math.abs(Number(p.id)) % 2 === 1 ? imgEllipse2735 : imgEllipse2736);
+    (stableAvatarIndex(p.id) % 2 === 1 ? imgEllipse2735 : imgEllipse2736);
   const status =
     typeof p.status === "string" && p.status.trim() ? p.status.trim() : "Active";
   return {
@@ -72,22 +79,22 @@ export function ParentsAdminDirectory({
   const [parents, setParents] = useState<ParentSummary[]>(() => [...initialParents]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [openActionId, setOpenActionId] = useState<number | null>(null);
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [editDraft, setEditDraft] = useState<{
-    id: number;
+    id: string;
     name: string;
     email: string;
     phone: string;
   } | null>(null);
-  const [messageFor, setMessageFor] = useState<{ id: number; name: string } | null>(
+  const [messageFor, setMessageFor] = useState<{ id: string; name: string; email: string } | null>(
     null,
   );
   const [studentsForParent, setStudentsForParent] = useState<{
     parentName: string;
-    rows: { id: number; name: string }[];
+    rows: { id: string; name: string }[];
   } | null>(null);
   const [spreadsheetBanner, setSpreadsheetBanner] = useState<string | null>(null);
 
@@ -170,7 +177,7 @@ export function ParentsAdminDirectory({
     }
   };
 
-  const toggleSelection = (id: number) => {
+  const toggleSelection = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id],
     );
@@ -179,6 +186,18 @@ export function ParentsAdminDirectory({
   const handlePageChange = (direction: "prev" | "next") => {
     if (direction === "prev" && currentPage > 1) setCurrentPage((c) => c - 1);
     if (direction === "next" && currentPage < totalPages) setCurrentPage((c) => c + 1);
+  };
+
+  const exportParents = () => {
+    const selected = selectedIds.length
+      ? filteredData.filter((parent) => selectedIds.includes(parent.id))
+      : filteredData;
+    downloadCsv(
+      "parents-directory.csv",
+      ["Name", "Students", "Email", "Phone", "Status"],
+      selected.map((parent) => [parent.name, parent.studentsLabel, parent.email, parent.phone, parent.status]),
+    );
+    setSpreadsheetBanner(`Downloaded ${selected.length} parent row(s) as CSV.`);
   };
 
   const saveEdit = () => {
@@ -484,7 +503,7 @@ export function ParentsAdminDirectory({
                         type="button"
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => {
-                          setMessageFor({ id: parent.id, name: parent.name });
+                          setMessageFor({ id: parent.id, name: parent.name, email: parent.email });
                           setOpenActionId(null);
                         }}
                       >
@@ -562,11 +581,11 @@ export function ParentsAdminDirectory({
         )}
         <button
           type="button"
-          onClick={() => setSpreadsheetBanner(exportQueuedToast())}
+          onClick={exportParents}
           className="bg-[#d2f1f5] shadow-sm flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#bce6ec] transition-colors cursor-pointer"
         >
           <p className="font-['Inter_Tight:Medium',sans-serif] text-[#14c1d5] text-[16px] tracking-[0.32px]">
-            Upload to Spreadsheet
+            Download CSV
           </p>
         </button>
       </div>
@@ -635,10 +654,10 @@ export function ParentsAdminDirectory({
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#0d0d12]">Message parent</h2>
             <p className="mt-2 text-sm text-[#666d80]">
-              A message composer for <span className="font-semibold">{messageFor.name}</span> will open when
-              messaging is enabled. {messagingDialogDisclaimer()}
+              Open a draft to <span className="font-semibold">{messageFor.name}</span>. Nothing is sent until you send
+              it from your mail app.
             </p>
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
@@ -646,6 +665,16 @@ export function ParentsAdminDirectory({
               >
                 Close
               </button>
+              <a
+                className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
+                href={mailtoHref({
+                  to: messageFor.email,
+                  subject: "Message from Curious Innovators Academy",
+                  body: `Hi ${messageFor.name},\n\n`,
+                })}
+              >
+                Open email draft
+              </a>
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import type { EnrichmentRequestRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -20,7 +21,7 @@ const imgMaskGroup2 = "/images/mask-group.svg";
 type ApprovalStatus = "Approved" | "Rejected";
 
 type ApprovalRow = {
-  id: number;
+  id: string;
   student: string;
   parent: string;
   className: string;
@@ -31,74 +32,20 @@ type ApprovalRow = {
   reason: string;
 };
 
-const approvalsData: ApprovalRow[] = [
-  {
-    id: 1,
-    student: "Anna Lee",
-    parent: "Mr. Lee",
-    className: "Robotics Lab",
-    block: "B2",
-    option: "1st",
-    status: "Approved",
-    reviewedBy: "Julia C.",
-    reason: "Good class match",
-  },
-  {
-    id: 2,
-    student: "George Lee",
-    parent: "Mr. Lee",
-    className: "Journalism & Media Writing",
-    block: "B4",
-    option: "2nd",
-    status: "Approved",
-    reviewedBy: "Julia C.",
-    reason: "Schedule fit",
-  },
-  {
-    id: 3,
-    student: "Bruna Lee",
-    parent: "Mr. Lee",
-    className: "Creative Arts",
-    block: "B3",
-    option: "2nd",
-    status: "Approved",
-    reviewedBy: "Julia C.",
-    reason: "Good class match",
-  },
-  {
-    id: 4,
-    student: "James Smith",
-    parent: "Ms. Smith",
-    className: "Ocean Explorers",
-    block: "B3",
-    option: "2nd",
-    status: "Rejected",
-    reviewedBy: "Julia C.",
-    reason: "Schedule conflict",
-  },
-  {
-    id: 5,
-    student: "Bruce Collins",
-    parent: "Ms. Collins",
-    className: "Robotics Lab",
-    block: "B2",
-    option: "1st",
-    status: "Rejected",
-    reviewedBy: "Julia C.",
-    reason: "Not a good fit",
-  },
-  {
-    id: 6,
-    student: "Maria Collins",
-    parent: "Ms. Collins",
-    className: "Journalism & Media Writing",
-    block: "B4",
-    option: "2nd",
-    status: "Rejected",
-    reviewedBy: "Julia C.",
-    reason: "Level mismatch",
-  },
-];
+function toApprovalRow(row: EnrichmentRequestRow): ApprovalRow | null {
+  if (row.status === "Pending") return null;
+  return {
+    id: row.id,
+    student: row.student,
+    parent: row.parent,
+    className: row.class,
+    block: row.block,
+    option: row.option,
+    status: row.status,
+    reviewedBy: "School team",
+    reason: row.status === "Approved" ? "Approved for placement" : "Not placed in this round",
+  };
+}
 
 const PAGE_SIZE = 10;
 
@@ -126,38 +73,76 @@ export default function ClassesApprovalHistoryPage() {
 function ClassesApprovalHistory() {
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
+  const [rows, setRows] = useState<ApprovalRow[]>([]);
+  const [dataHint, setDataHint] = useState<string | null>(null);
+  const [actionHint, setActionHint] = useState<string | null>(null);
 
   const stats = useMemo(() => {
-    const approved = approvalsData.filter((r) => r.status === "Approved").length;
-    const rejected = approvalsData.filter((r) => r.status === "Rejected").length;
-    const distinctClasses = new Set(approvalsData.map((r) => r.className.trim()).filter(Boolean)).size;
+    const approved = rows.filter((r) => r.status === "Approved").length;
+    const rejected = rows.filter((r) => r.status === "Rejected").length;
+    const distinctClasses = new Set(rows.map((r) => r.className.trim()).filter(Boolean)).size;
     return {
-      total: approvalsData.length,
+      total: rows.length,
       approved,
       rejected,
       distinctClasses,
     };
-  }, []);
+  }, [rows]);
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("All");
   const [sortKey, setSortKey] = useState<SortKey>("student");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [rowMenuId, setRowMenuId] = useState<number | null>(null);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const [detailRow, setDetailRow] = useState<ApprovalRow | null>(null);
 
   useEffect(() => {
     if (detailIdFromUrl) {
-      const rowId = parseInt(detailIdFromUrl, 10);
-      const row = approvalsData.find((r) => r.id === rowId);
+      const row = rows.find((r) => r.id === detailIdFromUrl);
       if (row) setDetailRow(row);
     }
-  }, [detailIdFromUrl]);
+  }, [detailIdFromUrl, rows]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadApprovals() {
+      try {
+        const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
+        if (!res.ok) throw new Error(res.statusText);
+        const body = (await res.json()) as { requests?: EnrichmentRequestRow[]; source?: string };
+        const nextRows = (body.requests ?? [])
+          .map(toApprovalRow)
+          .filter((x): x is ApprovalRow => x !== null);
+        if (cancelled) return;
+        setRows(nextRows);
+        setDataHint(
+          body.source === "fallback"
+            ? "Showing sample decisions because cloud data is unavailable."
+            : body.source === "unavailable"
+              ? "Cloud decisions are unavailable. Ask an administrator to configure Supabase."
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setRows([]);
+          setDataHint(
+            `Could not load approval history: ${
+              error instanceof Error ? error.message : String(error)
+            }.`,
+          );
+        }
+      }
+    }
+    loadApprovals();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filterRef = useRef<HTMLDivElement | null>(null);
   const sortRef = useRef<HTMLDivElement | null>(null);
@@ -171,7 +156,7 @@ function ClassesApprovalHistory() {
 
   const processed = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let rows = approvalsData.filter((row) => {
+    let filteredRows = rows.filter((row) => {
       if (filter !== "All" && row.status !== filter) return false;
       if (!q) return true;
       const hay = [
@@ -188,14 +173,14 @@ function ClassesApprovalHistory() {
         .toLowerCase();
       return hay.includes(q);
     });
-    rows = [...rows].sort((a, b) => {
+    filteredRows = [...filteredRows].sort((a, b) => {
       const av = String(a[sortKey]);
       const bv = String(b[sortKey]);
       const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
       return sortDir === "asc" ? cmp : -cmp;
     });
-    return rows;
-  }, [search, filter, sortKey, sortDir]);
+    return filteredRows;
+  }, [rows, search, filter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -208,7 +193,7 @@ function ClassesApprovalHistory() {
   const pageIdSet = useMemo(() => new Set(pageRows.map((r) => r.id)), [pageRows]);
   const allOnPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -241,9 +226,15 @@ function ClassesApprovalHistory() {
     const text = JSON.stringify(row, null, 2);
     try {
       await navigator.clipboard.writeText(text);
-      window.alert("Record copied to clipboard.");
+      setActionHint("Record copied to clipboard.");
     } catch {
-      window.alert(`Clipboard unavailable. Row data:\n\n${text}`);
+      const url = URL.createObjectURL(new Blob([text], { type: "application/json;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `approval-${row.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setActionHint("Clipboard was unavailable, so the approval record was downloaded.");
     }
   };
 
@@ -302,6 +293,17 @@ function ClassesApprovalHistory() {
           </div>
         </div>
       </div>
+
+      {dataHint && (
+        <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
+          {dataHint}
+        </div>
+      )}
+      {actionHint && (
+        <div className="rounded-[12px] border border-[#004d08]/20 bg-[#f1fbf3] px-4 py-3 text-sm text-[#004d08] font-medium">
+          {actionHint}
+        </div>
+      )}
 
       {/* Main Table Card */}
       <div className="bg-white border border-[#f0f0f0] rounded-[18px] flex flex-col shadow-sm w-full overflow-visible">

@@ -27,10 +27,109 @@ export type SchoolClassRow = {
   level: string;
   /** Scheduling block label when known. */
   block: string;
+  /** Optional room/location shown in parent-facing class lists. */
+  location?: string;
+  /** Optional long description used in parent catalog/details. */
+  description?: string;
+  /** Optional prerequisites used in parent catalog/details. */
+  prerequisites?: string;
   /** Pending enrollment workflow count (from enrollments with status pending). */
   pendingCount: number;
   /** Waitlist count — populated when backend provides it; otherwise 0. */
   waitlistCount: number;
+};
+
+export type ClassRosterStatus = "Approved" | "Pending" | "Rejected";
+
+export type ClassRosterStudent = {
+  id: string;
+  name: string;
+  parent: string;
+  age: number;
+  level: string;
+  status: ClassRosterStatus;
+  description: string;
+};
+
+export type StudentProfileDetails = {
+  name: string;
+  age: string;
+  level: string;
+  learningProfile: string;
+  strengths: string;
+  supportNotes: string;
+};
+
+export type StudentProfileTimelineEvent = {
+  id: string;
+  type: "Academic" | "Behavioral" | "General";
+  author: string;
+  role: string;
+  date: string;
+  time: string;
+  urgent: boolean;
+  title: string;
+  content: string;
+};
+
+export type StudentClassChip = {
+  id: string;
+  name: string;
+};
+
+export type StudentProfileBundle = {
+  avatar: string;
+  details: StudentProfileDetails;
+  parentName: string;
+  parentHref: string;
+  coreSummaryLabel: string;
+  enrichmentSummaryLabel: string;
+  pendingLabel: string;
+  attendanceLabel: string;
+  coreClasses: StudentClassChip[];
+  enrichmentClasses: StudentClassChip[];
+  events: StudentProfileTimelineEvent[];
+  /** True when class chips/history are intentionally absent from the remote row. */
+  directoryDataOnly?: boolean;
+};
+
+export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "empty";
+
+export type StudentScheduleBadge = {
+  label: string;
+  tone: StudentScheduleBadgeTone;
+};
+
+export type StudentScheduleRow = {
+  id: string;
+  name: string;
+  parent: string;
+  avatar: string;
+  b1: StudentScheduleBadge[];
+  b2: StudentScheduleBadge[];
+  b3Tue: StudentScheduleBadge[];
+  b3Wed: StudentScheduleBadge[];
+  b3Thu: StudentScheduleBadge[];
+  b4Tue: StudentScheduleBadge[];
+  b4Wed: StudentScheduleBadge[];
+  b4Thu: StudentScheduleBadge[];
+};
+
+export type StudentRosterStatus = "Pending" | "Waitlist" | "Approved";
+
+export type StudentRosterRow = {
+  id: string;
+  name: string;
+  parent: string;
+  age: number;
+  status: StudentRosterStatus;
+  avatar: string;
+  classId: string;
+  classRef: string;
+  blockRef: string;
+  levelRef: string;
+  preference: string;
+  notes: string;
 };
 
 /** Notifications inbox. */
@@ -70,7 +169,7 @@ export type TeacherRow = {
 
 /** Lightweight parent directory row (future parent-facing lists). */
 export type ParentSummary = {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -78,7 +177,7 @@ export type ParentSummary = {
   avatar?: string;
   status?: string;
   studentsLabel?: string;
-  linkedStudents?: { id: number; name: string }[];
+  linkedStudents?: { id: string; name: string }[];
 };
 
 export type RequestStatus = "Pending" | "Approved" | "Rejected";
@@ -95,19 +194,35 @@ export type EnrichmentRequestRow = {
   status: RequestStatus;
 };
 
-/** Timeline / notes on student profile (stub for persistence). */
+/** Timeline / notes on student profile. */
 export type StudentNoteRecord = {
   id: string;
-  studentId: number;
+  studentId: string;
   body: string;
   author: string;
   createdAt: string;
 };
 
-/** Parent feedback submissions (stub). */
+/** Parent feedback submissions. */
 export type FeedbackSubmissionRecord = {
   id: string;
   mood: string;
   nps: number;
   submittedAt: string;
+};
+
+export type InvoiceStatus = "Draft" | "Open" | "Paid" | "Past due" | "Void";
+
+export type InvoiceRow = {
+  id: string;
+  family: string;
+  student: string;
+  invoiceNumber: string;
+  amountCents: number;
+  currency: string;
+  status: InvoiceStatus;
+  dueDate: string;
+  issuedDate: string;
+  lineItems: string;
+  paymentUrl?: string;
 };

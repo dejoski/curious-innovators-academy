@@ -46,6 +46,7 @@ export default function DashboardNotificationsPage({
   }
 
   const markAllRead = async () => {
+    const previous = items;
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
     const res = await fetch("/api/data/notifications", {
       method: "PATCH",
@@ -53,8 +54,11 @@ export default function DashboardNotificationsPage({
       body: JSON.stringify({ scope: "all" }),
     });
     if (!res.ok) {
-      setSyncHint(`Marked locally only (${await readApiError(res)}).`);
+      setItems(previous);
+      setSyncHint(`Could not sync read state (${await readApiError(res)}).`);
+      return;
     }
+    setSyncHint(null);
   };
 
   const toggleRead = async (id: string) => {

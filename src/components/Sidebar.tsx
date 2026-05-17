@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ReceiptText,
 } from "lucide-react";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
@@ -166,6 +167,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentFeedbackActive =
     pathname.startsWith("/dashboard/parents/feedback");
   const parentScheduleActive = pathname.startsWith(PARENT_SCHEDULE_HREF);
+  const parentBillingActive = pathname.startsWith("/dashboard/parents/billing");
   const parentFeedbackStudentsContext = parentFeedbackActive;
   const parentStudentsOpen =
     parentStudentsNavExpanded || parentFeedbackStudentsContext;
@@ -500,6 +502,18 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     Schedule
                   </p>
                 </Link>
+                <Link href="/dashboard/parents/billing" className={navRow(parentBillingActive)}>
+                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
+                    <ReceiptText
+                      aria-hidden
+                      strokeWidth={1.75}
+                      className={`size-[18px] ${parentBillingActive ? "text-[#14c1d5]" : "text-[#666d80]"}`}
+                    />
+                  </div>
+                  <p className={navLabel(parentBillingActive)}>
+                    Billing
+                  </p>
+                </Link>
                 <div className="flex flex-col w-full">
                   <button
                     type="button"
@@ -712,6 +726,15 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     {scheduleGlyph(parentScheduleActive)}
                   </div>
                 </Link>
+                <Link href="/dashboard/parents/billing" title="Billing" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentBillingActive)}`}>
+                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
+                    <ReceiptText
+                      aria-hidden
+                      strokeWidth={1.75}
+                      className={`size-[18px] ${parentBillingActive ? "text-[#14c1d5]" : "text-[#666d80]"}`}
+                    />
+                  </div>
+                </Link>
                 <Link href="/dashboard/parents/catalog" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
@@ -823,6 +846,15 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 <Link href={PARENT_SCHEDULE_HREF} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(parentScheduleActive)}
+                  </div>
+                </Link>
+                <Link href="/dashboard/parents/billing" title="Billing" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentBillingActive)}`}>
+                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
+                    <ReceiptText
+                      aria-hidden
+                      strokeWidth={1.75}
+                      className={`size-[18px] ${parentBillingActive ? "text-[#14c1d5]" : "text-[#666d80]"}`}
+                    />
                   </div>
                 </Link>
                 <Link href="/dashboard/parents/catalog" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>

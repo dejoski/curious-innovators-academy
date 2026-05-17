@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,11 +9,12 @@ import {
   useDashboardPersona,
 } from "@/components/dashboard-persona";
 import {
-  isMockNotificationDropdownEnabled,
+  isNotificationDropdownEnabled,
   isTestPersonaSwitcherEnabled,
 } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
+import type { DashboardNotification } from "@/lib/data";
 import {
   DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS,
   DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS,
@@ -46,7 +47,8 @@ export default function DashboardHeader() {
   const pathname = usePathname() ?? "";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notificationSyncHint, setNotificationSyncHint] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -54,6 +56,9 @@ export default function DashboardHeader() {
   const inParentShell = pathname.startsWith("/dashboard/parents");
 
   const showPersonaSwitcher = isTestPersonaSwitcherEnabled();
+  const showNotificationDropdown = isNotificationDropdownEnabled();
+  const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
+  const previewNotifications = useMemo(() => notifications.slice(0, 3), [notifications]);
 
   /** Parent-shell utilities: when QA preview is off, `persona` stays `"admin"` in context (stub). */
   const parentUtilityOrder = showPersonaSwitcher
@@ -63,16 +68,8 @@ export default function DashboardHeader() {
   const logoutIconSrc = inParentShell
     ? imgSolarLogout2OutlineParent
     : imgSolarLogout2Outline;
-  const headerDisplayName = showPersonaSwitcher
-    ? displayName
-    : inParentShell
-      ? "Mary Lee"
-      : "Joseph Collins";
-  const headerRoleLine = showPersonaSwitcher
-    ? roleLabel
-    : inParentShell
-      ? "Parent"
-      : "Admin";
+  const headerDisplayName = displayName;
+  const headerRoleLine = roleLabel;
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -86,6 +83,54 @@ export default function DashboardHeader() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!showNotificationDropdown) return;
+    let cancelled = false;
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/data/notifications", { cache: "no-store" });
+        if (!res.ok) throw new Error(res.statusText);
+        const body = (await res.json()) as {
+          notifications?: DashboardNotification[];
+        };
+        if (!cancelled) setNotifications(Array.isArray(body.notifications) ? body.notifications : []);
+      } catch (err) {
+        if (!cancelled) {
+          setNotifications([]);
+          setNotificationSyncHint(`Could not load notifications: ${err instanceof Error ? err.message : String(err)}.`);
+        }
+      }
+    }
+    void loadNotifications();
+    return () => {
+      cancelled = true;
+    };
+  }, [showNotificationDropdown]);
+
+  async function readApiError(res: Response): Promise<string> {
+    try {
+      const body = (await res.json()) as { error?: string };
+      return body.error ?? res.statusText;
+    } catch {
+      return res.statusText;
+    }
+  }
+
+  async function markAllNotificationsRead(): Promise<void> {
+    const previous = notifications;
+    setNotifications((items) => items.map((item) => ({ ...item, read: true })));
+    setNotificationSyncHint(null);
+    const res = await fetch("/api/data/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope: "all" }),
+    });
+    if (!res.ok) {
+      setNotifications(previous);
+      setNotificationSyncHint(`Could not sync read state: ${await readApiError(res)}.`);
+    }
+  }
 
   async function handleLogout(): Promise<void> {
     setIsProfileOpen(false);
@@ -172,7 +217,7 @@ export default function DashboardHeader() {
           
           {/* Notifications: seeded dropdown (QA flag) or link to inbox */}
           <div className="relative" ref={notifRef}>
-            {isMockNotificationDropdownEnabled() ? (
+            {showNotificationDropdown ? (
               <>
                 <button
                   type="button"
@@ -190,8 +235,9 @@ export default function DashboardHeader() {
                 <div className={`px-4 py-2 flex justify-between items-center border-b ${DASHBOARD_BORDER_SUBTLE_CLASS}`}>
                   <h3 className="font-['Inter',sans-serif] font-semibold text-sm text-gray-900">Notifications</h3>
                   {unreadCount > 0 && (
-                    <button 
-                      onClick={() => setUnreadCount(0)}
+                    <button
+                      type="button"
+                      onClick={() => void markAllNotificationsRead()}
                       className="text-xs text-[#14c1d5] hover:underline cursor-pointer"
                     >
                       Mark all as read
@@ -199,22 +245,32 @@ export default function DashboardHeader() {
                   )}
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
-                  <Link href="/dashboard/classes/requests" onClick={() => setIsNotificationsOpen(false)} className="block px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50">
-                    <p className="text-sm text-gray-800 font-['Inter',sans-serif]">New enrichment class request</p>
-                    <p className="text-xs text-gray-500 mt-1">Anna Lee requested Robotics Lab</p>
-                    <p className="text-xs text-gray-400 mt-1">2 mins ago</p>
-                  </Link>
-                  <Link href="/dashboard/schedule" onClick={() => setIsNotificationsOpen(false)} className="block px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50">
-                    <p className="text-sm text-gray-800 font-['Inter',sans-serif]">Teacher schedule updated</p>
-                    <p className="text-xs text-gray-500 mt-1">Emily Carter updated her availability</p>
-                    <p className="text-xs text-gray-400 mt-1">1 hour ago</p>
-                  </Link>
-                  <Link href="/dashboard" onClick={() => setIsNotificationsOpen(false)} className="block px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors">
-                    <p className="text-sm text-gray-800 font-['Inter',sans-serif]">System Maintenance</p>
-                    <p className="text-xs text-gray-500 mt-1">Scheduled for tonight at 2 AM</p>
-                    <p className="text-xs text-gray-400 mt-1">5 hours ago</p>
-                  </Link>
+                  {previewNotifications.length ? (
+                    previewNotifications.map((item, index) => (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        onClick={() => setIsNotificationsOpen(false)}
+                        className={`block px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
+                          index < previewNotifications.length - 1 ? "border-b border-gray-50" : ""
+                        }`}
+                      >
+                        <p className="text-sm text-gray-800 font-['Inter',sans-serif]">{item.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{item.detail}</p>
+                        <p className="text-xs text-gray-400 mt-1">{item.time}</p>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                      No notifications yet.
+                    </div>
+                  )}
                 </div>
+                {notificationSyncHint ? (
+                  <div className="border-t border-[#f0f0f0] px-4 py-2 text-xs text-[#a00408]">
+                    {notificationSyncHint}
+                  </div>
+                ) : null}
                 <div className="px-4 py-2 border-t border-[#f0f0f0] text-center">
                   <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className="text-sm text-gray-600 hover:text-gray-900 font-['Inter',sans-serif] block w-full">
                     View all notifications

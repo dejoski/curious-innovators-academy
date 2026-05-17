@@ -4,24 +4,19 @@ import Frame40903 from "@/components/Frame40903";
 import Frame40904 from "@/components/Frame40904";
 import DailyBlocks from "@/components/DailyBlocks";
 import Link from "next/link";
+import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
 import { resolveDashboardPresentation } from "@/lib/data/repositories/dashboard";
 import { fetchEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
 
 export async function DashboardHomeResolved() {
-  const [{ metrics: m, dailyRows }, { items: requests }] = await Promise.all([
+  const [{ metrics: m, dailyRows }, { items: requests }, { items: notifications }] = await Promise.all([
     resolveDashboardPresentation(),
     fetchEnrichmentRequestsResolved(),
+    fetchNotificationsResolved(),
   ]);
 
-  const topRequests =
-    requests.length >= 4
-      ? [
-          { id: "figma-1", student: "Anna Lee", class: "Robotics Lab", block: "B3", status: "Pending" },
-          { id: "figma-2", student: "James Smith", class: "Ocean Explorers", block: "B3", status: "Rejected" },
-          { id: "figma-3", student: "Bruce Collins", class: "Robotics Lab", block: "B4", status: "Pending" },
-          { id: "figma-4", student: "Maria Collins", class: "Journalism & Media Writing", block: "B4", status: "Approved" },
-        ]
-      : requests.slice(0, 4);
+  const topRequests = requests.slice(0, 4);
+  const systemAlerts = notifications.slice(0, 3);
   const statusPill: Record<string, string> = {
     Pending: "bg-[#fae7a6] text-[#8b6e00]",
     Approved: "bg-[#d7f0de] text-[#0c6a26]",
@@ -29,13 +24,10 @@ export async function DashboardHomeResolved() {
   };
 
   return (
-    <div className="p-[30px] w-full">
-      <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-[24px]">
+    <div className="w-full p-4 md:p-[30px]">
+      <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-4 md:gap-[24px]">
         <div className="flex flex-col gap-[20px] lg:flex-row">
-          <div
-            className="grid w-full gap-[20px] lg:w-[729px]"
-            style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
-          >
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[729px] lg:grid-cols-4 lg:gap-[20px]">
           <Link href="/dashboard/students" className="block hover:opacity-90 transition-opacity cursor-pointer">
             <Frame40901 count={m.studentCount} label="Students" />
           </Link>
@@ -58,27 +50,25 @@ export async function DashboardHomeResolved() {
             </div>
 
             <div className="space-y-[12px]">
-              <button className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]">
-                <div>
-                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Blocks</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Block 2 at capacity</p>
+              {systemAlerts.length ? (
+                systemAlerts.map((alert) => (
+                  <Link
+                    key={alert.id}
+                    href={alert.href}
+                    className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">{alert.title}</p>
+                      <p className="truncate font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">{alert.detail}</p>
+                    </div>
+                    <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+                  </Link>
+                ))
+              ) : (
+                <div className="rounded-[8px] border border-[#f0f0f0] px-3 py-4 text-sm text-[#666d80]">
+                  No system alerts right now.
                 </div>
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
-              </button>
-              <button className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]">
-                <div>
-                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">New Message</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">George sent you a message</p>
-                </div>
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
-              </button>
-              <button className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]">
-                <div>
-                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Students</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">3 students unscheduled</p>
-                </div>
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
-              </button>
+              )}
             </div>
           </div>
         </div>
@@ -150,22 +140,28 @@ export async function DashboardHomeResolved() {
                 <p>Block</p>
                 <p>Status</p>
               </div>
-              {topRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="grid border-t border-[#f0f0f0] px-[12px] py-[8px] text-[14px] text-[#0d0d12]"
-                  style={{ gridTemplateColumns: "1.2fr 1.4fr 0.8fr 0.8fr" }}
-                >
-                  <p>{req.student}</p>
-                  <p className="truncate">{req.class}</p>
-                  <p>{req.block}</p>
-                  <div>
-                    <span className={`rounded-[6px] px-[8px] py-[2px] text-[10px] font-medium ${statusPill[req.status] ?? statusPill.Pending}`}>
-                      {req.status}
-                    </span>
+              {topRequests.length ? (
+                topRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="grid border-t border-[#f0f0f0] px-[12px] py-[8px] text-[14px] text-[#0d0d12]"
+                    style={{ gridTemplateColumns: "1.2fr 1.4fr 0.8fr 0.8fr" }}
+                  >
+                    <p>{req.student}</p>
+                    <p className="truncate">{req.class}</p>
+                    <p>{req.block}</p>
+                    <div>
+                      <span className={`rounded-[6px] px-[8px] py-[2px] text-[10px] font-medium ${statusPill[req.status] ?? statusPill.Pending}`}>
+                        {req.status}
+                      </span>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="border-t border-[#f0f0f0] px-[12px] py-[16px] text-[14px] text-[#666d80]">
+                  No enrichment requests yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
           <div className="hidden lg:block lg:w-[355px]" aria-hidden />

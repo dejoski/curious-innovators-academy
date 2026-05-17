@@ -2,19 +2,13 @@
 
 import React from "react";
 import Link from "next/link";
-import {
-  DASHBOARD_METRICS,
-  getDashboardDailyBlocks,
-  type DashboardDailyBlockRow,
-} from "@/lib/dashboard-metrics";
+import type { DashboardDailyBlockRow } from "@/lib/dashboard-metrics";
 
 const imgGroup = "/images/icon-calendar-linear.svg";
 const imgArrowRightThin = "/images/icon-arrow-right-thin.svg";
 
-const DEFAULT_ROWS = getDashboardDailyBlocks(DASHBOARD_METRICS);
-
 export type DailyBlocksProps = {
-  /** Schedule rows; defaults match legacy mock and dashboard metrics. */
+  /** Schedule rows resolved by the dashboard repository/API layer. */
   rows?: DashboardDailyBlockRow[];
 };
 
@@ -73,7 +67,7 @@ function DailyBlockRow({
   );
 }
 
-export default function DailyBlocks({ rows = DEFAULT_ROWS }: DailyBlocksProps) {
+export default function DailyBlocks({ rows = [] }: DailyBlocksProps) {
   const rowMeta = [
     { firstRowNodeId: "11:4974", linkNodeId: "11:4669" },
     { firstRowNodeId: "11:5203", linkNodeId: "11:5197" },

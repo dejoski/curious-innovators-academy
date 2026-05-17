@@ -5,6 +5,8 @@ import { mapStudentRow } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
 import { isSupabaseConfigured } from "@/lib/data/env";
 import type {
+  ClassRosterStatus,
+  ClassRosterStudent,
   DashboardNotification,
   EnrichmentRequestRow,
   ScheduleCalendarEvent,
@@ -21,6 +23,32 @@ function parseStudentsFraction(label: string): { enrolled: number; capacity: num
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
   if (!m) return { enrolled: 0, capacity: 1 };
   return { enrolled: Number(m[1]), capacity: Number(m[2]) };
+}
+
+async function writeAuditEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: {
+    action: string;
+    entityType: string;
+    entityId?: string;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.id) return;
+    await supabase.from("audit_events").insert({
+      actor_profile_id: user.id,
+      action: input.action,
+      entity_type: input.entityType,
+      entity_id: input.entityId ?? "",
+      metadata: input.metadata ?? {},
+    });
+  } catch {
+    /* Audit writes should not block the primary workflow. */
+  }
 }
 
 async function resolveTeacherIdByDisplayName(
@@ -45,6 +73,9 @@ export async function serverInsertClass(input: {
   schedule: string;
   status: SchoolClassRow["status"];
   track?: "core" | "enrichment";
+  description?: string;
+  level?: string;
+  block?: string;
 }): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
   const { capacity } = parseStudentsFraction(input.students);
@@ -58,7 +89,7 @@ export async function serverInsertClass(input: {
           "Could not match teacher name to a profile. Add the teacher in Supabase or use an exact display name from the roster.",
       };
     }
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: input.name.trim(),
       teacher_id: teacherId,
       program: (input.track ?? "core") as "core" | "enrichment",
@@ -66,6 +97,9 @@ export async function serverInsertClass(input: {
       schedule_summary: input.schedule.trim(),
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
     };
+    if (input.description != null) payload.description = input.description.trim();
+    if (input.level != null) payload.level = input.level.trim();
+    if (input.block != null) payload.block = input.block.trim();
     const { data, error } = await supabase.from("classes").insert(payload).select("*").maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row returned" };
@@ -73,6 +107,12 @@ export async function serverInsertClass(input: {
       await flattenClassRowForMap(supabase, data as Record<string, unknown>),
     );
     if (!mapped) return { ok: false, message: "Could not map saved class" };
+    await writeAuditEvent(supabase, {
+      action: "class.create",
+      entityType: "class",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, program: mapped.program },
+    });
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -95,6 +135,11 @@ async function flattenClassRowForMap(
       program,
       capacity,
       schedule_summary,
+      level,
+      block,
+      location,
+      description,
+      prerequisites,
       status,
       teachers ( profiles ( display_name ) ),
       enrollments ( id, status )
@@ -130,6 +175,9 @@ export async function serverUpdateClass(
     schedule: string;
     status: SchoolClassRow["status"];
     track?: "core" | "enrichment";
+    description?: string;
+    level?: string;
+    block?: string;
   },
 ): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
@@ -140,7 +188,7 @@ export async function serverUpdateClass(
     if (!teacherId) {
       return { ok: false, message: "Could not match teacher name for update." };
     }
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: input.name.trim(),
       teacher_id: teacherId,
       program: (input.track ?? "core") as "core" | "enrichment",
@@ -148,6 +196,9 @@ export async function serverUpdateClass(
       schedule_summary: input.schedule.trim(),
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
     };
+    if (input.description != null) payload.description = input.description.trim();
+    if (input.level != null) payload.level = input.level.trim();
+    if (input.block != null) payload.block = input.block.trim();
     const { data, error } = await supabase
       .from("classes")
       .update(payload)
@@ -160,6 +211,12 @@ export async function serverUpdateClass(
       await flattenClassRowForMap(supabase, data as Record<string, unknown>),
     );
     if (!mapped) return { ok: false, message: "Could not map saved class" };
+    await writeAuditEvent(supabase, {
+      action: "class.update",
+      entityType: "class",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, program: mapped.program },
+    });
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -173,6 +230,11 @@ export async function serverDeleteClass(id: string): Promise<{ ok: true } | Writ
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("classes").delete().eq("id", id);
     if (error) return { ok: false, message: error.message };
+    await writeAuditEvent(supabase, {
+      action: "class.delete",
+      entityType: "class",
+      entityId: id,
+    });
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -192,19 +254,22 @@ export async function serverInsertStudent(input: {
     const supabase = await createSupabaseServerClient();
     const payload = {
       display_name: input.name.trim(),
-      guardian_label: input.parent.trim(),
+      guardian_label: input.parent.trim() || null,
       level: input.level.trim(),
       track: input.track,
+      support_notes: input.notes?.trim() ?? "",
     };
     const { data, error } = await supabase.from("students").insert(payload).select("*").maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row returned" };
-    const withNotes =
-      input.notes?.trim() && data.id
-        ? { ...(data as Record<string, unknown>), notes: input.notes.trim() }
-        : (data as Record<string, unknown>);
-    const mapped = mapStudentRow(withNotes);
+    const mapped = mapStudentRow(data as Record<string, unknown>);
     if (!mapped) return { ok: false, message: "Could not map saved student" };
+    await writeAuditEvent(supabase, {
+      action: "student.create",
+      entityType: "student",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, track: mapped.track },
+    });
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -218,6 +283,11 @@ export async function serverDeleteStudent(id: string): Promise<{ ok: true } | Wr
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("students").delete().eq("id", id);
     if (error) return { ok: false, message: error.message };
+    await writeAuditEvent(supabase, {
+      action: "student.delete",
+      entityType: "student",
+      entityId: id,
+    });
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -251,7 +321,227 @@ export async function serverUpdateStudent(
     if (!data) return { ok: false, message: "No row updated" };
     const mapped = mapStudentRow(data as Record<string, unknown>);
     if (!mapped) return { ok: false, message: "Could not map updated student" };
+    await writeAuditEvent(supabase, {
+      action: "student.update",
+      entityType: "student",
+      entityId: mapped.id,
+      metadata: { fields: Object.keys(payload) },
+    });
     return { ok: true, row: mapped };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
+export async function serverPatchEnrollmentStatus(input: {
+  classId: string;
+  studentId: string;
+  status: ClassRosterStatus;
+}): Promise<{ ok: true } | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const classId = input.classId.trim();
+  const studentId = input.studentId.trim();
+  if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const dbStatus = input.status === "Approved" ? "approved" : input.status === "Rejected" ? "rejected" : "pending";
+    const { error } = await supabase
+      .from("enrollments")
+      .update({ status: dbStatus })
+      .eq("class_id", classId)
+      .eq("student_id", studentId);
+    if (error) return { ok: false, message: error.message };
+    await writeAuditEvent(supabase, {
+      action: "enrollment.status.update",
+      entityType: "enrollment",
+      entityId: `${classId}:${studentId}`,
+      metadata: { classId, studentId, status: dbStatus },
+    });
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
+export async function serverDeleteEnrollment(input: {
+  classId: string;
+  studentId: string;
+}): Promise<{ ok: true } | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const classId = input.classId.trim();
+  const studentId = input.studentId.trim();
+  if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("enrollments")
+      .delete()
+      .eq("class_id", classId)
+      .eq("student_id", studentId);
+    if (error) return { ok: false, message: error.message };
+    await writeAuditEvent(supabase, {
+      action: "enrollment.delete",
+      entityType: "enrollment",
+      entityId: `${classId}:${studentId}`,
+      metadata: { classId, studentId },
+    });
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
+export async function serverInsertRosterStudent(input: {
+  classId: string;
+  name: string;
+  parent: string;
+  age?: number;
+  level: string;
+  status: ClassRosterStatus;
+  description?: string;
+}): Promise<WriteOk<ClassRosterStudent> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const classId = input.classId.trim();
+  const name = input.name.trim().replace(/\s+/g, " ");
+  if (!classId || !name) return { ok: false, message: "Missing class or student name" };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: classRow, error: classError } = await supabase
+      .from("classes")
+      .select("id, program")
+      .eq("id", classId)
+      .maybeSingle();
+    if (classError) return { ok: false, message: classError.message };
+    if (!classRow) return { ok: false, message: "Class not found" };
+
+    const age = Number.isFinite(input.age) && Number(input.age) >= 0 ? Math.round(Number(input.age)) : null;
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .insert({
+        display_name: name,
+        guardian_label: input.parent.trim() || null,
+        age_years: age,
+        level: input.level.trim() || null,
+        track: classRow.program === "enrichment" ? "enrichment" : "core",
+        support_notes: input.description?.trim() ?? "",
+      })
+      .select("id, display_name, guardian_label, age_years, level, support_notes")
+      .maybeSingle();
+    if (studentError) return { ok: false, message: studentError.message };
+    if (!student?.id) return { ok: false, message: "Student could not be created" };
+
+    const dbStatus = input.status === "Approved" ? "approved" : input.status === "Rejected" ? "rejected" : "pending";
+    const { error: enrollmentError } = await supabase.from("enrollments").insert({
+      class_id: classId,
+      student_id: student.id,
+      status: dbStatus,
+    });
+    if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+    const row: ClassRosterStudent = {
+      id: String(student.id),
+      name: String(student.display_name ?? name),
+      parent: String(student.guardian_label ?? "—"),
+      age: Number(student.age_years ?? 0) || 0,
+      level: String(student.level ?? ""),
+      status: input.status,
+      description: String(student.support_notes ?? input.description ?? ""),
+    };
+    await writeAuditEvent(supabase, {
+      action: "enrollment.create",
+      entityType: "enrollment",
+      entityId: `${classId}:${row.id}`,
+      metadata: { classId, studentId: row.id, status: dbStatus, createdStudent: true },
+    });
+    return { ok: true, row };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
+export async function serverUpdateRosterStudent(input: {
+  classId: string;
+  studentId: string;
+  name?: string;
+  parent?: string;
+  age?: number;
+  level?: string;
+  status?: ClassRosterStatus;
+  description?: string;
+}): Promise<WriteOk<ClassRosterStudent> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const classId = input.classId.trim();
+  const studentId = input.studentId.trim();
+  if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const studentPayload: Record<string, unknown> = {};
+    if (input.name != null) studentPayload.display_name = input.name.trim().replace(/\s+/g, " ");
+    if (input.parent != null) studentPayload.guardian_label = input.parent.trim() || null;
+    if (input.age != null) {
+      studentPayload.age_years =
+        Number.isFinite(input.age) && Number(input.age) >= 0 ? Math.round(Number(input.age)) : null;
+    }
+    if (input.level != null) studentPayload.level = input.level.trim() || null;
+    if (input.description != null) studentPayload.support_notes = input.description.trim();
+
+    let studentRow: Record<string, unknown> | null = null;
+    if (Object.keys(studentPayload).length > 0) {
+      const { data, error } = await supabase
+        .from("students")
+        .update(studentPayload)
+        .eq("id", studentId)
+        .select("id, display_name, guardian_label, age_years, level, support_notes")
+        .maybeSingle();
+      if (error) return { ok: false, message: error.message };
+      if (!data) return { ok: false, message: "No student row updated" };
+      studentRow = data as unknown as Record<string, unknown>;
+    } else {
+      const { data, error } = await supabase
+        .from("students")
+        .select("id, display_name, guardian_label, age_years, level, support_notes")
+        .eq("id", studentId)
+        .maybeSingle();
+      if (error) return { ok: false, message: error.message };
+      if (!data) return { ok: false, message: "Student not found" };
+      studentRow = data as unknown as Record<string, unknown>;
+    }
+
+    const status = input.status ?? "Pending";
+    const dbStatus = status === "Approved" ? "approved" : status === "Rejected" ? "rejected" : "pending";
+    if (input.status != null) {
+      const { error } = await supabase
+        .from("enrollments")
+        .update({ status: dbStatus })
+        .eq("class_id", classId)
+        .eq("student_id", studentId);
+      if (error) return { ok: false, message: error.message };
+    }
+
+    const row: ClassRosterStudent = {
+      id: String(studentRow.id ?? studentId),
+      name: String(studentRow.display_name ?? input.name ?? ""),
+      parent: String(studentRow.guardian_label ?? input.parent ?? "—"),
+      age: Number(studentRow.age_years ?? input.age ?? 0) || 0,
+      level: String(studentRow.level ?? input.level ?? ""),
+      status,
+      description: String(studentRow.support_notes ?? input.description ?? ""),
+    };
+    await writeAuditEvent(supabase, {
+      action: "enrollment.student.update",
+      entityType: "enrollment",
+      entityId: `${classId}:${studentId}`,
+      metadata: { classId, studentId, fields: Object.keys(studentPayload), status: input.status ?? null },
+    });
+    return { ok: true, row };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };
@@ -269,12 +559,14 @@ export async function serverInsertTeacher(input: {
   program: "core" | "enrichment";
 }): Promise<WriteOk<TeacherRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const email = input.email.trim();
+  if (!email) return { ok: false, message: "Teacher email is required" };
   try {
     const supabase = await createSupabaseServerClient();
     const { data: profile, error: pe } = await supabase
       .from("profiles")
       .select("id")
-      .ilike("email", input.email.trim())
+      .ilike("email", email)
       .maybeSingle();
     if (pe) return { ok: false, message: pe.message };
     if (!profile?.id) {
@@ -289,7 +581,7 @@ export async function serverInsertTeacher(input: {
       .insert({
         profile_id: profile.id,
         subjects: input.subjects.trim(),
-        phone: (input.phone ?? "").trim() || "(555) 000-0000",
+        phone: (input.phone ?? "").trim(),
         program: input.program,
       })
       .select(teacherListSelect)
@@ -305,6 +597,12 @@ export async function serverInsertTeacher(input: {
         .eq("id", profile.id);
       mapped.name = input.name.trim();
     }
+    await writeAuditEvent(supabase, {
+      action: "teacher.create",
+      entityType: "teacher",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, program: mapped.program },
+    });
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -349,6 +647,12 @@ export async function serverUpdateTeacher(
     if (!mapped) return { ok: false, message: "Could not map saved teacher" };
     if (input.name.trim()) mapped.name = input.name.trim();
     mapped.email = input.email.trim();
+    await writeAuditEvent(supabase, {
+      action: "teacher.update",
+      entityType: "teacher",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, program: mapped.program },
+    });
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -362,6 +666,11 @@ export async function serverDeleteTeacher(id: string): Promise<{ ok: true } | Wr
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("teachers").delete().eq("id", id);
     if (error) return { ok: false, message: error.message };
+    await writeAuditEvent(supabase, {
+      action: "teacher.delete",
+      entityType: "teacher",
+      entityId: id,
+    });
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -379,6 +688,104 @@ const requestSelect = `
   classes ( name ),
   requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
 `;
+
+async function resolveRequestStudentId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  requestedByProfileId: string,
+  explicitStudentId?: string,
+): Promise<string | null> {
+  const trimmed = explicitStudentId?.trim();
+  if (trimmed) return trimmed;
+
+  const { data: parentRow } = await supabase
+    .from("parents")
+    .select("parent_students ( student_id )")
+    .eq("profile_id", requestedByProfileId)
+    .limit(1)
+    .maybeSingle();
+
+  const joins = Array.isArray(parentRow?.parent_students)
+    ? parentRow.parent_students
+    : [];
+  const firstStudentId =
+    joins[0] && typeof joins[0] === "object" && "student_id" in joins[0]
+      ? String((joins[0] as { student_id: unknown }).student_id)
+      : "";
+  if (firstStudentId) return firstStudentId;
+
+  const { data: firstStudent } = await supabase
+    .from("students")
+    .select("id")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return firstStudent?.id ? String(firstStudent.id) : null;
+}
+
+export async function serverInsertEnrichmentRequests(input: {
+  studentId?: string;
+  choices: {
+    classId: string;
+    block: string;
+    level: string;
+    option: string;
+  }[];
+}): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const choices = input.choices
+    .map((choice) => ({
+      classId: choice.classId.trim(),
+      block: choice.block.trim(),
+      level: choice.level.trim(),
+      option: choice.option.trim(),
+    }))
+    .filter((choice) => choice.classId && choice.option);
+  if (choices.length === 0) return { ok: false, message: "No class choices submitted" };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) return { ok: false, message: "Not signed in" };
+
+    const studentId = await resolveRequestStudentId(supabase, user.id, input.studentId);
+    if (!studentId) return { ok: false, message: "Could not resolve a student for this request" };
+
+    const payload = choices.map((choice) => ({
+      student_id: studentId,
+      class_id: choice.classId,
+      requested_by_profile_id: user.id,
+      status: "pending" as const,
+      block: choice.block || null,
+      level: choice.level || null,
+      option_label: choice.option,
+    }));
+
+    const { data, error } = await supabase
+      .from("class_requests")
+      .insert(payload)
+      .select(requestSelect);
+    if (error) return { ok: false, message: error.message };
+
+    const rows = (data ?? [])
+      .map((row) => mapRequestRow(row as unknown as Record<string, unknown>))
+      .filter((x): x is EnrichmentRequestRow => x !== null);
+    if (rows.length === 0) return { ok: false, message: "No request rows returned" };
+    await writeAuditEvent(supabase, {
+      action: "class_request.create",
+      entityType: "class_request",
+      entityId: rows.map((row) => row.id).join(","),
+      metadata: { count: rows.length, studentId },
+    });
+    return { ok: true, rows };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
 
 export async function serverPatchEnrichmentRequest(
   id: string,
@@ -398,6 +805,12 @@ export async function serverPatchEnrichmentRequest(
     if (!data) return { ok: false, message: "No row updated" };
     const mapped = mapRequestRow(data as unknown as Record<string, unknown>);
     if (!mapped) return { ok: false, message: "Could not map request" };
+    await writeAuditEvent(supabase, {
+      action: "class_request.status.update",
+      entityType: "class_request",
+      entityId: mapped.id,
+      metadata: { status: mapped.status },
+    });
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -437,6 +850,12 @@ export async function serverInsertScheduleEvent(input: {
     if (error) return { ok: false, message: error.message };
     const idRaw = data && typeof data === "object" && "id" in data ? (data as { id: unknown }).id : null;
     const id = idRaw != null ? String(idRaw) : `db-${input.eventDate}-${Date.now()}`;
+    await writeAuditEvent(supabase, {
+      action: "schedule_event.create",
+      entityType: "schedule_event",
+      entityId: id,
+      metadata: { title: input.title, eventDate: input.eventDate },
+    });
     return { ok: true, row: { id } };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -1,16 +1,40 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { PARENTS_FALLBACK } from "@/lib/data/mock/parents";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+function firstRel<T extends Record<string, unknown>>(v: unknown): T | null {
+  if (v == null) return null;
+  if (Array.isArray(v)) return (v[0] as T) ?? null;
+  return v as T;
+}
+
+function linkedStudentsFromRow(row: Record<string, unknown>): { id: string; name: string }[] {
+  const joins = Array.isArray(row.parent_students) ? row.parent_students : [];
+  return joins
+    .map((join) => {
+      if (!join || typeof join !== "object") return null;
+      const student = firstRel<Record<string, unknown>>(
+        (join as { students?: unknown }).students,
+      );
+      const id = student?.id;
+      const name = student?.display_name;
+      if (id == null || name == null) return null;
+      return { id: String(id), name: String(name) };
+    })
+    .filter((x): x is { id: string; name: string } => x !== null);
+}
+
 export function mapParentRow(row: Record<string, unknown>): ParentSummary | null {
-  const id = Number(row.id);
-  if (!Number.isFinite(id)) return null;
+  const id = row.id != null ? String(row.id) : "";
+  if (!id) return null;
+  const profile = firstRel<Record<string, unknown>>(row.profiles);
+  const linkedStudents = linkedStudentsFromRow(row);
   return {
     id,
-    name: String(row.full_name ?? row.name ?? ""),
-    email: String(row.email ?? ""),
+    name: String(profile?.display_name ?? row.full_name ?? row.name ?? ""),
+    email: String(profile?.email ?? row.email ?? ""),
     phone: String(row.phone ?? ""),
     avatar:
       row.avatar_url != null
@@ -24,21 +48,36 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
         ? String(row.students_label)
         : row.students_summary != null
           ? String(row.students_summary)
-          : undefined,
+          : linkedStudents.length > 0
+            ? linkedStudents.map((s) => s.name).join(", ")
+            : undefined,
+    linkedStudents,
   };
 }
 
 async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
   if (!isSupabaseConfigured()) {
-    return { items: [...PARENTS_FALLBACK], source: "fallback" };
+    return fallbackList(PARENTS_FALLBACK);
   }
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.from("parents").select("*").order("id", { ascending: true });
+    const { data, error } = await supabase
+      .from("parents")
+      .select(
+        `
+        id,
+        created_at,
+        profiles ( display_name, email ),
+        parent_students (
+          students ( id, display_name )
+        )
+      `,
+      )
+      .order("created_at", { ascending: true });
 
     if (error) {
-      return { items: [...PARENTS_FALLBACK], source: "fallback" };
+      return fallbackList(PARENTS_FALLBACK);
     }
 
     if (!data?.length) {
@@ -50,11 +89,11 @@ async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
       .filter((x): x is ParentSummary => x !== null);
 
     if (mapped.length === 0) {
-      return { items: [...PARENTS_FALLBACK], source: "fallback" };
+      return fallbackList(PARENTS_FALLBACK);
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return { items: [...PARENTS_FALLBACK], source: "fallback" };
+    return fallbackList(PARENTS_FALLBACK);
   }
 }
 

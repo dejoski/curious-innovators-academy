@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import {
   serverDeleteStudent,
   serverInsertStudent,
@@ -7,11 +8,17 @@ import {
 import { fetchStudentsResolved } from "@/lib/data/repositories/students";
 
 export async function GET() {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { items: students, source } = await fetchStudentsResolved();
   return NextResponse.json({ students, source });
 }
 
 export async function POST(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const body = (await req.json()) as Record<string, unknown>;
   const result = await serverInsertStudent({
     name: String(body.name ?? ""),
@@ -27,6 +34,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {
@@ -44,6 +54,9 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {

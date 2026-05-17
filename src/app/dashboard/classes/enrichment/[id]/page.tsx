@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import type {
+  ClassRosterStudent,
+  ClassRosterStatus,
+  SchoolClassRow,
+} from "@/lib/data/types";
 
-// Figma Image Constants
 const imgChevronDown = "/images/icon-chevron-down.svg";
 const imgGroup = "/images/icon-group.svg";
 const imgChevronDown1 = "/images/icon-chevron-down2.svg";
@@ -21,34 +25,68 @@ const imgWeuiMoreOutlined1 = "/images/icon-more.svg";
 const imgChevronDown4 = "/images/icon-chevron-down3.svg";
 const imgChevronDown5 = "/images/icon-chevron-down4.svg";
 
-type StudentStatus = 'Approved' | 'Pending' | 'Rejected';
+type StudentStatus = ClassRosterStatus;
 
-interface Student {
-  id: string;
-  name: string;
-  parent: string;
-  age: number;
-  level: string;
-  status: StudentStatus;
-  description: string;
+type Student = ClassRosterStudent;
+
+type ClassMeta = {
+  teacher: string;
+  blockLevel: string;
+  schedule: string;
+  capacityEnrolled: number;
+  capacityMax: number;
+  pendingCount: number;
+};
+
+const EMPTY_CLASS_META: ClassMeta = {
+  teacher: "Teacher not assigned",
+  blockLevel: "Block not set",
+  schedule: "Schedule not set",
+  capacityEnrolled: 0,
+  capacityMax: 1,
+  pendingCount: 0,
+};
+
+function parseCapacity(label: string): { enrolled: number; max: number } {
+  const match = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
+  if (!match) return { enrolled: 0, max: 1 };
+  return {
+    enrolled: Number(match[1]) || 0,
+    max: Math.max(1, Number(match[2]) || 1),
+  };
 }
 
-const INITIAL_STUDENTS: Student[] = [
-  { id: '1', name: 'Anna Lee', parent: 'Mary Lee', age: 14, level: '2', status: 'Approved', description: 'Focused and participative in group activities.' },
-  { id: '2', name: 'George Lee', parent: 'Mary Lee', age: 12, level: '2', status: 'Pending', description: 'Curious learner, asks thoughtful questions.' },
-  { id: '3', name: 'Bruna Lee', parent: 'Mary Lee', age: 14, level: '2', status: 'Approved', description: 'Needs occasional support to stay on task.' },
-  { id: '4', name: 'James Smith', parent: 'Patricia Smith', age: 13, level: '3', status: 'Rejected', description: 'Strong collaboration and communication skills.' },
-  { id: '5', name: 'Zoe Chen', parent: 'Wei Chen', age: 15, level: '3', status: 'Pending', description: 'Very creative and enjoys problem solving.' },
-  { id: '6', name: 'Liam Brown', parent: 'Sarah Brown', age: 12, level: '1', status: 'Approved', description: 'Eager to learn basics of robotics.' },
-];
+function classMetaFromRow(row: SchoolClassRow): ClassMeta {
+  const capacity = parseCapacity(row.students);
+  return {
+    teacher: row.teacher || "Teacher not assigned",
+    blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
+    schedule: row.schedule || "Schedule not set",
+    capacityEnrolled: capacity.enrolled,
+    capacityMax: capacity.max,
+    pendingCount: row.pendingCount,
+  };
+}
+
+function splitBlockLevelLabel(label: string): { block: string; level: string } {
+  const trimmed = label.trim();
+  const levelMatch = /\bL\s*([A-Za-z0-9-]+)\b/i.exec(trimmed);
+  if (!levelMatch) return { block: trimmed, level: "" };
+  return {
+    block: trimmed.replace(levelMatch[0], "").trim(),
+    level: levelMatch[1],
+  };
+}
 
 export default function EnrichmentClassDetail() {
   const router = useRouter();
-  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
-  const [classTitle, setClassTitle] = useState("Robotics Lab");
-  const [classDescription, setClassDescription] = useState(
-    "Hands-on robotics and basic programming concepts."
-  );
+  const params = useParams();
+  const classId = typeof params?.id === "string" ? params.id : "";
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classTitle, setClassTitle] = useState("Class");
+  const [classDescription, setClassDescription] = useState("Loading class details.");
+  const [classMeta, setClassMeta] = useState<ClassMeta>(EMPTY_CLASS_META);
+  const [dataHint, setDataHint] = useState<string | null>(null);
 
   // Table Controls State
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,12 +112,81 @@ export default function EnrichmentClassDetail() {
   const [addStudentName, setAddStudentName] = useState("");
   const [addParentName, setAddParentName] = useState("");
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
+  const [addStudentError, setAddStudentError] = useState<string | null>(null);
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [classEditError, setClassEditError] = useState<string | null>(null);
+  const [deleteClassError, setDeleteClassError] = useState<string | null>(null);
+  const [editStudentError, setEditStudentError] = useState<string | null>(null);
+  const [rowActionError, setRowActionError] = useState<string | null>(null);
+  const [isSavingClass, setIsSavingClass] = useState(false);
+  const [isDeletingClass, setIsDeletingClass] = useState(false);
+  const [isSavingStudent, setIsSavingStudent] = useState(false);
 
   // Refs for click outside
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const actionMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
   const actionMenuPlacement = useFixedMenuPlacement(activeActionDropdown !== null, actionMenuAnchorRef, 128);
+
+  useEffect(() => {
+    if (!classId) return;
+    let cancelled = false;
+    async function loadClassData() {
+      try {
+        const [classesRes, rosterRes] = await Promise.all([
+          fetch("/api/data/classes", { cache: "no-store" }),
+          fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, { cache: "no-store" }),
+        ]);
+        if (!classesRes.ok) throw new Error(classesRes.statusText);
+        if (!rosterRes.ok) throw new Error(rosterRes.statusText);
+        const classesBody = (await classesRes.json()) as {
+          classes?: SchoolClassRow[];
+          source?: string;
+        };
+        const rosterBody = (await rosterRes.json()) as {
+          students?: ClassRosterStudent[];
+          source?: string;
+        };
+        if (cancelled) return;
+        const row = (classesBody.classes ?? []).find((item) => item.id === classId);
+        if (row) {
+          setClassTitle(row.name);
+          setClassDescription(
+            row.description ||
+              `${row.name} roster and request status are loaded from the class data source.`,
+          );
+          setClassMeta(classMetaFromRow(row));
+        }
+        setStudents(rosterBody.students ?? []);
+        setCurrentPage(1);
+        const source = rosterBody.source === "unavailable" || classesBody.source === "unavailable"
+          ? "unavailable"
+          : rosterBody.source === "fallback" || classesBody.source === "fallback"
+            ? "fallback"
+            : "remote";
+        setDataHint(
+          source === "fallback"
+            ? "Showing sample roster because cloud class data is unavailable."
+            : source === "unavailable"
+              ? "Cloud class data is unavailable. Ask an administrator to configure Supabase."
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setStudents([]);
+          setDataHint(
+            `Could not load class roster: ${
+              error instanceof Error ? error.message : String(error)
+            }.`,
+          );
+        }
+      }
+    }
+    loadClassData();
+    return () => {
+      cancelled = true;
+    };
+  }, [classId]);
 
   useEffect(() => {
     function isInsideStudentActionRoot(node: Node | null, studentId: string): boolean {
@@ -196,15 +303,55 @@ export default function EnrichmentClassDetail() {
 
   const openEditClassModal = () => {
     setEditClassDraft({ title: classTitle, description: classDescription });
+    setClassEditError(null);
     setIsEditClassModalOpen(true);
   };
 
-  const saveEditClass = () => {
+  const saveEditClass = async () => {
     const t = editClassDraft.title.trim();
     if (!t) return;
-    setClassTitle(t);
-    setClassDescription(editClassDraft.description);
-    setIsEditClassModalOpen(false);
+    const { block, level } = splitBlockLevelLabel(classMeta.blockLevel);
+    setClassEditError(null);
+    setIsSavingClass(true);
+    try {
+      const res = await fetch("/api/data/classes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: classId,
+          name: t,
+          teacher: classMeta.teacher,
+          students: `${classMeta.capacityEnrolled}/${classMeta.capacityMax}`,
+          schedule: classMeta.schedule,
+          status: "Active",
+          track: "enrichment",
+          description: editClassDraft.description,
+          block,
+          level,
+        }),
+      });
+      if (!res.ok) {
+        setClassEditError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { class?: SchoolClassRow };
+      if (body.class) {
+        setClassTitle(body.class.name);
+        setClassDescription(
+          body.class.description ||
+            `${body.class.name} roster and request status are loaded from the class data source.`,
+        );
+        setClassMeta(classMetaFromRow(body.class));
+      } else {
+        setClassTitle(t);
+        setClassDescription(editClassDraft.description);
+      }
+      setIsEditClassModalOpen(false);
+    } catch (error) {
+      setClassEditError(error instanceof Error ? error.message : "Class could not be saved.");
+    } finally {
+      setIsSavingClass(false);
+    }
   };
 
   useEffect(() => {
@@ -230,35 +377,127 @@ export default function EnrichmentClassDetail() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId]);
 
-  function handleSaveAddStudent() {
-    const name = addStudentName.trim();
-    if (!name) return;
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? `s-${crypto.randomUUID()}` : `s-${Date.now()}`;
-    setStudents((prev) => [
-      ...prev,
-      {
-        id,
-        name,
-        parent: addParentName.trim() || "—",
-        age: 10,
-        level: "1",
-        status: "Pending",
-        description: "",
-      },
-    ]);
-    setCurrentPage(1);
-    setAddStudentName("");
-    setAddParentName("");
-    setIsAddStudentModalOpen(false);
+  async function readApiError(res: Response): Promise<string> {
+    try {
+      const body = (await res.json()) as { error?: string };
+      return body.error ?? res.statusText;
+    } catch {
+      return res.statusText;
+    }
   }
 
-  function handleSaveEditStudent() {
+  async function handleSaveAddStudent() {
+    const name = addStudentName.trim();
+    if (!name) return;
+    setAddStudentError(null);
+    setIsAddingStudent(true);
+    try {
+      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          parent: addParentName,
+          level: "1",
+          status: "Pending",
+        }),
+      });
+      if (!res.ok) {
+        setAddStudentError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { student?: Student };
+      if (!body.student) {
+        setAddStudentError("Student could not be added to this class.");
+        return;
+      }
+      setStudents((prev) => [...prev, body.student as Student]);
+      setCurrentPage(1);
+      setAddStudentName("");
+      setAddParentName("");
+      setIsAddStudentModalOpen(false);
+    } catch (error) {
+      setAddStudentError(error instanceof Error ? error.message : "Student could not be added to this class.");
+    } finally {
+      setIsAddingStudent(false);
+    }
+  }
+
+  async function handleSaveEditStudent() {
     if (!editStudentDraft || editingStudentId !== editStudentDraft.id) return;
-    setStudents((prev) =>
-      prev.map((s) => (s.id === editStudentDraft.id ? editStudentDraft : s)),
-    );
-    setEditingStudentId(null);
-    setEditStudentDraft(null);
+    setEditStudentError(null);
+    setIsSavingStudent(true);
+    try {
+      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: editStudentDraft.id,
+          name: editStudentDraft.name,
+          parent: editStudentDraft.parent,
+          age: editStudentDraft.age,
+          level: editStudentDraft.level,
+          status: editStudentDraft.status,
+          description: editStudentDraft.description,
+        }),
+      });
+      if (!res.ok) {
+        setEditStudentError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { student?: Student };
+      const saved = body.student ?? editStudentDraft;
+      setStudents((prev) =>
+        prev.map((s) => (s.id === saved.id ? saved : s)),
+      );
+      setEditingStudentId(null);
+      setEditStudentDraft(null);
+    } catch (error) {
+      setEditStudentError(error instanceof Error ? error.message : "Student enrollment could not be saved.");
+    } finally {
+      setIsSavingStudent(false);
+    }
+  }
+
+  async function removeStudentById(studentId: string) {
+    setRowActionError(null);
+    setActiveActionDropdown(null);
+    try {
+      const res = await fetch(
+        `/api/data/classes/${encodeURIComponent(classId)}/roster?studentId=${encodeURIComponent(studentId)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        setRowActionError(await readApiError(res));
+        return;
+      }
+      setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setSelectedStudentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(studentId);
+        return next;
+      });
+    } catch (error) {
+      setRowActionError(error instanceof Error ? error.message : "Student could not be removed.");
+    }
+  }
+
+  async function removeClass() {
+    setDeleteClassError(null);
+    setIsDeletingClass(true);
+    try {
+      const res = await fetch(`/api/data/classes?id=${encodeURIComponent(classId)}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeleteClassError(await readApiError(res));
+        return;
+      }
+      setIsRemoveClassModalOpen(false);
+      router.push("/dashboard/classes");
+    } catch (error) {
+      setDeleteClassError(error instanceof Error ? error.message : "Class could not be removed.");
+    } finally {
+      setIsDeletingClass(false);
+    }
   }
 
   return (
@@ -278,7 +517,7 @@ export default function EnrichmentClassDetail() {
         </div>
         <div className="flex items-center justify-between w-full ml-2">
           <p className="font-semibold text-[#272932] text-[16px]">
-            5 Requests waiting for approval for this class
+            {classMeta.pendingCount} Requests waiting for approval for this class
           </p>
           <Link
             href="/dashboard/classes/requests"
@@ -289,6 +528,17 @@ export default function EnrichmentClassDetail() {
           </Link>
         </div>
       </div>
+
+      {dataHint && (
+        <div className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
+          {dataHint}
+        </div>
+      )}
+      {rowActionError && (
+        <div role="alert" className="rounded-lg border border-[#f6c8c8] bg-[#fff1f1] px-4 py-2 text-sm text-[#8c1f1f]">
+          {rowActionError}
+        </div>
+      )}
 
       {/* Header Info */}
       <div className="flex justify-between items-start">
@@ -327,7 +577,7 @@ export default function EnrichmentClassDetail() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-[#272932] text-[16px]">Teacher</span>
-            <span className="font-medium text-[#666d80] text-[16px]">Ms. Collins</span>
+            <span className="font-medium text-[#666d80] text-[16px]">{classMeta.teacher}</span>
           </div>
         </div>
 
@@ -338,7 +588,7 @@ export default function EnrichmentClassDetail() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-[#272932] text-[16px]">Block & Class Level</span>
-            <span className="font-medium text-[#666d80] text-[16px]">B3 L2</span>
+            <span className="font-medium text-[#666d80] text-[16px]">{classMeta.blockLevel}</span>
           </div>
         </div>
 
@@ -349,7 +599,7 @@ export default function EnrichmentClassDetail() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-[#272932] text-[16px]">Schedule</span>
-            <span className="font-medium text-[#666d80] text-[16px]">9:40 AM - 11:10AM</span>
+            <span className="font-medium text-[#666d80] text-[16px]">{classMeta.schedule}</span>
           </div>
         </div>
 
@@ -357,13 +607,23 @@ export default function EnrichmentClassDetail() {
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex flex-col justify-center gap-2">
           <div className="flex justify-between items-center w-full leading-[1.4]">
             <span className="font-semibold text-[#272932] text-[16px]">Capacity</span>
-            <span className="font-semibold text-[#cfa500] text-[16px]">5 Pending</span>
+            <span className="font-semibold text-[#cfa500] text-[16px]">{classMeta.pendingCount} Pending</span>
           </div>
           <div className="flex items-center gap-4 w-full justify-between">
             <div className="w-full bg-[rgba(0,77,8,0.2)] h-2 rounded-[41px] relative">
-              <div className="absolute top-0 left-0 bg-[#004d08] h-2 rounded-[41px]" style={{ width: '75%' }}></div>
+              <div
+                className="absolute top-0 left-0 bg-[#004d08] h-2 rounded-[41px]"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, (classMeta.capacityEnrolled / Math.max(1, classMeta.capacityMax)) * 100),
+                  )}%`,
+                }}
+              />
             </div>
-            <span className="font-medium text-[#666d80] text-[16px] whitespace-nowrap">15/20</span>
+            <span className="font-medium text-[#666d80] text-[16px] whitespace-nowrap">
+              {classMeta.capacityEnrolled}/{classMeta.capacityMax}
+            </span>
           </div>
         </div>
       </div>
@@ -454,6 +714,7 @@ export default function EnrichmentClassDetail() {
                 onClick={() => {
                   setAddStudentName("");
                   setAddParentName("");
+                  setAddStudentError(null);
                   setIsAddStudentModalOpen(true);
                 }}
                 className="bg-[#14c1d5] shadow-sm flex items-center gap-2 px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors"
@@ -547,6 +808,7 @@ export default function EnrichmentClassDetail() {
                             <button 
                               type="button"
                               onClick={() => {
+                                setEditStudentError(null);
                                 setActiveActionDropdown(null);
                                 setEditingStudentId(student.id);
                                 setEditStudentDraft({ ...student });
@@ -557,15 +819,7 @@ export default function EnrichmentClassDetail() {
                             </button>
                             <button 
                               type="button"
-                              onClick={() => { 
-                                setActiveActionDropdown(null); 
-                                setStudents(students.filter(s => s.id !== student.id));
-                                setSelectedStudentIds(prev => {
-                                  const next = new Set(prev);
-                                  next.delete(student.id);
-                                  return next;
-                                });
-                              }}
+                              onClick={() => void removeStudentById(student.id)}
                               className="w-full text-left px-4 py-2 text-[14px] text-[#d80509] hover:bg-gray-50"
                             >
                               Remove
@@ -639,7 +893,12 @@ export default function EnrichmentClassDetail() {
             onMouseDown={(e) => e.stopPropagation()}
           >
             <h3 className="font-bold text-[#272932] text-xl">Add Student</h3>
-            <p className="text-[#666d80] text-[14px]">Enter the new student&apos;s information below.</p>
+            <p className="text-[#666d80] text-[14px]">Create a student row and enroll it in this enrichment class.</p>
+            {addStudentError ? (
+              <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {addStudentError}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3">
               <input
                 type="text"
@@ -667,9 +926,10 @@ export default function EnrichmentClassDetail() {
               <button
                 type="button"
                 onClick={handleSaveAddStudent}
-                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors"
+                disabled={isAddingStudent}
+                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
               >
-                Save Student
+                {isAddingStudent ? "Saving..." : "Save Student"}
               </button>
             </div>
           </div>
@@ -692,7 +952,12 @@ export default function EnrichmentClassDetail() {
             onMouseDown={(e) => e.stopPropagation()}
           >
             <h3 className="font-bold text-[#272932] text-xl">Edit Class Info</h3>
-            <p className="text-[#666d80] text-[14px]">Update the details for this class. Save applies changes to the page header.</p>
+            <p className="text-[#666d80] text-[14px]">Update the details for this class through the data API.</p>
+            {classEditError ? (
+              <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {classEditError}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3">
               <input
                 type="text"
@@ -717,9 +982,10 @@ export default function EnrichmentClassDetail() {
               <button
                 type="button"
                 onClick={saveEditClass}
-                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors"
+                disabled={isSavingClass}
+                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
               >
-                Save Changes
+                {isSavingClass ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -743,6 +1009,11 @@ export default function EnrichmentClassDetail() {
           >
             <h3 className="font-bold text-[#272932] text-xl">Edit Student</h3>
             <p className="text-[#666d80] text-[14px]">Update this student&apos;s enrollment details.</p>
+            {editStudentError ? (
+              <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {editStudentError}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3">
               <label className="text-[12px] font-semibold text-[#666d80] uppercase tracking-wide">Student Name</label>
               <input
@@ -821,9 +1092,10 @@ export default function EnrichmentClassDetail() {
               <button
                 type="button"
                 onClick={handleSaveEditStudent}
-                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors"
+                disabled={isSavingStudent}
+                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
               >
-                Save Changes
+                {isSavingStudent ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -849,6 +1121,11 @@ export default function EnrichmentClassDetail() {
             <p className="text-[#666d80] text-[14px]">
               Are you sure you want to remove the <strong>{classTitle}</strong> class? This removes it from the directory for all administrators.
             </p>
+            {deleteClassError ? (
+              <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {deleteClassError}
+              </div>
+            ) : null}
             <div className="flex justify-end gap-3 mt-4">
               <button
                 type="button"
@@ -859,13 +1136,11 @@ export default function EnrichmentClassDetail() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setIsRemoveClassModalOpen(false);
-                  router.push("/dashboard/classes");
-                }}
-                className="bg-[#ffd9d9] text-[#d80509] font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#ffc2c2] transition-colors"
+                onClick={removeClass}
+                disabled={isDeletingClass}
+                className="bg-[#ffd9d9] text-[#d80509] font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#ffc2c2] transition-colors disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Remove
+                {isDeletingClass ? "Removing..." : "Remove"}
               </button>
             </div>
           </div>

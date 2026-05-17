@@ -1,8 +1,6 @@
 # Data access layer
 
-Typed repository functions live in `src/lib/data/repositories/*` and read from Supabase when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set. **If either is missing or a query fails, the bundled mock fallbacks keep the deployed demo usable without a database.**
-
-REST access uses `src/lib/supabase/rest.ts` (no extra runtime dependency).
+Typed repository functions live in `src/lib/data/repositories/*` and read from Supabase with the cookie-aware server client when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set. Bundled fallback rows are for local/offline development. In production, set `NEXT_PUBLIC_REQUIRE_REMOTE_DATA=true` so missing env or failed queries return empty/unavailable data instead of silently showing sample rows.
 
 ## HTTP APIs (usable from client components or external clients)
 
@@ -12,7 +10,14 @@ When `**/page.tsx` files cannot be edited in a managed environment, call the sam
 | --- | --- |
 | `GET /api/dashboard-presentation` | `{ metrics, dailyRows, fromRemote }` |
 | `GET /api/data/students` | `{ students }` |
+| `GET /api/data/students/:id/profile` | `{ profile, source }` |
+| `GET /api/data/students/:id/schedule` | `{ rows, source }` |
+| `GET /api/data/students/:id/roster` | `{ students, source }` |
 | `GET /api/data/classes` | `{ classes }` |
+| `GET /api/data/classes/:id/roster` | `{ students, source }` |
+| `PATCH /api/data/classes/:id/roster` | `{ studentId, status }` updates enrollment status |
+| `DELETE /api/data/classes/:id/roster?studentId=...` | removes one enrollment |
+| `GET /api/data/invoices` | `{ invoices, source }` |
 | `GET /api/data/notifications` | `{ notifications }` |
 | `GET /api/data/schedule-extras` | `{ extrasByDate }` |
 
@@ -42,6 +47,7 @@ export default async function Dashboard() {
 | `/dashboard/classes` | `fetchClasses` | `classes` |
 | `/dashboard/notifications` | `fetchNotifications` | `notifications` |
 | `/dashboard/schedule` | `fetchScheduleExtrasByDate` + shared weekday seed | `schedule_events` |
+| `/dashboard/parents/billing` | `fetchInvoicesResolved` | `invoices` |
 
 ## Repository stubs (mock until tables exist)
 
@@ -50,8 +56,8 @@ export default async function Dashboard() {
 | `fetchTeachers` | `TEACHERS_FALLBACK` | `teachers` |
 | `fetchParents` | `PARENTS_FALLBACK` | `parents` |
 | `fetchEnrichmentRequests` | `REQUESTS_FALLBACK` | `enrichment_requests` |
-| `fetchStudentNotes` | empty | `student_notes` |
-| `fetchFeedbackSubmissions` | empty | `feedback_submissions` |
+| `fetchStudentNotes` | empty | `student_records` |
+| `fetchFeedbackSubmissions` | empty | `feedback` |
 
 ## Column mapping (guidance)
 
@@ -65,15 +71,12 @@ Repositories map common names (e.g. `full_name` or `name`, `avatar_url` or `avat
 
 Expected fields: ISO date (`event_date` or `date`), `time_label`, `title`, optional `description`, `event_type` matching `CalendarEventType` (`core`, `enrichment-pending`, `enrichment-approved`, `event`).
 
-## Pages still using local state / inline mocks
+## Pages still using local UI constants
 
-Not yet switched to repositories in this pass (non-exhaustive):
+Remaining constants are UI option sets or forms rather than school sample records:
 
-- `dashboard/teachers`, `dashboard/teachers/[id]` (lists / profile)
-- `dashboard/classes/core/*`, `dashboard/classes/enrichment/*`, class rosters, detail pages
-- `dashboard/classes/requests`, `dashboard/classes/approvals`
-- `dashboard/parents/**` (catalog, class lists, feedback form)
-- `dashboard/students/[id]/*` (profile, schedule duplicate, roster)
-- `dashboard/support`, settings, messaging, login flows
+- `dashboard/support` help categories
+- `dashboard/parents/feedback` form chips and NPS scale
+- `dashboard/students/new` grade-level choices
 
-These can import the same mocks or call `fetch*` functions as tables are introduced.
+School content for classes, rosters, profiles, schedule rows, parents, teachers, requests, notifications, and parent/student history now routes through repositories, API handlers, or dedicated data modules.

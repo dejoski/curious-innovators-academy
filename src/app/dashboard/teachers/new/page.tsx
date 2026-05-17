@@ -28,7 +28,12 @@ export default function CreateTeacherPage() {
 
   async function submit() {
     const n = name.trim();
+    const e = email.trim();
     if (!n || submitting) return;
+    if (!e) {
+      setHint("Teacher email is required so the record can be tied to a Supabase Auth profile.");
+      return;
+    }
     setSubmitting(true);
     setHint(null);
     try {
@@ -37,8 +42,8 @@ export default function CreateTeacherPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: n,
-          subjects: subjects.trim() || "TBD",
-          email: email.trim() || "pending@school.edu",
+          subjects: subjects.trim(),
+          email: e,
           phone: phone.trim() || undefined,
           program,
         }),
@@ -105,7 +110,7 @@ export default function CreateTeacherPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
-              placeholder="(555) 000-0000"
+              placeholder="Optional phone number"
             />
           </label>
           <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
@@ -125,7 +130,7 @@ export default function CreateTeacherPage() {
             </Link>
             <button
               type="button"
-              disabled={!name.trim() || submitting}
+              disabled={!name.trim() || !email.trim() || submitting}
               onClick={() => void submit()}
               className="rounded-lg bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd] disabled:opacity-50"
             >

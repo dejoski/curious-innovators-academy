@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import type { DataSource } from "@/lib/data/fetch-source";
+import type { StudentRosterRow } from "@/lib/data/types";
 
-const imgEllipse2735 = "/images/anna-lee-avatar.png";
-const imgEllipse2736 = "/images/mary-lee-avatar.png";
-const imgEllipse2737 = "/images/parent-female-dark-hair.png";
-const imgEllipse2738 = "/images/parent-female-light-hair.png";
-const imgEllipse2739 = "/images/anna-lee-avatar.png";
-const imgEllipse2740 = "/images/mary-lee-avatar.png";
 const imgGroup = "/images/icon-group.svg";
 const imgIcon = "/images/icon-caret-down.svg";
 const imgGroup1 = "/images/icon-search.svg";
@@ -18,21 +14,6 @@ const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgChevronDown = "/images/icon-chevron-down.svg";
 const imgChevronDown1 = "/images/icon-chevron-down2.svg";
-
-const INITIAL_STUDENTS = [
-  { id: "1", name: "Anna Lee", parent: "Mr. Lee", age: 14, status: "Pending" as const, avatar: imgEllipse2735, classRef: "Robotics Lab" as const, blockRef: "Block 3" as const, levelRef: "Level 2" as const },
-  { id: "2", name: "George Lee", parent: "Mr. Lee", age: 14, status: "Pending" as const, avatar: imgEllipse2736, classRef: "Robotics Lab" as const, blockRef: "Block 3" as const, levelRef: "Level 2" as const },
-  { id: "3", name: "Bruna Lee", parent: "Mr. Lee", age: 13, status: "Waitlist" as const, avatar: imgEllipse2737, classRef: "Robotics Lab" as const, blockRef: "Block 3" as const, levelRef: "Level 1" as const },
-  { id: "4", name: "James Smith", parent: "Ms. Smith", age: 14, status: "Approved" as const, avatar: imgEllipse2738, classRef: "Math Lab" as const, blockRef: "Block 1" as const, levelRef: "Level 2" as const },
-  { id: "5", name: "Bruce Collins", parent: "Ms. Collins", age: 14, status: "Approved" as const, avatar: imgEllipse2739, classRef: "Creative Writing" as const, blockRef: "Block 2" as const, levelRef: "Level 3" as const },
-  { id: "6", name: "Maria Collins", parent: "Ms. Collins", age: 13, status: "Approved" as const, avatar: imgEllipse2740, classRef: "Robotics Lab" as const, blockRef: "Block 1" as const, levelRef: "Level 2" as const },
-  { id: "7", name: "Nina Park", parent: "Ms. Park", age: 14, status: "Approved" as const, avatar: imgEllipse2738, classRef: "Math Lab" as const, blockRef: "Block 3" as const, levelRef: "Level 2" as const },
-  { id: "8", name: "Sam Rivera", parent: "Mr. Rivera", age: 14, status: "Approved" as const, avatar: imgEllipse2739, classRef: "Creative Writing" as const, blockRef: "Block 1" as const, levelRef: "Level 1" as const },
-] as const;
-
-const CLASS_OPTIONS = ["Robotics Lab", "Math Lab", "Creative Writing"] as const;
-const BLOCK_OPTIONS = ["Block 3", "Block 1", "Block 2"] as const;
-const LEVEL_OPTIONS = ["Level 2", "Level 1", "Level 3"] as const;
 
 type SortOption = "None" | "Name A-Z" | "Name Z-A" | "Age ↑" | "Age ↓";
 
@@ -63,17 +44,20 @@ function paginationSlice(totalPages: number, page: number): (number | "ellipsis"
 }
 
 export default function StudentStudentRoster() {
-  const params = useParams();
-  const contextStudentId = String(params.id ?? "");
+  const params = useParams<{ id: string }>();
+  const contextStudentId = params.id ?? "";
 
-  const [students] = useState(INITIAL_STUDENTS);
-  const [selectedClass, setSelectedClass] = useState<(typeof CLASS_OPTIONS)[number]>("Robotics Lab");
-  const [selectedBlock, setSelectedBlock] = useState<(typeof BLOCK_OPTIONS)[number]>("Block 3");
-  const [selectedLevel, setSelectedLevel] = useState<(typeof LEVEL_OPTIONS)[number]>("Level 2");
+  const [students, setStudents] = useState<StudentRosterRow[]>([]);
+  const [source, setSource] = useState<DataSource>("unavailable");
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedBlock, setSelectedBlock] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("None");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [actionHint, setActionHint] = useState<string | null>(null);
 
   const [openDropdown, setOpenDropdown] = useState<"class" | "block" | "level" | null>(null);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -83,6 +67,62 @@ export default function StudentStudentRoster() {
   const blockDropdownRef = useRef<HTMLDivElement>(null);
   const levelDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRoster() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/data/students/${encodeURIComponent(contextStudentId)}/roster`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Roster API failed: ${res.status}`);
+        const payload = (await res.json()) as { students?: StudentRosterRow[]; source?: DataSource };
+        if (cancelled) return;
+        setStudents(Array.isArray(payload.students) ? payload.students : []);
+        setSource(payload.source ?? "unavailable");
+      } catch {
+        if (!cancelled) {
+          setStudents([]);
+          setSource("unavailable");
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    void loadRoster();
+    return () => {
+      cancelled = true;
+    };
+  }, [contextStudentId]);
+
+  const classOptions = useMemo(
+    () => Array.from(new Set(students.map((student) => student.classRef).filter(Boolean))),
+    [students],
+  );
+  const blockOptions = useMemo(
+    () => Array.from(new Set(students.map((student) => student.blockRef).filter(Boolean))),
+    [students],
+  );
+  const levelOptions = useMemo(
+    () => Array.from(new Set(students.map((student) => student.levelRef).filter(Boolean))),
+    [students],
+  );
+
+  useEffect(() => {
+    if (!selectedClass && classOptions.length > 0) setSelectedClass(classOptions[0]);
+    else if (selectedClass && classOptions.length > 0 && !classOptions.includes(selectedClass)) setSelectedClass(classOptions[0]);
+  }, [classOptions, selectedClass]);
+
+  useEffect(() => {
+    if (!selectedBlock && blockOptions.length > 0) setSelectedBlock(blockOptions[0]);
+    else if (selectedBlock && blockOptions.length > 0 && !blockOptions.includes(selectedBlock)) setSelectedBlock(blockOptions[0]);
+  }, [blockOptions, selectedBlock]);
+
+  useEffect(() => {
+    if (!selectedLevel && levelOptions.length > 0) setSelectedLevel(levelOptions[0]);
+    else if (selectedLevel && levelOptions.length > 0 && !levelOptions.includes(selectedLevel)) setSelectedLevel(levelOptions[0]);
+  }, [levelOptions, selectedLevel]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -134,15 +174,28 @@ export default function StudentStudentRoster() {
     return { pending, waitlist, enrolled, capacity };
   }, [students, selectedClass, selectedBlock, selectedLevel]);
 
+  const dataHint =
+    source === "fallback"
+      ? "Showing sample roster because cloud student roster data is unavailable."
+      : source === "unavailable"
+        ? "Remote student roster data is required, but no rows are available."
+        : "";
+
   const exportSpreadsheet = async () => {
     const header = ["Student", "Parent", "Age", "Status"].join("\t");
     const lines = filteredSorted.map((s) => [s.name, s.parent, String(s.age), s.status].join("\t"));
     const tsv = [header, ...lines].join("\n");
     try {
       await navigator.clipboard.writeText(tsv);
-      window.alert(`Copied ${filteredSorted.length} row(s) as TSV. Paste into Numbers or Excel.`);
+      setActionHint(`Copied ${filteredSorted.length} row(s) as TSV.`);
     } catch {
-      window.alert("Clipboard blocked. Here's a one-line preview:\n" + header + "\n" + (lines[0] ?? ""));
+      const url = URL.createObjectURL(new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `student-roster-${contextStudentId || "export"}.tsv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setActionHint("Clipboard was blocked, so a TSV file was downloaded.");
     }
   };
 
@@ -203,13 +256,15 @@ export default function StudentStudentRoster() {
           <p className="text-[#666d80] text-[16px] leading-[1.4]">
             Classes and classmates linked to this student’s filters — aligns with organization roster layouts.
           </p>
+          {dataHint ? <p className="text-xs text-[#6b7280]">{dataHint}</p> : null}
+          {actionHint ? <p className="text-xs font-medium text-[#004d08]">{actionHint}</p> : null}
         </div>
         <button
           type="button"
           onClick={() => void exportSpreadsheet()}
           className="bg-[#d2f1f5] hover:bg-[#bcecf3] transition-colors text-[#14c1d5] text-[16px] font-medium px-4 py-2 rounded-[6px] shadow-sm flex items-center justify-center shrink-0"
         >
-          Upload to Spreadsheet
+          Copy TSV
         </button>
       </div>
 
@@ -222,7 +277,7 @@ export default function StudentStudentRoster() {
           >
             <div className="flex gap-[12px] items-center">
               <img src={imgGroup} alt="Class" className="size-[18px] object-contain" />
-              <span className="text-[#0d0d12] text-[16px] font-normal">{selectedClass}</span>
+              <span className="text-[#0d0d12] text-[16px] font-normal">{selectedClass || "No classes"}</span>
             </div>
             <img
               src={imgIcon}
@@ -232,7 +287,7 @@ export default function StudentStudentRoster() {
           </button>
           {openDropdown === "class" && (
             <div className="absolute left-0 top-full z-50 mt-1 w-[260px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
-              {CLASS_OPTIONS.map((opt) => (
+              {classOptions.map((opt) => (
                 <button
                   key={opt}
                   type="button"
@@ -268,7 +323,7 @@ export default function StudentStudentRoster() {
           </button>
           {openDropdown === "block" && (
             <div className="absolute left-0 top-full z-50 mt-1 w-[260px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
-              {BLOCK_OPTIONS.map((opt) => (
+              {blockOptions.map((opt) => (
                 <button
                   key={opt}
                   type="button"
@@ -304,7 +359,7 @@ export default function StudentStudentRoster() {
           </button>
           {openDropdown === "level" && (
             <div className="absolute left-0 top-full z-50 mt-1 w-[260px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
-              {LEVEL_OPTIONS.map((opt) => (
+              {levelOptions.map((opt) => (
                 <button
                   key={opt}
                   type="button"
@@ -404,7 +459,10 @@ export default function StudentStudentRoster() {
         </div>
 
         <div className="flex flex-col w-full">
-          {pageRows.length === 0 ? (
+          {isLoading ? (
+            <p className="py-10 text-center text-[#666d80] text-sm w-full">Loading roster...</p>
+          ) : null}
+          {!isLoading && pageRows.length === 0 ? (
             <p className="py-10 text-center text-[#666d80] text-sm w-full">No students match these filters. Try another class, block, or level.</p>
           ) : null}
           {pageRows.map((student) => (

@@ -24,7 +24,7 @@ export default function AddStudentPage() {
   const [parent, setParent] = useState("");
   const [level, setLevel] = useState<string>("Grade 5");
   const [track, setTrack] = useState<ProgramTrack>("core");
-  const [notes, setNotes] = useState("New enrollment");
+  const [notes, setNotes] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,10 +40,10 @@ export default function AddStudentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: n,
-          parent: parent.trim() || "TBD",
+          parent: parent.trim(),
           level: levNum,
           track,
-          notes: notes.trim() || "New enrollment",
+          notes: notes.trim() || undefined,
         }),
       });
       if (res.ok) {

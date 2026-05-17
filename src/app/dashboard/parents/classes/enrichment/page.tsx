@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -8,101 +9,48 @@ const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
-const initialEnrichmentClasses = [
-  {
-    id: "e1",
-    name: "Ocean Explorers",
-    teacher: "Mr. Garcia",
-    level: "4",
-    block: "B4",
-    day: "Tuesday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 104",
-    availability: "Open",
-    status: "--",
-    current: false,
-  },
-  {
-    id: "e2",
-    name: "Robotics Lab",
-    teacher: "Ms. Jonhson",
-    level: "3",
-    block: "B2",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 101",
-    availability: "Open",
-    status: "--",
-    current: false,
-  },
-  {
-    id: "e3",
-    name: "Journalism & Media Writing",
-    teacher: "Mr. Carter",
-    level: "3",
-    block: "B2",
-    day: "Friday",
-    time: "10:30 AM - 12:00 PM",
-    location: "Room 302",
-    availability: "Full",
-    status: "Approved",
-    current: true,
-  },
-  {
-    id: "e4",
-    name: "Creative Arts",
-    teacher: "Mr. Garcia",
-    level: "4",
-    block: "B3",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 203",
-    availability: "Open",
-    status: "--",
-    current: false,
-  },
-  {
-    id: "e5",
-    name: "Robotics Lab",
-    teacher: "Ms. Jumper",
-    level: "4",
-    block: "B2",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 905",
-    availability: "Full",
-    status: "Rejected",
-    current: false,
-  },
-  {
-    id: "e6",
-    name: "Journalism & Media Writing",
-    teacher: "Mr. Carter",
-    level: "3",
-    block: "B2",
-    day: "Friday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 806",
-    availability: "Full",
-    status: "Pending",
-    current: false,
-  },
-  {
-    id: "e7",
-    name: "Creative Arts",
-    teacher: "Mr. Garcia",
-    level: "4",
-    block: "B3",
-    day: "Monday",
-    time: "8:00 AM - 9:30 AM",
-    location: "Room 107",
-    availability: "Open",
-    status: "Approved",
-    current: true,
-  },
-];
+type ParentEnrichmentRow = {
+  id: string;
+  name: string;
+  teacher: string;
+  level: string;
+  block: string;
+  day: string;
+  time: string;
+  location: string;
+  availability: string;
+  status: string;
+  current: boolean;
+};
+
+function splitSchedule(schedule: string): { day: string; time: string } {
+  const parts = schedule.split("·").map((part) => part.trim()).filter(Boolean);
+  return {
+    day: parts[0] || schedule || "Schedule not set",
+    time: parts[1] || "Time not set",
+  };
+}
+
+function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
+  const { day, time } = splitSchedule(row.schedule);
+  return {
+    id: row.id,
+    name: row.name,
+    teacher: row.teacher || "Teacher not assigned",
+    level: row.level || "—",
+    block: row.block || "—",
+    day,
+    time,
+    location: row.location || "Room not assigned",
+    availability: row.status === "Full" ? "Full" : "Open",
+    status: row.pendingCount > 0 ? "Pending" : "--",
+    current: row.pendingCount === 0 && row.status === "Active",
+  };
+}
 
 export default function EnrichmentClassesPage() {
+  const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
+  const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("name");
@@ -113,8 +61,42 @@ export default function EnrichmentClassesPage() {
   const [toolbarBanner, setToolbarBanner] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadClasses() {
+      try {
+        const res = await fetch("/api/data/classes", { cache: "no-store" });
+        if (!res.ok) throw new Error(res.statusText);
+        const body = (await res.json()) as { classes?: SchoolClassRow[]; source?: string };
+        const rows = (body.classes ?? [])
+          .filter((row) => row.program === "enrichment")
+          .map(toParentEnrichmentRow);
+        if (cancelled) return;
+        setClasses(rows);
+        setDataHint(
+          body.source === "fallback"
+            ? "Showing sample classes because cloud data is unavailable."
+            : body.source === "unavailable"
+              ? "Cloud classes are unavailable. Ask an administrator to configure Supabase."
+              : null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setClasses([]);
+          setDataHint(
+            `Could not load classes: ${error instanceof Error ? error.message : String(error)}.`,
+          );
+        }
+      }
+    }
+    loadClasses();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredAndSortedClasses = useMemo(() => {
-    let result = [...initialEnrichmentClasses];
+    let result = [...classes];
 
     // Filter by Search Query
     if (searchQuery) {
@@ -144,7 +126,7 @@ export default function EnrichmentClassesPage() {
     });
 
     return result;
-  }, [searchQuery, filterStatus, sortBy]);
+  }, [classes, searchQuery, filterStatus, sortBy]);
 
   useEffect(() => {
     if (!toolbarBanner) return;
@@ -248,6 +230,12 @@ export default function EnrichmentClassesPage() {
       {toolbarBanner && (
         <div className="rounded-[12px] border border-[rgba(0,77,8,0.25)] bg-[rgba(0,77,8,0.06)] px-4 py-3 text-sm text-[#004d08] font-medium">
           {toolbarBanner}
+        </div>
+      )}
+
+      {dataHint && (
+        <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
+          {dataHint}
         </div>
       )}
 

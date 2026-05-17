@@ -37,10 +37,26 @@ export default function AddClassForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const segment = trackTab === "enrichment" ? "enrichment" : "core";
+  const seatsPattern = /^\d+\s*\/\s*\d+$/;
+  const canSubmit = Boolean(name.trim() && teacher.trim() && seatsPattern.test(students.trim())) && !submitting;
 
   const submit = async () => {
     const trimmed = name.trim();
-    if (!trimmed || submitting) return;
+    const teacherName = teacher.trim();
+    const studentsLabel = students.trim();
+    if (submitting) return;
+    if (!trimmed) {
+      setSyncHint("Class name is required.");
+      return;
+    }
+    if (!teacherName) {
+      setSyncHint("Choose an existing teacher from the roster before saving this class.");
+      return;
+    }
+    if (!seatsPattern.test(studentsLabel)) {
+      setSyncHint("Seats must use the enrolled/capacity format, such as 12/30.");
+      return;
+    }
     setSubmitting(true);
     setSyncHint(null);
     try {
@@ -49,9 +65,9 @@ export default function AddClassForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: trimmed,
-          teacher: teacher.trim() || "TBD",
-          students: students.trim() || "0/1",
-          schedule: scheduleText.trim() || "TBD",
+          teacher: teacherName,
+          students: studentsLabel,
+          schedule: scheduleText.trim(),
           status,
           track: segment,
         }),
@@ -121,10 +137,11 @@ export default function AddClassForm() {
             />
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
-            Teacher
+            Teacher roster name
             <input
               value={teacher}
               onChange={(e) => setTeacher(e.target.value)}
+              aria-required="true"
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
@@ -133,6 +150,7 @@ export default function AddClassForm() {
             <input
               value={students}
               onChange={(e) => setStudents(e.target.value)}
+              aria-required="true"
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
@@ -164,7 +182,7 @@ export default function AddClassForm() {
             </Link>
             <button
               type="button"
-              disabled={!name.trim() || submitting}
+              disabled={!canSubmit}
               onClick={() => void submit()}
               className="rounded-md bg-[#14c1d5] px-4 py-2 font-sans text-sm font-semibold text-white transition-colors hover:bg-[#12aebd] disabled:opacity-50"
             >

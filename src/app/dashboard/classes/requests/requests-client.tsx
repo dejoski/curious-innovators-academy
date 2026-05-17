@@ -160,7 +160,7 @@ export default function ClassesEnrichmentRequests({
     });
     if (!res.ok && prevRow) {
       setRequests((prev) => prev.map((r) => (r.id === id ? prevRow : r)));
-      setSyncHint(`Status kept locally only (${await readApiError(res)}).`);
+      setSyncHint(`Could not sync status (${await readApiError(res)}).`);
     }
   };
 

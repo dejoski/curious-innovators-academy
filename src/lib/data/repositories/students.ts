@@ -1,6 +1,6 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { canUseBundledFallbackData, fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -34,25 +34,25 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
     level: String(row.grade_level ?? row.level ?? ""),
     status,
     enrichment: studentsLabel || "0/4",
-    notes: String(row.notes ?? ""),
+    notes: String(row.notes ?? row.support_notes ?? ""),
     track,
   };
 }
 
 async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
   if (!isSupabaseConfigured()) {
-    return { items: [...STUDENTS_FALLBACK], source: "fallback" };
+    return fallbackList(STUDENTS_FALLBACK);
   }
 
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label, level, track, profile_id")
+      .select("id, display_name, guardian_label, level, track, profile_id, support_notes")
       .order("created_at", { ascending: true });
 
     if (error) {
-      return { items: [...STUDENTS_FALLBACK], source: "fallback" };
+      return fallbackList(STUDENTS_FALLBACK);
     }
 
     if (!data?.length) {
@@ -64,11 +64,11 @@ async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
       .filter((x): x is StudentListItem => x !== null);
 
     if (mapped.length === 0) {
-      return { items: [...STUDENTS_FALLBACK], source: "fallback" };
+      return fallbackList(STUDENTS_FALLBACK);
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return { items: [...STUDENTS_FALLBACK], source: "fallback" };
+    return fallbackList(STUDENTS_FALLBACK);
   }
 }
 
@@ -93,20 +93,24 @@ export async function fetchStudentByIdResolved(
 
   if (!isSupabaseConfigured()) {
     const found = STUDENTS_FALLBACK.find((s) => s.id === normalized) ?? null;
-    return { student: found, source: "fallback" };
+    return canUseBundledFallbackData()
+      ? { student: found, source: "fallback" }
+      : { student: null, source: "unavailable" };
   }
 
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label, level, track, profile_id")
+      .select("id, display_name, guardian_label, level, track, profile_id, support_notes")
       .eq("id", normalized)
       .maybeSingle();
 
     if (error) {
       const found = STUDENTS_FALLBACK.find((s) => s.id === normalized) ?? null;
-      return { student: found, source: "fallback" };
+      return canUseBundledFallbackData()
+        ? { student: found, source: "fallback" }
+        : { student: null, source: "unavailable" };
     }
     if (!data) {
       return { student: null, source: "remote" };
@@ -118,6 +122,8 @@ export async function fetchStudentByIdResolved(
     return { student: mapped, source: "remote" };
   } catch {
     const found = STUDENTS_FALLBACK.find((s) => s.id === normalized) ?? null;
-    return { student: found, source: "fallback" };
+    return canUseBundledFallbackData()
+      ? { student: found, source: "fallback" }
+      : { student: null, source: "unavailable" };
   }
 }

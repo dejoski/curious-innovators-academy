@@ -1,6 +1,6 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { DashboardNotification } from "@/lib/data/types";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { NOTIFICATIONS_FALLBACK } from "@/lib/data/mock/notifications";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,7 +22,7 @@ export function mapNotificationRow(row: Record<string, unknown>): DashboardNotif
 
 async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotification>> {
   if (!isSupabaseConfigured()) {
-    return { items: [...NOTIFICATIONS_FALLBACK], source: "fallback" };
+    return fallbackList(NOTIFICATIONS_FALLBACK);
   }
 
   try {
@@ -33,7 +33,7 @@ async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotifi
       .order("created_at", { ascending: false });
 
     if (error) {
-      return { items: [...NOTIFICATIONS_FALLBACK], source: "fallback" };
+      return fallbackList(NOTIFICATIONS_FALLBACK);
     }
 
     if (!data?.length) {
@@ -45,11 +45,11 @@ async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotifi
       .filter((x): x is DashboardNotification => x !== null);
 
     if (mapped.length === 0) {
-      return { items: [...NOTIFICATIONS_FALLBACK], source: "fallback" };
+      return fallbackList(NOTIFICATIONS_FALLBACK);
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return { items: [...NOTIFICATIONS_FALLBACK], source: "fallback" };
+    return fallbackList(NOTIFICATIONS_FALLBACK);
   }
 }
 

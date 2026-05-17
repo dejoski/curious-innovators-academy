@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
 import {
   serverPatchNotificationRead,
@@ -6,11 +7,17 @@ import {
 } from "@/lib/data/server-writes";
 
 export async function GET() {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { items: notifications, source } = await fetchNotificationsResolved();
   return NextResponse.json({ notifications, source });
 }
 
 export async function PATCH(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const body = (await req.json()) as Record<string, unknown>;
   if (body.scope === "all") {
     const result = await serverPatchNotificationsReadAll();
