@@ -3,6 +3,11 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { useDashboardPersona } from "@/components/dashboard-persona";
+import {
+  dashboardHomeForPersona,
+  dashboardHrefForPersona,
+} from "@/lib/dashboard/role-routes";
 import { fallbackInboxBannerText } from "@/lib/product-copy";
 
 type Notif = {
@@ -28,8 +33,10 @@ export default function DashboardNotificationsPage({
   const [items, setItems] = useState<Notif[]>(initialNotifications);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const { persona, demoStudentId } = useDashboardPersona();
 
   const unreadCount = useMemo(() => items.filter((n) => !n.read).length, [items]);
+  const backHref = dashboardHomeForPersona(persona, demoStudentId);
 
   const visible = useMemo(() => {
     if (filter === "unread") return items.filter((n) => !n.read);
@@ -158,7 +165,7 @@ export default function DashboardNotificationsPage({
                 )}
                 <div className="min-w-0 flex-1">
                   <Link
-                    href={n.href}
+                    href={dashboardHrefForPersona(n.href, persona, demoStudentId)}
                     className={`text-[15px] font-semibold hover:text-[#14c1d5] transition-colors ${
                       n.read ? "text-[#272932]" : "text-[#0d0d12]"
                     }`}
@@ -178,7 +185,7 @@ export default function DashboardNotificationsPage({
                   {n.read ? "Mark unread" : "Mark read"}
                 </button>
                 <Link
-                  href={n.href}
+                  href={dashboardHrefForPersona(n.href, persona, demoStudentId)}
                   className="text-xs font-semibold text-[#666d80] hover:text-[#272932] whitespace-nowrap"
                 >
                   Open →
@@ -190,7 +197,7 @@ export default function DashboardNotificationsPage({
       </ul>
 
       <p className="mt-8">
-        <Link href="/dashboard" className="text-[#14c1d5] text-sm font-medium hover:underline">
+        <Link href={backHref} className="text-[#14c1d5] text-sm font-medium hover:underline">
           ← Back to dashboard
         </Link>
       </p>

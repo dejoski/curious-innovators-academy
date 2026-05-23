@@ -19,11 +19,12 @@ const DEMO_ACCOUNT_BY_KIND: Record<"admin" | "parent", DemoAccountId> = {
 };
 
 /**
- * Marks the demo UI bypass and, when test persona storage is enabled, persists the
- * demo account for Admin or Parent before navigating from the login screen.
+ * Marks the demo UI bypass and persists the chosen role before navigating from
+ * the login screen. The role is separate from the QA persona switcher so demo
+ * Parent cannot accidentally fall back to the admin shell.
  */
 export function bootstrapDemoSession(kind: "admin" | "parent"): string {
-  markDemoUiBypass();
+  markDemoUiBypass(kind);
   if (typeof window !== "undefined" && isTestPersonaSwitcherEnabled()) {
     try {
       const id = DEMO_ACCOUNT_BY_KIND[kind];

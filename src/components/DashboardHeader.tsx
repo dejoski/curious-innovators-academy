@@ -8,6 +8,7 @@ import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
+import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
 import type { DashboardNotification } from "@/lib/data";
 import {
   DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS,
@@ -42,6 +43,8 @@ function readCachedNotifications() {
 export default function DashboardHeader() {
   const {
     displayName,
+    demoStudentId,
+    persona,
     roleLabel,
   } = useDashboardPersona();
   const pathname = usePathname() ?? "";
@@ -57,7 +60,14 @@ export default function DashboardHeader() {
 
   const showNotificationDropdown = isNotificationDropdownEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
-  const previewNotifications = useMemo(() => notifications.slice(0, 3), [notifications]);
+  const previewNotifications = useMemo(
+    () =>
+      notifications.slice(0, 3).map((item) => ({
+        ...item,
+        href: dashboardHrefForPersona(item.href, persona, demoStudentId),
+      })),
+    [demoStudentId, notifications, persona],
+  );
 
   const parentUtilityOrder = inParentShell;
   const notificationIconSrc = inParentShell ? imgContainerParent : imgContainer;

@@ -22,6 +22,11 @@ import {
   type DemoAccountId,
 } from "@/lib/demo-accounts";
 import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
+import {
+  isDemoUiBypassStored,
+  markDemoUiBypass,
+  readDemoUiBypassRole,
+} from "@/lib/demo-login";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
@@ -63,6 +68,7 @@ type CurrentAccountProfile = {
 
 type DashboardPersonaContextValue = {
   persona: DashboardPersona;
+  isAccountResolved: boolean;
   demoAccountId: DemoAccountId;
   setPersona: (p: DashboardPersona) => void;
   setDemoAccount: (id: DemoAccountId) => void;
@@ -109,6 +115,31 @@ function productionAccountFromProfile(profile: CurrentAccountProfile): Productio
   };
 }
 
+function productionAccountFromDemoRole(role: DashboardPersona): ProductionAccount {
+  const account = getDemoAccountById(defaultDemoAccountIdForPersona(role));
+  return {
+    persona: account.persona,
+    displayName: account.displayName,
+    roleLabel: account.roleLabel,
+    avatarInitials: initialsFromDisplayName(account.displayName),
+    studentId: account.studentId || DEMO_STUDENT_FALLBACK_ID,
+  };
+}
+
+function readDemoRoleForCurrentRoute(): DashboardPersona | null {
+  const storedRole = readDemoUiBypassRole();
+  if (storedRole) return storedRole;
+  if (!isDemoUiBypassStored() || typeof window === "undefined") return null;
+
+  const pathname = window.location.pathname;
+  if (pathname.startsWith("/dashboard/parents/")) {
+    markDemoUiBypass("parent");
+    return "parent";
+  }
+
+  return null;
+}
+
 export function DashboardPersonaProvider({
   children,
 }: {
@@ -119,6 +150,9 @@ export function DashboardPersonaProvider({
   );
   const [productionAccount, setProductionAccount] = useState<ProductionAccount>(
     PRODUCTION_ACCOUNT_DEFAULT,
+  );
+  const [isAccountResolved, setIsAccountResolved] = useState(
+    () => isTestPersonaSwitcherEnabled(),
   );
 
   useEffect(() => {
@@ -167,10 +201,20 @@ export function DashboardPersonaProvider({
           profile?: CurrentAccountProfile | null;
         }>("/api/data/me");
         const profile = body.profile;
-        if (cancelled || !profile) return;
-        setProductionAccount(productionAccountFromProfile(profile)); // eslint-disable-line react-hooks/set-state-in-effect -- account chrome is hydrated from the authenticated profile API
+        if (cancelled) return;
+        if (profile) {
+          setProductionAccount(productionAccountFromProfile(profile)); // eslint-disable-line react-hooks/set-state-in-effect -- account chrome is hydrated from the authenticated profile API
+        } else {
+          const demoRole = readDemoRoleForCurrentRoute();
+          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT); // eslint-disable-line react-hooks/set-state-in-effect -- demo role is resolved before dashboard route guard renders protected content
+        }
       } catch {
-        /* keep neutral account chrome */
+        if (!cancelled) {
+          const demoRole = readDemoRoleForCurrentRoute();
+          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT); // eslint-disable-line react-hooks/set-state-in-effect -- demo role is resolved before dashboard route guard renders protected content
+        }
+      } finally {
+        if (!cancelled) setIsAccountResolved(true); // eslint-disable-line react-hooks/set-state-in-effect -- route guard waits for role resolution
       }
     }
     void loadCurrentProfile();
@@ -187,6 +231,7 @@ export function DashboardPersonaProvider({
       if (detail) {
         invalidateClientDataCache("/api/data/me");
         setProductionAccount(productionAccountFromProfile(detail));
+        setIsAccountResolved(true);
       }
     }
 
@@ -238,6 +283,7 @@ export function DashboardPersonaProvider({
 
     return {
       persona,
+      isAccountResolved: qa || isAccountResolved,
       demoAccountId: qa ? demoAccountId : DEFAULT_DEMO_ACCOUNT_ID,
       setPersona,
       setDemoAccount,
@@ -247,7 +293,7 @@ export function DashboardPersonaProvider({
       avatarInitials,
       demoStudentId,
     };
-  }, [qa, demoAccountId, setPersona, setDemoAccount, productionAccount]);
+  }, [qa, demoAccountId, setPersona, setDemoAccount, productionAccount, isAccountResolved]);
 
   return (
     <DashboardPersonaContext.Provider value={value}>

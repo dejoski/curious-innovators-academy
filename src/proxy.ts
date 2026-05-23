@@ -5,6 +5,8 @@ import {
   getRuntimeSupabaseUrl,
   isRemoteDataRequired,
 } from "@/lib/data/env";
+import type { DashboardPersona } from "@/lib/demo-accounts";
+import { dashboardRedirectForPersona } from "@/lib/dashboard/role-routes";
 
 function isDashboardPath(pathname: string): boolean {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
@@ -50,6 +52,38 @@ function isMissingAuthSession(error: unknown): boolean {
     "name" in error &&
     (error as { name?: unknown }).name === "AuthSessionMissingError"
   );
+}
+
+function roleFromProfile(raw: unknown): DashboardPersona | null {
+  const role = String(raw ?? "").toLowerCase();
+  if (role === "admin" || role === "parent" || role === "teacher" || role === "student") return role;
+  return null;
+}
+
+async function loadDashboardAccess(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+): Promise<{ role: DashboardPersona; studentId: string | null } | null> {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) return null;
+
+  const role = roleFromProfile(profile?.role);
+  if (!role) return null;
+
+  if (role !== "student") return { role, studentId: null };
+
+  const { data: student } = await supabase
+    .from("students")
+    .select("id")
+    .eq("profile_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  return { role, studentId: student?.id ? String(student.id) : null };
 }
 
 function isAuthServiceFailure(error: unknown): boolean {
@@ -113,6 +147,23 @@ export async function proxy(request: NextRequest) {
 
   if (protectDashboard && !user) {
     return redirectToLogin(request, "required");
+  }
+
+  if (protectDashboard && user) {
+    const access = await loadDashboardAccess(supabase, user.id);
+    if (!access) return redirectToLogin(request, "required");
+
+    const redirectPath = dashboardRedirectForPersona(
+      request.nextUrl.pathname,
+      access.role,
+      access.studentId,
+    );
+    if (redirectPath) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = redirectPath;
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return response;

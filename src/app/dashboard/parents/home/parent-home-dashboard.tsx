@@ -21,6 +21,7 @@ import {
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
 import { cachedJson } from "@/lib/client-data-cache";
+import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
@@ -69,16 +70,48 @@ function RowArrow() {
   );
 }
 
-function AlertRow({ item }: { item: DashboardNotification }) {
+function parentAlertPresentation(item: DashboardNotification): DashboardNotification {
+  const href = parentSafeDashboardHref(item.href);
+  if (href === item.href) return item;
+
+  if (href === "/dashboard/parents/catalog") {
+    return {
+      ...item,
+      href,
+      title: "Class selection update",
+      detail: "Review class selections for your child and submit when ready.",
+    };
+  }
+
+  if (href === "/dashboard/parents/schedule") {
+    return {
+      ...item,
+      href,
+      title: "Schedule updated",
+      detail: "Your child's schedule has an update.",
+    };
+  }
+
+  return {
+    ...item,
+    href,
+    title: "Dashboard update",
+    detail: "Open your parent dashboard for the latest information.",
+  };
+}
+
+function AlertRow({ item, studentId }: { item: DashboardNotification; studentId?: string }) {
+  const alert = parentAlertPresentation(item);
+  const href = studentScopedHref(alert.href, studentId);
   return (
-    <Link href={item.href} className="block w-full hover:opacity-90 transition-opacity">
+    <Link href={href} className="block w-full hover:opacity-90 transition-opacity">
       <div className="flex gap-6 items-center w-full">
         <div className="flex flex-col gap-1 flex-1 min-w-0">
           <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#2f2f2d] text-[14px] leading-snug truncate">
-            {item.title}
+            {alert.title}
           </p>
           <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] leading-snug line-clamp-2">
-            {item.detail}
+            {alert.detail}
           </p>
         </div>
         <RowArrow />
@@ -596,7 +629,7 @@ export default function ParentHomeDashboard() {
             </div>
             <div className="flex flex-col gap-6">
               {notifications.length ? (
-                notifications.map((item) => <AlertRow key={item.id} item={item} />)
+                notifications.map((item) => <AlertRow key={item.id} item={item} studentId={activeStudentId} />)
               ) : (
                 <p className="text-sm text-[#666d80]">No system alerts right now.</p>
               )}
