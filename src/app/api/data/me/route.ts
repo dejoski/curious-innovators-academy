@@ -16,8 +16,8 @@ type AccountPreferences = typeof DEFAULT_PREFERENCES;
 
 function normalizeRole(raw: unknown): AppRole {
   const role = String(raw ?? "").toLowerCase();
-  if (role === "parent" || role === "teacher" || role === "student") return role;
-  return "admin";
+  if (role === "admin" || role === "parent" || role === "teacher" || role === "student") return role;
+  return "parent";
 }
 
 function normalizeDisplayName(raw: unknown): string {

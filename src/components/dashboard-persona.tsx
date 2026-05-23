@@ -51,7 +51,7 @@ export const PERSONA_ORDER: DashboardPersona[] = [
 ];
 
 const PRODUCTION_ACCOUNT_DEFAULT = {
-  persona: "admin" as DashboardPersona,
+  persona: "parent" as DashboardPersona,
   displayName: "Signed-in user",
   roleLabel: "User",
   avatarInitials: "U",
@@ -94,8 +94,8 @@ function readLegacyPersona(
 }
 
 function roleToPersona(raw: unknown): DashboardPersona {
-  if (raw === "parent" || raw === "teacher" || raw === "student") return raw;
-  return "admin";
+  if (raw === "admin" || raw === "parent" || raw === "teacher" || raw === "student") return raw;
+  return "parent";
 }
 
 function roleToLabel(role: DashboardPersona): string {

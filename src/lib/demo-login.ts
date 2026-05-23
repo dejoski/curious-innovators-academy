@@ -13,6 +13,7 @@ export function isDemoLoginUiEnabled(): boolean {
 
 export const DEMO_UI_BYPASS_STORAGE_KEY = "cia-demo-ui-bypass";
 export const DEMO_UI_ROLE_STORAGE_KEY = "cia-demo-ui-role";
+export const DEMO_UI_ROLE_COOKIE_NAME = "cia-demo-role";
 
 function isDashboardPersona(value: string | null): value is DashboardPersona {
   return value === "admin" || value === "parent" || value === "teacher" || value === "student";
@@ -21,7 +22,10 @@ function isDashboardPersona(value: string | null): value is DashboardPersona {
 export function markDemoUiBypass(role?: DashboardPersona): void {
   try {
     window.localStorage.setItem(DEMO_UI_BYPASS_STORAGE_KEY, "1");
-    if (role) window.localStorage.setItem(DEMO_UI_ROLE_STORAGE_KEY, role);
+    if (role) {
+      window.localStorage.setItem(DEMO_UI_ROLE_STORAGE_KEY, role);
+      document.cookie = `${DEMO_UI_ROLE_COOKIE_NAME}=${role}; Path=/; Max-Age=604800; SameSite=Lax`;
+    }
   } catch {
     /* ignore quota / SSR */
   }
@@ -31,6 +35,7 @@ export function clearDemoUiBypass(): void {
   try {
     window.localStorage.removeItem(DEMO_UI_BYPASS_STORAGE_KEY);
     window.localStorage.removeItem(DEMO_UI_ROLE_STORAGE_KEY);
+    document.cookie = `${DEMO_UI_ROLE_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
   } catch {
     /* ignore */
   }
