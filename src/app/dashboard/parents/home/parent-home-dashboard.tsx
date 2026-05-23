@@ -5,6 +5,11 @@ import Link from "next/link";
 import { Bell, CalendarDays, ChevronRight } from "lucide-react";
 
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
+import {
+  PARENT_CATALOG_PENDING_KEY,
+  PARENT_CATALOG_REVIEW_STATUS_KEY,
+  PARENT_CATALOG_SUBMITTED_KEY,
+} from "@/lib/parent-dashboard-storage";
 import type {
   DashboardNotification,
   DataSource,
@@ -35,6 +40,24 @@ const SCHEDULE_ROWS: { label: string; time: string; slots: [SlotKey, SlotKey, Sl
   { label: "Block 3", time: "10:20 - 11:50 am", slots: ["b3Tue", "b3Wed", "b3Thu"] },
   { label: "Block 4", time: "12:30 - 2:00 pm", slots: ["b4Tue", "b4Wed", "b4Thu"], tall: true },
 ];
+
+type CatalogDraftChoice = {
+  name?: string;
+};
+
+type CatalogDraftSlot = {
+  firstChoice?: CatalogDraftChoice | null;
+  secondChoice?: CatalogDraftChoice | null;
+};
+
+type CatalogDraft = {
+  block3_day3?: CatalogDraftSlot;
+  block4_day3?: CatalogDraftSlot;
+};
+
+type LocalRequestState = "draft" | "submitted" | null;
+type LocalReviewStatus = "Pending" | "Approved" | "Rejected";
+type LocalReviewStatuses = Record<string, LocalReviewStatus>;
 
 function RowArrow() {
   return (
@@ -98,7 +121,7 @@ function sourceHint(source: DataSource | null): string | null {
 function badgeClasses(tone: StudentScheduleBadge["tone"]): string {
   if (tone === "core") return "bg-[#d2f1f5] text-[#0d0d12]";
   if (tone === "approved") return "bg-[rgba(0,77,8,0.2)] text-[#0d0d12]";
-  if (tone === "pending") return "bg-[#fae7a6] text-[#6b5200]";
+  if (tone === "pending") return "bg-[#ffd9d9] text-[#0d0d12]";
   return "bg-[#f9fafb] text-[#666d80] border border-dashed border-[#d1d5db]";
 }
 
@@ -138,6 +161,9 @@ export default function ParentHomeDashboard() {
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [dataSource, setDataSource] = useState<DataSource | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [catalogDraft, setCatalogDraft] = useState<CatalogDraft | null>(null);
+  const [localRequestState, setLocalRequestState] = useState<LocalRequestState>(null);
+  const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -188,8 +214,62 @@ export default function ParentHomeDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    function readCatalogDraft() {
+      try {
+        const submittedRaw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY);
+        const draftRaw = window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
+        const raw = submittedRaw ?? draftRaw;
+        if (!raw) {
+          setCatalogDraft(null);
+          setLocalRequestState(null);
+          return;
+        }
+        const parsed = JSON.parse(raw) as { requests?: CatalogDraft };
+        setCatalogDraft(parsed.requests ?? null);
+        setLocalRequestState(submittedRaw ? "submitted" : "draft");
+        const reviewRaw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
+        setLocalReviewStatuses(reviewRaw ? (JSON.parse(reviewRaw) as LocalReviewStatuses) : {});
+      } catch {
+        setCatalogDraft(null);
+        setLocalRequestState(null);
+        setLocalReviewStatuses({});
+      }
+    }
+
+    readCatalogDraft();
+    window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
+    window.addEventListener("storage", readCatalogDraft);
+    return () => {
+      window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
+      window.removeEventListener("storage", readCatalogDraft);
+    };
+  }, []);
+
+  function draftSlotBadges(slot: CatalogDraftSlot | undefined, slotId: "block3_day3" | "block4_day3"): StudentScheduleBadge[] {
+    const badges: StudentScheduleBadge[] = [];
+    const firstStatus = localReviewStatuses[`local-${slotId}-first`] ?? "Pending";
+    const secondStatus = localReviewStatuses[`local-${slotId}-second`] ?? "Pending";
+    if (slot?.firstChoice?.name) {
+      badges.push({
+        label: firstStatus === "Rejected" ? `Rejected: ${slot.firstChoice.name}` : slot.firstChoice.name,
+        tone: firstStatus === "Approved" ? "approved" : "pending",
+      });
+    }
+    if (slot?.secondChoice?.name) {
+      badges.push({
+        label: `${secondStatus === "Rejected" ? "Rejected" : "2nd"}: ${slot.secondChoice.name}`,
+        tone: secondStatus === "Approved" ? "approved" : "pending",
+      });
+    }
+    return badges;
+  }
+
   const attendance = profile ? metricValue(profile.attendanceLabel, "--") : "--";
-  const pendingRequests = profile ? firstNumber(profile.pendingLabel, "0") : "0";
+  const basePendingRequests = Number(profile ? firstNumber(profile.pendingLabel, "0") : "0");
+  const localPendingSlots = Number(Boolean(catalogDraft?.block3_day3?.firstChoice || catalogDraft?.block3_day3?.secondChoice)) +
+    Number(Boolean(catalogDraft?.block4_day3?.firstChoice || catalogDraft?.block4_day3?.secondChoice));
+  const pendingRequests = String(basePendingRequests + localPendingSlots);
   const hint = loadError ?? sourceHint(dataSource);
 
   const selectedSchedule = useMemo(() => {
@@ -197,11 +277,36 @@ export default function ParentHomeDashboard() {
     return null;
   }, [schedule]);
 
+  const scheduleBadgesBySlot = useMemo(() => {
+    const draftB3 = draftSlotBadges(catalogDraft?.block3_day3, "block3_day3");
+    const draftB4 = draftSlotBadges(catalogDraft?.block4_day3, "block4_day3");
+    return {
+      b3Thu: draftB3.length ? draftB3 : (selectedSchedule?.b3Thu ?? []),
+      b4Thu: draftB4.length ? draftB4 : (selectedSchedule?.b4Thu ?? []),
+    };
+  }, [catalogDraft, localReviewStatuses, selectedSchedule]);
+
   return (
     <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
       {hint ? (
         <div className="rounded-xl border border-[#cfa500]/35 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00]" role="status">
           {hint}
+        </div>
+      ) : null}
+
+      {localRequestState && localPendingSlots > 0 ? (
+        <div className="flex flex-col gap-3 rounded-[8px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66] sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            {localRequestState === "submitted"
+              ? "Your enrichment request is saved and pending school review."
+              : "You have a saved class-selection draft ready to review."}
+          </span>
+          <Link
+            href="/dashboard/parents/catalog"
+            className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba]"
+          >
+            Review Class Selection
+          </Link>
         </div>
       ) : null}
 
@@ -287,7 +392,13 @@ export default function ParentHomeDashboard() {
                   {row.slots.map((slot, index) => (
                     <ScheduleCell
                       key={`${row.label}-${slot}-${index}`}
-                      badges={selectedSchedule?.[slot] ?? []}
+                      badges={
+                        slot === "b3Thu"
+                          ? scheduleBadgesBySlot.b3Thu
+                          : slot === "b4Thu"
+                            ? scheduleBadgesBySlot.b4Thu
+                            : (selectedSchedule?.[slot] ?? [])
+                      }
                       tall={row.tall}
                     />
                   ))}
@@ -327,6 +438,7 @@ export default function ParentHomeDashboard() {
             </div>
             <div className="flex flex-col gap-6">
               <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={PARENT_SCHEDULE_HREF} />
+              <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href="/dashboard/parents/catalog" />
               <QuickRow title="View Profile" body="Access your child's personal and academic information." href="/dashboard/parents/students" />
               <QuickRow title="View Classes" body="Explore all enrolled classes and details." href="/dashboard/parents/classes/core" />
             </div>

@@ -1,6 +1,11 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import {
+  PARENT_CATALOG_PENDING_KEY,
+  PARENT_CATALOG_REVIEW_STATUS_KEY,
+  PARENT_CATALOG_SUBMITTED_KEY,
+} from "@/lib/parent-dashboard-storage";
 import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
@@ -21,6 +26,27 @@ type ParentEnrichmentRow = {
   availability: string;
   status: string;
   current: boolean;
+  requestSource?: "local-draft";
+};
+
+type CatalogDraftChoice = {
+  id?: string;
+  name?: string;
+};
+
+type CatalogDraftSlot = {
+  firstChoice?: CatalogDraftChoice | null;
+  secondChoice?: CatalogDraftChoice | null;
+};
+
+type CatalogDraft = {
+  block3_day3?: CatalogDraftSlot;
+  block4_day3?: CatalogDraftSlot;
+};
+type LocalReviewStatus = "Pending" | "Approved" | "Rejected";
+type LocalReviewStatuses = Record<string, LocalReviewStatus>;
+type DraftChoiceWithLocalId = CatalogDraftChoice & {
+  localId: string;
 };
 
 function splitSchedule(schedule: string): { day: string; time: string } {
@@ -50,6 +76,8 @@ function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
 
 export default function EnrichmentClassesPage() {
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
+  const [catalogDraft, setCatalogDraft] = useState<CatalogDraft | null>(null);
+  const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
@@ -95,8 +123,66 @@ export default function EnrichmentClassesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    function readCatalogDraft() {
+      try {
+        const raw =
+          window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY) ??
+          window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
+        if (!raw) {
+          setCatalogDraft(null);
+          return;
+        }
+        const parsed = JSON.parse(raw) as { requests?: CatalogDraft };
+        setCatalogDraft(parsed.requests ?? null);
+        const reviewRaw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
+        setLocalReviewStatuses(reviewRaw ? (JSON.parse(reviewRaw) as LocalReviewStatuses) : {});
+      } catch {
+        setCatalogDraft(null);
+        setLocalReviewStatuses({});
+      }
+    }
+
+    readCatalogDraft();
+    window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
+    window.addEventListener("storage", readCatalogDraft);
+    return () => {
+      window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
+      window.removeEventListener("storage", readCatalogDraft);
+    };
+  }, []);
+
   const filteredAndSortedClasses = useMemo(() => {
-    let result = [...classes];
+    const draftChoices = [
+      catalogDraft?.block3_day3?.firstChoice
+        ? { ...catalogDraft.block3_day3.firstChoice, localId: "local-block3_day3-first" }
+        : null,
+      catalogDraft?.block3_day3?.secondChoice
+        ? { ...catalogDraft.block3_day3.secondChoice, localId: "local-block3_day3-second" }
+        : null,
+      catalogDraft?.block4_day3?.firstChoice
+        ? { ...catalogDraft.block4_day3.firstChoice, localId: "local-block4_day3-first" }
+        : null,
+      catalogDraft?.block4_day3?.secondChoice
+        ? { ...catalogDraft.block4_day3.secondChoice, localId: "local-block4_day3-second" }
+        : null,
+    ].filter((choice): choice is DraftChoiceWithLocalId => Boolean(choice?.id || choice?.name));
+    const draftIds = new Set(draftChoices.map((choice) => choice.id).filter(Boolean));
+    const draftNames = new Set(draftChoices.map((choice) => choice.name).filter(Boolean));
+
+    let result = classes.map((cls) => {
+      const isDraftRequest = draftIds.has(cls.id) || draftNames.has(cls.name);
+      const matchedDraft = draftChoices.find((choice) => choice.id === cls.id || choice.name === cls.name);
+      const reviewedStatus = matchedDraft ? localReviewStatuses[matchedDraft.localId] : undefined;
+      return isDraftRequest
+        ? {
+            ...cls,
+            status: reviewedStatus ?? "Pending",
+            current: reviewedStatus === "Approved",
+            requestSource: "local-draft" as const,
+          }
+        : cls;
+    });
 
     // Filter by Search Query
     if (searchQuery) {
@@ -126,7 +212,7 @@ export default function EnrichmentClassesPage() {
     });
 
     return result;
-  }, [classes, searchQuery, filterStatus, sortBy]);
+  }, [catalogDraft, classes, localReviewStatuses, searchQuery, filterStatus, sortBy]);
 
   useEffect(() => {
     if (!toolbarBanner) return;
@@ -176,8 +262,8 @@ export default function EnrichmentClassesPage() {
     }
     if (status === "Pending") {
       return (
-        <div className="inline-flex items-center justify-center px-2 py-1 bg-[#cfa500]/20 border border-[#cfa500]/50 rounded-md">
-          <span className="text-[10px] text-[#cfa500]">Pending</span>
+        <div className="inline-flex items-center justify-center px-2 py-1 bg-[#ffd9d9] border border-[#d80509]/50 rounded-md">
+          <span className="text-[10px] text-[#d80509]">Pending</span>
         </div>
       );
     }
@@ -236,6 +322,12 @@ export default function EnrichmentClassesPage() {
       {dataHint && (
         <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
           {dataHint}
+        </div>
+      )}
+
+      {filteredAndSortedClasses.some((cls) => cls.requestSource === "local-draft") && (
+        <div className="rounded-[12px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66] font-medium">
+          Showing request statuses from your saved class-selection flow.
         </div>
       )}
 
