@@ -125,6 +125,12 @@ function badgeClasses(tone: StudentScheduleBadge["tone"]): string {
   return "bg-[#f9fafb] text-[#666d80] border border-dashed border-[#d1d5db]";
 }
 
+function reviewPillClasses(status: LocalReviewStatus): string {
+  if (status === "Approved") return "border-[#004d08]/35 bg-[#004d08]/15 text-[#004d08]";
+  if (status === "Rejected") return "border-[#d80509]/35 bg-[#ffd9d9] text-[#d80509]";
+  return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
+}
+
 function ScheduleCell({ badges, tall = false }: { badges: StudentScheduleBadge[]; tall?: boolean }) {
   const visible = badges.length ? badges : [{ label: "Available slot", tone: "empty" as const }];
   const hasOnlyEmpty = visible.every((badge) => badge.tone === "empty");
@@ -265,11 +271,67 @@ export default function ParentHomeDashboard() {
     return badges;
   }
 
+  const localChoiceReviews = useMemo(() => {
+    const rows: { id: string; slot: string; choice: string; name: string; status: LocalReviewStatus }[] = [];
+    const addChoice = (
+      slotId: "block3_day3" | "block4_day3",
+      slotLabel: string,
+      choice: "first" | "second",
+      name?: string,
+    ) => {
+      if (!name) return;
+      rows.push({
+        id: `local-${slotId}-${choice}`,
+        slot: slotLabel,
+        choice: choice === "first" ? "1st" : "2nd",
+        name,
+        status: localReviewStatuses[`local-${slotId}-${choice}`] ?? "Pending",
+      });
+    };
+
+    addChoice("block3_day3", "Block 3 / Day 3", "first", catalogDraft?.block3_day3?.firstChoice?.name);
+    addChoice("block3_day3", "Block 3 / Day 3", "second", catalogDraft?.block3_day3?.secondChoice?.name);
+    addChoice("block4_day3", "Block 4 / Day 3", "first", catalogDraft?.block4_day3?.firstChoice?.name);
+    addChoice("block4_day3", "Block 4 / Day 3", "second", catalogDraft?.block4_day3?.secondChoice?.name);
+    return rows;
+  }, [catalogDraft, localReviewStatuses]);
+
+  const localPendingChoices = localChoiceReviews.filter((choice) => choice.status === "Pending").length;
+  const localApprovedChoices = localChoiceReviews.filter((choice) => choice.status === "Approved").length;
+  const localRejectedChoices = localChoiceReviews.filter((choice) => choice.status === "Rejected").length;
+  const localBannerTone =
+    localRequestState === "draft"
+      ? "draft"
+      : localRejectedChoices && !localPendingChoices && !localApprovedChoices
+        ? "rejected"
+        : localApprovedChoices && !localPendingChoices && !localRejectedChoices
+          ? "approved"
+          : localApprovedChoices || localRejectedChoices
+            ? "mixed"
+            : "pending";
+  const localBannerClass =
+    localBannerTone === "approved"
+      ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]"
+      : localBannerTone === "rejected"
+        ? "border-[#d80509]/30 bg-[#fff5f5] text-[#a00408]"
+        : localBannerTone === "mixed"
+          ? "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"
+          : "border-[#14c1d5]/30 bg-[#ecfdff] text-[#155e66]";
+  const localBannerMessage =
+    localRequestState === "draft"
+      ? "You have a saved class-selection draft ready to review."
+      : localBannerTone === "approved"
+        ? "Your enrichment request has been approved. Approved classes are reflected in the schedule."
+        : localBannerTone === "rejected"
+          ? "Your enrichment request was not approved. Review the class selection page to choose another option."
+          : localBannerTone === "mixed"
+            ? "Your enrichment request has review updates. Check each class status below."
+            : "Your enrichment request is saved and pending school review.";
+
   const attendance = profile ? metricValue(profile.attendanceLabel, "--") : "--";
   const basePendingRequests = Number(profile ? firstNumber(profile.pendingLabel, "0") : "0");
-  const localPendingSlots = Number(Boolean(catalogDraft?.block3_day3?.firstChoice || catalogDraft?.block3_day3?.secondChoice)) +
-    Number(Boolean(catalogDraft?.block4_day3?.firstChoice || catalogDraft?.block4_day3?.secondChoice));
-  const pendingRequests = String(basePendingRequests + localPendingSlots);
+  const localChoiceCount = localChoiceReviews.length;
+  const pendingRequests = String(basePendingRequests + (localRequestState === "submitted" ? localPendingChoices : 0));
   const hint = loadError ?? sourceHint(dataSource);
 
   const selectedSchedule = useMemo(() => {
@@ -294,19 +356,30 @@ export default function ParentHomeDashboard() {
         </div>
       ) : null}
 
-      {localRequestState && localPendingSlots > 0 ? (
-        <div className="flex flex-col gap-3 rounded-[8px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66] sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            {localRequestState === "submitted"
-              ? "Your enrichment request is saved and pending school review."
-              : "You have a saved class-selection draft ready to review."}
-          </span>
-          <Link
-            href="/dashboard/parents/catalog"
-            className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba]"
-          >
-            Review Class Selection
-          </Link>
+      {localRequestState && localChoiceCount > 0 ? (
+        <div className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm ${localBannerClass}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-medium">{localBannerMessage}</span>
+            <Link
+              href="/dashboard/parents/catalog"
+              className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba]"
+            >
+              Review Class Selection
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {localChoiceReviews.map((choice) => (
+              <span
+                key={choice.id}
+                className={`inline-flex max-w-full items-center gap-1 rounded-[999px] border px-2.5 py-1 text-[11px] font-semibold ${reviewPillClasses(choice.status)}`}
+                title={`${choice.slot} ${choice.choice}: ${choice.name}`}
+              >
+                <span>{choice.status}</span>
+                <span className="text-current/70">·</span>
+                <span className="truncate">{choice.choice}: {choice.name}</span>
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
 

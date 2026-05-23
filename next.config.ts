@@ -55,6 +55,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   // Parent folders may contain other lockfiles; pin the Turbopack workspace root so
   // `.next` output and manifests stay inside this package (avoids ENOENT during build).
   turbopack: {
