@@ -89,7 +89,6 @@ export default async function ParentSchedulePage() {
         showDataSourceBanner={false}
         showTodayButton={false}
         refreshExtrasOnClient={false}
-        dayLabels={["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]}
         initialDateIso="2026-02-01"
       />
     </Suspense>

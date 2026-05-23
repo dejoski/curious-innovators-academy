@@ -14,6 +14,8 @@ export type { ParentScheduleBadges, ParentScheduleSlotKey } from "@/lib/schedule
 
 const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = ["b1", "b2", "b3Tue", "b3Wed", "b3Thu", "b4Tue", "b4Wed", "b4Thu"];
 
+export type ParentScheduleBadgeClick = (slot: ParentScheduleSlotKey, badge: StudentScheduleBadge, index: number) => void;
+
 export function buildParentScheduleBadges(schedule?: StudentScheduleRow | null, overrides?: ParentScheduleBadges): ParentScheduleBadges {
   return PARENT_SCHEDULE_SLOT_KEYS.reduce<ParentScheduleBadges>((next, slot) => {
     const override = overrides?.[slot];
@@ -53,11 +55,13 @@ function SlotCell({
   badges,
   tall = false,
   onSlotClick,
+  onBadgeClick,
 }: {
   slot: ParentScheduleSlotKey;
   badges: StudentScheduleBadge[];
   tall?: boolean;
   onSlotClick?: (slot: ParentScheduleSlotKey) => void;
+  onBadgeClick?: ParentScheduleBadgeClick;
 }) {
   const visible = badges.length ? badges : [{ label: "Available slot", tone: "empty" as const }];
   const isEmpty = visible.every((badge) => badge.tone === "empty");
@@ -66,7 +70,17 @@ function SlotCell({
     <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-1.5 min-[1100px]:gap-2" : ""}`}>
       {visible.map((badge, index) => (
         <div key={`${slot}-${badge.label}-${index}`} className={visible.length > 1 ? "min-h-0 flex-1" : "h-full"}>
-          <ScheduleBadgeCard badge={badge} tall={tall} compact={visible.length > 1} />
+          {onBadgeClick && badge.tone !== "empty" ? (
+            <button
+              type="button"
+              onClick={() => onBadgeClick(slot, badge, index)}
+              className="block h-full w-full rounded-[6px] text-left transition hover:ring-2 hover:ring-[#14c1d5]/35"
+            >
+              <ScheduleBadgeCard badge={badge} tall={tall} compact={visible.length > 1} />
+            </button>
+          ) : (
+            <ScheduleBadgeCard badge={badge} tall={tall} compact={visible.length > 1} />
+          )}
         </div>
       ))}
     </div>
@@ -74,14 +88,16 @@ function SlotCell({
 
   return (
     <div className={`min-w-0 border border-[#e8ebf0] bg-white p-1.5 min-[1100px]:p-2 ${tall ? "h-[156px]" : "h-[74px] min-[1100px]:h-[76px]"}`}>
-      {clickable ? (
+      {clickable && isEmpty ? (
         <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[6px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-2 hover:ring-[#14c1d5]/35"}`}>
-          {isEmpty ? (
-            <div className="flex h-full flex-col justify-center px-2 min-[1100px]:px-3">
-              <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">Available slot</p>
-              <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">+ Choose class</p>
-            </div>
-          ) : content}
+          <div className="flex h-full flex-col justify-center px-2 min-[1100px]:px-3">
+            <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">Available slot</p>
+            <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">+ Choose class</p>
+          </div>
+        </button>
+      ) : clickable && !onBadgeClick ? (
+        <button type="button" onClick={() => onSlotClick?.(slot)} className="block h-full w-full rounded-[6px] text-left transition hover:ring-2 hover:ring-[#14c1d5]/35">
+          {content}
         </button>
       ) : content}
     </div>
@@ -91,11 +107,13 @@ function SlotCell({
 export function ParentScheduleGrid({
   badgesBySlot,
   onSlotClick,
+  onBadgeClick,
   className = "",
   footer,
 }: {
   badgesBySlot?: ParentScheduleBadges;
   onSlotClick?: (slot: ParentScheduleSlotKey) => void;
+  onBadgeClick?: ParentScheduleBadgeClick;
   className?: string;
   footer?: ReactNode;
 }) {
@@ -123,7 +141,14 @@ export function ParentScheduleGrid({
                 <span className="mt-1.5 text-[11px] leading-[1.15] min-[1100px]:mt-2 min-[1100px]:text-[14px]">{row.time}</span>
               </div>
               {row.slots.map((slot, index) => (
-                <SlotCell key={`${row.label}-${slot}-${index}`} slot={slot} badges={getBadges(slot)} tall={row.tall} onSlotClick={onSlotClick} />
+                <SlotCell
+                  key={`${row.label}-${slot}-${index}`}
+                  slot={slot}
+                  badges={getBadges(slot)}
+                  tall={row.tall}
+                  onSlotClick={onSlotClick}
+                  onBadgeClick={onBadgeClick}
+                />
               ))}
             </div>
           ))}

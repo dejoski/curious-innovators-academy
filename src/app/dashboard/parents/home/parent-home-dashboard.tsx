@@ -4,22 +4,49 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bell, CalendarDays, ChevronRight } from "lucide-react";
 
-import { buildParentScheduleBadges, ParentScheduleGrid, type ParentScheduleBadges } from "@/components/parent-schedule-grid";
+import {
+  ParentClassDetailsDrawer,
+  ParentClassSelectionDrawer,
+  classOptionForScheduleBadge,
+  fallbackParentClassOption,
+  parentClassOptionFromRow,
+  type ParentClassChoiceKind,
+  type ParentClassOption,
+} from "@/components/parent-class-drawers";
+import {
+  buildParentScheduleBadges,
+  ParentScheduleGrid,
+  type ParentScheduleBadges,
+  type ParentScheduleSlotKey,
+} from "@/components/parent-schedule-grid";
 import { cachedJson } from "@/lib/client-data-cache";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
+  INITIAL_PARENT_CATALOG_REQUESTS,
   catalogBadgesForSlot,
   catalogChoiceReviews,
+  clearSubmittedParentCatalogSnapshot,
   readParentCatalogSnapshot,
+  selectedChoicesForSubmit,
+  writePendingParentCatalogRequests,
+  writeSubmittedParentCatalogSnapshot,
   type LocalReviewStatus,
   type LocalReviewStatuses,
+  type ParentCatalogIdentity,
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
+import {
+  CATALOG_SLOT_META as SLOT_META,
+  catalogSlotIdFromScheduleSlot,
+  type CatalogSlotId,
+} from "@/lib/schedule-slots";
 import type {
   DashboardNotification,
   DataSource,
+  SchoolClassRow,
   StudentListItem,
   StudentProfileBundle,
+  StudentScheduleBadge,
   StudentScheduleRow,
 } from "@/lib/data";
 
@@ -27,6 +54,10 @@ const imgHugeiconsStudent1 = "/images/icon-student.svg";
 const imgGroup1 = "/images/icon-group.svg";
 
 type LocalRequestState = "draft" | "submitted" | null;
+type HomeCatalogRequests = Record<CatalogSlotId, {
+  firstChoice: ParentClassOption | null;
+  secondChoice: ParentClassOption | null;
+}>;
 
 function RowArrow() {
   return (
@@ -93,6 +124,14 @@ function reviewPillClasses(status: LocalReviewStatus): string {
   return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
 }
 
+function scheduleBadgeStatusLabel(badge: StudentScheduleBadge): string {
+  if (badge.tone === "core") return "School assigned";
+  if (badge.tone === "approved") return "Approved";
+  if (badge.tone === "pending") return "Pending";
+  if (badge.tone === "draft") return "Draft choice";
+  return "Available";
+}
+
 export default function ParentHomeDashboard() {
   const [student, setStudent] = useState<StudentListItem | null>(null);
   const [profile, setProfile] = useState<StudentProfileBundle | null>(null);
@@ -103,18 +142,26 @@ export default function ParentHomeDashboard() {
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
   const [localRequestState, setLocalRequestState] = useState<LocalRequestState>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
+  const [classOptions, setClassOptions] = useState<ParentClassOption[]>([]);
+  const [activeSlot, setActiveSlot] = useState<CatalogSlotId>("block4_day3");
+  const [selectionDrawerOpen, setSelectionDrawerOpen] = useState(false);
+  const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; statusLabel: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadParentHome() {
       setLoadError(null);
       try {
-        const [studentsBody, notificationsBody] = await Promise.all([
+        const [studentsBody, notificationsBody, classesBody] = await Promise.all([
           cachedJson<{ students?: StudentListItem[]; source?: DataSource }>("/api/data/students"),
           cachedJson<{ notifications?: DashboardNotification[]; source?: DataSource }>("/api/data/notifications"),
+          cachedJson<{ classes?: SchoolClassRow[]; source?: DataSource }>("/api/data/classes"),
         ]);
         const rows = Array.isArray(studentsBody.students) ? studentsBody.students : [];
         const activeStudent = rows[0] ?? null;
+        const classRows = Array.isArray(classesBody.classes) ? classesBody.classes : [];
 
         let profileBody: { profile?: StudentProfileBundle | null; source?: DataSource } = {};
         let scheduleBody: { rows?: StudentScheduleRow[]; source?: DataSource } = {};
@@ -134,10 +181,11 @@ export default function ParentHomeDashboard() {
         setProfile(profileBody.profile ?? null);
         setSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
         setNotifications(Array.isArray(notificationsBody.notifications) ? notificationsBody.notifications.slice(0, 3) : []);
+        setClassOptions(classRows.map(parentClassOptionFromRow));
         setDataSource(
-          profileBody.source === "fallback" || scheduleBody.source === "fallback" || notificationsBody.source === "fallback"
+          profileBody.source === "fallback" || scheduleBody.source === "fallback" || notificationsBody.source === "fallback" || classesBody.source === "fallback"
             ? "fallback"
-            : (profileBody.source ?? scheduleBody.source ?? studentsBody.source ?? notificationsBody.source ?? null),
+            : (profileBody.source ?? scheduleBody.source ?? studentsBody.source ?? notificationsBody.source ?? classesBody.source ?? null),
         );
       } catch (err) {
         if (!cancelled) setLoadError(`Could not load parent dashboard: ${err instanceof Error ? err.message : String(err)}.`);
@@ -149,13 +197,19 @@ export default function ParentHomeDashboard() {
     };
   }, []);
 
-	  useEffect(() => {
-	    function readCatalogDraft() {
-	      const snapshot = readParentCatalogSnapshot();
-	      setCatalogDraft(snapshot.requests);
-	      setLocalRequestState(snapshot.state);
-	      setLocalReviewStatuses(snapshot.reviewStatuses);
-	    }
+  useEffect(() => {
+    if (!student?.id) return;
+    const activeStudent = student;
+
+    function readCatalogDraft() {
+      const snapshot = readParentCatalogSnapshot({
+        studentId: activeStudent.id,
+        studentName: activeStudent.name,
+      });
+      setCatalogDraft(snapshot.requests);
+      setLocalRequestState(snapshot.state);
+      setLocalReviewStatuses(snapshot.reviewStatuses);
+    }
 
     readCatalogDraft();
     window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
@@ -164,7 +218,7 @@ export default function ParentHomeDashboard() {
       window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
       window.removeEventListener("storage", readCatalogDraft);
     };
-  }, []);
+  }, [student?.id, student?.name]);
 
 	  const localChoiceReviews = useMemo(() => {
 	    return catalogChoiceReviews(catalogDraft, localReviewStatuses);
@@ -221,6 +275,125 @@ export default function ParentHomeDashboard() {
       ...(draftB4.length ? { b4Thu: draftB4 } : {}),
     });
   }, [catalogDraft, localRequestState, localReviewStatuses, selectedSchedule]);
+
+  const catalogIdentity = useMemo<ParentCatalogIdentity>(
+    () => ({
+      studentId: student?.id,
+      studentName: student?.name,
+      parentName: student?.parent,
+    }),
+    [student],
+  );
+
+  const homeCatalogRequests = useMemo(
+    () => ({
+      ...INITIAL_PARENT_CATALOG_REQUESTS,
+      ...(catalogDraft ?? {}),
+    }) as HomeCatalogRequests,
+    [catalogDraft],
+  );
+
+  const activeMeta = SLOT_META[activeSlot];
+  const activeRequests = homeCatalogRequests[activeSlot];
+  const enrichmentOptions = useMemo(
+    () => classOptions.filter((option) => option.program === "enrichment"),
+    [classOptions],
+  );
+
+  function resolveStoredChoice(choice: ParentCatalogRequests[CatalogSlotId]["firstChoice"] | null | undefined): ParentClassOption | null {
+    if (!choice?.name && !choice?.id) return null;
+    return (
+      classOptions.find((option) => option.id === choice.id || option.name === choice.name) ??
+      fallbackParentClassOption(choice.name ?? "Selected class", choice.id)
+    );
+  }
+
+  const firstChoice = resolveStoredChoice(activeRequests.firstChoice);
+  const secondChoice = resolveStoredChoice(activeRequests.secondChoice);
+  const recommendedClasses = useMemo(() => {
+    if (enrichmentOptions.length <= 3) return enrichmentOptions;
+    const blockNumber = activeMeta.block.replace("B", "");
+    const direct = enrichmentOptions.filter((option) => option.block.includes(blockNumber));
+    return direct.length ? direct : enrichmentOptions;
+  }, [activeMeta.block, enrichmentOptions]);
+  const overlayClasses = recommendedClasses.length ? recommendedClasses : enrichmentOptions;
+  const firstChoiceOptions = overlayClasses.filter((option) => option.id !== secondChoice?.id);
+  const secondChoiceOptions = overlayClasses.filter((option) => option.id !== firstChoice?.id);
+  const activeSlotHasChoices = Boolean(firstChoice || secondChoice);
+
+  function persistHomeDraft(next: HomeCatalogRequests) {
+    setCatalogDraft(next as ParentCatalogRequests);
+    setLocalRequestState("draft");
+    setLocalReviewStatuses({});
+    try {
+      clearSubmittedParentCatalogSnapshot({ studentId: student?.id });
+      writePendingParentCatalogRequests(next as ParentCatalogRequests, catalogIdentity);
+    } catch {
+      /* Browser storage can be unavailable in privacy modes. */
+    }
+  }
+
+  function openSelectionForSlot(slot: ParentScheduleSlotKey) {
+    const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
+    if (!catalogSlot) return;
+    setActiveSlot(catalogSlot);
+    setSelectionDrawerOpen(true);
+    setOpenChoice(null);
+  }
+
+  function openClassDetails(_slot: ParentScheduleSlotKey, badge: StudentScheduleBadge) {
+    if (badge.tone === "empty") return;
+    setDetailClass({
+      option: classOptionForScheduleBadge(badge, classOptions),
+      statusLabel: scheduleBadgeStatusLabel(badge),
+    });
+  }
+
+  function selectHomeChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
+    const otherKind: ParentClassChoiceKind = kind === "firstChoice" ? "secondChoice" : "firstChoice";
+    const active = homeCatalogRequests[activeSlot];
+    persistHomeDraft({
+      ...homeCatalogRequests,
+      [activeSlot]: {
+        ...active,
+        [kind]: cls,
+        [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
+      },
+    });
+    setOpenChoice(null);
+  }
+
+  async function submitHomeSelections() {
+    if (!activeSlotHasChoices || submitting) return;
+    const choices = selectedChoicesForSubmit(homeCatalogRequests as ParentCatalogRequests);
+    if (!choices.length) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/data/enrichment-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ choices }),
+      });
+      if (!res.ok) {
+        await res.json().catch(() => null);
+      }
+      writeSubmittedParentCatalogSnapshot(homeCatalogRequests as ParentCatalogRequests, catalogIdentity);
+      setCatalogDraft(homeCatalogRequests as ParentCatalogRequests);
+      setLocalRequestState("submitted");
+      setLocalReviewStatuses({});
+      setSelectionDrawerOpen(false);
+    } catch (error) {
+      writeSubmittedParentCatalogSnapshot(homeCatalogRequests as ParentCatalogRequests, catalogIdentity);
+      setCatalogDraft(homeCatalogRequests as ParentCatalogRequests);
+      setLocalRequestState("submitted");
+      setLocalReviewStatuses({});
+      setLoadError(`Request saved locally for review. Cloud submission failed: ${error instanceof Error ? error.message : String(error)}.`);
+      setSelectionDrawerOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
@@ -301,7 +474,11 @@ export default function ParentHomeDashboard() {
               </h2>
               <p className="text-sm text-[#666d80]">Current core and enrichment blocks.</p>
             </div>
-            <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} />
+            <ParentScheduleGrid
+              badgesBySlot={scheduleBadgesBySlot}
+              onSlotClick={openSelectionForSlot}
+              onBadgeClick={openClassDetails}
+            />
           </div>
         </div>
 
@@ -342,6 +519,30 @@ export default function ParentHomeDashboard() {
           </div>
         </div>
       </div>
+      {selectionDrawerOpen ? (
+        <ParentClassSelectionDrawer
+          title={activeMeta.title}
+          time={activeMeta.overlayTime}
+          firstChoice={firstChoice}
+          secondChoice={secondChoice}
+          firstChoiceOptions={firstChoiceOptions}
+          secondChoiceOptions={secondChoiceOptions}
+          openChoice={openChoice}
+          onToggleChoice={(kind) => setOpenChoice((open) => (open === kind ? null : kind))}
+          onSelectChoice={selectHomeChoice}
+          onClose={() => setSelectionDrawerOpen(false)}
+          onSubmit={submitHomeSelections}
+          submitDisabled={!activeSlotHasChoices}
+          submitting={submitting}
+        />
+      ) : null}
+      {detailClass ? (
+        <ParentClassDetailsDrawer
+          option={detailClass.option}
+          statusLabel={detailClass.statusLabel}
+          onClose={() => setDetailClass(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,10 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, ChevronDown, ExternalLink, Info, Lightbulb, Loader2, X } from "lucide-react";
+import { ArrowRight, Info, Lightbulb } from "lucide-react";
 
+import {
+  ParentClassSelectionDrawer,
+  parentClassOptionFromRow,
+  type ParentClassChoiceKind,
+  type ParentClassOption,
+} from "@/components/parent-class-drawers";
 import {
   buildParentScheduleBadges,
   ParentScheduleGrid,
@@ -35,41 +41,14 @@ import {
 } from "@/lib/schedule-slots";
 import type { SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
-type EnrichmentClass = {
-  id: string;
-  name: string;
-  teacher: string;
-  description: string;
-  prerequisites: string;
-  block: string;
-  level: string;
-  seats: string;
-};
-
 type SlotId = CatalogSlotId;
-type ChoiceKind = "firstChoice" | "secondChoice";
 
 type SlotRequests = {
-  firstChoice: EnrichmentClass | null;
-  secondChoice: EnrichmentClass | null;
+  firstChoice: ParentClassOption | null;
+  secondChoice: ParentClassOption | null;
 };
 
 const initialRequests = INITIAL_PARENT_CATALOG_REQUESTS as Record<SlotId, SlotRequests>;
-
-function catalogClassFromRow(row: SchoolClassRow): EnrichmentClass {
-  return {
-    id: row.id,
-    name: row.name,
-    teacher: row.teacher || "Teacher not assigned",
-    description:
-      row.description ||
-      `${row.name} gives students a structured enrichment option with placement managed by the school team.`,
-    prerequisites: row.prerequisites || "None listed",
-    block: row.block,
-    level: row.level,
-    seats: row.students,
-  };
-}
 
 function statusDotClass(kind: "core" | "approved" | "pending" | "draft" | "empty") {
   if (kind === "core") return "border-[#14c1d5] bg-[#d2f1f5]";
@@ -100,114 +79,14 @@ function StepItem({ n, title, body }: { n: number; title: string; body: string }
   );
 }
 
-function SelectedClassSummary({ cls }: { cls: EnrichmentClass | null }) {
-  if (!cls) return null;
-  return (
-    <div className="rounded-[6px] border border-[#dfe1e6] bg-white p-[12px]">
-      <div className="flex items-start justify-between gap-3 border-b border-[#dfe1e6] pb-[10px]">
-        <h3 className="text-[16px] font-semibold leading-[1.4] text-[#272932]">{cls.name}</h3>
-        <ExternalLink className="mt-1 size-4 shrink-0 text-[#14c1d5]" aria-hidden />
-      </div>
-      <div className="space-y-[8px] border-b border-[#dfe1e6] py-[12px] text-[12px] leading-[1.35] text-[#4f5665]">
-        <p>Description: {cls.description}</p>
-        <p>Teacher: {cls.teacher}</p>
-        <p>Schedule: {cls.block || "Selected block"}</p>
-      </div>
-      <p className="pt-[10px] text-[12px] text-[#4f5665]">Status: Open</p>
-    </div>
-  );
-}
-
-function ChoiceDropdown({
-  label,
-  value,
-  classes,
-  open,
-  onToggle,
-  onSelect,
-}: {
-  label: string;
-  value: EnrichmentClass | null;
-  classes: EnrichmentClass[];
-  open: boolean;
-  onToggle: () => void;
-  onSelect: (cls: EnrichmentClass) => void;
-}) {
-  return (
-    <div>
-      <p className="mb-[8px] text-[16px] font-semibold leading-[1.4] text-[#272932]">{label}</p>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={onToggle}
-          className={`flex h-[50px] w-full items-center justify-between rounded-[10px] border bg-white px-[24px] text-left text-[16px] text-[#0d0d12] ${open ? "border-[#14c1d5] ring-2 ring-[#14c1d5]/15" : "border-[#f0f0f0]"}`}
-        >
-          <span className="truncate">{value?.name ?? "Select a class"}</span>
-          <ChevronDown className={`size-5 shrink-0 transition ${open ? "rotate-180" : ""}`} aria-hidden />
-        </button>
-        {open ? (
-          <div className="absolute left-0 right-0 top-[58px] z-20 max-h-[314px] overflow-y-auto rounded-[10px] border border-[#dfe1e6] bg-white px-[20px] py-[12px] shadow-[0px_8px_24px_rgba(13,13,18,0.12)]">
-            {classes.map((cls, index) => (
-              <button
-                key={cls.id}
-                type="button"
-                onClick={() => onSelect(cls)}
-                className="flex w-full items-start justify-between gap-4 py-[10px] text-left"
-              >
-                <span>
-                  <span className="block text-[16px] leading-[1.4] text-[#0d0d12]">{cls.name}</span>
-                  <span className="mt-[2px] block text-[12px] leading-[1.4] text-[#666d80]">{cls.description}</span>
-                </span>
-                <span className="mt-[2px] shrink-0 text-[14px] text-[#666d80]">{index === 0 ? "Waitlist" : "Available"}</span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function ChoiceSelector({
-  label,
-  value,
-  classes,
-  open,
-  onToggle,
-  onSelect,
-}: {
-  label: string;
-  value: EnrichmentClass | null;
-  classes: EnrichmentClass[];
-  open: boolean;
-  onToggle: () => void;
-  onSelect: (cls: EnrichmentClass) => void;
-}) {
-  return (
-    <div>
-      <ChoiceDropdown
-        label={label}
-        value={value}
-        classes={classes}
-        open={open}
-        onToggle={onToggle}
-        onSelect={onSelect}
-      />
-      <div className="mt-[12px]">
-        <SelectedClassSummary cls={value} />
-      </div>
-    </div>
-  );
-}
-
-export default function ParentClassesEnrichmentCatalog() {
+function ParentClassesEnrichmentCatalogContent() {
   const searchParams = useSearchParams();
   const requestedStudentId = searchParams.get("student") ?? "";
-  const [availableClasses, setAvailableClasses] = useState<EnrichmentClass[]>([]);
+  const [availableClasses, setAvailableClasses] = useState<ParentClassOption[]>([]);
   const [catalogHint, setCatalogHint] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotId>("block4_day3");
   const [overlayOpen, setOverlayOpen] = useState(false);
-  const [openChoice, setOpenChoice] = useState<ChoiceKind | null>(null);
+  const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
   const [requests, setRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [restoredDraft, setRestoredDraft] = useState(false);
@@ -225,7 +104,7 @@ export default function ParentClassesEnrichmentCatalog() {
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = Array.isArray(body.classes) ? body.classes : [];
-        const enrichment = rows.filter((row) => row.program === "enrichment").map(catalogClassFromRow);
+        const enrichment = rows.filter((row) => row.program === "enrichment").map(parentClassOptionFromRow);
         if (cancelled) return;
         setAvailableClasses(enrichment);
         setCatalogHint(
@@ -416,9 +295,9 @@ export default function ParentClassesEnrichmentCatalog() {
     setLocalReviewStatuses({});
   }
 
-  function selectChoice(cls: EnrichmentClass, kind: ChoiceKind) {
+  function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
     setRequests((prev) => {
-      const otherKind: ChoiceKind = kind === "firstChoice" ? "secondChoice" : "firstChoice";
+      const otherKind: ParentClassChoiceKind = kind === "firstChoice" ? "secondChoice" : "firstChoice";
       const active = prev[activeSlot];
       return {
         ...prev,
@@ -551,68 +430,36 @@ export default function ParentClassesEnrichmentCatalog() {
       </section>
 
       {overlayOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/20"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="select-class-title"
-          onMouseDown={() => setOverlayOpen(false)}
-        >
-          <div
-            className="flex h-full w-full flex-col rounded-l-[18px] bg-white px-[24px] py-[24px] shadow-2xl sm:w-[570px]"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 id="select-class-title" className="text-[24px] font-bold leading-[1.1] text-[#272932]">Select a Class</h2>
-                <p className="mt-[8px] text-[14px] leading-[1.4] text-[#666d80]">Choose an enrichment class available for this block.</p>
-              </div>
-              <button type="button" aria-label="Close" onClick={() => setOverlayOpen(false)} className="rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">
-                <X className="size-5" aria-hidden />
-              </button>
-            </div>
-
-            <div className="mt-[28px] border-y border-[#f0f0f0] py-[26px] text-[16px] font-semibold text-[#0d0d12]">
-              {activeMeta.title} • {activeMeta.overlayTime}
-            </div>
-
-            <div className="mt-[26px] flex-1 space-y-[30px] overflow-y-auto pr-1">
-              <ChoiceSelector
-                label="Choose the first option"
-                value={firstChoice}
-                classes={firstChoiceOptions}
-                open={openChoice === "firstChoice"}
-                onToggle={() => setOpenChoice((open) => (open === "firstChoice" ? null : "firstChoice"))}
-                onSelect={(cls) => selectChoice(cls, "firstChoice")}
-              />
-
-              <ChoiceSelector
-                label="Choose the second option"
-                value={secondChoice}
-                classes={secondChoiceOptions}
-                open={openChoice === "secondChoice"}
-                onToggle={() => setOpenChoice((open) => (open === "secondChoice" ? null : "secondChoice"))}
-                onSelect={(cls) => selectChoice(cls, "secondChoice")}
-              />
-            </div>
-
-            <div className="mt-[30px] flex gap-[24px] border-t border-[#f0f0f0] pt-[24px]">
-              <button type="button" onClick={() => setOverlayOpen(false)} className="h-[42px] flex-1 rounded-[6px] bg-[#d2f1f5] text-[14px] font-semibold text-[#14c1d5]">
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={!activeSlotHasChoices || submitting}
-                onClick={submitSelections}
-                className="inline-flex h-[42px] flex-1 items-center justify-center gap-2 rounded-[6px] bg-[#d2f1f5] text-[14px] font-semibold text-white disabled:opacity-100 enabled:bg-[#14c1d5]"
-              >
-                {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-                Submit for Approval
-              </button>
-            </div>
-          </div>
-        </div>
+        <ParentClassSelectionDrawer
+          title={activeMeta.title}
+          time={activeMeta.overlayTime}
+          firstChoice={firstChoice}
+          secondChoice={secondChoice}
+          firstChoiceOptions={firstChoiceOptions}
+          secondChoiceOptions={secondChoiceOptions}
+          openChoice={openChoice}
+          onToggleChoice={(kind) => setOpenChoice((open) => (open === kind ? null : kind))}
+          onSelectChoice={selectChoice}
+          onClose={() => setOverlayOpen(false)}
+          onSubmit={submitSelections}
+          submitDisabled={!activeSlotHasChoices}
+          submitting={submitting}
+        />
       ) : null}
     </div>
+  );
+}
+
+export default function ParentClassesEnrichmentCatalog() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] w-full items-center justify-center p-8 font-sans text-[#666d80]">
+          Loading class selection...
+        </div>
+      }
+    >
+      <ParentClassesEnrichmentCatalogContent />
+    </Suspense>
   );
 }
