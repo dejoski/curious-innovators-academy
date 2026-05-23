@@ -88,7 +88,16 @@ export function readParentCatalogSnapshot(): {
   studentName?: string;
   parentName?: string;
 };
-export function readParentCatalogSnapshot(identity?: Pick<ParentCatalogIdentity, "studentId">): {
+export function readParentCatalogSnapshot(identity: Pick<ParentCatalogIdentity, "studentId" | "studentName">): {
+  requests: ParentCatalogRequests | null;
+  submittedAt: string | null;
+  state: "draft" | "submitted" | null;
+  reviewStatuses: LocalReviewStatuses;
+  studentId?: string;
+  studentName?: string;
+  parentName?: string;
+};
+export function readParentCatalogSnapshot(identity?: Pick<ParentCatalogIdentity, "studentId" | "studentName">): {
   requests: ParentCatalogRequests | null;
   submittedAt: string | null;
   state: "draft" | "submitted" | null;
@@ -104,17 +113,25 @@ export function readParentCatalogSnapshot(identity?: Pick<ParentCatalogIdentity,
   try {
     const submittedRaw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY);
     const draftRaw = window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
-    const raw = submittedRaw ?? draftRaw;
-    const parsed = raw
-      ? (JSON.parse(raw) as { requests?: unknown; submittedAt?: string } & ParentCatalogIdentity)
+    const submitted = submittedRaw
+      ? (JSON.parse(submittedRaw) as { requests?: unknown; submittedAt?: string } & ParentCatalogIdentity)
       : null;
-    if (identity?.studentId && parsed?.studentId !== identity.studentId) {
+    const draft = draftRaw
+      ? (JSON.parse(draftRaw) as { requests?: unknown; submittedAt?: string } & ParentCatalogIdentity)
+      : null;
+    const matchesStudent = (parsed: ParentCatalogIdentity | null) => {
+      if (!identity?.studentId) return true;
+      if (!parsed) return false;
+      return parsed.studentId ? parsed.studentId === identity.studentId : parsed.studentName === identity.studentName;
+    };
+    const parsed = matchesStudent(submitted) ? submitted : matchesStudent(draft) ? draft : null;
+    if (!parsed) {
       return { requests: null, submittedAt: null, state: null, reviewStatuses: {} };
     }
     return {
       requests: parsed?.requests ? normalizeRequests(parsed.requests) : null,
       submittedAt: parsed?.submittedAt ?? null,
-      state: submittedRaw ? "submitted" : draftRaw ? "draft" : null,
+      state: parsed === submitted ? "submitted" : "draft",
       reviewStatuses: readLocalReviewStatuses(),
       studentId: parsed?.studentId,
       studentName: parsed?.studentName,

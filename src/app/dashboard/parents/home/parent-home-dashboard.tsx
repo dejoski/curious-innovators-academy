@@ -213,14 +213,14 @@ export default function ParentHomeDashboard() {
     return null;
   }, [schedule]);
 
-	  const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
-	    const draftB3 = catalogBadgesForSlot(catalogDraft, "block3_day3", localReviewStatuses);
-	    const draftB4 = catalogBadgesForSlot(catalogDraft, "block4_day3", localReviewStatuses);
+  const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
+    const draftB3 = catalogBadgesForSlot(catalogDraft, "block3_day3", localReviewStatuses, localRequestState);
+    const draftB4 = catalogBadgesForSlot(catalogDraft, "block4_day3", localReviewStatuses, localRequestState);
     return buildParentScheduleBadges(selectedSchedule, {
       ...(draftB3.length ? { b3Thu: draftB3 } : {}),
       ...(draftB4.length ? { b4Thu: draftB4 } : {}),
     });
-  }, [catalogDraft, localReviewStatuses, selectedSchedule]);
+  }, [catalogDraft, localRequestState, localReviewStatuses, selectedSchedule]);
 
   return (
     <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">

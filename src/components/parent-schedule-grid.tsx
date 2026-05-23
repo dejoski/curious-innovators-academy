@@ -41,9 +41,9 @@ function badgeCaption(badge: StudentScheduleBadge) {
 
 function ScheduleBadgeCard({ badge, tall = false, compact = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean }) {
   return (
-    <div className={`flex h-full flex-col rounded-[6px] border px-3 ${compact ? "justify-center py-2" : "justify-between py-3"} ${badgeClasses(badge.tone, false)}`}>
-      <p className="line-clamp-2 text-[13px] leading-[1.2] text-[#111827]">{badge.label}</p>
-      <p className={`mt-2 text-[12px] font-semibold leading-[1.2] text-[#667085] ${tall ? "" : "line-clamp-1"}`}>{badgeCaption(badge)}</p>
+    <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)}`}>
+      <p className={`${tall ? "line-clamp-3" : "line-clamp-2"} text-[11px] leading-[1.16] text-[#111827] min-[1100px]:text-[13px]`}>{badge.label}</p>
+      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"}`}>{badgeCaption(badge)}</p>
     </div>
   );
 }
@@ -63,7 +63,7 @@ function SlotCell({
   const isEmpty = visible.every((badge) => badge.tone === "empty");
   const clickable = Boolean(onSlotClick) && isSelectableCatalogSlot(slot);
   const content = (
-    <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-2" : ""}`}>
+    <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-1.5 min-[1100px]:gap-2" : ""}`}>
       {visible.map((badge, index) => (
         <div key={`${slot}-${badge.label}-${index}`} className={visible.length > 1 ? "min-h-0 flex-1" : "h-full"}>
           <ScheduleBadgeCard badge={badge} tall={tall} compact={visible.length > 1} />
@@ -73,13 +73,13 @@ function SlotCell({
   );
 
   return (
-    <div className={`border border-[#e8ebf0] bg-white p-2 ${tall ? "h-[152px]" : "h-[76px]"}`}>
+    <div className={`min-w-0 border border-[#e8ebf0] bg-white p-1.5 min-[1100px]:p-2 ${tall ? "h-[156px]" : "h-[74px] min-[1100px]:h-[76px]"}`}>
       {clickable ? (
         <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[6px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-2 hover:ring-[#14c1d5]/35"}`}>
           {isEmpty ? (
-            <div className="flex h-full flex-col justify-center px-3">
-              <p className="text-[13px] leading-[1.2] text-[#111827]">Available slot</p>
-              <p className="mt-2 text-[12px] font-semibold leading-[1.2] text-[#667085]">+ Choose class</p>
+            <div className="flex h-full flex-col justify-center px-2 min-[1100px]:px-3">
+              <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">Available slot</p>
+              <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">+ Choose class</p>
             </div>
           ) : content}
         </button>
@@ -102,25 +102,25 @@ export function ParentScheduleGrid({
   const getBadges = (slot: ParentScheduleSlotKey) => badgesBySlot?.[slot] ?? [];
 
   return (
-    <div className={`min-w-0 rounded-[16px] border border-[#e6e9ef] bg-white p-5 shadow-sm ${className}`}>
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[760px] grid-cols-[minmax(160px,190px)_repeat(3,minmax(170px,1fr))] overflow-hidden rounded-[10px] border border-[#e8ebf0]">
-          <div className="flex h-[78px] flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-5 text-[#5d6678]">
-            <span className="text-[15px] font-bold leading-[1.25]">90 minutes</span>
-            <span className="text-[14px] leading-[1.25]">per block</span>
+    <div className={`min-w-0 rounded-[16px] border border-[#e6e9ef] bg-white p-3 shadow-sm min-[1100px]:p-5 ${className}`}>
+      <div className="min-w-0 overflow-hidden">
+        <div className="grid w-full min-w-0 grid-cols-[minmax(82px,0.78fr)_repeat(3,minmax(0,1fr))] overflow-hidden rounded-[10px] border border-[#e8ebf0]">
+          <div className="flex h-[70px] min-w-0 flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-2 text-[#5d6678] min-[1100px]:h-[78px] min-[1100px]:px-5">
+            <span className="text-[12px] font-bold leading-[1.2] min-[1100px]:text-[15px]">90 minutes</span>
+            <span className="text-[11px] leading-[1.2] min-[1100px]:text-[14px]">per block</span>
           </div>
           {PARENT_SCHEDULE_DAYS.map((day, index) => (
-            <div key={day} className="flex h-[78px] flex-col items-center justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] last:border-r-0">
-              <span className="text-[14px] leading-none text-[#111827]">Day</span>
-              <span className="mt-2 text-[22px] font-semibold leading-none text-[#111827]">{index + 1}</span>
+            <div key={day} className="flex h-[70px] min-w-0 flex-col items-center justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] last:border-r-0 min-[1100px]:h-[78px]">
+              <span className="text-[11px] leading-none text-[#111827] min-[1100px]:text-[14px]">Day</span>
+              <span className="mt-1.5 text-[18px] font-semibold leading-none text-[#111827] min-[1100px]:mt-2 min-[1100px]:text-[22px]">{index + 1}</span>
             </div>
           ))}
 
           {PARENT_SCHEDULE_ROWS.map((row, rowIndex) => (
             <div key={row.label} className="contents">
-              <div className={`flex flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-6 text-[#5d6678] ${row.tall ? "h-[152px] justify-start pt-6" : "h-[76px]"} ${rowIndex === PARENT_SCHEDULE_ROWS.length - 1 ? "border-b-0" : ""}`}>
-                <span className="text-[13px] font-bold leading-none">{row.label}</span>
-                <span className="mt-2 text-[14px] leading-none">{row.time}</span>
+              <div className={`flex min-w-0 flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-2 text-[#5d6678] min-[1100px]:px-6 ${row.tall ? "h-[156px] justify-start pt-4 min-[1100px]:pt-6" : "h-[74px] min-[1100px]:h-[76px]"} ${rowIndex === PARENT_SCHEDULE_ROWS.length - 1 ? "border-b-0" : ""}`}>
+                <span className="text-[11px] font-bold leading-none min-[1100px]:text-[13px]">{row.label}</span>
+                <span className="mt-1.5 text-[11px] leading-[1.15] min-[1100px]:mt-2 min-[1100px]:text-[14px]">{row.time}</span>
               </div>
               {row.slots.map((slot, index) => (
                 <SlotCell key={`${row.label}-${slot}-${index}`} slot={slot} badges={getBadges(slot)} tall={row.tall} onSlotClick={onSlotClick} />

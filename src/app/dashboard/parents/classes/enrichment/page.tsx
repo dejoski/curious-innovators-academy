@@ -58,6 +58,7 @@ export default function EnrichmentClassesPage() {
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(() => !peekCachedJson<{ classes?: SchoolClassRow[] }>("/api/data/classes"));
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
+  const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,6 +108,7 @@ export default function EnrichmentClassesPage() {
 	    function readCatalogDraft() {
 	      const snapshot = readParentCatalogSnapshot();
 	      setCatalogDraft(snapshot.requests);
+	      setLocalRequestState(snapshot.state);
 	      setLocalReviewStatuses(snapshot.reviewStatuses);
 	    }
 
@@ -135,7 +137,7 @@ export default function EnrichmentClassesPage() {
       return isDraftRequest
         ? {
             ...cls,
-            status: reviewedStatus ?? "Pending",
+            status: localRequestState === "submitted" ? (reviewedStatus ?? "Pending") : "Draft",
             current: reviewedStatus === "Approved",
             requestSource: "local-draft" as const,
           }
@@ -170,7 +172,7 @@ export default function EnrichmentClassesPage() {
     });
 
     return result;
-  }, [catalogDraft, classes, localReviewStatuses, searchQuery, filterStatus, sortBy]);
+  }, [catalogDraft, classes, localRequestState, localReviewStatuses, searchQuery, filterStatus, sortBy]);
 
   useEffect(() => {
     if (!toolbarBanner) return;
@@ -222,6 +224,13 @@ export default function EnrichmentClassesPage() {
       return (
         <div className="inline-flex items-center justify-center px-2 py-1 bg-[#ffd9d9] border border-[#d80509]/50 rounded-md">
           <span className="text-[10px] text-[#d80509]">Pending</span>
+        </div>
+      );
+    }
+    if (status === "Draft") {
+      return (
+        <div className="inline-flex items-center justify-center px-2 py-1 bg-[#eef4ff] border border-[#84adff]/70 rounded-md">
+          <span className="text-[10px] text-[#3451a4]">Draft</span>
         </div>
       );
     }
@@ -285,7 +294,7 @@ export default function EnrichmentClassesPage() {
 
       {filteredAndSortedClasses.some((cls) => cls.requestSource === "local-draft") && (
         <div className="rounded-[12px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66] font-medium">
-          Showing request statuses from your saved class-selection flow.
+          {localRequestState === "submitted" ? "Showing request statuses from your saved class-selection flow." : "Showing unsubmitted class-selection draft choices."}
         </div>
       )}
 
@@ -318,7 +327,7 @@ export default function EnrichmentClassesPage() {
               </button>
               {isFilterOpen && (
                 <div className="absolute top-full right-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
-                  {["All", "Approved", "Pending", "Rejected", "--"].map((status) => (
+                  {["All", "Approved", "Pending", "Draft", "Rejected", "--"].map((status) => (
                     <button
                       key={status}
                       onClick={() => { setFilterStatus(status); setIsFilterOpen(false); }}

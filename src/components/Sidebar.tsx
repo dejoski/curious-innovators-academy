@@ -47,6 +47,14 @@ const imgNotebookOneSidebar = "/images/icon-notebook-one-sidebar.svg";
 const imgCalendarLinear = "/images/icon-calendar-linear.svg";
 const imgCalendarOutline = "/images/icon-calendar-outline.svg";
 
+const PARENT_CATALOG_HREF = "/dashboard/parents/catalog" as const;
+const PARENT_CLASSES_HREF = "/dashboard/parents/classes" as const;
+const PARENT_CLASSES_CORE_HREF = `${PARENT_CLASSES_HREF}/core` as const;
+
+function routeBranchActive(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 type SidebarProps = {
   className?: string;
   type?: "close" | "open" | "w/ tooltip";
@@ -77,8 +85,8 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const [parentClassesNavExpanded, setParentClassesNavExpanded] =
     React.useState(
       () =>
-        pathname.startsWith("/dashboard/parents/catalog") ||
-        pathname.startsWith("/dashboard/parents/classes"),
+        routeBranchActive(pathname, PARENT_CATALOG_HREF) ||
+        routeBranchActive(pathname, PARENT_CLASSES_HREF),
     );
 
   const inParentRoutes = pathname.startsWith("/dashboard/parents");
@@ -97,8 +105,8 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     setTeachersExpanded(pathname.startsWith("/dashboard/teachers")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
     setParentStudentsNavExpanded(pathname.startsWith("/dashboard/parents/students")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
     setParentClassesNavExpanded(
-      pathname.startsWith("/dashboard/parents/catalog") ||
-        pathname.startsWith("/dashboard/parents/classes"),
+      routeBranchActive(pathname, PARENT_CATALOG_HREF) ||
+        routeBranchActive(pathname, PARENT_CLASSES_HREF),
     ); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
   }, [pathname]);
 
@@ -146,16 +154,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentOverviewActive =
     pathname.startsWith("/dashboard/parents/home") ||
     pathname === "/dashboard/parents";
-  const parentCatalogActive =
-    pathname.startsWith("/dashboard/parents/catalog");
-  const parentClassListNavActive =
-    pathname.startsWith("/dashboard/parents/classes");
+  const parentCatalogActive = routeBranchActive(pathname, PARENT_CATALOG_HREF);
+  const parentClassListNavActive = routeBranchActive(pathname, PARENT_CLASSES_HREF);
   const parentClassesNavActive =
-    pathname.startsWith("/dashboard/parents/catalog") ||
-    parentClassListNavActive;
+    parentCatalogActive || parentClassListNavActive;
   const parentClassesBrandActive =
-    pathname.startsWith("/dashboard/parents/catalog") ||
-    pathname.startsWith("/dashboard/parents/classes");
+    parentCatalogActive || parentClassListNavActive;
   const parentClassesHeaderAccent =
     parentClassesBrandActive || parentClassesNavExpanded;
   const parentStudentsActive = pathname.startsWith(
@@ -566,24 +570,18 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   </button>
                   {parentClassesNavExpanded && (
-                    <div className="relative h-[72px] w-[240px]">
-                      <div className="bg-[#d2f1f5] rounded-[8px] h-[32px] w-full">
-                        <Link
-                          href="/dashboard/parents/catalog"
-                          className="content-stretch flex h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] w-full"
-                        >
-                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
-                            Class Selection
-                          </p>
-                        </Link>
-                      </div>
+                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
                       <Link
-                        href="/dashboard/parents/classes/core"
-                        className="absolute left-0 top-[40px] content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full text-[#666d80] hover:text-[#272932] hover:bg-black/[0.04] transition-colors"
+                        href={PARENT_CATALOG_HREF}
+                        className={parentNavSubLinkClass(parentCatalogActive)}
                       >
-                        <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4]">
-                          Class List
-                        </p>
+                        Class Selection
+                      </Link>
+                      <Link
+                        href={PARENT_CLASSES_CORE_HREF}
+                        className={parentNavSubLinkClass(parentClassListNavActive)}
+                      >
+                        Class List
                       </Link>
                     </div>
                   )}
@@ -735,7 +733,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     />
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/catalog" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
+                <Link href={PARENT_CATALOG_HREF} title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
                       <img alt="" className="block size-[18px] max-w-none" src={imgNotebookOneSidebar} />
@@ -857,7 +855,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     />
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/catalog" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
+                <Link href={PARENT_CATALOG_HREF} title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
                       <img alt="" className="block size-[18px] max-w-none" src={imgNotebookOneSidebar} />

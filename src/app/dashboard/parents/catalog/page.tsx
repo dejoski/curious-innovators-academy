@@ -71,14 +71,15 @@ function catalogClassFromRow(row: SchoolClassRow): EnrichmentClass {
   };
 }
 
-function statusDotClass(kind: "core" | "approved" | "pending" | "empty") {
+function statusDotClass(kind: "core" | "approved" | "pending" | "draft" | "empty") {
   if (kind === "core") return "border-[#14c1d5] bg-[#d2f1f5]";
   if (kind === "approved") return "border-[#004d08] bg-[#004d08]/20";
   if (kind === "pending") return "border-[#d80509] bg-[#ffd9d9]";
+  if (kind === "draft") return "border-[#84adff] bg-[#eef4ff]";
   return "border-[#f0f0f0] bg-[#fafafa]";
 }
 
-function LegendItem({ kind, label }: { kind: "core" | "approved" | "pending" | "empty"; label: string }) {
+function LegendItem({ kind, label }: { kind: "core" | "approved" | "pending" | "draft" | "empty"; label: string }) {
   return (
     <div className="flex items-center gap-[6px]">
       <span className={`size-[17px] rounded-[4px] border ${statusDotClass(kind)}`} />
@@ -167,6 +168,38 @@ function ChoiceDropdown({
   );
 }
 
+function ChoiceSelector({
+  label,
+  value,
+  classes,
+  open,
+  onToggle,
+  onSelect,
+}: {
+  label: string;
+  value: EnrichmentClass | null;
+  classes: EnrichmentClass[];
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (cls: EnrichmentClass) => void;
+}) {
+  return (
+    <div>
+      <ChoiceDropdown
+        label={label}
+        value={value}
+        classes={classes}
+        open={open}
+        onToggle={onToggle}
+        onSelect={onSelect}
+      />
+      <div className="mt-[12px]">
+        <SelectedClassSummary cls={value} />
+      </div>
+    </div>
+  );
+}
+
 export default function ParentClassesEnrichmentCatalog() {
   const searchParams = useSearchParams();
   const requestedStudentId = searchParams.get("student") ?? "";
@@ -184,6 +217,7 @@ export default function ParentClassesEnrichmentCatalog() {
   const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
+  const [catalogStorageReadyFor, setCatalogStorageReadyFor] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -264,13 +298,18 @@ export default function ParentClassesEnrichmentCatalog() {
   }, []);
 
 	  useEffect(() => {
-	    const snapshot = readParentCatalogSnapshot();
-	    if (!snapshot.requests) return;
-	    setRequests(snapshot.requests as Record<SlotId, SlotRequests>);
+	    if (!activeStudent?.id) return;
+	    const snapshot = readParentCatalogSnapshot({
+	      studentId: activeStudent.id,
+	      studentName: activeStudent.name,
+	    });
+	    setRequests((snapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
 	    setLocalSubmittedAt(snapshot.submittedAt);
+	    setLocalRequestState(snapshot.state);
 	    setLocalReviewStatuses(snapshot.reviewStatuses);
-	    setRestoredDraft(true);
-	  }, []);
+	    setRestoredDraft(Boolean(snapshot.requests));
+	    setCatalogStorageReadyFor(activeStudent.id);
+	  }, [activeStudent?.id]);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -283,6 +322,7 @@ export default function ParentClassesEnrichmentCatalog() {
 
   const catalogIdentity = useMemo<ParentCatalogIdentity>(
     () => ({
+      studentId: activeStudent?.id,
       studentName: activeStudent?.name,
       parentName: activeStudent?.parent,
     }),
@@ -290,27 +330,33 @@ export default function ParentClassesEnrichmentCatalog() {
   );
 
 	  useEffect(() => {
+	    if (!activeStudent?.id || catalogStorageReadyFor !== activeStudent.id) return;
 	    try {
-	      writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
+	      if (hasParentCatalogChoices(requests as ParentCatalogRequests)) {
+	        writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
+	      } else {
+	        clearPendingParentCatalogRequests({ studentId: activeStudent.id });
+	      }
 	    } catch {
 	      /* Browser storage can be unavailable in privacy modes. */
 	    }
-	  }, [catalogIdentity, requests]);
+	  }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, requests]);
 
   function draftSlotBadges(slot: SlotRequests, slotId: SlotId): StudentScheduleBadge[] {
     const badges: StudentScheduleBadge[] = [];
+    const isSubmitted = localRequestState === "submitted";
     const firstStatus = localReviewStatuses[localReviewKey(slotId, "first")] ?? "Pending";
     const secondStatus = localReviewStatuses[localReviewKey(slotId, "second")] ?? "Pending";
     if (slot.firstChoice) {
       badges.push({
-        label: firstStatus === "Rejected" ? `Rejected: ${slot.firstChoice.name}` : slot.firstChoice.name,
-        tone: firstStatus === "Approved" ? "approved" : "pending",
+        label: isSubmitted && firstStatus === "Rejected" ? `Rejected: ${slot.firstChoice.name}` : slot.firstChoice.name,
+        tone: isSubmitted ? (firstStatus === "Approved" ? "approved" : "pending") : "draft",
       });
     }
     if (slot.secondChoice) {
       badges.push({
-        label: `${secondStatus === "Rejected" ? "Rejected" : "2nd"}: ${slot.secondChoice.name}`,
-        tone: secondStatus === "Approved" ? "approved" : "pending",
+        label: `${isSubmitted && secondStatus === "Rejected" ? "Rejected" : "2nd"}: ${slot.secondChoice.name}`,
+        tone: isSubmitted ? (secondStatus === "Approved" ? "approved" : "pending") : "draft",
       });
     }
     return badges;
@@ -323,7 +369,7 @@ export default function ParentClassesEnrichmentCatalog() {
       ...(block3.length ? { b3Thu: block3 } : {}),
       ...(block4.length ? { b4Thu: block4 } : {}),
     });
-  }, [localReviewStatuses, requests, studentSchedule]);
+  }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
 
 	  const selectedChoices = useMemo(
 	    () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
@@ -361,11 +407,12 @@ export default function ParentClassesEnrichmentCatalog() {
 
 	  function clearSubmittedSnapshot() {
 	    try {
-	      clearSubmittedParentCatalogSnapshot();
+	      clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
 	    } catch {
 	      /* ignore storage failures */
 	    }
     setLocalSubmittedAt(null);
+    setLocalRequestState("draft");
     setLocalReviewStatuses({});
   }
 
@@ -395,6 +442,7 @@ export default function ParentClassesEnrichmentCatalog() {
 	      /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
 	    }
     setLocalSubmittedAt(submittedAt);
+    setLocalRequestState("submitted");
     setLocalReviewStatuses({});
   }
 
@@ -438,6 +486,7 @@ export default function ParentClassesEnrichmentCatalog() {
         <LegendItem kind="core" label="Core (School assigned)" />
         <LegendItem kind="approved" label="Enrichment approved" />
         <LegendItem kind="pending" label="Enrichment pending" />
+        {localRequestState === "draft" && hasChoices ? <LegendItem kind="draft" label="Draft selection" /> : null}
         <LegendItem kind="empty" label="Empty" />
       </div>
 
@@ -528,21 +577,16 @@ export default function ParentClassesEnrichmentCatalog() {
             </div>
 
             <div className="mt-[26px] flex-1 space-y-[30px] overflow-y-auto pr-1">
-              <div>
-                <ChoiceDropdown
-                  label="Choose the first option"
-                  value={firstChoice}
-                  classes={firstChoiceOptions}
-                  open={openChoice === "firstChoice"}
-                  onToggle={() => setOpenChoice((open) => (open === "firstChoice" ? null : "firstChoice"))}
-                  onSelect={(cls) => selectChoice(cls, "firstChoice")}
-                />
-                <div className="mt-[12px]">
-                  <SelectedClassSummary cls={firstChoice} />
-                </div>
-              </div>
+              <ChoiceSelector
+                label="Choose the first option"
+                value={firstChoice}
+                classes={firstChoiceOptions}
+                open={openChoice === "firstChoice"}
+                onToggle={() => setOpenChoice((open) => (open === "firstChoice" ? null : "firstChoice"))}
+                onSelect={(cls) => selectChoice(cls, "firstChoice")}
+              />
 
-              <ChoiceDropdown
+              <ChoiceSelector
                 label="Choose the second option"
                 value={secondChoice}
                 classes={secondChoiceOptions}
