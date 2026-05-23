@@ -4,6 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   type CalendarEvent,
   type CalendarEventType,
@@ -14,9 +15,30 @@ import {
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 
-const imgVector = "/images/vector.svg";
-
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
+
+const EVENT_TYPE_STYLES = {
+  core: {
+    surface: "border-[#7bddea] bg-[#dff7fa]",
+    dot: "bg-[#14c1d5]",
+    text: "text-[#1d5c66]",
+  },
+  "enrichment-approved": {
+    surface: "border-[#9fbaa3] bg-[#e0eadf]",
+    dot: "bg-[#4f7f56]",
+    text: "text-[#38583d]",
+  },
+  "enrichment-pending": {
+    surface: "border-[#ff9d9d] bg-[#ffe3e3]",
+    dot: "bg-[#d80509]",
+    text: "text-[#8c1f1f]",
+  },
+  event: {
+    surface: "border-[#c697ff] bg-[#eadbff]",
+    dot: "bg-[#8a38f5]",
+    text: "text-[#5b249f]",
+  },
+} satisfies Record<CalendarEventType, { surface: string; dot: string; text: string }>;
 
 function scheduleViewFromParam(raw: string | null): ScheduleCanvasView {
   const x = (raw ?? "").toLowerCase();
@@ -34,27 +56,54 @@ function formatTimeFromInput(htmlTime: string): string {
   return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+function timeLabelToMinutes(label: string): number {
+  const match = label.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? "0");
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function sortedEvents(events: CalendarEvent[]): CalendarEvent[] {
+  return events
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => {
+      const aOrder = a.event.sortOrder ?? timeLabelToMinutes(a.event.time);
+      const bOrder = b.event.sortOrder ?? timeLabelToMinutes(b.event.time);
+      return aOrder - bOrder || timeLabelToMinutes(a.event.time) - timeLabelToMinutes(b.event.time) || a.index - b.index;
+    })
+    .map(({ event }) => event);
+}
+
 const EventBadge = ({
   event,
   onClick,
 }: {
   event: CalendarEvent;
-  onClick: (e: React.MouseEvent) => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }) => {
-  let bgClass = "";
-  if (event.type === "core") bgClass = "bg-[#d2f1f5]";
-  if (event.type === "enrichment-pending") bgClass = "bg-[#ffd9d9]";
-  if (event.type === "enrichment-approved") bgClass = "bg-[#ccdbce]";
-  if (event.type === "event") bgClass = "bg-[#dcc3fc]";
+  const style = EVENT_TYPE_STYLES[event.type];
 
   return (
-    <div
-      className={`${bgClass} rounded-[4px] p-1 mb-1 w-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity`}
+    <button
+      type="button"
+      title={`${event.time} ${event.title}`}
+      className={`${style.surface} group/event w-full rounded-[6px] border px-2 py-1.5 text-left shadow-[0_1px_0_rgba(13,13,18,0.03)] transition-colors hover:border-[#14c1d5] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35`}
       onClick={onClick}
     >
-      <p className="text-[#666d80] text-[7px] leading-none mb-[2px]">{event.time}</p>
-      <p className="text-[#0d0d12] text-[9px] leading-tight truncate">{event.title}</p>
-    </div>
+      <span className="flex min-w-0 items-start gap-2">
+        <span className={`${style.dot} mt-[5px] size-1.5 shrink-0 rounded-full`} aria-hidden />
+        <span className="min-w-0">
+          <span className={`${style.text} block text-[10px] font-semibold leading-none`}>{event.time}</span>
+          <span className="mt-1 block text-[12px] font-medium leading-snug text-[#0d0d12] xl:text-[11px]">
+            {event.title}
+          </span>
+        </span>
+      </span>
+    </button>
   );
 };
 
@@ -79,6 +128,8 @@ export type ScheduleMonthProps = {
   initialDateIso?: string;
   /** Parent schedule passes already-composed student events; do not overwrite them with extras-only refresh. */
   refreshExtrasOnClient?: boolean;
+  /** Whether clicking an empty calendar day opens the event creation form. */
+  allowEventCreation?: boolean;
 };
 
 export default function ScheduleMonth({
@@ -93,6 +144,7 @@ export default function ScheduleMonth({
   dayLabels = DAYS_OF_WEEK,
   initialDateIso,
   refreshExtrasOnClient = true,
+  allowEventCreation = true,
 }: ScheduleMonthProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,6 +181,7 @@ export default function ScheduleMonth({
   const [syncHint, setSyncHint] = useState<string | null>(null);
 
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedDay, setSelectedDay] = useState<{ date: Date; events: CalendarEvent[] } | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createEventDate, setCreateEventDate] = useState<Date | null>(null);
   const [createTitle, setCreateTitle] = useState("");
@@ -199,6 +252,7 @@ export default function ScheduleMonth({
   };
 
   const handleSlotClick = (date: Date) => {
+    if (!allowEventCreation) return;
     setCreateEventDate(date);
     setCreateTitle("");
     setCreateTime("");
@@ -206,6 +260,14 @@ export default function ScheduleMonth({
     setCreateDescription("");
     setCreateError(null);
     setIsCreateModalOpen(true);
+  };
+
+  const handleDayClick = (date: Date, events: CalendarEvent[]) => {
+    if (events.length > 0) {
+      setSelectedDay({ date, events: sortedEvents(events) });
+      return;
+    }
+    handleSlotClick(date);
   };
 
   const resetCreateForm = () => {
@@ -300,43 +362,86 @@ export default function ScheduleMonth({
 
     const cells = [];
     for (let i = 0; i < startDay; i++) {
-      cells.push(<div key={`empty-${i}`} className="bg-gray-50 border border-[#f0f0f0] rounded-[8px] h-[120px] p-2" />);
+      cells.push(
+        <div
+          key={`empty-${i}`}
+          aria-hidden
+          className="hidden min-h-[148px] rounded-[8px] border border-[#f0f0f0] bg-gray-50 p-2 xl:block"
+        />,
+      );
     }
     for (let i = 1; i <= daysInMonth; i++) {
       const cellsDate = new Date(year, month, i);
-      const events = eventsForDate(cellsDate);
+      const events = sortedEvents(eventsForDate(cellsDate));
+      const visibleEvents = events.slice(0, 3);
+      const hiddenCount = Math.max(0, events.length - visibleEvents.length);
       const isToday = cellsDate.toDateString() === new Date().toDateString();
 
       cells.push(
         <div
           key={i}
-          onClick={() => handleSlotClick(cellsDate)}
-          className="bg-white border border-[#f0f0f0] rounded-[8px] h-[120px] p-2 flex flex-col overflow-hidden cursor-pointer hover:border-[#14c1d5] transition-colors"
+          onClick={() => handleDayClick(cellsDate, events)}
+          className={`flex min-h-[148px] flex-col overflow-hidden rounded-[8px] border border-[#f0f0f0] bg-white p-3 transition-colors hover:border-[#14c1d5] xl:p-2 ${
+            events.length > 0 || allowEventCreation ? "cursor-pointer" : ""
+          }`}
         >
-          <span
-            className={`text-[12px] mb-1 font-sans ${isToday ? "bg-[#14c1d5] text-white w-5 h-5 flex items-center justify-center rounded-full" : "text-[#020204]"}`}
-          >
-            {i}
-          </span>
-          <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-1">
-            {events.map((ev) => (
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${
+                  isToday ? "bg-[#14c1d5] text-white" : "text-[#020204]"
+                }`}
+              >
+                {i}
+              </span>
+              <span className="truncate text-[12px] font-medium text-[#625f6e] xl:hidden">
+                {dayLabels[cellsDate.getDay()] ?? DAYS_OF_WEEK[cellsDate.getDay()]}
+              </span>
+            </div>
+            <span className="shrink-0 rounded-full bg-[#f5f7fa] px-2 py-0.5 text-[10px] font-medium text-[#666d80]">
+              {events.length === 0
+                ? allowEventCreation
+                  ? "Open"
+                  : "Empty"
+                : `${events.length} item${events.length === 1 ? "" : "s"}`}
+            </span>
+          </div>
+          <div className="flex flex-1 flex-col gap-1.5">
+            {events.length === 0 ? (
+              <p className="rounded-[6px] border border-dashed border-[#d9dde7] px-2 py-2 text-[12px] text-[#666d80]">
+                No scheduled items
+              </p>
+            ) : null}
+            {visibleEvents.map((ev) => (
               <EventBadge key={ev.id} event={ev} onClick={(clickEv) => handleEventClick(clickEv, ev)} />
             ))}
+            {hiddenCount > 0 ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedDay({ date: cellsDate, events });
+                }}
+                className="mt-auto rounded-[6px] border border-[#d9dde7] bg-white px-2 py-1 text-left text-[11px] font-semibold text-[#4f5b73] hover:border-[#14c1d5] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35"
+              >
+                +{hiddenCount} more
+              </button>
+            ) : null}
           </div>
         </div>
       );
     }
 
     return (
-      <div className="min-w-[800px]">
-        <div className="grid grid-cols-7 gap-4 mb-4">
+      <div className="w-full">
+        <div className="mb-4 hidden grid-cols-7 gap-4 xl:grid">
           {dayLabels.map((day) => (
             <div key={day} className="text-center text-[#625f6e] text-[12px] font-sans">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-2">{cells}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 xl:gap-2">{cells}</div>
       </div>
     );
   };
@@ -401,33 +506,24 @@ export default function ScheduleMonth({
           </div>
           <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-2">
             {events.length === 0 && <p className="text-gray-400">No events for this day.</p>}
-            {events.map((ev) => (
-              <div
-                key={ev.id}
-                onClick={(e) => handleEventClick(e, ev)}
-                className="border rounded-md p-3 mb-2 cursor-pointer hover:shadow-md bg-gray-50 flex items-center justify-between"
-              >
-                <div>
-                  <span className="font-bold text-sm block">{ev.title}</span>
-                  <span className="text-xs text-gray-500">{ev.time}</span>
-                </div>
-                <div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      ev.type === "core"
-                        ? "bg-[#d2f1f5]"
-                        : ev.type === "enrichment-pending"
-                          ? "bg-[#ffd9d9]"
-                          : ev.type === "enrichment-approved"
-                            ? "bg-[#ccdbce]"
-                            : "bg-[#dcc3fc]"
-                    }`}
-                  >
+            {events.map((ev) => {
+              const style = EVENT_TYPE_STYLES[ev.type];
+              return (
+                <div
+                  key={ev.id}
+                  onClick={(e) => handleEventClick(e, ev)}
+                  className={`${style.surface} mb-2 flex cursor-pointer items-center justify-between rounded-md border p-3 hover:shadow-md`}
+                >
+                  <div>
+                    <span className="block text-sm font-bold">{ev.title}</span>
+                    <span className="text-xs text-gray-500">{ev.time}</span>
+                  </div>
+                  <span className={`${style.text} rounded-full bg-white/70 px-2 py-1 text-xs font-medium`}>
                     {typeLabel(ev.type)}
                   </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -507,17 +603,19 @@ export default function ScheduleMonth({
           <button
             type="button"
             onClick={handlePrev}
+            aria-label={`Previous ${view.toLowerCase()}`}
             className="bg-white border border-[#f0f0f0] flex items-center justify-center rounded-[8px] size-[40px] hover:bg-gray-50 transition-colors"
           >
-            <img alt="Prev" className="size-[18px] rotate-90" src={imgVector} />
+            <ChevronLeft className="size-[20px] text-[#272932]" aria-hidden strokeWidth={1.75} />
           </button>
           <h2 className="font-sans font-semibold text-[#0d0d12] text-[18px] min-w-[200px] text-center">{dateDisplay}</h2>
           <button
             type="button"
             onClick={handleNext}
+            aria-label={`Next ${view.toLowerCase()}`}
             className="bg-white border border-[#f0f0f0] flex items-center justify-center rounded-[8px] size-[40px] hover:bg-gray-50 transition-colors"
           >
-            <img alt="Next" className="size-[18px] -rotate-90" src={imgVector} />
+            <ChevronRight className="size-[20px] text-[#272932]" aria-hidden strokeWidth={1.75} />
           </button>
         </div>
         <Link
@@ -528,11 +626,81 @@ export default function ScheduleMonth({
         </Link>
       </div>
 
-      <div className={`${DASHBOARD_PANEL_CLASS} p-4 w-full overflow-x-auto`}>
+      <div className={`${DASHBOARD_PANEL_CLASS} w-full p-4 ${view === "Month" ? "overflow-hidden" : "overflow-x-auto"}`}>
         {view === "Month" && renderMonthView()}
         {view === "Week" && renderWeekView()}
         {view === "Day" && renderDayView()}
       </div>
+
+      {selectedDay && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedDay(null)}
+        >
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#0d0d12]">
+                  {selectedDay.date.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </h3>
+                <p className="mt-1 text-sm text-[#666d80]">
+                  {selectedDay.events.length} scheduled item{selectedDay.events.length === 1 ? "" : "s"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="text-xl font-bold text-gray-500 hover:text-gray-800"
+                aria-label="Close day schedule"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="flex max-h-[55vh] flex-col gap-2 overflow-y-auto pr-1">
+              {selectedDay.events.map((event) => {
+                const style = EVENT_TYPE_STYLES[event.type];
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={(e) => {
+                      setSelectedDay(null);
+                      handleEventClick(e, event);
+                    }}
+                    className={`${style.surface} rounded-[8px] border p-3 text-left hover:border-[#14c1d5] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35`}
+                  >
+                    <span className={`${style.text} text-xs font-semibold`}>{event.time}</span>
+                    <span className="mt-1 block text-sm font-semibold text-[#0d0d12]">{event.title}</span>
+                    <span className="mt-2 block text-xs text-[#666d80]">{typeLabel(event.type)}</span>
+                    {event.description?.trim() ? (
+                      <span className="mt-2 block text-xs text-[#4f5b73]">{event.description}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            {allowEventCreation ? (
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const date = selectedDay.date;
+                    setSelectedDay(null);
+                    handleSlotClick(date);
+                  }}
+                  className="rounded-lg bg-[#14c1d5] px-4 py-2 font-medium text-white hover:bg-[#12aebd]"
+                >
+                  Add Event
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {selectedEvent && (
         <div

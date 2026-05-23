@@ -21,6 +21,7 @@ import {
   serializeDemoState,
   type DemoAccountId,
 } from "@/lib/demo-accounts";
+import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
@@ -162,11 +163,9 @@ export function DashboardPersonaProvider({
     let cancelled = false;
     async function loadCurrentProfile() {
       try {
-        const res = await fetch("/api/data/me", { cache: "no-store" });
-        if (!res.ok) return;
-        const body = (await res.json()) as {
+        const body = await cachedJson<{
           profile?: CurrentAccountProfile | null;
-        };
+        }>("/api/data/me");
         const profile = body.profile;
         if (cancelled || !profile) return;
         setProductionAccount(productionAccountFromProfile(profile)); // eslint-disable-line react-hooks/set-state-in-effect -- account chrome is hydrated from the authenticated profile API
@@ -185,7 +184,10 @@ export function DashboardPersonaProvider({
 
     function handleAccountUpdated(event: Event) {
       const detail = (event as CustomEvent<CurrentAccountProfile>).detail;
-      if (detail) setProductionAccount(productionAccountFromProfile(detail));
+      if (detail) {
+        invalidateClientDataCache("/api/data/me");
+        setProductionAccount(productionAccountFromProfile(detail));
+      }
     }
 
     window.addEventListener("cia-account-profile-updated", handleAccountUpdated);

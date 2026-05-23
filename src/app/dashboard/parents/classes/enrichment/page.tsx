@@ -54,9 +54,25 @@ function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
   };
 }
 
+function dataHintFromSource(source?: string) {
+  if (source === "fallback") return "Showing sample classes because cloud data is unavailable.";
+  if (source === "unavailable") return "Cloud classes are unavailable. Ask an administrator to configure Supabase.";
+  return null;
+}
+
+function readCachedEnrichmentClasses() {
+  const body = peekCachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
+  return {
+    body,
+    rows: (body?.classes ?? [])
+      .filter((row) => row.program === "enrichment")
+      .map(toParentEnrichmentRow),
+  };
+}
+
 export default function EnrichmentClassesPage() {
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
-  const [isLoading, setIsLoading] = useState(() => !peekCachedJson<{ classes?: SchoolClassRow[] }>("/api/data/classes"));
+  const [isLoading, setIsLoading] = useState(true);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
@@ -74,7 +90,14 @@ export default function EnrichmentClassesPage() {
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
-      setIsLoading(true);
+      const cached = readCachedEnrichmentClasses();
+      if (cached.body) {
+        setClasses(cached.rows);
+        setDataHint(dataHintFromSource(cached.body.source));
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = (body.classes ?? [])
@@ -82,13 +105,7 @@ export default function EnrichmentClassesPage() {
           .map(toParentEnrichmentRow);
         if (cancelled) return;
         setClasses(rows);
-        setDataHint(
-          body.source === "fallback"
-            ? "Showing sample classes because cloud data is unavailable."
-            : body.source === "unavailable"
-              ? "Cloud classes are unavailable. Ask an administrator to configure Supabase."
-              : null,
-        );
+        setDataHint(dataHintFromSource(body.source));
       } catch (error) {
         if (!cancelled) {
           setClasses([]);

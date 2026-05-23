@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, ExternalLink, Loader2, X } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, Loader2, X } from "lucide-react";
 
 import type { ProgramTrack, SchoolClassRow, StudentScheduleBadge } from "@/lib/data/types";
 
@@ -91,7 +92,6 @@ export function ParentClassSummaryCard({
     <div className="rounded-[6px] border border-[#dfe1e6] bg-white p-[12px]">
       <div className="flex items-start justify-between gap-3 border-b border-[#dfe1e6] pb-[10px]">
         <h3 className="text-[16px] font-semibold leading-[1.4] text-[#272932]">{option.name}</h3>
-        <ExternalLink className="mt-1 size-4 shrink-0 text-[#14c1d5]" aria-hidden />
       </div>
       <div className="space-y-[8px] border-b border-[#dfe1e6] py-[12px] text-[12px] leading-[1.35] text-[#4f5665]">
         <p>Description: {option.description}</p>
@@ -284,10 +284,20 @@ export function ParentClassSelectionDrawer({
 export function ParentClassDetailsDrawer({
   option,
   statusLabel,
+  classListHref,
+  canSubmitDraft = false,
+  submitting = false,
+  onEditSelection,
+  onSubmitDraft,
   onClose,
 }: {
   option: ParentClassOption;
   statusLabel?: string;
+  classListHref?: string;
+  canSubmitDraft?: boolean;
+  submitting?: boolean;
+  onEditSelection?: () => void;
+  onSubmitDraft?: () => void;
   onClose: () => void;
 }) {
   return (
@@ -316,10 +326,38 @@ export function ParentClassDetailsDrawer({
           <ParentClassSummaryCard option={option} statusLabel={statusLabel ?? option.status ?? "Open"} />
         </div>
 
-        <div className="mt-[30px] border-t border-[#f0f0f0] pt-[24px]">
-          <button type="button" onClick={onClose} className="h-[42px] w-full rounded-[6px] bg-[#d2f1f5] text-[14px] font-semibold text-[#14c1d5]">
+        <div className="mt-[30px] flex flex-col gap-3 border-t border-[#f0f0f0] pt-[24px] sm:flex-row">
+          <button type="button" onClick={onClose} className="h-[42px] flex-1 rounded-[6px] bg-[#d2f1f5] px-4 text-[14px] font-semibold text-[#14c1d5]">
             Back
           </button>
+          {onEditSelection ? (
+            <button
+              type="button"
+              onClick={onEditSelection}
+              className="h-[42px] flex-1 rounded-[6px] border border-[#14c1d5] bg-white px-4 text-[14px] font-semibold text-[#14c1d5] hover:bg-[#ecfdff]"
+            >
+              Edit Selection
+            </button>
+          ) : null}
+          {canSubmitDraft && onSubmitDraft ? (
+            <button
+              type="button"
+              onClick={onSubmitDraft}
+              disabled={submitting}
+              className="inline-flex h-[42px] flex-1 items-center justify-center gap-2 rounded-[6px] bg-[#14c1d5] px-4 text-[14px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+            >
+              {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+              Submit Draft
+            </button>
+          ) : classListHref ? (
+            <Link
+              href={classListHref}
+              className="inline-flex h-[42px] flex-1 items-center justify-center rounded-[6px] bg-[#14c1d5] px-4 text-[14px] font-semibold text-white hover:bg-[#11a9ba]"
+              onClick={onClose}
+            >
+              Open Class List
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>

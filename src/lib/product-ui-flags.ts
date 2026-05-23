@@ -3,9 +3,9 @@
  * so production builds stay client-facing without tester chrome.
  */
 
-/** Dashboard header persona switcher (+ localStorage persona for sidebar). QA only. */
+/** In-dashboard role switching is retired; use sign-out + login/demo entry instead. */
 export function isTestPersonaSwitcherEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI === "true";
+  return false;
 }
 
 /** Header bell dropdown preview. When false, bell links to `/dashboard/notifications`. */

@@ -75,13 +75,16 @@ export function preloadJson(url: string, ttlMs = DEFAULT_TTL_MS) {
 }
 
 export async function preloadParentDashboardData() {
+  preloadJson("/api/data/me");
   const studentsBody = await cachedJson<{ students?: { id: string }[] }>("/api/data/students").catch(() => null);
   preloadJson("/api/data/classes");
   preloadJson("/api/data/notifications");
-  const firstStudentId = studentsBody?.students?.[0]?.id;
-  if (firstStudentId) {
-    preloadJson(`/api/data/students/${encodeURIComponent(firstStudentId)}/profile`);
-    preloadJson(`/api/data/students/${encodeURIComponent(firstStudentId)}/schedule`);
+  preloadJson("/api/data/schedule-extras");
+  for (const student of studentsBody?.students ?? []) {
+    if (!student.id) continue;
+    const encodedId = encodeURIComponent(student.id);
+    preloadJson(`/api/data/students/${encodedId}/profile`);
+    preloadJson(`/api/data/students/${encodedId}/schedule`);
   }
 }
 

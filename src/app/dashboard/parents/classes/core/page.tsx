@@ -42,10 +42,26 @@ function toParentClassRow(row: SchoolClassRow): ParentClassRow {
   };
 }
 
+function dataHintFromSource(source?: string) {
+  if (source === "fallback") return "Showing sample classes because cloud data is unavailable.";
+  if (source === "unavailable") return "Cloud classes are unavailable. Ask an administrator to configure Supabase.";
+  return null;
+}
+
+function readCachedCoreClasses() {
+  const body = peekCachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
+  return {
+    body,
+    rows: (body?.classes ?? [])
+      .filter((row) => row.program === "core")
+      .map(toParentClassRow),
+  };
+}
+
 export default function ParentClassesClassListCore() {
   const [classes, setClasses] = useState<ParentClassRow[]>([]);
   const [dataHint, setDataHint] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(() => !peekCachedJson<{ classes?: SchoolClassRow[] }>("/api/data/classes"));
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDay, setFilterDay] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("name");
@@ -55,7 +71,14 @@ export default function ParentClassesClassListCore() {
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
-      setIsLoading(true);
+      const cached = readCachedCoreClasses();
+      if (cached.body) {
+        setClasses(cached.rows);
+        setDataHint(dataHintFromSource(cached.body.source));
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = (body.classes ?? [])
@@ -63,13 +86,7 @@ export default function ParentClassesClassListCore() {
           .map(toParentClassRow);
         if (cancelled) return;
         setClasses(rows);
-        setDataHint(
-          body.source === "fallback"
-            ? "Showing sample classes because cloud data is unavailable."
-            : body.source === "unavailable"
-              ? "Cloud classes are unavailable. Ask an administrator to configure Supabase."
-              : null,
-        );
+        setDataHint(dataHintFromSource(body.source));
       } catch (error) {
         if (!cancelled) {
           setClasses([]);

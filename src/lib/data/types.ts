@@ -154,6 +154,8 @@ export type ScheduleCalendarEvent = {
   title: string;
   type: CalendarEventType;
   description?: string;
+  /** Optional display order when time alone is ambiguous, e.g. parent block schedules. */
+  sortOrder?: number;
 };
 
 /** Teachers list (/dashboard/teachers). */

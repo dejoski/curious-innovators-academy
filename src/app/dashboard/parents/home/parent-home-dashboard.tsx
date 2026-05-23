@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Bell, CalendarDays, ChevronRight } from "lucide-react";
 
 import {
@@ -26,6 +27,7 @@ import {
   catalogBadgesForSlot,
   catalogChoiceReviews,
   clearSubmittedParentCatalogSnapshot,
+  hasParentCatalogChoices,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
@@ -132,7 +134,49 @@ function scheduleBadgeStatusLabel(badge: StudentScheduleBadge): string {
   return "Available";
 }
 
+function parentClassListHref(option: ParentClassOption): string {
+  return option.program === "core" ? "/dashboard/parents/classes/core" : "/dashboard/parents/classes/enrichment";
+}
+
+function resolveRequestedStudent(students: StudentListItem[], requestedStudentId: string): StudentListItem | null {
+  return students.find((row) => row.id === requestedStudentId) ?? students[0] ?? null;
+}
+
+function studentScopedHref(href: string, studentId: string | undefined): string {
+  if (!studentId) return href;
+  const [path, rawQuery = ""] = href.split("?");
+  const params = new URLSearchParams(rawQuery);
+  params.set("student", studentId);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+function StudentDashboardLoading({ studentName }: { studentName?: string }) {
+  return (
+    <div
+      className="flex min-h-[360px] w-full items-center justify-center rounded-[18px] border border-[#d9eef1] bg-white px-6 py-8 shadow-sm"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span
+          className="size-8 animate-spin rounded-full border-[3px] border-[#14c1d5]/25 border-t-[#14c1d5]"
+          aria-hidden
+        />
+        <p className="font-['Inter:Semi_Bold',sans-serif] text-[15px] font-semibold text-[#155e66]">
+          Loading {studentName ? `${studentName}'s dashboard` : "student dashboard"}...
+        </p>
+        <p className="max-w-[360px] text-sm text-[#666d80]">
+          Fetching the selected student profile, schedule, and class choices.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function ParentHomeDashboard() {
+  const searchParams = useSearchParams();
+  const requestedStudentId = searchParams.get("student") ?? "";
   const [student, setStudent] = useState<StudentListItem | null>(null);
   const [profile, setProfile] = useState<StudentProfileBundle | null>(null);
   const [schedule, setSchedule] = useState<StudentScheduleRow | null>(null);
@@ -143,16 +187,22 @@ export default function ParentHomeDashboard() {
   const [localRequestState, setLocalRequestState] = useState<LocalRequestState>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [classOptions, setClassOptions] = useState<ParentClassOption[]>([]);
+  const [isStudentDataLoading, setIsStudentDataLoading] = useState(true);
   const [activeSlot, setActiveSlot] = useState<CatalogSlotId>("block4_day3");
   const [selectionDrawerOpen, setSelectionDrawerOpen] = useState(false);
   const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; statusLabel: string } | null>(null);
+  const [detailClass, setDetailClass] = useState<{
+    option: ParentClassOption;
+    statusLabel: string;
+    catalogSlot: CatalogSlotId | null;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadParentHome() {
       setLoadError(null);
+      setIsStudentDataLoading(true);
       try {
         const [studentsBody, notificationsBody, classesBody] = await Promise.all([
           cachedJson<{ students?: StudentListItem[]; source?: DataSource }>("/api/data/students"),
@@ -160,8 +210,19 @@ export default function ParentHomeDashboard() {
           cachedJson<{ classes?: SchoolClassRow[]; source?: DataSource }>("/api/data/classes"),
         ]);
         const rows = Array.isArray(studentsBody.students) ? studentsBody.students : [];
-        const activeStudent = rows[0] ?? null;
+        const activeStudent = resolveRequestedStudent(rows, requestedStudentId);
         const classRows = Array.isArray(classesBody.classes) ? classesBody.classes : [];
+
+        if (!cancelled) {
+          setStudent(activeStudent);
+          setProfile(null);
+          setSchedule(null);
+          setCatalogDraft(null);
+          setLocalRequestState(null);
+          setLocalReviewStatuses({});
+          setNotifications(Array.isArray(notificationsBody.notifications) ? notificationsBody.notifications.slice(0, 3) : []);
+          setClassOptions(classRows.map(parentClassOptionFromRow));
+        }
 
         let profileBody: { profile?: StudentProfileBundle | null; source?: DataSource } = {};
         let scheduleBody: { rows?: StudentScheduleRow[]; source?: DataSource } = {};
@@ -180,8 +241,6 @@ export default function ParentHomeDashboard() {
         setStudent(activeStudent);
         setProfile(profileBody.profile ?? null);
         setSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
-        setNotifications(Array.isArray(notificationsBody.notifications) ? notificationsBody.notifications.slice(0, 3) : []);
-        setClassOptions(classRows.map(parentClassOptionFromRow));
         setDataSource(
           profileBody.source === "fallback" || scheduleBody.source === "fallback" || notificationsBody.source === "fallback" || classesBody.source === "fallback"
             ? "fallback"
@@ -189,16 +248,23 @@ export default function ParentHomeDashboard() {
         );
       } catch (err) {
         if (!cancelled) setLoadError(`Could not load parent dashboard: ${err instanceof Error ? err.message : String(err)}.`);
+      } finally {
+        if (!cancelled) setIsStudentDataLoading(false);
       }
     }
     void loadParentHome();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requestedStudentId]);
 
   useEffect(() => {
-    if (!student?.id) return;
+    if (!student?.id) {
+      setCatalogDraft(null);
+      setLocalRequestState(null);
+      setLocalReviewStatuses({});
+      return;
+    }
     const activeStudent = student;
 
     function readCatalogDraft() {
@@ -256,10 +322,12 @@ export default function ParentHomeDashboard() {
             ? "Your enrichment request has review updates. Check each class status below."
             : "Your enrichment request is saved and pending school review.";
 
-  const attendance = profile ? metricValue(profile.attendanceLabel, "--") : "--";
-  const basePendingRequests = Number(profile ? firstNumber(profile.pendingLabel, "0") : "0");
+  const attendance = isStudentDataLoading ? "--" : profile ? metricValue(profile.attendanceLabel, "--") : "--";
+  const basePendingRequests = Number(!isStudentDataLoading && profile ? firstNumber(profile.pendingLabel, "0") : "0");
   const localChoiceCount = localChoiceReviews.length;
-  const pendingRequests = String(basePendingRequests + (localRequestState === "submitted" ? localPendingChoices : 0));
+  const pendingRequests = isStudentDataLoading
+    ? "--"
+    : String(basePendingRequests + (localRequestState === "submitted" ? localPendingChoices : 0)).padStart(2, "0");
   const hint = loadError ?? sourceHint(dataSource);
 
   const selectedSchedule = useMemo(() => {
@@ -320,6 +388,8 @@ export default function ParentHomeDashboard() {
   const firstChoiceOptions = overlayClasses.filter((option) => option.id !== secondChoice?.id);
   const secondChoiceOptions = overlayClasses.filter((option) => option.id !== firstChoice?.id);
   const activeSlotHasChoices = Boolean(firstChoice || secondChoice);
+  const hasCatalogChoices = hasParentCatalogChoices(homeCatalogRequests as ParentCatalogRequests);
+  const activeStudentId = student?.id;
 
   function persistHomeDraft(next: HomeCatalogRequests) {
     setCatalogDraft(next as ParentCatalogRequests);
@@ -341,12 +411,23 @@ export default function ParentHomeDashboard() {
     setOpenChoice(null);
   }
 
-  function openClassDetails(_slot: ParentScheduleSlotKey, badge: StudentScheduleBadge) {
+  function openClassDetails(slot: ParentScheduleSlotKey, badge: StudentScheduleBadge) {
     if (badge.tone === "empty") return;
+    const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
+    if (catalogSlot) setActiveSlot(catalogSlot);
     setDetailClass({
       option: classOptionForScheduleBadge(badge, classOptions),
       statusLabel: scheduleBadgeStatusLabel(badge),
+      catalogSlot,
     });
+  }
+
+  function editDetailSelection() {
+    if (!detailClass?.catalogSlot) return;
+    setActiveSlot(detailClass.catalogSlot);
+    setDetailClass(null);
+    setSelectionDrawerOpen(true);
+    setOpenChoice(null);
   }
 
   function selectHomeChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
@@ -364,7 +445,7 @@ export default function ParentHomeDashboard() {
   }
 
   async function submitHomeSelections() {
-    if (!activeSlotHasChoices || submitting) return;
+    if (!hasCatalogChoices || submitting) return;
     const choices = selectedChoicesForSubmit(homeCatalogRequests as ParentCatalogRequests);
     if (!choices.length) return;
 
@@ -375,14 +456,18 @@ export default function ParentHomeDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ choices }),
       });
+      let warningMessage: string | null = null;
       if (!res.ok) {
-        await res.json().catch(() => null);
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        warningMessage = `Request saved locally for review. Cloud submission failed: ${body?.error ?? res.statusText}.`;
       }
       writeSubmittedParentCatalogSnapshot(homeCatalogRequests as ParentCatalogRequests, catalogIdentity);
       setCatalogDraft(homeCatalogRequests as ParentCatalogRequests);
       setLocalRequestState("submitted");
       setLocalReviewStatuses({});
       setSelectionDrawerOpen(false);
+      setDetailClass(null);
+      setLoadError(warningMessage);
     } catch (error) {
       writeSubmittedParentCatalogSnapshot(homeCatalogRequests as ParentCatalogRequests, catalogIdentity);
       setCatalogDraft(homeCatalogRequests as ParentCatalogRequests);
@@ -390,6 +475,7 @@ export default function ParentHomeDashboard() {
       setLocalReviewStatuses({});
       setLoadError(`Request saved locally for review. Cloud submission failed: ${error instanceof Error ? error.message : String(error)}.`);
       setSelectionDrawerOpen(false);
+      setDetailClass(null);
     } finally {
       setSubmitting(false);
     }
@@ -407,12 +493,24 @@ export default function ParentHomeDashboard() {
         <div className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm ${localBannerClass}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="font-medium">{localBannerMessage}</span>
-            <Link
-              href="/dashboard/parents/catalog"
-              className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba]"
-            >
-              Review Class Selection
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {localRequestState === "draft" && hasCatalogChoices ? (
+                <button
+                  type="button"
+                  onClick={submitHomeSelections}
+                  disabled={submitting}
+                  className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+                >
+                  {submitting ? "Submitting..." : "Submit Draft"}
+                </button>
+              ) : null}
+              <Link
+                href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)}
+                className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
+              >
+                Review Class Selection
+              </Link>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {localChoiceReviews.map((choice) => (
@@ -456,7 +554,7 @@ export default function ParentHomeDashboard() {
               </div>
             </div>
             <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
-              {pendingRequests.padStart(2, "0")}
+              {pendingRequests}
             </p>
             <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
               Pending requests
@@ -474,11 +572,15 @@ export default function ParentHomeDashboard() {
               </h2>
               <p className="text-sm text-[#666d80]">Current core and enrichment blocks.</p>
             </div>
-            <ParentScheduleGrid
-              badgesBySlot={scheduleBadgesBySlot}
-              onSlotClick={openSelectionForSlot}
-              onBadgeClick={openClassDetails}
-            />
+            {isStudentDataLoading ? (
+              <StudentDashboardLoading studentName={student?.name} />
+            ) : (
+              <ParentScheduleGrid
+                badgesBySlot={scheduleBadgesBySlot}
+                onSlotClick={openSelectionForSlot}
+                onBadgeClick={openClassDetails}
+              />
+            )}
           </div>
         </div>
 
@@ -511,9 +613,9 @@ export default function ParentHomeDashboard() {
               </p>
             </div>
             <div className="flex flex-col gap-6">
-              <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={PARENT_SCHEDULE_HREF} />
-              <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href="/dashboard/parents/catalog" />
-              <QuickRow title="View Profile" body="Access your child's personal and academic information." href="/dashboard/parents/students" />
+              <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={studentScopedHref(PARENT_SCHEDULE_HREF, activeStudentId)} />
+              <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)} />
+              <QuickRow title="View Profile" body="Access your child's personal and academic information." href={studentScopedHref("/dashboard/parents/students", activeStudentId)} />
               <QuickRow title="View Classes" body="Explore all enrolled classes and details." href="/dashboard/parents/classes/core" />
             </div>
           </div>
@@ -540,6 +642,11 @@ export default function ParentHomeDashboard() {
         <ParentClassDetailsDrawer
           option={detailClass.option}
           statusLabel={detailClass.statusLabel}
+          classListHref={parentClassListHref(detailClass.option)}
+          canSubmitDraft={detailClass.statusLabel === "Draft choice" && localRequestState === "draft" && hasCatalogChoices}
+          submitting={submitting}
+          onEditSelection={detailClass.statusLabel === "Draft choice" && detailClass.catalogSlot ? editDetailSelection : undefined}
+          onSubmitDraft={submitHomeSelections}
           onClose={() => setDetailClass(null)}
         />
       ) : null}

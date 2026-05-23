@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardHeader from "@/components/DashboardHeader";
 import { DashboardPersonaProvider } from "@/components/dashboard-persona";
+import ParentDashboardPreloader from "@/components/parent-dashboard-preloader";
 
 export default function DashboardLayout({
   children,
@@ -10,7 +11,11 @@ export default function DashboardLayout({
 }) {
   return (
     <DashboardPersonaProvider>
+      <ParentDashboardPreloader />
       <div className="flex h-dvh w-full overflow-hidden bg-[#fafafa] font-sans">
+        <div className="block shrink-0 md:hidden">
+          <Sidebar type="close" />
+        </div>
         <div className="hidden shrink-0 md:block">
           <Sidebar type="open" />
         </div>

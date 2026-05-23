@@ -3,17 +3,11 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  PERSONA_LABELS,
-  PERSONA_ORDER,
-  useDashboardPersona,
-} from "@/components/dashboard-persona";
-import {
-  isNotificationDropdownEnabled,
-  isTestPersonaSwitcherEnabled,
-} from "@/lib/product-ui-flags";
+import { useDashboardPersona } from "@/components/dashboard-persona";
+import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
+import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
 import type { DashboardNotification } from "@/lib/data";
 import {
   DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS,
@@ -36,13 +30,19 @@ const imgDivider = "/images/icon-divider.svg";
 /** Figma header feedback icon */
 const imgRiParentLine = "/images/icon-person-feedback.svg";
 
+type NotificationsBody = {
+  notifications?: DashboardNotification[];
+};
+
+function readCachedNotifications() {
+  const body = peekCachedJson<NotificationsBody>("/api/data/notifications");
+  return Array.isArray(body?.notifications) ? body.notifications : [];
+}
+
 export default function DashboardHeader() {
   const {
-    persona,
-    setPersona,
     displayName,
     roleLabel,
-    avatarInitials,
   } = useDashboardPersona();
   const pathname = usePathname() ?? "";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -55,15 +55,11 @@ export default function DashboardHeader() {
 
   const inParentShell = pathname.startsWith("/dashboard/parents");
 
-  const showPersonaSwitcher = isTestPersonaSwitcherEnabled();
   const showNotificationDropdown = isNotificationDropdownEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
   const previewNotifications = useMemo(() => notifications.slice(0, 3), [notifications]);
 
-  /** Parent-shell utilities: when QA preview is off, `persona` stays `"admin"` in context (stub). */
-  const parentUtilityOrder = showPersonaSwitcher
-    ? persona === "parent"
-    : inParentShell;
+  const parentUtilityOrder = inParentShell;
   const notificationIconSrc = inParentShell ? imgContainerParent : imgContainer;
   const logoutIconSrc = inParentShell
     ? imgSolarLogout2OutlineParent
@@ -88,12 +84,10 @@ export default function DashboardHeader() {
     if (!showNotificationDropdown) return;
     let cancelled = false;
     async function loadNotifications() {
+      const cached = readCachedNotifications();
+      if (cached.length) setNotifications(cached);
       try {
-        const res = await fetch("/api/data/notifications", { cache: "no-store" });
-        if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as {
-          notifications?: DashboardNotification[];
-        };
+        const body = await cachedJson<NotificationsBody>("/api/data/notifications");
         if (!cancelled) setNotifications(Array.isArray(body.notifications) ? body.notifications : []);
       } catch (err) {
         if (!cancelled) {
@@ -129,6 +123,8 @@ export default function DashboardHeader() {
     if (!res.ok) {
       setNotifications(previous);
       setNotificationSyncHint(`Could not sync read state: ${await readApiError(res)}.`);
+    } else {
+      invalidateClientDataCache("/api/data/notifications");
     }
   }
 
@@ -143,37 +139,8 @@ export default function DashboardHeader() {
       <div className={DASHBOARD_MAIN_HEADER_ROW_CLASS}>
       <div className={`${DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS} flex flex-[1_0_0] h-full min-w-px items-center justify-between`}>
         <div className="flex max-w-[min(100%,720px)] flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
-          {showPersonaSwitcher ? (
-            <>
-              <span
-                className={`font-['Inter',sans-serif] text-[10px] uppercase tracking-[0.06em] ${DASHBOARD_TEXT_MUTED_CLASS}`}
-              >
-                Preview
-              </span>
-              <div
-                className={`inline-flex ${DASHBOARD_RADIUS_INSET} border ${DASHBOARD_BORDER_SUBTLE_CLASS} bg-[#fafafa] p-[3px] gap-[2px]`}
-                role="group"
-                aria-label="Switch dashboard role preview"
-              >
-                {PERSONA_ORDER.map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setPersona(key)}
-                    className={`${DASHBOARD_RADIUS_CONTROL} px-[9px] py-[4px] text-[11px] font-['Inter',sans-serif] leading-tight transition-colors cursor-pointer whitespace-nowrap ${
-                      persona === key
-                        ? `${DASHBOARD_TEXT_PRIMARY_CLASS} bg-white shadow-[0px_0.75px_1.5px_0px_rgba(13,13,18,0.06)] ring-1 ring-black/[0.04]`
-                        : `${DASHBOARD_TEXT_SECONDARY_CLASS} hover:text-[#272932]`
-                    }`}
-                  >
-                    {PERSONA_LABELS[key]}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
           {inParentShell && !pathname.startsWith("/dashboard/parents/feedback") ? <ParentStudentContextSelector /> : null}
-          {!showPersonaSwitcher && !inParentShell ? (
+          {!inParentShell ? (
             <div className="min-w-[1px]" aria-hidden />
           ) : null}
         </div>
@@ -312,22 +279,13 @@ export default function DashboardHeader() {
             >
               <div className="content-stretch flex items-center justify-center relative rounded-[1000px] shrink-0">
                 <div className="relative shrink-0 size-[32px]">
-                  {showPersonaSwitcher ? (
-                    <span
-                      className="absolute inset-0 flex items-center justify-center rounded-full bg-[#14c1d5] text-[11px] font-['Inter',sans-serif] font-semibold text-white tracking-tight"
-                      aria-hidden
-                    >
-                      {avatarInitials}
-                    </span>
-                  ) : (
-                    <img
-                      alt="Profile"
-                      className="absolute block inset-0 max-w-none size-full rounded-full object-cover"
-                      height="32"
-                      src={imgAvatarsPeople}
-                      width="32"
-                    />
-                  )}
+                  <img
+                    alt="Profile"
+                    className="absolute block inset-0 max-w-none size-full rounded-full object-cover"
+                    height="32"
+                    src={imgAvatarsPeople}
+                    width="32"
+                  />
                 </div>
               </div>
               <div className="content-stretch flex flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left">
