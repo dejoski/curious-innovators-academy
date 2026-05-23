@@ -103,6 +103,12 @@ function readLocalReviewStatuses(): LocalReviewStatuses {
   }
 }
 
+function statusBadgeClass(status: RequestStatus) {
+  if (status === "Pending") return "bg-[#cfa500]/20 text-[#8a6d00] border-[#cfa500]/50";
+  if (status === "Approved") return "bg-[#004d08]/20 text-[#004d08] border-[#004d08]/50";
+  return "bg-[#ffd9d9] text-[#d80509] border-[#d80509]/50";
+}
+
 function getVisiblePages(current: number, total: number): (number | "ellipsis")[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
   if (current <= 3) return [1, 2, 3, "ellipsis", total];
@@ -283,7 +289,7 @@ export default function ClassesEnrichmentRequests({
   };
 
   return (
-    <div className="flex flex-col gap-6 p-8 h-full bg-[#fafafa]">
+    <div className="flex h-full flex-col gap-6 bg-[#fafafa] p-4 md:p-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-[28px] font-bold text-[#272932]">Enrichment requests</h1>
         <p className="text-[16px] text-[#666d80]">
@@ -344,8 +350,8 @@ export default function ClassesEnrichmentRequests({
       </div>
 
       <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex flex-col gap-4 flex-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-[6px] text-[#0d0d12]">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-h-9 items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 text-[#0d0d12] md:bg-transparent md:px-0">
             <Search className="w-4 h-4 text-gray-500 shrink-0" />
             <input
               type="text"
@@ -355,10 +361,10 @@ export default function ClassesEnrichmentRequests({
                 setPage(1);
               }}
               placeholder="Search..."
-              className="text-[12px] bg-transparent outline-none placeholder:text-[#0d0d12] min-w-[120px]"
+              className="w-full min-w-[120px] bg-transparent text-[12px] outline-none placeholder:text-[#0d0d12]"
             />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4">
             <div className="relative" ref={filterRef}>
               <button
                 type="button"
@@ -447,7 +453,66 @@ export default function ClassesEnrichmentRequests({
         </div>
 
         <div className="flex flex-col flex-1 min-h-0 border-t border-[#f0f0f0] pt-4">
-          <div className="w-full min-w-0 overflow-x-auto pb-2">
+          <div className="grid gap-3 md:hidden">
+            {pageRows.map((req) => (
+              <article key={req.id} className="rounded-[14px] border border-[#f0f0f0] bg-white p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold text-[#272932]">{req.class}</p>
+                    <p className="mt-1 text-[12px] text-[#666d80]">
+                      {req.student} · {req.parent}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(req.status)}`}>
+                    {req.status}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
+                  <div className="rounded-[8px] bg-[#fafafa] p-2">
+                    <p className="text-[10px] font-semibold uppercase text-[#8b919f]">Block</p>
+                    <p className="mt-1 font-semibold text-[#0d0d12]">{req.block}</p>
+                  </div>
+                  <div className="rounded-[8px] bg-[#fafafa] p-2">
+                    <p className="text-[10px] font-semibold uppercase text-[#8b919f]">Level</p>
+                    <p className="mt-1 font-semibold text-[#0d0d12]">{req.level}</p>
+                  </div>
+                  <div className="rounded-[8px] bg-[#fafafa] p-2">
+                    <p className="text-[10px] font-semibold uppercase text-[#8b919f]">Choice</p>
+                    <p className="mt-1 font-semibold text-[#0d0d12]">{req.option}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  {req.status === "Pending" ? (
+                    <>
+                      <button
+                        type="button"
+                        className="h-9 flex-1 rounded-[8px] bg-[#004d08] px-3 text-[12px] font-semibold text-white"
+                        onClick={() => setConfirmAction({ type: "approve", id: req.id, student: req.student })}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="h-9 flex-1 rounded-[8px] bg-[#ffd9d9] px-3 text-[12px] font-semibold text-[#d80509]"
+                        onClick={() => setConfirmAction({ type: "reject", id: req.id, student: req.student })}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold text-[#272932]"
+                    onClick={() => setDetailRequest(req)}
+                  >
+                    View request
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden w-full min-w-0 overflow-x-auto pb-2 md:block">
             <div className="min-w-[900px]">
           <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide">
             <div>Student</div>
@@ -483,13 +548,7 @@ export default function ClassesEnrichmentRequests({
               <div>{req.option}</div>
               <div>
                 <span
-                  className={`inline-flex items-center px-2 py-1 rounded-[6px] text-[10px] border ${
-                    req.status === "Pending"
-                      ? "bg-[#cfa500]/20 text-[#cfa500] border-[#cfa500]/50"
-                      : req.status === "Approved"
-                        ? "bg-[#004d08]/20 text-[#004d08] border-[#004d08]/50"
-                        : "bg-[#ffd9d9] text-[#d80509] border-[#d80509]/50"
-                  }`}
+                  className={`inline-flex items-center px-2 py-1 rounded-[6px] text-[10px] border ${statusBadgeClass(req.status)}`}
                 >
                   {req.status}
                 </span>
@@ -641,7 +700,11 @@ export default function ClassesEnrichmentRequests({
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-[#666d80]">Status</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.status}</dd>
+                <dd>
+                  <span className={`rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(detailRequest.status)}`}>
+                    {detailRequest.status}
+                  </span>
+                </dd>
               </div>
             </dl>
             <div className="mt-6 flex justify-end">
