@@ -24,6 +24,8 @@ type EnrichmentClass = {
 
 type SlotId = "block3_day3" | "block4_day3";
 type ChoiceKind = "firstChoice" | "secondChoice";
+type LocalReviewStatus = "Pending" | "Approved" | "Rejected";
+type LocalReviewStatuses = Record<string, LocalReviewStatus>;
 
 type SlotRequests = {
   firstChoice: EnrichmentClass | null;
@@ -79,6 +81,20 @@ function classCardClass(kind: "core" | "approved" | "pending" | "empty") {
   return "border-[#dfe1e6] bg-[#fafafa] text-[#666d80]";
 }
 
+function localReviewKey(slotId: SlotId, kind: "first" | "second") {
+  return `local-${slotId}-${kind}`;
+}
+
+function reviewKind(status: LocalReviewStatus): "approved" | "pending" {
+  return status === "Approved" ? "approved" : "pending";
+}
+
+function reviewCaption(status: LocalReviewStatus) {
+  if (status === "Approved") return "Enric. Approved";
+  if (status === "Rejected") return "Rejected";
+  return "Enric. Pending";
+}
+
 function LegendItem({ kind, label }: { kind: "core" | "approved" | "pending" | "empty"; label: string }) {
   return (
     <div className="flex items-center gap-[6px]">
@@ -111,12 +127,16 @@ function FixedClassCard({
 
 function OpenSlotCard({
   selected,
+  firstStatus = "Pending",
+  secondStatus = "Pending",
   active,
   label,
   onClick,
   tall = false,
 }: {
   selected: SlotRequests;
+  firstStatus?: LocalReviewStatus;
+  secondStatus?: LocalReviewStatus;
   active: boolean;
   label: string;
   onClick: () => void;
@@ -124,6 +144,8 @@ function OpenSlotCard({
 }) {
   const primary = selected.firstChoice;
   const secondary = selected.secondChoice;
+  const dominantStatus = primary ? firstStatus : secondStatus;
+  const dominantKind = reviewKind(dominantStatus);
 
   if (primary || secondary) {
     return (
@@ -131,14 +153,14 @@ function OpenSlotCard({
         type="button"
         onClick={onClick}
         className={`flex h-full w-full flex-col gap-1 rounded-[6px] border px-[8px] py-[7px] text-left transition ${
-          active ? "border-[#14c1d5] ring-2 ring-[#14c1d5]/20" : "border-[#d80509]/35"
-        } bg-[#ffd9d9]`}
+          active ? "border-[#14c1d5] ring-2 ring-[#14c1d5]/20" : ""
+        } ${classCardClass(dominantKind)}`}
       >
         <p className="truncate text-[11px] leading-none text-[#0d0d12]">{primary?.name ?? "Second choice only"}</p>
-        <p className="text-[10px] font-bold leading-[1.25] text-[#666d80]">Enric. Pending</p>
+        <p className="text-[10px] font-bold leading-[1.25] text-[#666d80]">{reviewCaption(dominantStatus)}</p>
         {secondary ? (
           <p className={`truncate text-[10px] leading-[1.25] text-[#666d80] ${tall ? "mt-auto" : ""}`}>
-            2nd: {secondary.name}
+            {secondStatus === "Approved" ? "Approved 2nd" : secondStatus === "Rejected" ? "Rejected 2nd" : "2nd"}: {secondary.name}
           </p>
         ) : null}
       </button>
@@ -181,6 +203,7 @@ export default function ParentClassesEnrichmentCatalog() {
   const [catalogHint, setCatalogHint] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotId>("block3_day3");
   const [requests, setRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
+  const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [localSubmittedAt, setLocalSubmittedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -227,6 +250,25 @@ export default function ParentClassesEnrichmentCatalog() {
   }, []);
 
   useEffect(() => {
+    function readReviewStatuses() {
+      try {
+        const raw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
+        setLocalReviewStatuses(raw ? (JSON.parse(raw) as LocalReviewStatuses) : {});
+      } catch {
+        setLocalReviewStatuses({});
+      }
+    }
+
+    readReviewStatuses();
+    window.addEventListener("storage", readReviewStatuses);
+    window.addEventListener("cia-parent-catalog-updated", readReviewStatuses);
+    return () => {
+      window.removeEventListener("storage", readReviewStatuses);
+      window.removeEventListener("cia-parent-catalog-updated", readReviewStatuses);
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const raw =
         window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY) ??
@@ -263,6 +305,7 @@ export default function ParentClassesEnrichmentCatalog() {
       /* ignore storage failures */
     }
     setLocalSubmittedAt(null);
+    setLocalReviewStatuses({});
   }
 
   const selectedChoices = useMemo(
@@ -336,6 +379,7 @@ export default function ParentClassesEnrichmentCatalog() {
       /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
     }
     setLocalSubmittedAt(submittedAt);
+    setLocalReviewStatuses({});
   }
 
   async function submitSelections() {
@@ -392,7 +436,7 @@ export default function ParentClassesEnrichmentCatalog() {
         </div>
       </div>
 
-      {(catalogHint || submitBanner) && (
+      {(catalogHint || submitBanner || restoredDraft) && (
         <div className="flex flex-col gap-2">
           {catalogHint ? (
             <p className="rounded-[8px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
@@ -478,6 +522,8 @@ export default function ParentClassesEnrichmentCatalog() {
               <OpenSlotCard
                 label={SLOT_META.block3_day3.title}
                 selected={requests.block3_day3}
+                firstStatus={localReviewStatuses[localReviewKey("block3_day3", "first")] ?? "Pending"}
+                secondStatus={localReviewStatuses[localReviewKey("block3_day3", "second")] ?? "Pending"}
                 active={activeSlot === "block3_day3"}
                 onClick={() => setActiveSlot("block3_day3")}
               />
@@ -494,6 +540,8 @@ export default function ParentClassesEnrichmentCatalog() {
               <OpenSlotCard
                 label={SLOT_META.block4_day3.title}
                 selected={requests.block4_day3}
+                firstStatus={localReviewStatuses[localReviewKey("block4_day3", "first")] ?? "Pending"}
+                secondStatus={localReviewStatuses[localReviewKey("block4_day3", "second")] ?? "Pending"}
                 active={activeSlot === "block4_day3"}
                 onClick={() => setActiveSlot("block4_day3")}
                 tall
