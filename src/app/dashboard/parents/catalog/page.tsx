@@ -479,7 +479,54 @@ export default function ParentClassesEnrichmentCatalog() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="grid gap-3 sm:hidden">
+            <div className="rounded-[8px] border border-[#f0f0f0] bg-[#fafafa] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[12px] font-bold text-[#625f6e]">Block 3 / Day 3</p>
+                  <p className="text-[12px] text-[#625f6e]">{SLOT_META.block3_day3.time}</p>
+                </div>
+                <span className="rounded-[6px] bg-[#d2f1f5] px-2 py-1 text-[11px] font-semibold text-[#0d0d12]">
+                  Open
+                </span>
+              </div>
+              <div className="h-[76px]">
+                <OpenSlotCard
+                  label={SLOT_META.block3_day3.title}
+                  selected={requests.block3_day3}
+                  firstStatus={localReviewStatuses[localReviewKey("block3_day3", "first")] ?? "Pending"}
+                  secondStatus={localReviewStatuses[localReviewKey("block3_day3", "second")] ?? "Pending"}
+                  active={activeSlot === "block3_day3"}
+                  onClick={() => setActiveSlot("block3_day3")}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-[8px] border border-[#f0f0f0] bg-[#fafafa] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[12px] font-bold text-[#625f6e]">Block 4 / Day 3</p>
+                  <p className="text-[12px] text-[#625f6e]">{SLOT_META.block4_day3.time}</p>
+                </div>
+                <span className="rounded-[6px] bg-[#d2f1f5] px-2 py-1 text-[11px] font-semibold text-[#0d0d12]">
+                  Open
+                </span>
+              </div>
+              <div className="h-[86px]">
+                <OpenSlotCard
+                  label={SLOT_META.block4_day3.title}
+                  selected={requests.block4_day3}
+                  firstStatus={localReviewStatuses[localReviewKey("block4_day3", "first")] ?? "Pending"}
+                  secondStatus={localReviewStatuses[localReviewKey("block4_day3", "second")] ?? "Pending"}
+                  active={activeSlot === "block4_day3"}
+                  onClick={() => setActiveSlot("block4_day3")}
+                  tall
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden overflow-x-auto sm:block">
             <div className="grid min-w-[620px] grid-cols-[128px_repeat(3,minmax(150px,1fr))] gap-2">
               <div className="flex h-[65px] flex-col justify-center rounded-tl-[8px] border border-[#f0f0f0] bg-[#f9fafb] px-4">
                 <span className="text-[12px] font-bold leading-[1.3] text-[#625f6e]">90 minutes</span>
@@ -579,37 +626,47 @@ export default function ParentClassesEnrichmentCatalog() {
 
             <div className="flex flex-col gap-3">
               {recommendedClasses.length ? (
-                recommendedClasses.map((cls) => (
-                  <div key={cls.id} className="rounded-[8px] border border-[#f0f0f0] p-3 transition hover:border-[#14c1d5]/50">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-[14px] font-semibold leading-[1.35] text-[#0d0d12]">{cls.name}</h3>
-                        <p className="mt-1 text-[12px] leading-[1.4] text-[#666d80]">
-                          {cls.teacher} · {cls.seats} · {cls.level}
-                        </p>
+                recommendedClasses.map((cls) => {
+                  const selectedAsFirst = activeRequests.firstChoice?.id === cls.id;
+                  const selectedAsSecond = activeRequests.secondChoice?.id === cls.id;
+                  return (
+                    <div key={cls.id} className="rounded-[8px] border border-[#f0f0f0] p-3 transition hover:border-[#14c1d5]/50">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-[14px] font-semibold leading-[1.35] text-[#0d0d12]">{cls.name}</h3>
+                          <p className="mt-1 text-[12px] leading-[1.4] text-[#666d80]">
+                            {cls.teacher} · {cls.seats} · {cls.level}
+                          </p>
+                        </div>
+                        <Lightbulb className="size-4 shrink-0 text-[#14c1d5]" aria-hidden />
                       </div>
-                      <Lightbulb className="size-4 shrink-0 text-[#14c1d5]" aria-hidden />
+                      <p className="mt-2 line-clamp-2 text-[12px] leading-[1.45] text-[#666d80]">{cls.description}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => selectChoice(cls, "firstChoice")}
+                          className={`inline-flex h-8 flex-1 items-center justify-center gap-2 rounded-[6px] px-3 text-[12px] font-semibold text-white ${
+                            selectedAsFirst ? "bg-[#004d08] hover:bg-[#003a06]" : "bg-[#14c1d5] hover:bg-[#11a9ba]"
+                          }`}
+                        >
+                          <Check className="size-3.5" aria-hidden />
+                          {selectedAsFirst ? "Selected 1st" : "1st Choice"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectChoice(cls, "secondChoice")}
+                          className={`inline-flex h-8 flex-1 items-center justify-center rounded-[6px] border px-3 text-[12px] font-semibold ${
+                            selectedAsSecond
+                              ? "border-[#004d08] bg-[#004d08]/15 text-[#004d08]"
+                              : "border-[#14c1d5] text-[#0b7180] hover:bg-[#ecfdff]"
+                          }`}
+                        >
+                          {selectedAsSecond ? "Selected 2nd" : "2nd Choice"}
+                        </button>
+                      </div>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-[12px] leading-[1.45] text-[#666d80]">{cls.description}</p>
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => selectChoice(cls, "firstChoice")}
-                        className="inline-flex h-8 flex-1 items-center justify-center gap-2 rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba]"
-                      >
-                        <Check className="size-3.5" aria-hidden />
-                        1st Choice
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => selectChoice(cls, "secondChoice")}
-                        className="inline-flex h-8 flex-1 items-center justify-center rounded-[6px] border border-[#14c1d5] px-3 text-[12px] font-semibold text-[#0b7180] hover:bg-[#ecfdff]"
-                      >
-                        2nd Choice
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="rounded-[8px] border border-[#f0f0f0] p-4 text-[13px] text-[#666d80]">
                   No enrichment offerings are available right now.
