@@ -24,24 +24,26 @@ export function buildParentScheduleBadges(schedule?: StudentScheduleRow | null, 
 }
 
 function badgeClasses(tone: StudentScheduleBadge["tone"], interactive: boolean) {
-  if (tone === "core") return "border-[#14c1d5]/45 bg-[#d2f1f5]";
-  if (tone === "approved") return "border-transparent bg-[#004d08]/20";
-  if (tone === "pending") return "border-transparent bg-[#ffd9d9]";
-  return `border-dashed border-[#d1d5db] bg-[#f9fafb] ${interactive ? "hover:border-[#14c1d5] hover:bg-[#f6fcfd]" : ""}`;
+  if (tone === "core") return "border-[#14c1d5]/55 bg-[#d2f1f5]";
+  if (tone === "approved") return "border-[#004d08]/15 bg-[#d9e7d8]";
+  if (tone === "pending") return "border-[#d80509]/20 bg-[#ffd9d9]";
+  if (tone === "draft") return "border-[#84adff]/45 bg-[#eef4ff]";
+  return `border-dashed border-[#dfe3ea] bg-[#fbfcfe] ${interactive ? "hover:border-[#14c1d5] hover:bg-[#f6fcfd]" : ""}`;
 }
 
 function badgeCaption(badge: StudentScheduleBadge) {
   if (badge.tone === "core") return "School assigned";
   if (badge.tone === "approved") return "Enric. Approved";
   if (badge.tone === "pending") return "Enric. Pending";
+  if (badge.tone === "draft") return "Draft choice";
   return "+ Choose class";
 }
 
 function ScheduleBadgeCard({ badge, tall = false, compact = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean }) {
   return (
-    <div className={`h-full rounded-[4px] border px-[5px] py-[7px] ${badgeClasses(badge.tone, false)} ${compact ? "py-[5px]" : ""}`}>
-      <p className="truncate text-[10px] leading-none tracking-[0.1px] text-[#0d0d12] sm:text-[12px]">{badge.label}</p>
-      <p className={`mt-[8px] text-[10px] font-bold leading-[1.25] text-[#666d80] sm:text-[12px] ${tall ? "" : "truncate"}`}>{badgeCaption(badge)}</p>
+    <div className={`flex h-full flex-col rounded-[6px] border px-3 ${compact ? "justify-center py-2" : "justify-between py-3"} ${badgeClasses(badge.tone, false)}`}>
+      <p className="line-clamp-2 text-[13px] leading-[1.2] text-[#111827]">{badge.label}</p>
+      <p className={`mt-2 text-[12px] font-semibold leading-[1.2] text-[#667085] ${tall ? "" : "line-clamp-1"}`}>{badgeCaption(badge)}</p>
     </div>
   );
 }
@@ -61,7 +63,7 @@ function SlotCell({
   const isEmpty = visible.every((badge) => badge.tone === "empty");
   const clickable = Boolean(onSlotClick) && isSelectableCatalogSlot(slot);
   const content = (
-    <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-[3px]" : ""}`}>
+    <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-2" : ""}`}>
       {visible.map((badge, index) => (
         <div key={`${slot}-${badge.label}-${index}`} className={visible.length > 1 ? "min-h-0 flex-1" : "h-full"}>
           <ScheduleBadgeCard badge={badge} tall={tall} compact={visible.length > 1} />
@@ -71,13 +73,13 @@ function SlotCell({
   );
 
   return (
-    <div className={`border border-[#f0f0f0] bg-white p-[5px] ${tall ? "h-[95px]" : "h-[52px]"}`}>
+    <div className={`border border-[#e8ebf0] bg-white p-2 ${tall ? "h-[152px]" : "h-[76px]"}`}>
       {clickable ? (
-        <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[4px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-1 hover:ring-[#14c1d5]"}`}>
+        <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[6px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-2 hover:ring-[#14c1d5]/35"}`}>
           {isEmpty ? (
-            <div className="flex h-full flex-col justify-center px-[5px]">
-              <p className="truncate text-[10px] leading-none tracking-[0.1px] text-[#0d0d12] sm:text-[12px]">Available slot</p>
-              <p className="mt-[8px] text-[10px] font-bold leading-[1.25] text-[#666d80] sm:text-[12px]">+ Choose class</p>
+            <div className="flex h-full flex-col justify-center px-3">
+              <p className="text-[13px] leading-[1.2] text-[#111827]">Available slot</p>
+              <p className="mt-2 text-[12px] font-semibold leading-[1.2] text-[#667085]">+ Choose class</p>
             </div>
           ) : content}
         </button>
@@ -100,25 +102,25 @@ export function ParentScheduleGrid({
   const getBadges = (slot: ParentScheduleSlotKey) => badgesBySlot?.[slot] ?? [];
 
   return (
-    <div className={`rounded-[18px] border border-[#f0f0f0] bg-white p-[15px] shadow-sm ${className}`}>
-      <div className="overflow-hidden">
-        <div className="grid grid-cols-[minmax(98px,134px)_repeat(3,minmax(0,1fr))]">
-          <div className="flex h-[65px] flex-col justify-center rounded-tl-[8px] border border-[#f0f0f0] bg-[#f9fafb] px-[14px] text-[#625f6e]">
-            <span className="text-[12px] font-bold leading-[1.29]">90 minutes</span>
-            <span className="text-[12px] leading-[1.29]">per block</span>
+    <div className={`min-w-0 rounded-[16px] border border-[#e6e9ef] bg-white p-5 shadow-sm ${className}`}>
+      <div className="overflow-x-auto">
+        <div className="grid min-w-[760px] grid-cols-[minmax(160px,190px)_repeat(3,minmax(170px,1fr))] overflow-hidden rounded-[10px] border border-[#e8ebf0]">
+          <div className="flex h-[78px] flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-5 text-[#5d6678]">
+            <span className="text-[15px] font-bold leading-[1.25]">90 minutes</span>
+            <span className="text-[14px] leading-[1.25]">per block</span>
           </div>
           {PARENT_SCHEDULE_DAYS.map((day, index) => (
-            <div key={day} className={`flex h-[65px] flex-col items-center justify-center border border-[#f0f0f0] bg-[#f9fafb] ${index === PARENT_SCHEDULE_DAYS.length - 1 ? "rounded-tr-[8px]" : ""}`}>
-              <span className="text-[12px] leading-none tracking-[0.12px] text-[#020204]">Day</span>
-              <span className="mt-[4px] text-[14px] font-semibold leading-none tracking-[0.14px] text-[#020204]">{index + 1}</span>
+            <div key={day} className="flex h-[78px] flex-col items-center justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] last:border-r-0">
+              <span className="text-[14px] leading-none text-[#111827]">Day</span>
+              <span className="mt-2 text-[22px] font-semibold leading-none text-[#111827]">{index + 1}</span>
             </div>
           ))}
 
           {PARENT_SCHEDULE_ROWS.map((row, rowIndex) => (
             <div key={row.label} className="contents">
-              <div className={`flex flex-col justify-center border border-[#f0f0f0] bg-[#f9fafb] px-[17px] text-[#625f6e] ${row.tall ? "h-[95px] justify-start pt-[12px]" : "h-[52px]"} ${rowIndex === PARENT_SCHEDULE_ROWS.length - 1 ? "rounded-bl-[8px]" : ""}`}>
-                <span className="text-[10px] font-bold leading-none">{row.label}</span>
-                <span className="mt-[4px] text-[12px] leading-none">{row.time}</span>
+              <div className={`flex flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-6 text-[#5d6678] ${row.tall ? "h-[152px] justify-start pt-6" : "h-[76px]"} ${rowIndex === PARENT_SCHEDULE_ROWS.length - 1 ? "border-b-0" : ""}`}>
+                <span className="text-[13px] font-bold leading-none">{row.label}</span>
+                <span className="mt-2 text-[14px] leading-none">{row.time}</span>
               </div>
               {row.slots.map((slot, index) => (
                 <SlotCell key={`${row.label}-${slot}-${index}`} slot={slot} badges={getBadges(slot)} tall={row.tall} onSlotClick={onSlotClick} />

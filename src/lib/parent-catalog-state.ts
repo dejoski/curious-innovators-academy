@@ -33,6 +33,7 @@ export type LocalCatalogChoiceReview = {
 };
 
 export type ParentCatalogIdentity = {
+  studentId?: string;
   studentName?: string;
   parentName?: string;
 };
@@ -83,6 +84,16 @@ export function readParentCatalogSnapshot(): {
   submittedAt: string | null;
   state: "draft" | "submitted" | null;
   reviewStatuses: LocalReviewStatuses;
+  studentId?: string;
+  studentName?: string;
+  parentName?: string;
+};
+export function readParentCatalogSnapshot(identity?: Pick<ParentCatalogIdentity, "studentId">): {
+  requests: ParentCatalogRequests | null;
+  submittedAt: string | null;
+  state: "draft" | "submitted" | null;
+  reviewStatuses: LocalReviewStatuses;
+  studentId?: string;
   studentName?: string;
   parentName?: string;
 } {
@@ -97,11 +108,15 @@ export function readParentCatalogSnapshot(): {
     const parsed = raw
       ? (JSON.parse(raw) as { requests?: unknown; submittedAt?: string } & ParentCatalogIdentity)
       : null;
+    if (identity?.studentId && parsed?.studentId !== identity.studentId) {
+      return { requests: null, submittedAt: null, state: null, reviewStatuses: {} };
+    }
     return {
       requests: parsed?.requests ? normalizeRequests(parsed.requests) : null,
       submittedAt: parsed?.submittedAt ?? null,
       state: submittedRaw ? "submitted" : draftRaw ? "draft" : null,
       reviewStatuses: readLocalReviewStatuses(),
+      studentId: parsed?.studentId,
       studentName: parsed?.studentName,
       parentName: parsed?.parentName,
     };
@@ -119,8 +134,32 @@ export function writePendingParentCatalogRequests(
   dispatchParentCatalogUpdated();
 }
 
-export function clearSubmittedParentCatalogSnapshot() {
+export function clearPendingParentCatalogRequests(identity: Pick<ParentCatalogIdentity, "studentId"> = {}) {
   if (typeof window === "undefined") return;
+  if (identity.studentId) {
+    try {
+      const raw = window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
+      const parsed = raw ? (JSON.parse(raw) as ParentCatalogIdentity) : null;
+      if (parsed?.studentId && parsed.studentId !== identity.studentId) return;
+    } catch {
+      return;
+    }
+  }
+  window.sessionStorage.removeItem(PARENT_CATALOG_PENDING_KEY);
+  dispatchParentCatalogUpdated();
+}
+
+export function clearSubmittedParentCatalogSnapshot(identity: Pick<ParentCatalogIdentity, "studentId"> = {}) {
+  if (typeof window === "undefined") return;
+  if (identity.studentId) {
+    try {
+      const raw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY);
+      const parsed = raw ? (JSON.parse(raw) as ParentCatalogIdentity) : null;
+      if (parsed?.studentId && parsed.studentId !== identity.studentId) return;
+    } catch {
+      return;
+    }
+  }
   window.sessionStorage.removeItem(PARENT_CATALOG_SUBMITTED_KEY);
   window.sessionStorage.removeItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
   dispatchParentCatalogUpdated();
@@ -171,14 +210,19 @@ export function catalogBadgesForSlot(
   requests: ParentCatalogRequests | null,
   slotId: CatalogSlotId,
   reviewStatuses: LocalReviewStatuses,
+  state: "draft" | "submitted" | null = "submitted",
 ): StudentScheduleBadge[] {
   const slot = requests?.[slotId];
   const rows = catalogChoiceReviews({ ...INITIAL_PARENT_CATALOG_REQUESTS, [slotId]: slot ?? {} }, reviewStatuses)
     .filter((row) => row.slotId === slotId);
   return rows.map((row) => ({
     label: row.status === "Rejected" ? `${row.choice === "2nd" ? "Rejected 2nd" : "Rejected"}: ${row.name}` : row.choice === "2nd" ? `2nd: ${row.name}` : row.name,
-    tone: row.status === "Approved" ? "approved" : "pending",
+    tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : "pending",
   }));
+}
+
+export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolean {
+  return Object.values(requests).some((slot) => Boolean(slot.firstChoice?.id || slot.firstChoice?.name || slot.secondChoice?.id || slot.secondChoice?.name));
 }
 
 export function selectedChoicesForSubmit(requests: ParentCatalogRequests) {

@@ -93,7 +93,7 @@ export type StudentProfileBundle = {
   directoryDataOnly?: boolean;
 };
 
-export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "empty";
+export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "draft" | "empty";
 
 export type StudentScheduleBadge = {
   label: string;

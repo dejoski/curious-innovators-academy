@@ -32,7 +32,9 @@ function Badge({ item }: { item: BadgeData }) {
       ? "bg-[#d2f1f5] border-[rgba(20,193,213,0.5)] text-[#1392a0]"
       : item.tone === "approved"
         ? "bg-[rgba(0,77,8,0.2)] border-[rgba(0,77,8,0.5)] text-[#004d08]"
-        : "bg-[#ffd9d9] border-[rgba(216,5,9,0.5)] text-[#d80509]";
+        : item.tone === "draft"
+          ? "bg-[#eef4ff] border-[#84adff] text-[#3451a4]"
+          : "bg-[#ffd9d9] border-[rgba(216,5,9,0.5)] text-[#d80509]";
 
   return (
     <div

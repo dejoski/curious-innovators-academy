@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, ChevronDown, ExternalLink, Info, Lightbulb, Loader2, X } from "lucide-react";
 
 import {
@@ -13,7 +14,9 @@ import {
 import { cachedJson } from "@/lib/client-data-cache";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
+  clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
+  hasParentCatalogChoices,
   localReviewKey,
   readLocalReviewStatuses,
   readParentCatalogSnapshot,
@@ -165,6 +168,8 @@ function ChoiceDropdown({
 }
 
 export default function ParentClassesEnrichmentCatalog() {
+  const searchParams = useSearchParams();
+  const requestedStudentId = searchParams.get("student") ?? "";
   const [availableClasses, setAvailableClasses] = useState<EnrichmentClass[]>([]);
   const [catalogHint, setCatalogHint] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotId>("block4_day3");
@@ -178,6 +183,7 @@ export default function ParentClassesEnrichmentCatalog() {
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
+  const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -213,7 +219,9 @@ export default function ParentClassesEnrichmentCatalog() {
     async function loadActiveStudentSchedule() {
       try {
         const studentsBody = await cachedJson<{ students?: StudentListItem[] }>("/api/data/students");
-        const activeStudent = Array.isArray(studentsBody.students) ? (studentsBody.students[0] ?? null) : null;
+        const students = Array.isArray(studentsBody.students) ? studentsBody.students : [];
+        const activeStudent =
+          students.find((student) => student.id === requestedStudentId) ?? students[0] ?? null;
         if (!activeStudent) {
           if (!cancelled) {
             setActiveStudent(null);
@@ -239,7 +247,7 @@ export default function ParentClassesEnrichmentCatalog() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requestedStudentId]);
 
 	  useEffect(() => {
 	    function readReviewStatuses() {
@@ -449,10 +457,10 @@ export default function ParentClassesEnrichmentCatalog() {
         </div>
       )}
 
-      <div className="mt-[19px] grid gap-[20px] xl:grid-cols-[565px_519px]">
-        <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full max-w-[565px]" />
+      <div className="mt-6 grid gap-6">
+        <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full" />
 
-        <section className="w-full max-w-[565px] rounded-[18px] border border-[#f0f0f0] bg-white px-[24px] py-[16px] xl:max-w-none">
+        <section className="w-full rounded-[16px] border border-[#e6e9ef] bg-white px-6 py-5 shadow-sm">
           <h2 className="text-[16px] font-semibold leading-[1.4] text-[#0d0d12]">How it works</h2>
           <div className="mt-[20px] flex flex-col gap-[10px]">
             <StepItem n={1} title="Choose classes for each available block" body="Browse the available enrichment classes and select one option for each open block in your child's schedule." />
@@ -463,7 +471,7 @@ export default function ParentClassesEnrichmentCatalog() {
         </section>
       </div>
 
-      <section className="mt-[203px] rounded-[18px] border border-[#f0f0f0] bg-white px-[14px] py-[16px]">
+      <section className="mt-8 rounded-[16px] border border-[#e6e9ef] bg-white px-5 py-5 shadow-sm">
         <div className="flex gap-[8px]">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#d2f1f5]">
             <Lightbulb className="size-5 text-[#0d0d12]" aria-hidden />
