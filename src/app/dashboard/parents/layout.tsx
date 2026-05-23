@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 
 import { useDashboardPersona } from "@/components/dashboard-persona";
+import { preloadParentDashboardData } from "@/lib/client-data-cache";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 /**
@@ -21,6 +22,10 @@ export default function ParentsDashboardLayout({
     if (!isTestPersonaSwitcherEnabled()) return;
     setPersona("parent");
   }, [setPersona]);
+
+  useEffect(() => {
+    void preloadParentDashboardData();
+  }, []);
 
   return <>{children}</>;
 }

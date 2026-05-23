@@ -1,11 +1,15 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
+import { splitScheduleLabel } from "@/lib/schedule-slots";
 import {
-  PARENT_CATALOG_PENDING_KEY,
-  PARENT_CATALOG_REVIEW_STATUS_KEY,
-  PARENT_CATALOG_SUBMITTED_KEY,
-} from "@/lib/parent-dashboard-storage";
+  catalogChoiceReviews,
+  readParentCatalogSnapshot,
+  type LocalReviewStatuses,
+  type ParentCatalogChoice,
+  type ParentCatalogRequests,
+} from "@/lib/parent-catalog-state";
 import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
@@ -29,36 +33,12 @@ type ParentEnrichmentRow = {
   requestSource?: "local-draft";
 };
 
-type CatalogDraftChoice = {
-  id?: string;
-  name?: string;
-};
-
-type CatalogDraftSlot = {
-  firstChoice?: CatalogDraftChoice | null;
-  secondChoice?: CatalogDraftChoice | null;
-};
-
-type CatalogDraft = {
-  block3_day3?: CatalogDraftSlot;
-  block4_day3?: CatalogDraftSlot;
-};
-type LocalReviewStatus = "Pending" | "Approved" | "Rejected";
-type LocalReviewStatuses = Record<string, LocalReviewStatus>;
-type DraftChoiceWithLocalId = CatalogDraftChoice & {
+type DraftChoiceWithLocalId = ParentCatalogChoice & {
   localId: string;
 };
 
-function splitSchedule(schedule: string): { day: string; time: string } {
-  const parts = schedule.split("·").map((part) => part.trim()).filter(Boolean);
-  return {
-    day: parts[0] || schedule || "Schedule not set",
-    time: parts[1] || "Time not set",
-  };
-}
-
 function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
-  const { day, time } = splitSchedule(row.schedule);
+  const { day, time } = splitScheduleLabel(row.schedule);
   return {
     id: row.id,
     name: row.name,
@@ -76,7 +56,8 @@ function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
 
 export default function EnrichmentClassesPage() {
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
-  const [catalogDraft, setCatalogDraft] = useState<CatalogDraft | null>(null);
+  const [isLoading, setIsLoading] = useState(() => !peekCachedJson<{ classes?: SchoolClassRow[] }>("/api/data/classes"));
+  const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,10 +73,9 @@ export default function EnrichmentClassesPage() {
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
+      setIsLoading(true);
       try {
-        const res = await fetch("/api/data/classes", { cache: "no-store" });
-        if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as { classes?: SchoolClassRow[]; source?: string };
+        const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = (body.classes ?? [])
           .filter((row) => row.program === "enrichment")
           .map(toParentEnrichmentRow);
@@ -123,25 +103,12 @@ export default function EnrichmentClassesPage() {
     };
   }, []);
 
-  useEffect(() => {
-    function readCatalogDraft() {
-      try {
-        const raw =
-          window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY) ??
-          window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
-        if (!raw) {
-          setCatalogDraft(null);
-          return;
-        }
-        const parsed = JSON.parse(raw) as { requests?: CatalogDraft };
-        setCatalogDraft(parsed.requests ?? null);
-        const reviewRaw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-        setLocalReviewStatuses(reviewRaw ? (JSON.parse(reviewRaw) as LocalReviewStatuses) : {});
-      } catch {
-        setCatalogDraft(null);
-        setLocalReviewStatuses({});
-      }
-    }
+	  useEffect(() => {
+	    function readCatalogDraft() {
+	      const snapshot = readParentCatalogSnapshot();
+	      setCatalogDraft(snapshot.requests);
+	      setLocalReviewStatuses(snapshot.reviewStatuses);
+	    }
 
     readCatalogDraft();
     window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
@@ -152,21 +119,12 @@ export default function EnrichmentClassesPage() {
     };
   }, []);
 
-  const filteredAndSortedClasses = useMemo(() => {
-    const draftChoices = [
-      catalogDraft?.block3_day3?.firstChoice
-        ? { ...catalogDraft.block3_day3.firstChoice, localId: "local-block3_day3-first" }
-        : null,
-      catalogDraft?.block3_day3?.secondChoice
-        ? { ...catalogDraft.block3_day3.secondChoice, localId: "local-block3_day3-second" }
-        : null,
-      catalogDraft?.block4_day3?.firstChoice
-        ? { ...catalogDraft.block4_day3.firstChoice, localId: "local-block4_day3-first" }
-        : null,
-      catalogDraft?.block4_day3?.secondChoice
-        ? { ...catalogDraft.block4_day3.secondChoice, localId: "local-block4_day3-second" }
-        : null,
-    ].filter((choice): choice is DraftChoiceWithLocalId => Boolean(choice?.id || choice?.name));
+	  const filteredAndSortedClasses = useMemo(() => {
+	    const draftChoices: DraftChoiceWithLocalId[] = catalogChoiceReviews(catalogDraft, localReviewStatuses).map((choice) => ({
+	      id: choice.classId,
+	      name: choice.name,
+	      localId: choice.id,
+	    }));
     const draftIds = new Set(draftChoices.map((choice) => choice.id).filter(Boolean));
     const draftNames = new Set(draftChoices.map((choice) => choice.name).filter(Boolean));
 

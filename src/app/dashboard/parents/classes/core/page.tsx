@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
+import { splitScheduleLabel } from "@/lib/schedule-slots";
 import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
@@ -24,16 +26,8 @@ type ParentClassRow = {
   current: boolean;
 };
 
-function splitSchedule(schedule: string): { day: string; time: string } {
-  const parts = schedule.split("·").map((part) => part.trim()).filter(Boolean);
-  return {
-    day: parts[0] || schedule || "Schedule not set",
-    time: parts[1] || "Time not set",
-  };
-}
-
 function toParentClassRow(row: SchoolClassRow): ParentClassRow {
-  const { day, time } = splitSchedule(row.schedule);
+  const { day, time } = splitScheduleLabel(row.schedule);
   return {
     id: row.id,
     name: row.name,
@@ -51,6 +45,7 @@ function toParentClassRow(row: SchoolClassRow): ParentClassRow {
 export default function ParentClassesClassListCore() {
   const [classes, setClasses] = useState<ParentClassRow[]>([]);
   const [dataHint, setDataHint] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(() => !peekCachedJson<{ classes?: SchoolClassRow[] }>("/api/data/classes"));
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDay, setFilterDay] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("name");
@@ -60,10 +55,9 @@ export default function ParentClassesClassListCore() {
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
+      setIsLoading(true);
       try {
-        const res = await fetch("/api/data/classes", { cache: "no-store" });
-        if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as { classes?: SchoolClassRow[]; source?: string };
+        const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = (body.classes ?? [])
           .filter((row) => row.program === "core")
           .map(toParentClassRow);
@@ -83,6 +77,9 @@ export default function ParentClassesClassListCore() {
             `Could not load classes: ${error instanceof Error ? error.message : String(error)}.`,
           );
         }
+      }
+      finally {
+        if (!cancelled) setIsLoading(false);
       }
     }
     loadClasses();
@@ -216,8 +213,19 @@ export default function ParentClassesClassListCore() {
         </div>
       )}
 
+      {isLoading && classes.length === 0 && (
+        <div className="rounded-[18px] border border-[#f0f0f0] bg-white p-4 shadow-sm">
+          <div className="h-5 w-40 animate-pulse rounded bg-[#eef1f5]" />
+          <div className="mt-4 space-y-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-12 animate-pulse rounded-[8px] bg-[#f7f8fa]" />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Main Table Card */}
-      <div className="bg-white border border-[#f0f0f0] rounded-[18px] flex flex-col shadow-sm w-full overflow-hidden">
+      <div className={`bg-white border border-[#f0f0f0] rounded-[18px] flex flex-col shadow-sm w-full overflow-hidden ${isLoading && classes.length === 0 ? "hidden" : ""}`}>
         {/* Table Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 w-full gap-4">
           <div className="flex gap-[6px] items-center">

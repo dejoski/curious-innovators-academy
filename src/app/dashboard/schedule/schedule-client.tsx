@@ -77,6 +77,8 @@ export type ScheduleMonthProps = {
   dayLabels?: readonly string[];
   /** Optional starting date in YYYY-MM-DD format for parity snapshots. */
   initialDateIso?: string;
+  /** Parent schedule passes already-composed student events; do not overwrite them with extras-only refresh. */
+  refreshExtrasOnClient?: boolean;
 };
 
 export default function ScheduleMonth({
@@ -90,6 +92,7 @@ export default function ScheduleMonth({
   showTodayButton = true,
   dayLabels = DAYS_OF_WEEK,
   initialDateIso,
+  refreshExtrasOnClient = true,
 }: ScheduleMonthProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,6 +144,7 @@ export default function ScheduleMonth({
   }, [dataSource, initialExtrasByDate]);
 
   useEffect(() => {
+    if (!refreshExtrasOnClient) return;
     let cancelled = false;
     void (async () => {
       try {

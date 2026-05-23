@@ -9,6 +9,7 @@ import type {
   StudentProfileBundle,
   StudentProfileTimelineEvent,
 } from "@/lib/data";
+import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 
 const imgLine10 = "/images/icon-divider-students.svg";
@@ -166,12 +167,10 @@ function ParentStudentsProfileContent() {
       setIsStudentsLoading(true);
       setLoadError(null);
       try {
-        const res = await fetch("/api/data/students", { cache: "no-store" });
-        if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as {
+        const body = await cachedJson<{
           students?: StudentListItem[];
           source?: DataSource;
-        };
+        }>("/api/data/students");
         if (cancelled) return;
         const rows = Array.isArray(body.students) ? body.students : [];
         setStudentsSource(body.source ?? null);
@@ -202,14 +201,10 @@ function ParentStudentsProfileContent() {
       setIsProfileLoading(true);
       setLoadError(null);
       try {
-        const res = await fetch(`/api/data/students/${encodeURIComponent(selectedStudentId)}/profile`, {
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as {
+        const body = await cachedJson<{
           profile?: StudentProfileBundle | null;
           source?: DataSource;
-        };
+        }>(`/api/data/students/${encodeURIComponent(selectedStudentId)}/profile`);
         if (cancelled) return;
         setProfile(body.profile ?? null);
         setProfileSource(body.source ?? null);
@@ -252,6 +247,9 @@ function ParentStudentsProfileContent() {
 
   const hint = sourceHint(profileSource ?? studentsSource, loadError);
   const isLoading = isStudentsLoading || (isProfileLoading && !profile);
+  const warmProfile = selectedStudentId
+    ? peekCachedJson<{ profile?: StudentProfileBundle | null }>(`/api/data/students/${encodeURIComponent(selectedStudentId)}/profile`)?.profile
+    : null;
 
   return (
     <div className="mx-auto flex w-full max-w-[1104px] flex-col pb-6 pt-8 font-['Inter:Regular',sans-serif]">
@@ -270,9 +268,17 @@ function ParentStudentsProfileContent() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="rounded-[12px] border border-[#f0f0f0] bg-white p-6 text-sm text-[#666d80]">
-          Loading student profile...
+      {isLoading && !warmProfile ? (
+        <div className="grid gap-4">
+          <div className="h-[215px] animate-pulse rounded-[16px] border border-[#f0f0f0] bg-white p-6">
+            <div className="h-6 w-40 rounded bg-[#eef1f5]" />
+            <div className="mt-6 h-4 w-3/4 rounded bg-[#eef1f5]" />
+            <div className="mt-3 h-4 w-2/3 rounded bg-[#eef1f5]" />
+            <div className="mt-3 h-4 w-1/2 rounded bg-[#eef1f5]" />
+          </div>
+          <div className="rounded-[12px] border border-[#f0f0f0] bg-white p-4 text-sm text-[#666d80]">
+            Loading student profile and warming classes...
+          </div>
         </div>
       ) : !profile ? (
         <div className="rounded-[12px] border border-[#f0f0f0] bg-white p-6 text-sm text-[#666d80]">

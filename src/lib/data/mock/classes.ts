@@ -4,14 +4,14 @@ import type { SchoolClassRow } from "@/lib/data/types";
 export const CLASSES_FALLBACK: SchoolClassRow[] = [
   {
     id: "1",
-    name: "Mathematics 101",
+    name: "Math",
     teacher: "Mr. Anderson",
     students: "24/30",
-    schedule: "Mon, Wed, Fri · 9:00 AM",
+    schedule: "Day 1/2/3 · Block 1 · 7:00 - 8:30 AM",
     status: "Active",
     program: "core",
-    level: "Level I",
-    block: "Block A",
+    level: "Level 3",
+    block: "Block 1",
     pendingCount: 2,
     waitlistCount: 0,
   },

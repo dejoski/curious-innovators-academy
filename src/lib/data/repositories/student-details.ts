@@ -15,6 +15,7 @@ import {
   STUDENT_ROSTER_FALLBACK_ROWS,
   STUDENT_SCHEDULE_FALLBACK_ROWS,
 } from "@/lib/data/mock/student-detail";
+import { emptyScheduleBadgesBySlot, scheduleSlotForClassFields, type ParentScheduleSlotKey } from "@/lib/schedule-slots";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type StudentProfileResolved = {
@@ -26,16 +27,6 @@ type StudentScheduleResolved = {
   rows: StudentScheduleRow[];
   source: DataSource;
 };
-
-type ScheduleSlotKey =
-  | "b1"
-  | "b2"
-  | "b3Tue"
-  | "b3Wed"
-  | "b3Thu"
-  | "b4Tue"
-  | "b4Wed"
-  | "b4Thu";
 
 function fallbackProfile(studentId: string): StudentProfileResolved {
   if (!canUseBundledFallbackData()) return { profile: null, source: "unavailable" };
@@ -132,8 +123,7 @@ export function mapStudentRecord(row: Record<string, unknown>): StudentProfileTi
 
 function classNameShort(name: string): string {
   const trimmed = name.trim();
-  if (!trimmed) return "Class";
-  return trimmed.length <= 14 ? trimmed : trimmed.slice(0, 13).trimEnd();
+  return trimmed || "Class";
 }
 
 function emptyScheduleRow(input: {
@@ -142,32 +132,30 @@ function emptyScheduleRow(input: {
   parent: string;
   avatar?: string;
 }): StudentScheduleRow {
-  const empty: StudentScheduleBadge[] = [{ label: "--", tone: "empty" }];
+  const empty = emptyScheduleBadgesBySlot();
   return {
     id: input.id,
     name: input.name,
     parent: input.parent,
     avatar: input.avatar || "/images/avatars/student-1.png",
-    b1: [...empty],
-    b2: [...empty],
-    b3Tue: [...empty],
-    b3Wed: [...empty],
-    b3Thu: [...empty],
-    b4Tue: [...empty],
-    b4Wed: [...empty],
-    b4Thu: [...empty],
+    b1: empty.b1,
+    b2: empty.b2,
+    b3Tue: empty.b3Tue,
+    b3Wed: empty.b3Wed,
+    b3Thu: empty.b3Thu,
+    b4Tue: empty.b4Tue,
+    b4Wed: empty.b4Wed,
+    b4Thu: empty.b4Thu,
   };
 }
 
-function scheduleSlotForClass(row: Record<string, unknown>, index: number): ScheduleSlotKey {
+function scheduleSlotForClass(row: Record<string, unknown>, index: number): ParentScheduleSlotKey {
   const classRow = firstRel<Record<string, unknown>>(row.classes);
-  const block = String(classRow?.block ?? classRow?.schedule_summary ?? row.block ?? "").toLowerCase();
-  if (block.includes("1") || block.includes(" a")) return "b1";
-  if (block.includes("2") || block.includes(" b")) return "b2";
-  if (block.includes("4") || block.includes(" d")) {
-    return index % 3 === 0 ? "b4Tue" : index % 3 === 1 ? "b4Wed" : "b4Thu";
-  }
-  return index % 3 === 0 ? "b3Tue" : index % 3 === 1 ? "b3Wed" : "b3Thu";
+  return scheduleSlotForClassFields({
+    block: classRow?.block ?? row.block,
+    scheduleSummary: classRow?.schedule_summary,
+    fallbackIndex: index,
+  });
 }
 
 function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge {
@@ -180,7 +168,7 @@ function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge 
   };
 }
 
-function pushBadge(row: StudentScheduleRow, slot: ScheduleSlotKey, badge: StudentScheduleBadge) {
+function pushBadge(row: StudentScheduleRow, slot: ParentScheduleSlotKey, badge: StudentScheduleBadge) {
   const current = row[slot];
   const next = current.filter((item) => item.tone !== "empty");
   next.push(badge);

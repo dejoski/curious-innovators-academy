@@ -49,7 +49,7 @@ async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
     const { data, error } = await supabase
       .from("students")
       .select("id, display_name, guardian_label, level, track, profile_id, support_notes")
-      .order("created_at", { ascending: true });
+      .order("display_name", { ascending: true });
 
     if (error) {
       return fallbackList(STUDENTS_FALLBACK);

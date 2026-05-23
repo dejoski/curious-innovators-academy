@@ -5,11 +5,32 @@ import Link from "next/link";
 import { ArrowRight, ChevronDown, ExternalLink, Info, Lightbulb, Loader2, X } from "lucide-react";
 
 import {
-  PARENT_CATALOG_PENDING_KEY,
-  PARENT_CATALOG_REVIEW_STATUS_KEY,
-  PARENT_CATALOG_SUBMITTED_KEY,
-} from "@/lib/parent-dashboard-storage";
-import type { SchoolClassRow } from "@/lib/data/types";
+  buildParentScheduleBadges,
+  ParentScheduleGrid,
+  type ParentScheduleBadges,
+  type ParentScheduleSlotKey,
+} from "@/components/parent-schedule-grid";
+import { cachedJson } from "@/lib/client-data-cache";
+import {
+  INITIAL_PARENT_CATALOG_REQUESTS,
+  clearSubmittedParentCatalogSnapshot,
+  localReviewKey,
+  readLocalReviewStatuses,
+  readParentCatalogSnapshot,
+  selectedChoicesForSubmit,
+  writePendingParentCatalogRequests,
+  writeSubmittedParentCatalogSnapshot,
+  type LocalReviewStatus,
+  type LocalReviewStatuses,
+  type ParentCatalogIdentity,
+  type ParentCatalogRequests,
+} from "@/lib/parent-catalog-state";
+import {
+  CATALOG_SLOT_META as SLOT_META,
+  catalogSlotIdFromScheduleSlot,
+  type CatalogSlotId,
+} from "@/lib/schedule-slots";
+import type { SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
 type EnrichmentClass = {
   id: string;
@@ -22,37 +43,15 @@ type EnrichmentClass = {
   seats: string;
 };
 
-type SlotId = "block3_day3" | "block4_day3";
+type SlotId = CatalogSlotId;
 type ChoiceKind = "firstChoice" | "secondChoice";
-type LocalReviewStatus = "Pending" | "Approved" | "Rejected";
-type LocalReviewStatuses = Record<string, LocalReviewStatus>;
 
 type SlotRequests = {
   firstChoice: EnrichmentClass | null;
   secondChoice: EnrichmentClass | null;
 };
 
-const SLOT_META: Record<SlotId, { title: string; block: string; level: string; time: string; overlayTime: string }> = {
-  block3_day3: {
-    title: "Block 3 Wednesday",
-    block: "B3",
-    level: "3",
-    time: "10:20 - 11:50 am",
-    overlayTime: "10:20 AM - 11:50 AM",
-  },
-  block4_day3: {
-    title: "Block 4 Wednesday",
-    block: "B4",
-    level: "3",
-    time: "7:00 - 8:30 am",
-    overlayTime: "1:00 PM - 2:30 PM",
-  },
-};
-
-const initialRequests: Record<SlotId, SlotRequests> = {
-  block3_day3: { firstChoice: null, secondChoice: null },
-  block4_day3: { firstChoice: null, secondChoice: null },
-};
+const initialRequests = INITIAL_PARENT_CATALOG_REQUESTS as Record<SlotId, SlotRequests>;
 
 function catalogClassFromRow(row: SchoolClassRow): EnrichmentClass {
   return {
@@ -69,32 +68,11 @@ function catalogClassFromRow(row: SchoolClassRow): EnrichmentClass {
   };
 }
 
-function localReviewKey(slotId: SlotId, kind: "first" | "second") {
-  return `local-${slotId}-${kind}`;
-}
-
 function statusDotClass(kind: "core" | "approved" | "pending" | "empty") {
   if (kind === "core") return "border-[#14c1d5] bg-[#d2f1f5]";
   if (kind === "approved") return "border-[#004d08] bg-[#004d08]/20";
   if (kind === "pending") return "border-[#d80509] bg-[#ffd9d9]";
   return "border-[#f0f0f0] bg-[#fafafa]";
-}
-
-function classCardClass(kind: "core" | "approved" | "pending" | "empty") {
-  if (kind === "core") return "border-[#14c1d5]/45 bg-[#d2f1f5]";
-  if (kind === "approved") return "border-transparent bg-[#004d08]/20";
-  if (kind === "pending") return "border-transparent bg-[#ffd9d9]";
-  return "border-transparent bg-[#f9fafb]";
-}
-
-function reviewKind(status: LocalReviewStatus): "approved" | "pending" {
-  return status === "Approved" ? "approved" : "pending";
-}
-
-function reviewCaption(status: LocalReviewStatus) {
-  if (status === "Approved") return "Enric. Approved";
-  if (status === "Rejected") return "Rejected";
-  return "Enric. Pending";
 }
 
 function LegendItem({ kind, label }: { kind: "core" | "approved" | "pending" | "empty"; label: string }) {
@@ -103,57 +81,6 @@ function LegendItem({ kind, label }: { kind: "core" | "approved" | "pending" | "
       <span className={`size-[17px] rounded-[4px] border ${statusDotClass(kind)}`} />
       <span className="text-[12px] leading-[1.25] text-[#0d0d12]">{label}</span>
     </div>
-  );
-}
-
-function FixedClassCard({ title, caption, kind, tall = false }: { title: string; caption: string; kind: "core" | "approved" | "pending"; tall?: boolean }) {
-  return (
-    <div className={`h-full rounded-[4px] border px-[5px] py-[7px] ${classCardClass(kind)}`}>
-      <p className="truncate text-[10px] leading-none tracking-[0.1px] text-[#0d0d12]">{title}</p>
-      <p className={`mt-[8px] text-[10px] font-bold leading-[1.25] text-[#666d80] ${tall ? "" : "truncate"}`}>{caption}</p>
-    </div>
-  );
-}
-
-function OpenSlotCard({
-  selected,
-  firstStatus = "Pending",
-  secondStatus = "Pending",
-  label,
-  onClick,
-  tall = false,
-}: {
-  selected: SlotRequests;
-  firstStatus?: LocalReviewStatus;
-  secondStatus?: LocalReviewStatus;
-  label: string;
-  onClick: () => void;
-  tall?: boolean;
-}) {
-  const primary = selected.firstChoice;
-  const secondary = selected.secondChoice;
-  const dominantStatus = primary ? firstStatus : secondStatus;
-  const dominantKind = primary || secondary ? reviewKind(dominantStatus) : "empty";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-full w-full flex-col justify-start rounded-[4px] border px-[5px] py-[7px] text-left transition hover:ring-1 hover:ring-[#14c1d5] ${classCardClass(dominantKind)}`}
-    >
-      <p className="truncate text-[10px] leading-none tracking-[0.1px] text-[#0d0d12]">
-        {primary?.name ?? (secondary ? "Second choice only" : "Available slot")}
-      </p>
-      <p className="mt-[8px] text-[10px] font-bold leading-[1.25] text-[#666d80]">
-        {primary || secondary ? reviewCaption(dominantStatus) : "+ Choose class"}
-      </p>
-      {secondary ? (
-        <p className={`truncate text-[10px] leading-[1.25] text-[#666d80] ${tall ? "mt-auto" : ""}`}>
-          {secondStatus === "Approved" ? "Approved 2nd" : secondStatus === "Rejected" ? "Rejected 2nd" : "2nd"}: {secondary.name}
-        </p>
-      ) : null}
-      <span className="sr-only">{label}</span>
-    </button>
   );
 }
 
@@ -180,7 +107,7 @@ function SelectedClassSummary({ cls }: { cls: EnrichmentClass | null }) {
       <div className="space-y-[8px] border-b border-[#dfe1e6] py-[12px] text-[12px] leading-[1.35] text-[#4f5665]">
         <p>Description: {cls.description}</p>
         <p>Teacher: {cls.teacher}</p>
-        <p>{SLOT_META.block4_day3.title.replace("Block 4 ", "Wed ")} 1:00PM - 1:30PM</p>
+        <p>Schedule: {cls.block || "Selected block"}</p>
       </div>
       <p className="pt-[10px] text-[12px] text-[#4f5665]">Status: Open</p>
     </div>
@@ -249,14 +176,14 @@ export default function ParentClassesEnrichmentCatalog() {
   const [localSubmittedAt, setLocalSubmittedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
+  const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
+  const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
       try {
-        const res = await fetch("/api/data/classes", { cache: "no-store" });
-        if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as { classes?: SchoolClassRow[]; source?: string };
+        const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = Array.isArray(body.classes) ? body.classes : [];
         const enrichment = rows.filter((row) => row.program === "enrichment").map(catalogClassFromRow);
         if (cancelled) return;
@@ -282,14 +209,42 @@ export default function ParentClassesEnrichmentCatalog() {
   }, []);
 
   useEffect(() => {
-    function readReviewStatuses() {
+    let cancelled = false;
+    async function loadActiveStudentSchedule() {
       try {
-        const raw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-        setLocalReviewStatuses(raw ? (JSON.parse(raw) as LocalReviewStatuses) : {});
+        const studentsBody = await cachedJson<{ students?: StudentListItem[] }>("/api/data/students");
+        const activeStudent = Array.isArray(studentsBody.students) ? (studentsBody.students[0] ?? null) : null;
+        if (!activeStudent) {
+          if (!cancelled) {
+            setActiveStudent(null);
+            setStudentSchedule(null);
+          }
+          return;
+        }
+        const scheduleBody = await cachedJson<{ rows?: StudentScheduleRow[] }>(
+          `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
+        );
+        if (!cancelled) {
+          setActiveStudent(activeStudent);
+          setStudentSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
+        }
       } catch {
-        setLocalReviewStatuses({});
+        if (!cancelled) {
+          setActiveStudent(null);
+          setStudentSchedule(null);
+        }
       }
     }
+    void loadActiveStudentSchedule();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+	  useEffect(() => {
+	    function readReviewStatuses() {
+	      setLocalReviewStatuses(readLocalReviewStatuses());
+	    }
 
     readReviewStatuses();
     window.addEventListener("storage", readReviewStatuses);
@@ -300,22 +255,14 @@ export default function ParentClassesEnrichmentCatalog() {
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      const raw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY) ?? window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { requests?: Record<string, SlotRequests>; submittedAt?: string };
-      if (!parsed.requests) return;
-      setRequests({
-        block3_day3: parsed.requests.block3_day3 ?? initialRequests.block3_day3,
-        block4_day3: parsed.requests.block4_day3 ?? initialRequests.block4_day3,
-      });
-      setLocalSubmittedAt(parsed.submittedAt ?? null);
-      setRestoredDraft(true);
-    } catch {
-      /* Ignore invalid old drafts. */
-    }
-  }, []);
+	  useEffect(() => {
+	    const snapshot = readParentCatalogSnapshot();
+	    if (!snapshot.requests) return;
+	    setRequests(snapshot.requests as Record<SlotId, SlotRequests>);
+	    setLocalSubmittedAt(snapshot.submittedAt);
+	    setLocalReviewStatuses(snapshot.reviewStatuses);
+	    setRestoredDraft(true);
+	  }, []);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -326,26 +273,54 @@ export default function ParentClassesEnrichmentCatalog() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [overlayOpen]);
 
-  useEffect(() => {
-    try {
-      window.sessionStorage.setItem(PARENT_CATALOG_PENDING_KEY, JSON.stringify({ requests }));
-      window.dispatchEvent(new Event("cia-parent-catalog-updated"));
-    } catch {
-      /* Browser storage can be unavailable in privacy modes. */
-    }
-  }, [requests]);
-
-  const selectedChoices = useMemo(
-    () =>
-      Object.entries(requests).flatMap(([slotId, slot]) => {
-        const meta = SLOT_META[slotId as SlotId];
-        return ([
-          slot.firstChoice ? { classId: slot.firstChoice.id, block: meta.block, level: meta.level, option: "1st" } : null,
-          slot.secondChoice ? { classId: slot.secondChoice.id, block: meta.block, level: meta.level, option: "2nd" } : null,
-        ]).filter((choice): choice is { classId: string; block: string; level: string; option: string } => choice !== null);
-      }),
-    [requests],
+  const catalogIdentity = useMemo<ParentCatalogIdentity>(
+    () => ({
+      studentName: activeStudent?.name,
+      parentName: activeStudent?.parent,
+    }),
+    [activeStudent],
   );
+
+	  useEffect(() => {
+	    try {
+	      writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
+	    } catch {
+	      /* Browser storage can be unavailable in privacy modes. */
+	    }
+	  }, [catalogIdentity, requests]);
+
+  function draftSlotBadges(slot: SlotRequests, slotId: SlotId): StudentScheduleBadge[] {
+    const badges: StudentScheduleBadge[] = [];
+    const firstStatus = localReviewStatuses[localReviewKey(slotId, "first")] ?? "Pending";
+    const secondStatus = localReviewStatuses[localReviewKey(slotId, "second")] ?? "Pending";
+    if (slot.firstChoice) {
+      badges.push({
+        label: firstStatus === "Rejected" ? `Rejected: ${slot.firstChoice.name}` : slot.firstChoice.name,
+        tone: firstStatus === "Approved" ? "approved" : "pending",
+      });
+    }
+    if (slot.secondChoice) {
+      badges.push({
+        label: `${secondStatus === "Rejected" ? "Rejected" : "2nd"}: ${slot.secondChoice.name}`,
+        tone: secondStatus === "Approved" ? "approved" : "pending",
+      });
+    }
+    return badges;
+  }
+
+  const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
+    const block3 = draftSlotBadges(requests.block3_day3, "block3_day3");
+    const block4 = draftSlotBadges(requests.block4_day3, "block4_day3");
+    return buildParentScheduleBadges(studentSchedule, {
+      ...(block3.length ? { b3Thu: block3 } : {}),
+      ...(block4.length ? { b4Thu: block4 } : {}),
+    });
+  }, [localReviewStatuses, requests, studentSchedule]);
+
+	  const selectedChoices = useMemo(
+	    () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
+	    [requests],
+	  );
 
   const hasChoices = selectedChoices.length > 0;
   const activeMeta = SLOT_META[activeSlot];
@@ -371,14 +346,17 @@ export default function ParentClassesEnrichmentCatalog() {
     setOpenChoice(null);
   }
 
-  function clearSubmittedSnapshot() {
-    try {
-      window.sessionStorage.removeItem(PARENT_CATALOG_SUBMITTED_KEY);
-      window.sessionStorage.removeItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-      window.dispatchEvent(new Event("cia-parent-catalog-updated"));
-    } catch {
-      /* ignore storage failures */
-    }
+	  function openScheduleSlot(slot: ParentScheduleSlotKey) {
+	    const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
+	    if (catalogSlot) openSlot(catalogSlot);
+	  }
+
+	  function clearSubmittedSnapshot() {
+	    try {
+	      clearSubmittedParentCatalogSnapshot();
+	    } catch {
+	      /* ignore storage failures */
+	    }
     setLocalSubmittedAt(null);
     setLocalReviewStatuses({});
   }
@@ -401,15 +379,13 @@ export default function ParentClassesEnrichmentCatalog() {
     clearSubmittedSnapshot();
   }
 
-  function persistSubmittedSnapshot() {
-    const submittedAt = new Date().toISOString();
-    try {
-      window.sessionStorage.removeItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-      window.sessionStorage.setItem(PARENT_CATALOG_SUBMITTED_KEY, JSON.stringify({ requests, submittedAt }));
-      window.dispatchEvent(new Event("cia-parent-catalog-updated"));
-    } catch {
-      /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
-    }
+	  function persistSubmittedSnapshot() {
+	    let submittedAt: string | null = null;
+	    try {
+	      submittedAt = writeSubmittedParentCatalogSnapshot(requests as ParentCatalogRequests, catalogIdentity);
+	    } catch {
+	      /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
+	    }
     setLocalSubmittedAt(submittedAt);
     setLocalReviewStatuses({});
   }
@@ -474,61 +450,7 @@ export default function ParentClassesEnrichmentCatalog() {
       )}
 
       <div className="mt-[19px] grid gap-[20px] xl:grid-cols-[565px_519px]">
-        <section className="w-full max-w-[565px] rounded-[18px] border border-[#f0f0f0] bg-white p-[15px]">
-          <div className="overflow-hidden">
-            <div className="grid min-w-[533px] grid-cols-[134px_repeat(3,133px)]">
-              <div className="flex h-[65px] flex-col justify-center rounded-tl-[8px] border border-[#f0f0f0] bg-[#f9fafb] px-[14px] text-[#625f6e]">
-                <span className="text-[12px] font-bold leading-[1.29]">90 minutes</span>
-                <span className="text-[12px] leading-[1.29]">per block</span>
-              </div>
-              {[1, 2, 3].map((day) => (
-                <div key={day} className={`flex h-[65px] flex-col items-center justify-center border border-[#f0f0f0] bg-[#f9fafb] ${day === 3 ? "rounded-tr-[8px]" : ""}`}>
-                  <span className="text-[12px] leading-none tracking-[0.12px] text-[#020204]">Day</span>
-                  <span className="mt-[4px] text-[14px] font-semibold leading-none tracking-[0.14px] text-[#020204]">{day}</span>
-                </div>
-              ))}
-
-              <div className="flex h-[52px] flex-col justify-center border border-[#f0f0f0] bg-[#f9fafb] px-[17px] text-[#625f6e]">
-                <span className="text-[10px] font-bold leading-none">Block 1</span>
-                <span className="mt-[4px] text-[12px] leading-none">7:00 - 8:30 am</span>
-              </div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="Math" caption="School assigned" kind="core" /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="Math" caption="School assigned" kind="core" /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="Math" caption="School assigned" kind="core" /></div>
-
-              <div className="flex h-[52px] flex-col justify-center border border-[#f0f0f0] bg-[#f9fafb] px-[17px] text-[#625f6e]">
-                <span className="text-[10px] font-bold leading-none">Block 2</span>
-                <span className="mt-[4px] text-[12px] leading-none">8:40 - 10:10 am</span>
-              </div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="ELA - Core" caption="School assigned" kind="core" /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="ELA - Core" caption="School assigned" kind="core" /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="ELA - Core" caption="School assigned" kind="core" /></div>
-
-              <div className="flex h-[52px] flex-col justify-center border border-[#f0f0f0] bg-[#f9fafb] px-[17px] text-[#625f6e]">
-                <span className="text-[10px] font-bold leading-none">Block 3</span>
-                <span className="mt-[4px] text-[12px] leading-none">10:20 - 11:50 am</span>
-              </div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="Economics & Financial Literacy" caption="Enric. Approved" kind="approved" /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="Ocean Explorers" caption="Enric. Approved" kind="approved" /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]">
-                <OpenSlotCard label={SLOT_META.block3_day3.title} selected={requests.block3_day3} firstStatus={localReviewStatuses[localReviewKey("block3_day3", "first")] ?? "Pending"} secondStatus={localReviewStatuses[localReviewKey("block3_day3", "second")] ?? "Pending"} onClick={() => openSlot("block3_day3")} />
-              </div>
-
-              <div className="flex h-[95px] flex-col justify-start rounded-bl-[8px] border border-[#f0f0f0] bg-[#f9fafb] px-[17px] pt-[12px] text-[#625f6e]">
-                <span className="text-[10px] font-bold leading-none">Block 4</span>
-                <span className="mt-[4px] text-[12px] leading-none">7:00 - 8:30 am</span>
-              </div>
-              <div className="flex h-[95px] flex-col gap-[3px] border border-[#f0f0f0] bg-white p-[5px]">
-                <FixedClassCard title="Force & Motion" caption="Enric. Pending" kind="pending" />
-                <FixedClassCard title="Digital Storytelling & Animation" caption="Enric. Pending" kind="pending" />
-              </div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]"><FixedClassCard title="Health Sciences Lab" caption="Enric. Approved" kind="approved" tall /></div>
-              <div className="border border-[#f0f0f0] bg-white p-[5px]">
-                <OpenSlotCard label={SLOT_META.block4_day3.title} selected={requests.block4_day3} firstStatus={localReviewStatuses[localReviewKey("block4_day3", "first")] ?? "Pending"} secondStatus={localReviewStatuses[localReviewKey("block4_day3", "second")] ?? "Pending"} onClick={() => openSlot("block4_day3")} tall />
-              </div>
-            </div>
-          </div>
-        </section>
+        <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full max-w-[565px]" />
 
         <section className="w-full max-w-[565px] rounded-[18px] border border-[#f0f0f0] bg-white px-[24px] py-[16px] xl:max-w-none">
           <h2 className="text-[16px] font-semibold leading-[1.4] text-[#0d0d12]">How it works</h2>
@@ -549,7 +471,7 @@ export default function ParentClassesEnrichmentCatalog() {
           <div>
             <h2 className="text-[16px] font-semibold leading-[1.4] text-[#272932]">Enrichment Selection Deadline</h2>
             <p className="mt-[4px] text-[14px] leading-[1.6] tracking-[-0.28px] text-[#272932]">
-              Please remember to submit your child's enrichment class requests before the school's deadline.<br className="hidden sm:block" />
+              Please remember to submit your child&apos;s enrichment class requests before the school&apos;s deadline.<br className="hidden sm:block" />
               Submitting on time helps the school organize class groups and ensures your child has the best chance of getting their preferred classes.
             </p>
           </div>

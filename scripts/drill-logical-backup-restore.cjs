@@ -48,11 +48,14 @@ const REQUIRED_STUDENTS = [
 ];
 
 const REQUIRED_CLASSES = [
+  "Math",
+  "ELA - Core",
+  "Economics & Financial Literacy",
+  "Force & Motion",
   "Robotics Lab",
   "Journalism & Media Writing",
   "Creative Arts",
   "Ocean Explorers",
-  "Mathematics 101",
 ];
 
 function loadDotenv(filePath) {

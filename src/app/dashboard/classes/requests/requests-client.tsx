@@ -7,9 +7,10 @@ import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import {
-  PARENT_CATALOG_REVIEW_STATUS_KEY,
-  PARENT_CATALOG_SUBMITTED_KEY,
-} from "@/lib/parent-dashboard-storage";
+  localRequestRowsFromCatalogRequests,
+  readParentCatalogSnapshot,
+  writeLocalReviewStatus,
+} from "@/lib/parent-catalog-state";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
 
 type RequestStatus = "Pending" | "Approved" | "Rejected";
@@ -33,75 +34,6 @@ export type ClassesEnrichmentRequestsProps = {
 const PAGE_SIZE = 10;
 type SortKey = "student" | "parent" | "class" | "block" | "level" | "option" | "status";
 type FilterValue = "All" | RequestStatus;
-
-type SubmittedChoice = {
-  id?: string;
-  name?: string;
-};
-
-type SubmittedSlot = {
-  firstChoice?: SubmittedChoice | null;
-  secondChoice?: SubmittedChoice | null;
-};
-
-type SubmittedRequestSnapshot = {
-  requests?: {
-    block3_day3?: SubmittedSlot;
-    block4_day3?: SubmittedSlot;
-  };
-};
-
-type LocalReviewStatuses = Record<string, RequestStatus>;
-
-const SUBMITTED_SLOT_META = {
-  block3_day3: { block: "B3", level: "3" },
-  block4_day3: { block: "B4", level: "3" },
-} as const;
-
-function localRowsFromSubmittedSnapshot(snapshot: SubmittedRequestSnapshot | null): EnrichmentRequestRow[] {
-  if (!snapshot?.requests) return [];
-  return (Object.entries(SUBMITTED_SLOT_META) as [keyof typeof SUBMITTED_SLOT_META, { block: string; level: string }][]).flatMap(
-    ([slotId, meta]) => {
-      const slot = snapshot.requests?.[slotId];
-      const rows: (EnrichmentRequestRow | null)[] = [
-        slot?.firstChoice?.name
-          ? {
-              id: `local-${slotId}-first`,
-              student: "Anna Lee",
-              parent: "Mary Lee",
-              class: slot.firstChoice.name,
-              block: meta.block,
-              level: meta.level,
-              option: "1st",
-              status: "Pending" as const,
-            }
-          : null,
-        slot?.secondChoice?.name
-          ? {
-              id: `local-${slotId}-second`,
-              student: "Anna Lee",
-              parent: "Mary Lee",
-              class: slot.secondChoice.name,
-              block: meta.block,
-              level: meta.level,
-              option: "2nd",
-              status: "Pending" as const,
-            }
-          : null,
-      ];
-      return rows.filter((row): row is EnrichmentRequestRow => row !== null);
-    },
-  );
-}
-
-function readLocalReviewStatuses(): LocalReviewStatuses {
-  try {
-    const raw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-    return raw ? (JSON.parse(raw) as LocalReviewStatuses) : {};
-  } catch {
-    return {};
-  }
-}
 
 function statusBadgeClass(status: RequestStatus) {
   if (status === "Pending") return "bg-[#cfa500]/20 text-[#8a6d00] border-[#cfa500]/50";
@@ -160,15 +92,15 @@ export default function ClassesEnrichmentRequests({
   }, [detailIdFromUrl, requests]);
 
   useEffect(() => {
-    function readLocalSubmittedRequests() {
-      try {
-        const raw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY);
-        const snapshot = raw ? (JSON.parse(raw) as SubmittedRequestSnapshot) : null;
-        const reviewStatuses = readLocalReviewStatuses();
-        const localRows = localRowsFromSubmittedSnapshot(snapshot).map((row) => ({
-          ...row,
-          status: reviewStatuses[row.id] ?? row.status,
-        }));
+	    function readLocalSubmittedRequests() {
+	      try {
+        const snapshot = readParentCatalogSnapshot();
+	        const localRows = snapshot.state === "submitted"
+	          ? localRequestRowsFromCatalogRequests(snapshot.requests, snapshot.reviewStatuses, {
+              studentName: snapshot.studentName ?? initialRequests[0]?.student,
+              parentName: snapshot.parentName ?? initialRequests[0]?.parent,
+            })
+	          : [];
         setRequests((prev) => {
           const remoteRows = prev.filter((row) => !row.id.startsWith("local-"));
           return [...localRows, ...remoteRows];
@@ -263,15 +195,10 @@ export default function ClassesEnrichmentRequests({
     setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
     setConfirmAction(null);
     setRowMenuId(null);
-    if (id.startsWith("local-")) {
-      try {
-        const reviewStatuses = readLocalReviewStatuses();
-        window.sessionStorage.setItem(
-          PARENT_CATALOG_REVIEW_STATUS_KEY,
-          JSON.stringify({ ...reviewStatuses, [id]: status }),
-        );
-        window.dispatchEvent(new Event("cia-parent-catalog-updated"));
-      } catch {
+	    if (id.startsWith("local-")) {
+	      try {
+	        writeLocalReviewStatus(id, status);
+	      } catch {
         /* Keep the in-memory status even if storage is unavailable. */
       }
       setSyncHint("Updated local request status for this browser session.");

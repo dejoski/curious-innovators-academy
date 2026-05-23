@@ -136,64 +136,172 @@ FROM public.teachers t
 JOIN public.profiles p ON p.id = t.profile_id AND lower(p.email) = lower('teacher.emily@cia.demo')
 CROSS JOIN (VALUES
   (
-    'Robotics Lab',
+    'Math',
+    'core'::public.program_track,
+    30,
+    'Day 1/2/3 · Block 1 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 1',
+    'Room 101',
+    'Core mathematics block assigned by the school.',
+    'None'
+  ),
+  (
+    'ELA - Core',
+    'core'::public.program_track,
+    30,
+    'Day 1/2/3 · Block 2 · 8:40 - 10:10 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 2',
+    'Room 102',
+    'English language arts core block assigned by the school.',
+    'None'
+  ),
+  (
+    'Economics & Financial Literacy',
+    'enrichment'::public.program_track,
+    25,
+    'Day 1 · Block 3 · 10:20 - 11:50 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 3 Day 1',
+    'Innovation Lab',
+    'Students learn budgeting, markets, entrepreneurship, and practical financial decision-making.',
+    'None'
+  ),
+  (
+    'Ocean Explorers',
+    'enrichment'::public.program_track,
+    24,
+    'Day 2 · Block 3 · 10:20 - 11:50 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 3 Day 2',
+    'Science Lab',
+    'Marine science, ocean habitats, and environmental exploration through hands-on labs.',
+    'None'
+  ),
+  (
+    'Music Theory',
+    'enrichment'::public.program_track,
+    15,
+    'Day 3 · Block 3 · 10:20 - 11:50 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 3 Day 3',
+    'Music Room',
+    'Music Theory gives students a structured enrichment option with placement managed by the school team.',
+    'None'
+  ),
+  (
+    'Digital Storytelling & Animation',
     'enrichment'::public.program_track,
     20,
-    'Monday · 8:00 AM - 9:30 AM',
+    'Day 1 · Block 4 · 7:00 - 8:30 AM',
     'active'::public.class_status,
-    '3',
-    'B2',
-    'Room 101',
-    'Students design, build, and program robots to solve collaborative engineering challenges.',
+    'Level 3',
+    'Block 4 Day 1',
+    'Media Lab',
+    'Students create digital stories, animations, scripts, and visual narratives.',
+    'None'
+  ),
+  (
+    'Force & Motion',
+    'enrichment'::public.program_track,
+    24,
+    'Day 1 · Block 4 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 4 Day 1',
+    'Science Lab',
+    'Physics investigations into motion, force, energy, and applied experiments.',
+    'None'
+  ),
+  (
+    'Health Sciences Lab',
+    'enrichment'::public.program_track,
+    22,
+    'Day 2 · Block 4 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 4 Day 2',
+    'Health Lab',
+    'Explore human health, medicine, anatomy, and scientific discovery.',
+    'None'
+  ),
+  (
+    'Art & Design',
+    'enrichment'::public.program_track,
+    28,
+    'Day 3 · Block 4 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 4 Day 3',
+    'Studio A',
+    'Art & Design gives students a structured enrichment option with placement managed by the school team.',
+    'None'
+  ),
+  (
+    'Creative Arts',
+    'enrichment'::public.program_track,
+    22,
+    'Day 3 · Block 4 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 4 Day 3',
+    'Studio B',
+    'Studio course for drawing, mixed media, critique, and portfolio development.',
+    'None'
+  ),
+  (
+    'Creative Writing',
+    'enrichment'::public.program_track,
+    18,
+    'Day 3 · Block 4 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 4 Day 3',
+    'Writing Studio',
+    'Develop storytelling skills through imagination, character creation, and expressive writing.',
+    'None'
+  ),
+  (
+    'Health Sciences',
+    'enrichment'::public.program_track,
+    22,
+    'Day 3 · Block 4 · 7:00 - 8:30 AM',
+    'active'::public.class_status,
+    'Level 3',
+    'Block 4 Day 3',
+    'Health Lab',
+    'Explore the basics of human health, medicine, and scientific discovery.',
     'None'
   ),
   (
     'Journalism & Media Writing',
     'enrichment'::public.program_track,
     18,
-    'Friday · 10:30 AM - 12:00 PM',
+    'Day 3 · Block 4 · 7:00 - 8:30 AM',
     'active'::public.class_status,
-    '3',
-    'B2',
-    'Room 302',
-    'Students report, write, edit, and publish school stories across digital formats.',
-    'Comfort with paragraph writing'
-  ),
-  (
-    'Creative Arts',
-    'enrichment'::public.program_track,
-    22,
-    'Monday · 8:00 AM - 9:30 AM',
-    'active'::public.class_status,
-    '4',
-    'B3',
-    'Room 203',
-    'Studio course for drawing, mixed media, critique, and portfolio development.',
+    'Level 3',
+    'Block 4 Day 3',
+    'Media Lab',
+    'Reporting, interviews, editing, and media literacy through student publications.',
     'None'
   ),
   (
-    'Ocean Explorers',
+    'Robotics Lab',
     'enrichment'::public.program_track,
-    16,
-    'Tuesday · 8:00 AM - 9:30 AM',
+    20,
+    'Day 3 · Block 4 · 7:00 - 8:30 AM',
     'active'::public.class_status,
-    '4',
-    'B4',
-    'Room 104',
-    'Marine science investigations with research, observation, and lab notebooks.',
-    'Intro science recommended'
-  ),
-  (
-    'Mathematics 101',
-    'core'::public.program_track,
-    30,
-    'Monday · 9:00 AM',
-    'active'::public.class_status,
-    '2',
-    'B1',
-    'Room 201',
-    'Core math foundations covering arithmetic, reasoning, and problem-solving.',
-    'School assigned'
+    'Level 3',
+    'Block 4 Day 3',
+    'Robotics Lab',
+    'Hands-on robotics and basic programming concepts.',
+    'None'
   )
 ) AS c(name, program, capacity, schedule_summary, status, level, block, location, description, prerequisites);
 
@@ -235,7 +343,7 @@ FROM (VALUES
     'open',
     '2026-05-01',
     '2026-05-31',
-    '[{"description":"Robotics Lab enrichment fee"},{"description":"Materials kit"}]'
+    '[{"description":"Enrichment class materials"},{"description":"Lab kit"}]'
   ),
   (
     'George Lee',
@@ -263,11 +371,16 @@ JOIN public.students st ON st.display_name = v.student_name;
 INSERT INTO public.enrollments (class_id, student_id, status)
 SELECT cl.id, st.id, v.status::public.workflow_status
 FROM (VALUES
-  ('Robotics Lab', 'Anna Lee', 'approved'),
+  ('Math', 'Anna Lee', 'approved'),
+  ('ELA - Core', 'Anna Lee', 'approved'),
+  ('Economics & Financial Literacy', 'Anna Lee', 'approved'),
+  ('Ocean Explorers', 'Anna Lee', 'approved'),
+  ('Force & Motion', 'Anna Lee', 'pending'),
+  ('Digital Storytelling & Animation', 'Anna Lee', 'pending'),
+  ('Health Sciences Lab', 'Anna Lee', 'approved'),
   ('Robotics Lab', 'George Lee', 'pending'),
   ('Robotics Lab', 'Bruna Lee', 'approved'),
-  ('Robotics Lab', 'James Smith', 'rejected'),
-  ('Mathematics 101', 'Anna Lee', 'approved')
+  ('Ocean Explorers', 'James Smith', 'rejected')
 ) AS v(class_name, student_name, status)
 JOIN public.classes cl ON cl.name = v.class_name
 JOIN public.students st ON st.display_name = v.student_name;
@@ -277,12 +390,13 @@ INSERT INTO public.class_requests (
 )
 SELECT st.id, cl.id, pr.id, v.status::public.workflow_status, v.block, v.level, v.option_label
 FROM (VALUES
-  ('Anna Lee', 'Robotics Lab', 'parent.lee@cia.demo', 'pending', 'B2', '3', '1st'),
-  ('George Lee', 'Journalism & Media Writing', 'parent.lee@cia.demo', 'pending', 'B4', '4', '2nd'),
-  ('Bruna Lee', 'Creative Arts', 'parent.lee@cia.demo', 'pending', 'B3', '2', '2nd'),
-  ('James Smith', 'Ocean Explorers', 'parent.lee@cia.demo', 'rejected', 'B3', '2', '1st'),
-  ('Bruce Collins', 'Robotics Lab', 'parent.collins@cia.demo', 'pending', 'B2', '3', '1st'),
-  ('Maria Collins', 'Journalism & Media Writing', 'parent.collins@cia.demo', 'approved', 'B4', '1', '2nd')
+  ('Anna Lee', 'Force & Motion', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
+  ('Anna Lee', 'Digital Storytelling & Animation', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
+  ('George Lee', 'Journalism & Media Writing', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
+  ('Bruna Lee', 'Creative Arts', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
+  ('James Smith', 'Ocean Explorers', 'parent.lee@cia.demo', 'rejected', 'B3', '3', '1st'),
+  ('Bruce Collins', 'Robotics Lab', 'parent.collins@cia.demo', 'pending', 'B4', '3', '1st'),
+  ('Maria Collins', 'Journalism & Media Writing', 'parent.collins@cia.demo', 'approved', 'B4', '3', '2nd')
 ) AS v(student_name, class_name, requester_email, status, block, level, option_label)
 JOIN public.students st ON st.display_name = v.student_name
 JOIN public.classes cl ON cl.name = v.class_name
@@ -306,7 +420,7 @@ INSERT INTO public.feedback (student_id, author_profile_id, class_id, body, rati
 SELECT st.id, pr.id, cl.id, 'Strong engagement this week.', 5
 FROM public.students st
 JOIN public.profiles pr ON lower(pr.email) = lower('parent.lee@cia.demo')
-JOIN public.classes cl ON cl.name = 'Robotics Lab'
+JOIN public.classes cl ON cl.name = 'Economics & Financial Literacy'
 WHERE st.display_name = 'Anna Lee';
 
 INSERT INTO public.notifications (recipient_profile_id, title, body, href, read_at)
@@ -319,7 +433,7 @@ FROM public.profiles pr
 CROSS JOIN (VALUES
   (
     'New enrichment class request',
-    'Anna Lee requested Robotics Lab — review prerequisites.',
+    'Anna Lee requested Force & Motion — review prerequisites.',
     '/dashboard/classes/requests',
     NULL::timestamptz
   ),
