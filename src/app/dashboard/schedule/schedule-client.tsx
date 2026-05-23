@@ -451,8 +451,8 @@ export default function ScheduleMonth({
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
 
     return (
-      <div className="min-w-[800px]">
-        <div className="grid grid-cols-7 gap-4 mb-4">
+      <div className="w-full">
+        <div className="mb-4 hidden grid-cols-7 gap-4 xl:grid">
           {Array.from({ length: 7 }).map((_, i) => {
             const d = new Date(startOfWeek);
             d.setDate(startOfWeek.getDate() + i);
@@ -467,18 +467,43 @@ export default function ScheduleMonth({
             );
           })}
         </div>
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 xl:gap-2">
           {Array.from({ length: 7 }).map((_, i) => {
             const d = new Date(startOfWeek);
             d.setDate(startOfWeek.getDate() + i);
-            const events = eventsForDate(d);
+            const events = sortedEvents(eventsForDate(d));
+            const isToday = d.toDateString() === new Date().toDateString();
             return (
               <div
                 key={i}
-                onClick={() => handleSlotClick(d)}
-                className="bg-white border border-[#f0f0f0] rounded-[8px] h-[400px] p-2 flex flex-col overflow-hidden cursor-pointer hover:border-[#14c1d5] transition-colors"
+                onClick={() => handleDayClick(d, events)}
+                className={`flex min-h-[148px] flex-col overflow-hidden rounded-[8px] border border-[#f0f0f0] bg-white p-3 transition-colors hover:border-[#14c1d5] xl:h-[400px] xl:p-2 ${
+                  events.length > 0 || allowEventCreation ? "cursor-pointer" : ""
+                }`}
               >
-                <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-1">
+                <div className="mb-2 flex items-start justify-between gap-2 xl:hidden">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${
+                        isToday ? "bg-[#14c1d5] text-white" : "text-[#020204]"
+                      }`}
+                    >
+                      {d.getDate()}
+                    </span>
+                    <span className="truncate text-[12px] font-medium text-[#625f6e]">
+                      {dayLabels[d.getDay()] ?? DAYS_OF_WEEK[d.getDay()]}
+                    </span>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-[#f5f7fa] px-2 py-0.5 text-[10px] font-medium text-[#666d80]">
+                    {events.length === 0 ? "Empty" : `${events.length} item${events.length === 1 ? "" : "s"}`}
+                  </span>
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto no-scrollbar">
+                  {events.length === 0 ? (
+                    <p className="rounded-[6px] border border-dashed border-[#d9dde7] px-2 py-2 text-[12px] text-[#666d80]">
+                      No scheduled items
+                    </p>
+                  ) : null}
                   {events.map((ev) => (
                     <EventBadge key={ev.id} event={ev} onClick={(clickEv) => handleEventClick(clickEv, ev)} />
                   ))}
@@ -496,7 +521,7 @@ export default function ScheduleMonth({
     const isToday = currentDate.toDateString() === new Date().toDateString();
 
     return (
-      <div className="min-w-[800px]">
+      <div className="w-full">
         <div
           className="bg-white border border-[#f0f0f0] rounded-[8px] min-h-[400px] p-4 flex flex-col overflow-hidden cursor-pointer hover:border-[#14c1d5] transition-colors"
           onClick={() => handleSlotClick(currentDate)}
@@ -626,7 +651,7 @@ export default function ScheduleMonth({
         </Link>
       </div>
 
-      <div className={`${DASHBOARD_PANEL_CLASS} w-full p-4 ${view === "Month" ? "overflow-hidden" : "overflow-x-auto"}`}>
+      <div className={`${DASHBOARD_PANEL_CLASS} w-full overflow-hidden p-4`}>
         {view === "Month" && renderMonthView()}
         {view === "Week" && renderWeekView()}
         {view === "Day" && renderDayView()}
