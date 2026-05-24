@@ -24,11 +24,11 @@ const DEFAULT_EVENTS: StudentProfileTimelineEvent[] = [
     author: "Mr. Mendes",
     role: "Academic Coordination",
     date: "02/08/2026",
-    time: "16:35 PM",
+    time: "4:35 PM",
     urgent: true,
     title: "Dear families,",
     content:
-      "Reminder: enrichment selections close soon. Complete choices in the student portal so we can finalize schedules.",
+      "Reminder: enrichment selections close soon. Complete choices in the parent dashboard so we can finalize schedules.",
   },
   {
     id: "default-behavioral",
@@ -78,11 +78,11 @@ export const STUDENT_PROFILE_FALLBACK_BY_ID: Record<string, StudentProfileBundle
         author: "Mr. Mendes",
         role: "Academic Coordination",
         date: "02/08/2026",
-        time: "16:35 PM",
+        time: "4:35 PM",
         urgent: true,
         title: "Dear Mrs. Mary Lee,",
         content:
-          "I hope this message finds you well.\n\nI am writing to remind you that the enrollment deadline for Ana Lee to select her Enrichment classes is approaching quickly.\n\nOur records indicate that her activity choices have not yet been submitted. To ensure that Ana secures a spot in her preferred courses before they reach full capacity, we kindly request that the selection be completed no later than March 12th.\n\nKey Information:\n- Deadline: March 12th, 2026.\n- Procedure: Selections must be made through the student portal.\n\nIf you have already completed this process or require any assistance regarding the available options, please do not hesitate to contact me.\n\nBest regards,",
+          "I hope this message finds you well.\n\nI am writing to remind you that the enrollment deadline for Anna Lee to select her enrichment classes is approaching quickly.\n\nOur records indicate that her enrichment choices have not yet been submitted. To ensure that Anna secures a spot in her preferred courses before they reach full capacity, we kindly request that the selection be completed no later than March 12th.\n\nKey Information:\n- Deadline: March 12th, 2026.\n- Procedure: Selections must be made through the parent dashboard.\n\nIf you have already completed this process or require any assistance regarding the available options, please do not hesitate to contact me.\n\nBest regards,",
       },
       {
         id: "anna-behavioral",
@@ -94,7 +94,7 @@ export const STUDENT_PROFILE_FALLBACK_BY_ID: Record<string, StudentProfileBundle
         urgent: false,
         title: "Incident Log",
         content:
-          "At 10:15 AM, Ana Lee reported to the coordination office feeling unwell, complaining of abdominal pain and slight dizziness. After resting in the infirmary with no significant improvement, her family was contacted.\n\nOutcome:\nThe student's father arrived at 11:00 AM to pick her up early. The student was released following the signing of the early dismissal form. The coordination advised the family to keep the school updated should there be a need for an extended absence.",
+          "At 10:15 AM, Anna Lee reported to the coordination office feeling unwell, complaining of abdominal pain and slight dizziness. After resting in the infirmary with no significant improvement, her family was contacted.\n\nOutcome:\nThe student's father arrived at 11:00 AM to pick her up early. The student was released following the signing of the early dismissal form. The coordination advised the family to keep the school updated should there be a need for an extended absence.",
       },
     ],
   },

@@ -74,7 +74,7 @@ function normalizeRosterStatus(raw: unknown): StudentRosterStatus {
 function formatDate(raw: unknown): string {
   const d = typeof raw === "string" ? new Date(raw) : null;
   if (!d || Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-GB", {
+  return d.toLocaleDateString("en-US", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
