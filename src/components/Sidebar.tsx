@@ -184,15 +184,10 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentInactiveStudentIcon = parentCatalogActive
     ? imgHugeiconsStudentInactive
     : imgHugeiconsStudent;
-  const parentFeedbackActive =
-    pathname.startsWith("/dashboard/parents/feedback");
   const parentScheduleActive = pathname.startsWith(PARENT_SCHEDULE_HREF);
   const parentBillingActive = pathname.startsWith("/dashboard/parents/billing");
-  const parentFeedbackStudentsContext = parentFeedbackActive;
-  const parentStudentsOpen =
-    parentStudentsNavExpanded || parentFeedbackStudentsContext;
-  const parentStudentsVisualActive =
-    parentStudentsBranchActive || parentFeedbackStudentsContext;
+  const parentStudentsOpen = parentStudentsNavExpanded;
+  const parentStudentsVisualActive = parentStudentsBranchActive;
 
   const studentProfileActive =
     pathname === studentDemoRoot || pathname === `${studentDemoRoot}/`;
@@ -766,11 +761,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
                 </Link>
-                <Link href={parentRouteHref("/dashboard/parents/feedback")} title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
-                  <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
-                  </div>
-                </Link>
               </div>
             )}
             {isClose && persona === "teacher" && (
@@ -886,11 +876,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 <Link href={parentRouteHref("/dashboard/parents/students")} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
-                  </div>
-                </Link>
-                <Link href={parentRouteHref("/dashboard/parents/feedback")} title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
-                  <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
                   </div>
                 </Link>
               </>
