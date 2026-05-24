@@ -806,6 +806,47 @@ async function insertEnrichmentRequestRows(
   return { ok: true, rows };
 }
 
+function requestSlotKey(choice: { block: string; level: string }) {
+  return `${choice.block}\u0000${choice.level}`;
+}
+
+function normalizeEnrichmentRequestChoices(
+  choices: {
+    classId: string;
+    block: string;
+    level: string;
+    option: string;
+  }[],
+) {
+  const bySlot = new Map<string, {
+    first?: { classId: string; block: string; level: string; option: "1st" };
+    second?: { classId: string; block: string; level: string; option: "2nd" };
+  }>();
+
+  for (const choice of choices) {
+    const key = requestSlotKey(choice);
+    const group = bySlot.get(key) ?? {};
+    if (choice.option === "2nd") {
+      group.second ??= { ...choice, option: "2nd" };
+    } else {
+      group.first ??= { ...choice, option: "1st" };
+    }
+    bySlot.set(key, group);
+  }
+
+  const normalized: { classId: string; block: string; level: string; option: "1st" | "2nd" }[] = [];
+  bySlot.forEach((group) => {
+    const first = group.first ?? (group.second ? { ...group.second, option: "1st" as const } : null);
+    if (!first) return;
+    normalized.push(first);
+    if (group.first && group.second && group.second.classId !== first.classId) {
+      normalized.push(group.second);
+    }
+  });
+
+  return normalized;
+}
+
 async function clearPendingEnrichmentRequestChoices(
   supabase: SupabaseMutationClient,
   input: {
@@ -817,13 +858,17 @@ async function clearPendingEnrichmentRequestChoices(
     }[];
   },
 ): Promise<WriteFail | { ok: true }> {
+  const touchedSlots = new Set<string>();
   for (const choice of input.choices) {
+    const slotKey = requestSlotKey(choice);
+    if (touchedSlots.has(slotKey)) continue;
+    touchedSlots.add(slotKey);
+
     let query = supabase
       .from("class_requests")
       .delete()
       .eq("student_id", input.studentId)
-      .eq("status", "pending")
-      .eq("option_label", choice.option);
+      .eq("status", "pending");
 
     query = choice.block ? query.eq("block", choice.block) : query.is("block", null);
     query = choice.level ? query.eq("level", choice.level) : query.is("level", null);
@@ -845,14 +890,14 @@ export async function serverInsertEnrichmentRequests(input: {
   }[];
 }): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
-  const choices = input.choices
+  const choices = normalizeEnrichmentRequestChoices(input.choices
     .map((choice) => ({
       classId: choice.classId.trim(),
       block: choice.block.trim(),
       level: choice.level.trim(),
       option: choice.option.trim(),
     }))
-    .filter((choice) => choice.classId && choice.option);
+    .filter((choice) => choice.classId && choice.option));
   if (choices.length === 0) return { ok: false, message: "No class choices submitted" };
 
   try {

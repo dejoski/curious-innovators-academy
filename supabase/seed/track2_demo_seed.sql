@@ -392,11 +392,11 @@ SELECT st.id, cl.id, pr.id, v.status::public.workflow_status, v.block, v.level, 
 FROM (VALUES
   ('Anna Lee', 'Force & Motion', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
   ('Anna Lee', 'Digital Storytelling & Animation', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
-  ('George Lee', 'Journalism & Media Writing', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
-  ('Bruna Lee', 'Creative Arts', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
+  ('George Lee', 'Journalism & Media Writing', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
+  ('Bruna Lee', 'Creative Arts', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
   ('James Smith', 'Ocean Explorers', 'parent.lee@cia.demo', 'rejected', 'B3', '3', '1st'),
   ('Bruce Collins', 'Robotics Lab', 'parent.collins@cia.demo', 'pending', 'B4', '3', '1st'),
-  ('Maria Collins', 'Journalism & Media Writing', 'parent.collins@cia.demo', 'approved', 'B4', '3', '2nd')
+  ('Maria Collins', 'Journalism & Media Writing', 'parent.collins@cia.demo', 'approved', 'B4', '3', '1st')
 ) AS v(student_name, class_name, requester_email, status, block, level, option_label)
 JOIN public.students st ON st.display_name = v.student_name
 JOIN public.classes cl ON cl.name = v.class_name

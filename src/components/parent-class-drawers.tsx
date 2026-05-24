@@ -112,6 +112,8 @@ function ChoiceDropdown({
   open,
   onToggle,
   onSelect,
+  disabled = false,
+  helperText,
 }: {
   label: string;
   value: ParentClassOption | null;
@@ -119,6 +121,8 @@ function ChoiceDropdown({
   open: boolean;
   onToggle: () => void;
   onSelect: (cls: ParentClassOption) => void;
+  disabled?: boolean;
+  helperText?: string;
 }) {
   return (
     <div>
@@ -126,8 +130,9 @@ function ChoiceDropdown({
       <div className="relative">
         <button
           type="button"
+          disabled={disabled}
           onClick={onToggle}
-          className={`flex h-[50px] w-full items-center justify-between rounded-[10px] border bg-white px-[24px] text-left text-[16px] text-[#0d0d12] ${open ? "border-[#14c1d5] ring-2 ring-[#14c1d5]/15" : "border-[#f0f0f0]"}`}
+          className={`flex h-[50px] w-full items-center justify-between rounded-[10px] border bg-white px-[24px] text-left text-[16px] text-[#0d0d12] ${open ? "border-[#14c1d5] ring-2 ring-[#14c1d5]/15" : "border-[#f0f0f0]"} disabled:cursor-not-allowed disabled:bg-[#fafafa] disabled:text-[#818898]`}
         >
           <span className="truncate">{value?.name ?? "Select a class"}</span>
           <ChevronDown className={`size-5 shrink-0 transition ${open ? "rotate-180" : ""}`} aria-hidden />
@@ -151,6 +156,7 @@ function ChoiceDropdown({
           </div>
         ) : null}
       </div>
+      {helperText ? <p className="mt-[8px] text-[12px] leading-[1.4] text-[#666d80]">{helperText}</p> : null}
     </div>
   );
 }
@@ -162,6 +168,8 @@ function ChoiceSelector({
   open,
   onToggle,
   onSelect,
+  disabled = false,
+  helperText,
 }: {
   label: string;
   value: ParentClassOption | null;
@@ -169,6 +177,8 @@ function ChoiceSelector({
   open: boolean;
   onToggle: () => void;
   onSelect: (cls: ParentClassOption) => void;
+  disabled?: boolean;
+  helperText?: string;
 }) {
   return (
     <div>
@@ -179,6 +189,8 @@ function ChoiceSelector({
         open={open}
         onToggle={onToggle}
         onSelect={onSelect}
+        disabled={disabled}
+        helperText={helperText}
       />
       <div className="mt-[12px]">
         <ParentClassSummaryCard option={value} statusLabel="Open" />
@@ -201,6 +213,7 @@ export function ParentClassSelectionDrawer({
   onSubmit,
   submitDisabled,
   submitting,
+  secondChoiceDisabled = false,
 }: {
   title: string;
   time: string;
@@ -215,6 +228,7 @@ export function ParentClassSelectionDrawer({
   onSubmit: () => void;
   submitDisabled: boolean;
   submitting: boolean;
+  secondChoiceDisabled?: boolean;
 }) {
   return (
     <div
@@ -256,9 +270,11 @@ export function ParentClassSelectionDrawer({
             label="Choose the second option"
             value={secondChoice}
             classes={secondChoiceOptions}
-            open={openChoice === "secondChoice"}
+            open={!secondChoiceDisabled && openChoice === "secondChoice"}
             onToggle={() => onToggleChoice("secondChoice")}
             onSelect={(cls) => onSelectChoice(cls, "secondChoice")}
+            disabled={secondChoiceDisabled}
+            helperText={secondChoiceDisabled ? "Choose a first option before adding a backup choice." : undefined}
           />
         </div>
 

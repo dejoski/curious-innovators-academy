@@ -28,6 +28,7 @@ import {
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
   localReviewKey,
+  normalizeParentCatalogRequests,
   readLocalReviewStatuses,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
@@ -186,7 +187,7 @@ function ParentClassesEnrichmentCatalogContent() {
       studentId: activeStudent.id,
       studentName: activeStudent.name,
     });
-    setRequests((snapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
+    setRequests(normalizeParentCatalogRequests(snapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
     setLocalSubmittedAt(snapshot.submittedAt);
     setLocalRequestState(snapshot.state);
     setLocalReviewStatuses(snapshot.reviewStatuses);
@@ -301,13 +302,14 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
     setRequests((prev) => {
-      const otherKind: ParentClassChoiceKind = kind === "firstChoice" ? "secondChoice" : "firstChoice";
       const active = prev[activeSlot];
+      const targetKind: ParentClassChoiceKind = kind === "secondChoice" && !active.firstChoice ? "firstChoice" : kind;
+      const otherKind: ParentClassChoiceKind = targetKind === "firstChoice" ? "secondChoice" : "firstChoice";
       return {
         ...prev,
         [activeSlot]: {
           ...active,
-          [kind]: cls,
+          [targetKind]: cls,
           [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
         },
       };
@@ -442,12 +444,16 @@ function ParentClassesEnrichmentCatalogContent() {
           firstChoiceOptions={firstChoiceOptions}
           secondChoiceOptions={secondChoiceOptions}
           openChoice={openChoice}
-          onToggleChoice={(kind) => setOpenChoice((open) => (open === kind ? null : kind))}
+          onToggleChoice={(kind) => {
+            if (kind === "secondChoice" && !firstChoice) return;
+            setOpenChoice((open) => (open === kind ? null : kind));
+          }}
           onSelectChoice={selectChoice}
           onClose={() => setOverlayOpen(false)}
           onSubmit={submitSelections}
           submitDisabled={!activeSlotHasChoices}
           submitting={submitting}
+          secondChoiceDisabled={!firstChoice}
         />
       ) : null}
     </div>

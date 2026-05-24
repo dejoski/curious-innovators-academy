@@ -51,12 +51,36 @@ export function dispatchParentCatalogUpdated() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event("cia-parent-catalog-updated"));
 }
 
+function normalizeChoice(choice: ParentCatalogChoice | null | undefined): ParentCatalogChoice | null {
+  if (!choice?.id && !choice?.name) return null;
+  return { ...choice };
+}
+
+function normalizeSlotRequest(raw: ParentCatalogSlotRequest | null | undefined): ParentCatalogSlotRequest {
+  const firstChoice = normalizeChoice(raw?.firstChoice);
+  const secondChoice = normalizeChoice(raw?.secondChoice);
+
+  if (!firstChoice && secondChoice) {
+    return { firstChoice: secondChoice, secondChoice: null };
+  }
+
+  if (firstChoice?.id && secondChoice?.id && firstChoice.id === secondChoice.id) {
+    return { firstChoice, secondChoice: null };
+  }
+
+  return { firstChoice, secondChoice };
+}
+
 function normalizeRequests(raw: unknown): ParentCatalogRequests {
   const value = raw && typeof raw === "object" ? (raw as Partial<ParentCatalogRequests>) : {};
   return {
-    block3_day3: value.block3_day3 ?? INITIAL_PARENT_CATALOG_REQUESTS.block3_day3,
-    block4_day3: value.block4_day3 ?? INITIAL_PARENT_CATALOG_REQUESTS.block4_day3,
+    block3_day3: normalizeSlotRequest(value.block3_day3),
+    block4_day3: normalizeSlotRequest(value.block4_day3),
   };
+}
+
+export function normalizeParentCatalogRequests(requests: ParentCatalogRequests | null | undefined): ParentCatalogRequests {
+  return normalizeRequests(requests);
 }
 
 export function readLocalReviewStatuses(): LocalReviewStatuses {
@@ -147,7 +171,7 @@ export function writePendingParentCatalogRequests(
   identity: ParentCatalogIdentity = {},
 ) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(PARENT_CATALOG_PENDING_KEY, JSON.stringify({ requests, ...identity }));
+  window.sessionStorage.setItem(PARENT_CATALOG_PENDING_KEY, JSON.stringify({ requests: normalizeRequests(requests), ...identity }));
   dispatchParentCatalogUpdated();
 }
 
@@ -189,7 +213,7 @@ export function writeSubmittedParentCatalogSnapshot(
   if (typeof window === "undefined") return null;
   const submittedAt = new Date().toISOString();
   window.sessionStorage.removeItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-  window.sessionStorage.setItem(PARENT_CATALOG_SUBMITTED_KEY, JSON.stringify({ requests, submittedAt, ...identity }));
+  window.sessionStorage.setItem(PARENT_CATALOG_SUBMITTED_KEY, JSON.stringify({ requests: normalizeRequests(requests), submittedAt, ...identity }));
   dispatchParentCatalogUpdated();
   return submittedAt;
 }
@@ -199,9 +223,10 @@ export function catalogChoiceReviews(
   reviewStatuses: LocalReviewStatuses,
 ): LocalCatalogChoiceReview[] {
   if (!requests) return [];
+  const normalizedRequests = normalizeRequests(requests);
   const rows: LocalCatalogChoiceReview[] = [];
   (Object.keys(CATALOG_SLOT_META) as CatalogSlotId[]).forEach((slotId) => {
-    const slot = requests[slotId];
+    const slot = normalizedRequests[slotId];
     const meta = CATALOG_SLOT_META[slotId];
     const add = (kind: "first" | "second", choice: ParentCatalogChoice | null | undefined) => {
       if (!choice?.name) return;
@@ -239,14 +264,15 @@ export function catalogBadgesForSlot(
 }
 
 export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolean {
-  return Object.values(requests).some((slot) => Boolean(slot.firstChoice?.id || slot.firstChoice?.name || slot.secondChoice?.id || slot.secondChoice?.name));
+  return Object.values(normalizeRequests(requests)).some((slot) => Boolean(slot.firstChoice?.id || slot.firstChoice?.name));
 }
 
 export function selectedChoicesForSubmit(requests: ParentCatalogRequests) {
-  return (Object.entries(requests) as [CatalogSlotId, ParentCatalogSlotRequest][]).flatMap(([slotId, slot]) => {
+  return (Object.entries(normalizeRequests(requests)) as [CatalogSlotId, ParentCatalogSlotRequest][]).flatMap(([slotId, slot]) => {
     const meta = CATALOG_SLOT_META[slotId];
+    if (!slot.firstChoice) return [];
     return [
-      slot.firstChoice ? { classId: slot.firstChoice.id ?? "", block: meta.block, level: meta.level, option: "1st" } : null,
+      { classId: slot.firstChoice.id ?? "", block: meta.block, level: meta.level, option: "1st" },
       slot.secondChoice ? { classId: slot.secondChoice.id ?? "", block: meta.block, level: meta.level, option: "2nd" } : null,
     ].filter((choice): choice is { classId: string; block: string; level: string; option: string } => Boolean(choice?.classId));
   });
