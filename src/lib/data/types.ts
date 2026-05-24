@@ -166,6 +166,12 @@ export type ScheduleCalendarEvent = {
   description?: string;
   /** Optional display order when time alone is ambiguous, e.g. parent block schedules. */
   sortOrder?: number;
+  /** Canonical class details when a calendar item represents an actual class row. */
+  classDetails?: SchoolClassRow;
+  /** Parent-facing workflow state for class-derived calendar items. */
+  statusLabel?: string;
+  /** Parent schedule slot label when the event comes from a student schedule block. */
+  scheduleSlotLabel?: string;
 };
 
 /** Teachers list (/dashboard/teachers). */

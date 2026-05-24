@@ -1,9 +1,11 @@
-import type { StudentScheduleRow } from "@/lib/data/types";
+import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
 import {
+  CATALOG_SLOT_META,
   SLOT_START_TIME,
   SLOT_TO_WEEKDAY,
   eventTypeFromBadgeTone,
+  catalogSlotIdFromScheduleSlot,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
 
@@ -28,9 +30,47 @@ function addEvent(target: Record<string, CalendarEvent[]>, key: string, event: C
   target[key] = [...(target[key] ?? []), event];
 }
 
-export function studentScheduleToMonthEvents(row: StudentScheduleRow | null): Record<string, CalendarEvent[]> {
+function normalizedClassName(label: string): string {
+  return label
+    .replace(/^Rejected 2nd:\s*/i, "")
+    .replace(/^Rejected:\s*/i, "")
+    .replace(/^2nd:\s*/i, "")
+    .replace(/\s+-\s+(Core|Enrichment)$/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+function cleanClassName(label: string): string {
+  return label
+    .replace(/^Rejected 2nd:\s*/i, "")
+    .replace(/^Rejected:\s*/i, "")
+    .replace(/^2nd:\s*/i, "")
+    .replace(/\s+-\s+(Core|Enrichment)$/i, "")
+    .trim();
+}
+
+function classMap(classes: SchoolClassRow[] = []) {
+  return new Map(classes.map((row) => [normalizedClassName(row.name), row]));
+}
+
+function statusLabelForBadge(badge: StudentScheduleBadge): string {
+  if (badge.tone === "core") return "School assigned";
+  if (badge.tone === "approved") return "Approved";
+  if (badge.tone === "pending") return "Pending approval";
+  if (badge.tone === "waitlisted") return "Waitlisted";
+  if (badge.tone === "draft") return "Draft choice";
+  return "Open";
+}
+
+function slotLabel(slot: ParentScheduleSlotKey): string {
+  const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
+  return catalogSlot ? CATALOG_SLOT_META[catalogSlot].label : slot;
+}
+
+export function studentScheduleToMonthEvents(row: StudentScheduleRow | null, classes: SchoolClassRow[] = []): Record<string, CalendarEvent[]> {
   if (!row) return {};
   const events: Record<string, CalendarEvent[]> = {};
+  const byClassName = classMap(classes);
   const daysInMonth = new Date(FEB_2026.year, FEB_2026.monthIndex + 1, 0).getDate();
   for (const [slot, weekdays] of Object.entries(SLOT_TO_WEEKDAY) as [ParentScheduleSlotKey, number[]][]) {
     const badges = row[slot].filter((badge) => badge.tone !== "empty" && badge.label !== "--");
@@ -39,13 +79,18 @@ export function studentScheduleToMonthEvents(row: StudentScheduleRow | null): Re
       const d = new Date(FEB_2026.year, FEB_2026.monthIndex, day);
       if (!weekdays.includes(d.getDay())) continue;
       for (const [index, badge] of badges.entries()) {
+        const className = cleanClassName(badge.label);
+        const details = byClassName.get(normalizedClassName(badge.label));
         addEvent(events, dateKey(FEB_2026.year, FEB_2026.monthIndex, day), {
           id: `${row.id}-${slot}-${day}-${index}`,
           time: SLOT_START_TIME[slot],
-          title: badge.label,
+          title: className || badge.label,
           type: eventTypeFromBadgeTone(badge.tone),
-          description: `${row.name} · ${slot}`,
+          description: details?.description || `${row.name} · ${slotLabel(slot)}`,
           sortOrder: SLOT_DISPLAY_ORDER[slot] + index,
+          classDetails: details,
+          statusLabel: statusLabelForBadge(badge),
+          scheduleSlotLabel: slotLabel(slot),
         });
       }
     }

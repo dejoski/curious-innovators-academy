@@ -13,12 +13,13 @@ import {
   mergeCalendarEvents,
   studentScheduleToMonthEvents,
 } from "@/lib/parent-schedule-month-events";
-import type { DataSource, StudentListItem, StudentScheduleRow } from "@/lib/data";
+import type { DataSource, SchoolClassRow, StudentListItem, StudentScheduleRow } from "@/lib/data";
 import ScheduleMonth from "../../schedule/schedule-client";
 
 type StudentsBody = { students?: StudentListItem[]; source?: DataSource };
 type StudentScheduleBody = { rows?: StudentScheduleRow[]; source?: DataSource };
 type ScheduleExtrasBody = { extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource };
+type ClassesBody = { classes?: SchoolClassRow[]; source?: DataSource };
 
 type ParentScheduleState = {
   eventsByDate: Record<string, CalendarEvent[]>;
@@ -35,6 +36,7 @@ function composeParentScheduleState(
   studentsBody: StudentsBody | null,
   scheduleBody: StudentScheduleBody | null,
   extrasBody: ScheduleExtrasBody | null,
+  classesBody: ClassesBody | null,
   requestedStudentId: string,
 ): ParentScheduleState {
   const selectedStudent = resolveRequestedStudent(studentsBody?.students ?? [], requestedStudentId);
@@ -42,10 +44,10 @@ function composeParentScheduleState(
   return {
     eventsByDate: mergeCalendarEvents(
       extrasBody?.extrasByDate ?? {},
-      studentScheduleToMonthEvents(scheduleRow),
+      studentScheduleToMonthEvents(scheduleRow, classesBody?.classes ?? []),
     ),
-    source: scheduleBody?.source ?? extrasBody?.source ?? studentsBody?.source ?? "unavailable",
-    ready: Boolean(studentsBody && scheduleBody && extrasBody),
+    source: scheduleBody?.source ?? extrasBody?.source ?? classesBody?.source ?? studentsBody?.source ?? "unavailable",
+    ready: Boolean(studentsBody && scheduleBody && extrasBody && classesBody),
     studentId: selectedStudent?.id ?? null,
   };
 }
@@ -57,7 +59,8 @@ function readCachedParentScheduleState(requestedStudentId: string): ParentSchedu
     ? peekCachedJson<StudentScheduleBody>(`/api/data/students/${encodeURIComponent(selectedStudent.id)}/schedule`)
     : null;
   const extrasBody = peekCachedJson<ScheduleExtrasBody>("/api/data/schedule-extras");
-  return composeParentScheduleState(studentsBody, scheduleBody, extrasBody, requestedStudentId);
+  const classesBody = peekCachedJson<ClassesBody>("/api/data/classes");
+  return composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, requestedStudentId);
 }
 
 export default function ParentScheduleClient() {
@@ -92,14 +95,15 @@ export default function ParentScheduleClient() {
       try {
         const studentsBody = await cachedJson<StudentsBody>("/api/data/students");
         const selectedStudent = resolveRequestedStudent(studentsBody.students ?? [], requestedStudentId);
-        const [scheduleBody, extrasBody] = await Promise.all([
+        const [scheduleBody, extrasBody, classesBody] = await Promise.all([
           selectedStudent
             ? cachedJson<StudentScheduleBody>(`/api/data/students/${encodeURIComponent(selectedStudent.id)}/schedule`)
             : Promise.resolve<StudentScheduleBody>({ rows: [], source: studentsBody.source ?? "unavailable" }),
           cachedJson<ScheduleExtrasBody>("/api/data/schedule-extras"),
+          cachedJson<ClassesBody>("/api/data/classes"),
         ]);
         if (cancelled) return;
-        setScheduleState(composeParentScheduleState(studentsBody, scheduleBody, extrasBody, requestedStudentId));
+        setScheduleState(composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, requestedStudentId));
         setLoadError(null);
       } catch (error) {
         if (!cancelled) {
