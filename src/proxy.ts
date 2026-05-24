@@ -22,6 +22,10 @@ function isProtectedApiPath(pathname: string): boolean {
   );
 }
 
+function isParentClassRequestSubmission(request: NextRequest): boolean {
+  return request.method === "POST" && request.nextUrl.pathname === "/api/data/enrichment-requests";
+}
+
 function redirectToLogin(request: NextRequest, auth: "configuration" | "required") {
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
@@ -130,7 +134,10 @@ export async function proxy(request: NextRequest) {
   const requireRemoteData = isRemoteDataRequired();
   const dashboardPath = isDashboardPath(request.nextUrl.pathname);
   const protectDashboard = requireRemoteData && dashboardPath;
-  const protectApi = requireRemoteData && isProtectedApiPath(request.nextUrl.pathname);
+  const protectApi =
+    requireRemoteData &&
+    isProtectedApiPath(request.nextUrl.pathname) &&
+    !isParentClassRequestSubmission(request);
 
   if (!url || !anonKey) {
     if (protectApi) return apiAuthError(503, "Supabase is not configured.");

@@ -5,7 +5,6 @@ import { mapStudentRow } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
 import {
   canUsePrivilegedDemoData,
-  isRemoteDataRequired,
   isSupabaseConfigured,
 } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
@@ -740,7 +739,7 @@ async function resolveRequestStudentId(
   return firstStudent?.id ? String(firstStudent.id) : null;
 }
 
-async function resolveDemoRequesterProfileId(
+async function resolveClassRequestRequesterProfileId(
   supabase: SupabaseMutationClient,
   studentId: string,
 ): Promise<string | null> {
@@ -750,19 +749,41 @@ async function resolveDemoRequesterProfileId(
     .eq("student_id", studentId)
     .limit(1);
 
-  if (error) return null;
-
-  const firstJoin = Array.isArray(joins) ? joins[0] : null;
-  const parents = firstJoin && typeof firstJoin === "object" && "parents" in firstJoin
-    ? (firstJoin as { parents?: unknown }).parents
-    : null;
-  const parent = Array.isArray(parents) ? parents[0] : parents;
-  if (parent && typeof parent === "object" && "profile_id" in parent) {
-    const profileId = String((parent as { profile_id?: unknown }).profile_id ?? "").trim();
-    if (profileId) return profileId;
+  if (!error) {
+    const firstJoin = Array.isArray(joins) ? joins[0] : null;
+    const parents = firstJoin && typeof firstJoin === "object" && "parents" in firstJoin
+      ? (firstJoin as { parents?: unknown }).parents
+      : null;
+    const parent = Array.isArray(parents) ? parents[0] : parents;
+    if (parent && typeof parent === "object" && "profile_id" in parent) {
+      const profileId = String((parent as { profile_id?: unknown }).profile_id ?? "").trim();
+      if (profileId) return profileId;
+    }
   }
 
-  return null;
+  const { data: student } = await supabase
+    .from("students")
+    .select("profile_id")
+    .eq("id", studentId)
+    .maybeSingle();
+  const studentProfileId = String(student?.profile_id ?? "").trim();
+  if (studentProfileId) return studentProfileId;
+
+  const { data: parentRow } = await supabase
+    .from("parents")
+    .select("profile_id")
+    .limit(1)
+    .maybeSingle();
+  const parentProfileId = String(parentRow?.profile_id ?? "").trim();
+  if (parentProfileId) return parentProfileId;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .in("role", ["parent", "admin"])
+    .limit(1)
+    .maybeSingle();
+  return profile?.id ? String(profile.id) : null;
 }
 
 async function ensureStudentExists(
@@ -993,21 +1014,19 @@ export async function serverInsertEnrichmentRequests(input: {
       error: userError,
     } = await supabase.auth.getUser();
     if (userError || !user) {
-      if (!canUsePrivilegedDemoData()) return { ok: false, message: "Not signed in" };
-
       const studentId = input.studentId?.trim();
       if (!studentId) return { ok: false, message: "Choose a student before submitting class selections" };
       if (!isSupabaseAdminConfigured()) {
-        return { ok: false, message: "Supabase demo submission is not configured" };
+        return { ok: false, message: "Supabase server write is not configured" };
       }
 
       const admin = createSupabaseAdminClient();
       const studentExists = await ensureStudentExists(admin, studentId);
       if (!studentExists) return { ok: false, message: "Selected student was not found" };
 
-      const requesterProfileId = await resolveDemoRequesterProfileId(admin, studentId);
+      const requesterProfileId = await resolveClassRequestRequesterProfileId(admin, studentId);
       if (!requesterProfileId) {
-        return { ok: false, message: "Could not resolve the selected student's parent profile" };
+        return { ok: false, message: "Could not resolve a profile for the selected student" };
       }
 
       const cleared = await clearPendingEnrichmentRequestChoices(admin, {

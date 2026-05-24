@@ -12,6 +12,12 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const apiDir = path.join(root, "src", "app", "api");
 const violations = [];
+const routeMethodAuthAllowlist = new Map([
+  [
+    path.join("src", "app", "api", "data", "enrichment-requests", "route.ts"),
+    new Set(["POST"]),
+  ],
+]);
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -82,6 +88,7 @@ for (const file of walk(apiDir)) {
       continue;
     }
     const body = source.slice(open, close);
+    if (routeMethodAuthAllowlist.get(rel)?.has(method)) continue;
     if (!body.includes("requireRemoteApiSession()")) {
       violations.push(`${rel}: ${method} lacks route-level requireRemoteApiSession guard`);
     }
