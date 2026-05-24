@@ -139,6 +139,15 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   function parentRouteHref(href: string) {
     return withParentStudentParam(href, selectedParentStudentId);
   }
+  const brandHref =
+    inParentRoutes || persona === "parent"
+      ? parentRouteHref("/dashboard/parents/home")
+      : persona === "teacher"
+        ? "/dashboard/teachers"
+        : persona === "student"
+          ? studentDemoRoot
+          : "/dashboard";
+
   function adminAllClassesPath(p: string) {
     if (p === "/dashboard/classes") return true;
     if (!p.startsWith("/dashboard/classes/")) return false;
@@ -220,7 +229,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
         <div className={`content-stretch flex items-center p-[12px] relative shrink-0 w-full ${isCloseOrWTooltip ? "flex-col gap-[8px]" : ""}`} id={isWTooltip ? "node-8_1124" : isClose ? "node-8_1089" : "node-8_1043"} data-name="Header Content">
           {isCloseOrWTooltip && (
             <>
-              <div className="relative shrink-0 size-[32px]" id={isWTooltip ? "node-8_1125" : "node-8_1090"}>
+              <Link
+                href={brandHref}
+                aria-label="Go to dashboard"
+                title="Dashboard"
+                className="relative block shrink-0 size-[32px] rounded-[8px] transition-colors hover:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35"
+                id={isWTooltip ? "node-8_1125" : "node-8_1090"}
+              >
                 {isClose && (
                   <div className="absolute contents left-0 top-0" data-node-id="8:1091" data-name="Group">
                     <div className="absolute h-[32px] left-0 overflow-clip top-0 w-[142px]" data-node-id="8:1525" data-name="logo-1 1">
@@ -241,7 +256,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   </div>
                 )}
-              </div>
+              </Link>
               <button
                 onClick={toggleSidebar}
                 type="button"
@@ -260,7 +275,14 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
           )}
           {isOpen && (
             <>
-              <div className="content-stretch flex flex-[1_0_0] gap-[10px] items-center min-w-px relative" data-node-id="8:1044" data-name="Logo and Title">
+              <Link
+                href={brandHref}
+                aria-label="Go to dashboard"
+                title="Dashboard"
+                className="content-stretch flex flex-[1_0_0] gap-[10px] items-center min-w-px relative rounded-[8px] transition-colors hover:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35"
+                data-node-id="8:1044"
+                data-name="Logo and Title"
+              >
                 <div className="h-[32px] overflow-clip relative shrink-0 w-[142px]" data-node-id="8:1520" data-name="logo-1 2">
                   <div className="absolute contents left-0 top-[-1px]" data-node-id="8:1521">
                     <div className="absolute h-[23.574px] left-[35.05px] top-[3.71px] w-[98.949px]" data-node-id="8:1522" data-name="ChatGPT Image 23_01_2026, 14_19_37-Photoroom 1">
@@ -275,7 +297,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
               <button
                 onClick={toggleSidebar}
                 type="button"
