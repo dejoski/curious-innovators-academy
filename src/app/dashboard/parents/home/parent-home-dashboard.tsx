@@ -486,7 +486,7 @@ export default function ParentHomeDashboard() {
       const res = await fetch("/api/data/enrichment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ choices }),
+        body: JSON.stringify({ studentId: activeStudentId, choices }),
       });
       let warningMessage: string | null = null;
       if (!res.ok) {

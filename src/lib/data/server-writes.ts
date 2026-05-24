@@ -3,7 +3,8 @@ import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { isRemoteDataRequired, isSupabaseConfigured } from "@/lib/data/env";
+import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import type {
   ClassRosterStatus,
   ClassRosterStudent,
@@ -14,10 +15,15 @@ import type {
   StudentListItem,
   TeacherRow,
 } from "@/lib/data/types";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type WriteFail = { ok: false; message: string };
 export type WriteOk<T> = { ok: true; row: T };
+
+type SupabaseMutationClient =
+  | Awaited<ReturnType<typeof createSupabaseServerClient>>
+  | ReturnType<typeof createSupabaseAdminClient>;
 
 function parseStudentsFraction(label: string): { enrolled: number; capacity: number } {
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
@@ -690,7 +696,7 @@ const requestSelect = `
 `;
 
 async function resolveRequestStudentId(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supabase: SupabaseMutationClient,
   requestedByProfileId: string,
   explicitStudentId?: string,
 ): Promise<string | null> {
@@ -723,6 +729,108 @@ async function resolveRequestStudentId(
   return firstStudent?.id ? String(firstStudent.id) : null;
 }
 
+async function resolveDemoRequesterProfileId(
+  supabase: SupabaseMutationClient,
+  studentId: string,
+): Promise<string | null> {
+  const { data: joins, error } = await supabase
+    .from("parent_students")
+    .select("parents ( profile_id )")
+    .eq("student_id", studentId)
+    .limit(1);
+
+  if (error) return null;
+
+  const firstJoin = Array.isArray(joins) ? joins[0] : null;
+  const parents = firstJoin && typeof firstJoin === "object" && "parents" in firstJoin
+    ? (firstJoin as { parents?: unknown }).parents
+    : null;
+  const parent = Array.isArray(parents) ? parents[0] : parents;
+  if (parent && typeof parent === "object" && "profile_id" in parent) {
+    const profileId = String((parent as { profile_id?: unknown }).profile_id ?? "").trim();
+    if (profileId) return profileId;
+  }
+
+  return null;
+}
+
+async function ensureStudentExists(
+  supabase: SupabaseMutationClient,
+  studentId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("students")
+    .select("id")
+    .eq("id", studentId)
+    .maybeSingle();
+  return Boolean(!error && data);
+}
+
+async function insertEnrichmentRequestRows(
+  supabase: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    requestedByProfileId: string;
+    choices: {
+      classId: string;
+      block: string;
+      level: string;
+      option: string;
+    }[];
+  },
+): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
+  const payload = input.choices.map((choice) => ({
+    student_id: input.studentId,
+    class_id: choice.classId,
+    requested_by_profile_id: input.requestedByProfileId,
+    status: "pending" as const,
+    block: choice.block || null,
+    level: choice.level || null,
+    option_label: choice.option,
+  }));
+
+  const { data, error } = await supabase
+    .from("class_requests")
+    .insert(payload)
+    .select(requestSelect);
+  if (error) return { ok: false, message: error.message };
+
+  const rows = (data ?? [])
+    .map((row) => mapRequestRow(row as unknown as Record<string, unknown>))
+    .filter((x): x is EnrichmentRequestRow => x !== null);
+  if (rows.length === 0) return { ok: false, message: "No request rows returned" };
+  return { ok: true, rows };
+}
+
+async function clearPendingEnrichmentRequestChoices(
+  supabase: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    choices: {
+      block: string;
+      level: string;
+      option: string;
+    }[];
+  },
+): Promise<WriteFail | { ok: true }> {
+  for (const choice of input.choices) {
+    let query = supabase
+      .from("class_requests")
+      .delete()
+      .eq("student_id", input.studentId)
+      .eq("status", "pending")
+      .eq("option_label", choice.option);
+
+    query = choice.block ? query.eq("block", choice.block) : query.is("block", null);
+    query = choice.level ? query.eq("level", choice.level) : query.is("level", null);
+
+    const { error } = await query;
+    if (error) return { ok: false, message: error.message };
+  }
+
+  return { ok: true };
+}
+
 export async function serverInsertEnrichmentRequests(input: {
   studentId?: string;
   choices: {
@@ -749,38 +857,53 @@ export async function serverInsertEnrichmentRequests(input: {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
-    if (userError || !user) return { ok: false, message: "Not signed in" };
+    if (userError || !user) {
+      if (isRemoteDataRequired()) return { ok: false, message: "Not signed in" };
+
+      const studentId = input.studentId?.trim();
+      if (!studentId) return { ok: false, message: "Choose a student before submitting class selections" };
+      if (!isSupabaseAdminConfigured()) {
+        return { ok: false, message: "Supabase demo submission is not configured" };
+      }
+
+      const admin = createSupabaseAdminClient();
+      const studentExists = await ensureStudentExists(admin, studentId);
+      if (!studentExists) return { ok: false, message: "Selected student was not found" };
+
+      const requesterProfileId = await resolveDemoRequesterProfileId(admin, studentId);
+      if (!requesterProfileId) {
+        return { ok: false, message: "Could not resolve the selected student's parent profile" };
+      }
+
+      const cleared = await clearPendingEnrichmentRequestChoices(admin, {
+        studentId,
+        choices,
+      });
+      if (!cleared.ok) return cleared;
+
+      return insertEnrichmentRequestRows(admin, {
+        studentId,
+        requestedByProfileId: requesterProfileId,
+        choices,
+      });
+    }
 
     const studentId = await resolveRequestStudentId(supabase, user.id, input.studentId);
     if (!studentId) return { ok: false, message: "Could not resolve a student for this request" };
 
-    const payload = choices.map((choice) => ({
-      student_id: studentId,
-      class_id: choice.classId,
-      requested_by_profile_id: user.id,
-      status: "pending" as const,
-      block: choice.block || null,
-      level: choice.level || null,
-      option_label: choice.option,
-    }));
-
-    const { data, error } = await supabase
-      .from("class_requests")
-      .insert(payload)
-      .select(requestSelect);
-    if (error) return { ok: false, message: error.message };
-
-    const rows = (data ?? [])
-      .map((row) => mapRequestRow(row as unknown as Record<string, unknown>))
-      .filter((x): x is EnrichmentRequestRow => x !== null);
-    if (rows.length === 0) return { ok: false, message: "No request rows returned" };
+    const result = await insertEnrichmentRequestRows(supabase, {
+      studentId,
+      requestedByProfileId: user.id,
+      choices,
+    });
+    if (!result.ok) return result;
     await writeAuditEvent(supabase, {
       action: "class_request.create",
       entityType: "class_request",
-      entityId: rows.map((row) => row.id).join(","),
-      metadata: { count: rows.length, studentId },
+      entityId: result.rows.map((row) => row.id).join(","),
+      metadata: { count: result.rows.length, studentId },
     });
-    return { ok: true, rows };
+    return result;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };

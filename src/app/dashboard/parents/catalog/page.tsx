@@ -337,7 +337,7 @@ function ParentClassesEnrichmentCatalogContent() {
       const res = await fetch("/api/data/enrichment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ choices: selectedChoices }),
+        body: JSON.stringify({ studentId: activeStudent?.id, choices: selectedChoices }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
