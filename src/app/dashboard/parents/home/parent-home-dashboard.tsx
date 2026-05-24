@@ -10,6 +10,7 @@ import {
   ParentClassSelectionDrawer,
   classOptionForScheduleBadge,
   fallbackParentClassOption,
+  parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
   type ParentClassChoiceKind,
   type ParentClassOption,
@@ -43,6 +44,7 @@ import {
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
 import {
+  CATALOG_SLOT_IDS,
   CATALOG_SLOT_META as SLOT_META,
   catalogSlotIdFromScheduleSlot,
   type CatalogSlotId,
@@ -368,12 +370,12 @@ export default function ParentHomeDashboard() {
   }, [schedule]);
 
   const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
-    const draftB3 = catalogBadgesForSlot(catalogDraft, "block3_day3", localReviewStatuses, localRequestState);
-    const draftB4 = catalogBadgesForSlot(catalogDraft, "block4_day3", localReviewStatuses, localRequestState);
-    return buildParentScheduleBadges(selectedSchedule, {
-      ...(draftB3.length ? { b3Thu: draftB3 } : {}),
-      ...(draftB4.length ? { b4Thu: draftB4 } : {}),
-    });
+    const draftOverrides = CATALOG_SLOT_IDS.reduce<ParentScheduleBadges>((overrides, slotId) => {
+      const badges = catalogBadgesForSlot(catalogDraft, slotId, localReviewStatuses, localRequestState);
+      if (badges.length) overrides[SLOT_META[slotId].scheduleSlot] = badges;
+      return overrides;
+    }, {});
+    return buildParentScheduleBadges(selectedSchedule, draftOverrides);
   }, [catalogDraft, localRequestState, localReviewStatuses, selectedSchedule]);
 
   const catalogIdentity = useMemo<ParentCatalogIdentity>(
@@ -411,11 +413,8 @@ export default function ParentHomeDashboard() {
   const firstChoice = resolveStoredChoice(activeRequests.firstChoice);
   const secondChoice = resolveStoredChoice(activeRequests.secondChoice);
   const recommendedClasses = useMemo(() => {
-    if (enrichmentOptions.length <= 3) return enrichmentOptions;
-    const blockNumber = activeMeta.block.replace("B", "");
-    const direct = enrichmentOptions.filter((option) => option.block.includes(blockNumber));
-    return direct.length ? direct : enrichmentOptions;
-  }, [activeMeta.block, enrichmentOptions]);
+    return parentClassOptionsForCatalogSlot(enrichmentOptions, activeMeta);
+  }, [activeMeta, enrichmentOptions]);
   const overlayClasses = recommendedClasses.length ? recommendedClasses : enrichmentOptions;
   const firstChoiceOptions = overlayClasses.filter((option) => option.id !== secondChoice?.id);
   const secondChoiceOptions = overlayClasses.filter((option) => option.id !== firstChoice?.id);
@@ -463,13 +462,14 @@ export default function ParentHomeDashboard() {
   }
 
   function selectHomeChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
-    const otherKind: ParentClassChoiceKind = kind === "firstChoice" ? "secondChoice" : "firstChoice";
     const active = homeCatalogRequests[activeSlot];
+    const targetKind: ParentClassChoiceKind = kind === "secondChoice" && !active.firstChoice ? "firstChoice" : kind;
+    const otherKind: ParentClassChoiceKind = targetKind === "firstChoice" ? "secondChoice" : "firstChoice";
     persistHomeDraft({
       ...homeCatalogRequests,
       [activeSlot]: {
         ...active,
-        [kind]: cls,
+        [targetKind]: cls,
         [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
       },
     });
@@ -662,12 +662,16 @@ export default function ParentHomeDashboard() {
           firstChoiceOptions={firstChoiceOptions}
           secondChoiceOptions={secondChoiceOptions}
           openChoice={openChoice}
-          onToggleChoice={(kind) => setOpenChoice((open) => (open === kind ? null : kind))}
+          onToggleChoice={(kind) => {
+            if (kind === "secondChoice" && !firstChoice) return;
+            setOpenChoice((open) => (open === kind ? null : kind));
+          }}
           onSelectChoice={selectHomeChoice}
           onClose={() => setSelectionDrawerOpen(false)}
           onSubmit={submitHomeSelections}
           submitDisabled={!activeSlotHasChoices}
           submitting={submitting}
+          secondChoiceDisabled={!firstChoice}
         />
       ) : null}
       {detailClass ? (

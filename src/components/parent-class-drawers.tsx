@@ -77,6 +77,27 @@ export function classOptionForScheduleBadge(
   );
 }
 
+export function parentClassOptionsForCatalogSlot(
+  options: ParentClassOption[],
+  slot: { block: string; level: string },
+): ParentClassOption[] {
+  const blockNumber = slot.block.match(/\d+/)?.[0] ?? "";
+  const dayNumber = slot.level.match(/\d+/)?.[0] ?? "";
+  const textFor = (option: ParentClassOption) => `${option.block} ${option.schedule ?? ""}`.toLowerCase();
+  const matchesBlock = (option: ParentClassOption) => {
+    const text = textFor(option);
+    return text.includes(`block ${blockNumber}`) || text.includes(`b${blockNumber}`);
+  };
+  const matchesDay = (option: ParentClassOption) => {
+    const text = textFor(option);
+    return text.includes(`day ${dayNumber}`);
+  };
+  const exact = options.filter((option) => matchesBlock(option) && matchesDay(option));
+  if (exact.length) return exact;
+  const blockOnly = options.filter(matchesBlock);
+  return blockOnly.length ? blockOnly : options;
+}
+
 export function ParentClassSummaryCard({
   option,
   statusLabel,

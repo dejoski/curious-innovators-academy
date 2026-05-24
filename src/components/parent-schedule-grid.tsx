@@ -5,7 +5,7 @@ import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types"
 import {
   PARENT_SCHEDULE_DAYS,
   PARENT_SCHEDULE_ROWS,
-  isSelectableCatalogSlot,
+  catalogSlotIdFromScheduleSlot,
   type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
@@ -65,7 +65,8 @@ function SlotCell({
 }) {
   const visible = badges.length ? badges : [{ label: "Available slot", tone: "empty" as const }];
   const isEmpty = visible.every((badge) => badge.tone === "empty");
-  const clickable = Boolean(onSlotClick) && isSelectableCatalogSlot(slot);
+  const catalogSlotId = catalogSlotIdFromScheduleSlot(slot);
+  const clickable = Boolean(onSlotClick) && Boolean(catalogSlotId);
   const content = (
     <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-1.5 min-[1100px]:gap-2" : ""}`}>
       {visible.map((badge, index) => (
@@ -87,7 +88,11 @@ function SlotCell({
   );
 
   return (
-    <div className={`min-w-0 border border-[#e8ebf0] bg-white p-1.5 min-[1100px]:p-2 ${tall ? "h-[156px]" : "h-[74px] min-[1100px]:h-[76px]"}`}>
+    <div
+      data-schedule-slot={slot}
+      data-catalog-slot={catalogSlotId ?? undefined}
+      className={`min-w-0 border border-[#e8ebf0] bg-white p-1.5 min-[1100px]:p-2 ${tall ? "h-[156px]" : "h-[74px] min-[1100px]:h-[76px]"}`}
+    >
       {clickable && isEmpty ? (
         <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[6px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-2 hover:ring-[#14c1d5]/35"}`}>
           <div className="flex h-full flex-col justify-center px-2 min-[1100px]:px-3">

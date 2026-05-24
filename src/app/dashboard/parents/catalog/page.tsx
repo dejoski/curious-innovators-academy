@@ -7,6 +7,7 @@ import { ArrowRight, Info, Lightbulb } from "lucide-react";
 
 import {
   ParentClassSelectionDrawer,
+  parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
   type ParentClassChoiceKind,
   type ParentClassOption,
@@ -40,6 +41,7 @@ import {
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
 import {
+  CATALOG_SLOT_IDS,
   CATALOG_SLOT_META as SLOT_META,
   catalogSlotIdFromScheduleSlot,
   type CatalogSlotId,
@@ -247,12 +249,12 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
-    const block3 = draftSlotBadges(requests.block3_day3, "block3_day3");
-    const block4 = draftSlotBadges(requests.block4_day3, "block4_day3");
-    return buildParentScheduleBadges(studentSchedule, {
-      ...(block3.length ? { b3Thu: block3 } : {}),
-      ...(block4.length ? { b4Thu: block4 } : {}),
-    });
+    const draftOverrides = CATALOG_SLOT_IDS.reduce<ParentScheduleBadges>((overrides, slotId) => {
+      const badges = draftSlotBadges(requests[slotId], slotId);
+      if (badges.length) overrides[SLOT_META[slotId].scheduleSlot] = badges;
+      return overrides;
+    }, {});
+    return buildParentScheduleBadges(studentSchedule, draftOverrides);
   }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
 
     const selectedChoices = useMemo(
@@ -265,11 +267,8 @@ function ParentClassesEnrichmentCatalogContent() {
   const activeRequests = requests[activeSlot];
 
   const recommendedClasses = useMemo(() => {
-    if (availableClasses.length <= 3) return availableClasses;
-    const blockNumber = activeMeta.block.replace("B", "");
-    const direct = availableClasses.filter((cls) => cls.block.includes(blockNumber));
-    return direct.length ? direct : availableClasses;
-  }, [activeMeta.block, availableClasses]);
+    return parentClassOptionsForCatalogSlot(availableClasses, activeMeta);
+  }, [activeMeta, availableClasses]);
 
   const overlayClasses = recommendedClasses.length ? recommendedClasses : availableClasses;
   const firstChoice = activeRequests.firstChoice;

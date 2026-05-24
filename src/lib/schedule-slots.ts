@@ -12,7 +12,16 @@ export type ParentScheduleSlotKey =
 
 export type ParentScheduleBadges = Partial<Record<ParentScheduleSlotKey, StudentScheduleBadge[]>>;
 
-export type CatalogSlotId = "block3_day3" | "block4_day3";
+export const CATALOG_SLOT_IDS = [
+  "block3_day1",
+  "block3_day2",
+  "block3_day3",
+  "block4_day1",
+  "block4_day2",
+  "block4_day3",
+] as const;
+
+export type CatalogSlotId = (typeof CATALOG_SLOT_IDS)[number];
 
 export const PARENT_SCHEDULE_DAYS = ["Day 1", "Day 2", "Day 3"] as const;
 
@@ -62,6 +71,24 @@ export const CATALOG_SLOT_META: Record<
     label: string;
   }
 > = {
+  block3_day1: {
+    title: "Block 3 Day 1",
+    block: "B3",
+    level: "1",
+    time: "10:20 - 11:50 am",
+    overlayTime: "10:20 AM - 11:50 AM",
+    scheduleSlot: "b3Tue",
+    label: "Block 3 / Day 1",
+  },
+  block3_day2: {
+    title: "Block 3 Day 2",
+    block: "B3",
+    level: "2",
+    time: "10:20 - 11:50 am",
+    overlayTime: "10:20 AM - 11:50 AM",
+    scheduleSlot: "b3Wed",
+    label: "Block 3 / Day 2",
+  },
   block3_day3: {
     title: "Block 3 Day 3",
     block: "B3",
@@ -70,6 +97,24 @@ export const CATALOG_SLOT_META: Record<
     overlayTime: "10:20 AM - 11:50 AM",
     scheduleSlot: "b3Thu",
     label: "Block 3 / Day 3",
+  },
+  block4_day1: {
+    title: "Block 4 Day 1",
+    block: "B4",
+    level: "1",
+    time: "7:00 - 8:30 am",
+    overlayTime: "7:00 AM - 8:30 AM",
+    scheduleSlot: "b4Tue",
+    label: "Block 4 / Day 1",
+  },
+  block4_day2: {
+    title: "Block 4 Day 2",
+    block: "B4",
+    level: "2",
+    time: "7:00 - 8:30 am",
+    overlayTime: "7:00 AM - 8:30 AM",
+    scheduleSlot: "b4Wed",
+    label: "Block 4 / Day 2",
   },
   block4_day3: {
     title: "Block 4 Day 3",
@@ -80,6 +125,15 @@ export const CATALOG_SLOT_META: Record<
     scheduleSlot: "b4Thu",
     label: "Block 4 / Day 3",
   },
+};
+
+const SCHEDULE_SLOT_TO_CATALOG_SLOT: Partial<Record<ParentScheduleSlotKey, CatalogSlotId>> = {
+  b3Tue: "block3_day1",
+  b3Wed: "block3_day2",
+  b3Thu: "block3_day3",
+  b4Tue: "block4_day1",
+  b4Wed: "block4_day2",
+  b4Thu: "block4_day3",
 };
 
 export const EMPTY_SCHEDULE_BADGE: StudentScheduleBadge = { label: "--", tone: "empty" };
@@ -98,9 +152,7 @@ export function emptyScheduleBadgesBySlot(): Record<ParentScheduleSlotKey, Stude
 }
 
 export function catalogSlotIdFromScheduleSlot(slot: ParentScheduleSlotKey): CatalogSlotId | null {
-  if (slot === "b3Thu") return "block3_day3";
-  if (slot === "b4Thu") return "block4_day3";
-  return null;
+  return SCHEDULE_SLOT_TO_CATALOG_SLOT[slot] ?? null;
 }
 
 export function isSelectableCatalogSlot(slot: ParentScheduleSlotKey): boolean {

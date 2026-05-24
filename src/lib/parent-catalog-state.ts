@@ -3,7 +3,7 @@ import {
   PARENT_CATALOG_REVIEW_STATUS_KEY,
   PARENT_CATALOG_SUBMITTED_KEY,
 } from "@/lib/parent-dashboard-storage";
-import { CATALOG_SLOT_META, type CatalogSlotId } from "@/lib/schedule-slots";
+import { CATALOG_SLOT_IDS, CATALOG_SLOT_META, type CatalogSlotId } from "@/lib/schedule-slots";
 import type { EnrichmentRequestRow, StudentScheduleBadge } from "@/lib/data/types";
 
 export type ParentCatalogChoice = {
@@ -38,10 +38,13 @@ export type ParentCatalogIdentity = {
   parentName?: string;
 };
 
-export const INITIAL_PARENT_CATALOG_REQUESTS: ParentCatalogRequests = {
-  block3_day3: { firstChoice: null, secondChoice: null },
-  block4_day3: { firstChoice: null, secondChoice: null },
-};
+export const INITIAL_PARENT_CATALOG_REQUESTS: ParentCatalogRequests = CATALOG_SLOT_IDS.reduce(
+  (next, slotId) => {
+    next[slotId] = { firstChoice: null, secondChoice: null };
+    return next;
+  },
+  {} as ParentCatalogRequests,
+);
 
 export function localReviewKey(slotId: CatalogSlotId, kind: "first" | "second") {
   return `local-${slotId}-${kind}`;
@@ -73,10 +76,10 @@ function normalizeSlotRequest(raw: ParentCatalogSlotRequest | null | undefined):
 
 function normalizeRequests(raw: unknown): ParentCatalogRequests {
   const value = raw && typeof raw === "object" ? (raw as Partial<ParentCatalogRequests>) : {};
-  return {
-    block3_day3: normalizeSlotRequest(value.block3_day3),
-    block4_day3: normalizeSlotRequest(value.block4_day3),
-  };
+  return CATALOG_SLOT_IDS.reduce((next, slotId) => {
+    next[slotId] = normalizeSlotRequest(value[slotId]);
+    return next;
+  }, {} as ParentCatalogRequests);
 }
 
 export function normalizeParentCatalogRequests(requests: ParentCatalogRequests | null | undefined): ParentCatalogRequests {
@@ -225,7 +228,7 @@ export function catalogChoiceReviews(
   if (!requests) return [];
   const normalizedRequests = normalizeRequests(requests);
   const rows: LocalCatalogChoiceReview[] = [];
-  (Object.keys(CATALOG_SLOT_META) as CatalogSlotId[]).forEach((slotId) => {
+  CATALOG_SLOT_IDS.forEach((slotId) => {
     const slot = normalizedRequests[slotId];
     const meta = CATALOG_SLOT_META[slotId];
     const add = (kind: "first" | "second", choice: ParentCatalogChoice | null | undefined) => {
