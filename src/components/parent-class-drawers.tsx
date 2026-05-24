@@ -14,6 +14,12 @@ export type ParentClassOption = {
   block: string;
   level: string;
   seats: string;
+  capacity?: number;
+  enrolledCount?: number;
+  reservedCount?: number;
+  pendingCount?: number;
+  seatsRemaining?: number;
+  availabilityLabel?: string;
   schedule?: string;
   status?: SchoolClassRow["status"];
   program?: ProgramTrack;
@@ -37,6 +43,12 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     block: row.block,
     level: row.level,
     seats: row.students,
+    capacity: row.capacity,
+    enrolledCount: row.enrolledCount,
+    reservedCount: row.reservedCount,
+    pendingCount: row.pendingCount,
+    seatsRemaining: row.seatsRemaining,
+    availabilityLabel: row.availabilityLabel,
     schedule: row.schedule,
     status: row.status,
     program: row.program,
@@ -54,7 +66,36 @@ export function fallbackParentClassOption(name: string, id = ""): ParentClassOpt
     block: "Schedule not set",
     level: "Level not set",
     seats: "Seats not set",
+    availabilityLabel: "Availability not available",
   };
+}
+
+function seatsFromLabel(label: string): { used: number; capacity: number } | null {
+  const match = /^(\d+)\s*\/\s*(\d+)/.exec(label.trim());
+  if (!match) return null;
+  return { used: Number(match[1]), capacity: Number(match[2]) };
+}
+
+function seatsRemainingForOption(option: ParentClassOption): number | null {
+  if (typeof option.seatsRemaining === "number" && Number.isFinite(option.seatsRemaining)) {
+    return Math.max(0, Math.floor(option.seatsRemaining));
+  }
+  const parsed = seatsFromLabel(option.seats);
+  if (!parsed) return null;
+  return Math.max(0, parsed.capacity - parsed.used);
+}
+
+function availabilityLabelForOption(option: ParentClassOption): string {
+  if (option.availabilityLabel) return option.availabilityLabel;
+  const remaining = seatsRemainingForOption(option);
+  if (remaining == null) return "Availability not available";
+  if (remaining <= 0) return "Full";
+  return remaining === 1 ? "1 seat left" : `${remaining} seats left`;
+}
+
+function isOptionFull(option: ParentClassOption): boolean {
+  const remaining = seatsRemainingForOption(option);
+  return option.status === "Full" || remaining === 0;
 }
 
 export function classNameFromScheduleBadge(label: string): string {
@@ -107,7 +148,9 @@ export function ParentClassSummaryCard({
 }) {
   if (!option) return null;
   const scheduleLabel = option.block || option.schedule || "Selected block";
-  const status = statusLabel ?? option.status ?? "Open";
+  const status = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
+  const availabilityLabel = availabilityLabelForOption(option);
+  const pendingHolds = Math.max(0, Math.floor(option.pendingCount ?? 0));
 
   return (
     <div className="rounded-[6px] border border-[#dfe1e6] bg-white p-[12px]">
@@ -118,6 +161,9 @@ export function ParentClassSummaryCard({
         <p>Description: {option.description}</p>
         <p>Teacher: {option.teacher}</p>
         <p>Schedule: {scheduleLabel}</p>
+        <p>Availability: {availabilityLabel}</p>
+        {option.capacity != null && option.reservedCount != null ? <p>Capacity held: {option.reservedCount}/{option.capacity}</p> : null}
+        {pendingHolds > 0 ? <p>Pending holds: {pendingHolds}</p> : null}
         {option.location ? <p>Location: {option.location}</p> : null}
         {option.prerequisites && option.prerequisites !== "None listed" ? <p>Prerequisites: {option.prerequisites}</p> : null}
       </div>
@@ -160,20 +206,24 @@ function ChoiceDropdown({
         </button>
         {open ? (
           <div className="absolute left-0 right-0 top-[58px] z-20 max-h-[314px] overflow-y-auto rounded-[10px] border border-[#dfe1e6] bg-white px-[20px] py-[12px] shadow-[0px_8px_24px_rgba(13,13,18,0.12)]">
-            {classes.map((cls, index) => (
-              <button
-                key={cls.id || cls.name}
-                type="button"
-                onClick={() => onSelect(cls)}
-                className="flex w-full items-start justify-between gap-4 py-[10px] text-left"
-              >
-                <span>
-                  <span className="block text-[16px] leading-[1.4] text-[#0d0d12]">{cls.name}</span>
-                  <span className="mt-[2px] block text-[12px] leading-[1.4] text-[#666d80]">{cls.description}</span>
-                </span>
-                <span className="mt-[2px] shrink-0 text-[14px] text-[#666d80]">{index === 0 ? "Waitlist" : "Available"}</span>
-              </button>
-            ))}
+            {classes.map((cls) => {
+              const full = isOptionFull(cls);
+              return (
+                <button
+                  key={cls.id || cls.name}
+                  type="button"
+                  disabled={full}
+                  onClick={() => onSelect(cls)}
+                  className="flex w-full items-start justify-between gap-4 py-[10px] text-left disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  <span>
+                    <span className="block text-[16px] leading-[1.4] text-[#0d0d12]">{cls.name}</span>
+                    <span className="mt-[2px] block text-[12px] leading-[1.4] text-[#666d80]">{cls.description}</span>
+                  </span>
+                  <span className="mt-[2px] shrink-0 text-[14px] font-medium text-[#666d80]">{full ? "Full" : availabilityLabelForOption(cls)}</span>
+                </button>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -214,7 +264,7 @@ function ChoiceSelector({
         helperText={helperText}
       />
       <div className="mt-[12px]">
-        <ParentClassSummaryCard option={value} statusLabel="Open" />
+        <ParentClassSummaryCard option={value} />
       </div>
     </div>
   );

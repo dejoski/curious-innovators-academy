@@ -7,6 +7,7 @@ import { ArrowRight, Info, Lightbulb } from "lucide-react";
 
 import {
   ParentClassSelectionDrawer,
+  fallbackParentClassOption,
   parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
   type ParentClassChoiceKind,
@@ -266,16 +267,24 @@ function ParentClassesEnrichmentCatalogContent() {
   const activeMeta = SLOT_META[activeSlot];
   const activeRequests = requests[activeSlot];
 
+  function resolveStoredChoice(choice: SlotRequests["firstChoice"] | null | undefined): ParentClassOption | null {
+    if (!choice?.name && !choice?.id) return null;
+    return (
+      availableClasses.find((option) => option.id === choice.id || option.name === choice.name) ??
+      fallbackParentClassOption(choice.name ?? "Selected class", choice.id)
+    );
+  }
+
   const recommendedClasses = useMemo(() => {
     return parentClassOptionsForCatalogSlot(availableClasses, activeMeta);
   }, [activeMeta, availableClasses]);
 
   const overlayClasses = recommendedClasses.length ? recommendedClasses : availableClasses;
-  const firstChoice = activeRequests.firstChoice;
-  const secondChoice = activeRequests.secondChoice;
-  const firstChoiceOptions = overlayClasses.filter((cls) => cls.id !== activeRequests.secondChoice?.id);
-  const secondChoiceOptions = overlayClasses.filter((cls) => cls.id !== activeRequests.firstChoice?.id);
-  const activeSlotHasChoices = Boolean(activeRequests.firstChoice || activeRequests.secondChoice);
+  const firstChoice = resolveStoredChoice(activeRequests.firstChoice);
+  const secondChoice = resolveStoredChoice(activeRequests.secondChoice);
+  const firstChoiceOptions = overlayClasses.filter((cls) => cls.id !== secondChoice?.id);
+  const secondChoiceOptions = overlayClasses.filter((cls) => cls.id !== firstChoice?.id);
+  const activeSlotHasChoices = Boolean(firstChoice || secondChoice);
 
   function openSlot(slotId: SlotId) {
     setActiveSlot(slotId);

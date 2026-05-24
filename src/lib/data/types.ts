@@ -37,6 +37,16 @@ export type SchoolClassRow = {
   pendingCount: number;
   /** Waitlist count — populated when backend provides it; otherwise 0. */
   waitlistCount: number;
+  /** Class capacity from the source of truth. */
+  capacity?: number;
+  /** Approved/currently enrolled students. */
+  enrolledCount?: number;
+  /** Seats consumed by approved enrollments plus pending/approved class requests. */
+  reservedCount?: number;
+  /** Remaining selectable seats after pending requests reserve capacity. */
+  seatsRemaining?: number;
+  /** Parent-facing availability label, e.g. "3 seats left" or "Full". */
+  availabilityLabel?: string;
 };
 
 export type ClassRosterStatus = "Approved" | "Pending" | "Rejected";

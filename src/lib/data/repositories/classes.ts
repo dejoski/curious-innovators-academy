@@ -6,15 +6,17 @@ import type {
   SchoolClassRow,
 } from "@/lib/data/types";
 import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
+import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { CLASSES_FALLBACK } from "@/lib/data/mock/classes";
 import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function formatStudentsLabel(row: Record<string, unknown>): string {
   const direct = row.students_label ?? row.students;
   if (typeof direct === "string" && direct.includes("/")) return direct;
 
-  const enrolled = Number(row.enrolled_count ?? row.enrolled ?? NaN);
+  const enrolled = Number(row.reserved_count ?? row.enrolled_count ?? row.enrolled ?? NaN);
   const capacity = Number(row.capacity ?? row.max_students ?? NaN);
   if (Number.isFinite(enrolled) && Number.isFinite(capacity)) {
     return `${Math.max(0, Math.floor(enrolled))}/${Math.max(0, Math.floor(capacity))}`;
@@ -23,20 +25,80 @@ function formatStudentsLabel(row: Record<string, unknown>): string {
   return "0/1";
 }
 
-function splitEnrollmentCounts(enrollments: unknown): { approved: number; pending: number } {
-  if (!Array.isArray(enrollments)) return { approved: 0, pending: 0 };
-  let approved = 0;
-  let pending = 0;
-  for (const raw of enrollments) {
+function numberField(row: Record<string, unknown>, key: string): number | null {
+  const raw = row[key];
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(0, Math.floor(raw));
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : null;
+}
+
+function formatAvailabilityLabel(seatsRemaining: number, capacity: number): string {
+  if (capacity <= 0 || seatsRemaining <= 0) return "Full";
+  if (seatsRemaining === 1) return "1 seat left";
+  return `${seatsRemaining} seats left`;
+}
+
+function activeStatus(raw: unknown): boolean {
+  const status = String(raw ?? "approved").toLowerCase();
+  return status === "approved" || status === "pending";
+}
+
+function pendingStatus(raw: unknown): boolean {
+  return String(raw ?? "").toLowerCase() === "pending";
+}
+
+function studentKey(raw: Record<string, unknown>, fallbackPrefix: string, index: number): string {
+  return String(raw.student_id ?? raw.id ?? `${fallbackPrefix}-${index}`);
+}
+
+function splitSeatCounts(input: {
+  capacity: number;
+  enrollments: unknown;
+  classRequests: unknown;
+}): {
+  enrolledCount: number;
+  pendingCount: number;
+  reservedCount: number;
+  seatsRemaining: number;
+} {
+  const approvedEnrolled = new Set<string>();
+  const pendingHolds = new Set<string>();
+  const reserved = new Set<string>();
+
+  const enrollments = Array.isArray(input.enrollments) ? input.enrollments : [];
+  enrollments.forEach((raw, index) => {
     if (raw && typeof raw === "object" && "status" in raw) {
-      const st = String((raw as { status: unknown }).status).toLowerCase();
-      if (st === "pending") pending++;
-      else if (st === "approved") approved++;
-    } else {
-      approved++;
+      const row = raw as Record<string, unknown>;
+      const key = studentKey(row, "enrollment", index);
+      if (activeStatus(row.status)) reserved.add(key);
+      if (pendingStatus(row.status)) pendingHolds.add(key);
+      if (String(row.status ?? "approved").toLowerCase() === "approved") approvedEnrolled.add(key);
+      return;
     }
-  }
-  return { approved, pending };
+    if (raw && typeof raw === "object") {
+      const key = studentKey(raw as Record<string, unknown>, "enrollment", index);
+      reserved.add(key);
+      approvedEnrolled.add(key);
+    }
+  });
+
+  const classRequests = Array.isArray(input.classRequests) ? input.classRequests : [];
+  classRequests.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object") return;
+    const row = raw as Record<string, unknown>;
+    if (!activeStatus(row.status)) return;
+    const key = studentKey(row, "request", index);
+    reserved.add(key);
+    if (pendingStatus(row.status)) pendingHolds.add(key);
+  });
+
+  const reservedCount = Math.max(0, reserved.size);
+  return {
+    enrolledCount: Math.max(0, approvedEnrolled.size),
+    pendingCount: Math.max(0, pendingHolds.size),
+    reservedCount,
+    seatsRemaining: Math.max(0, input.capacity - reservedCount),
+  };
 }
 
 function normalizeProgram(raw: unknown): ProgramTrack {
@@ -55,9 +117,13 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
   if (row.id == null || String(row.id) === "") return null;
 
   const id = String(row.id);
+  const capacity = numberField(row, "capacity") ?? numberField(row, "max_students") ?? 1;
+  const reservedCount = numberField(row, "reserved_count") ?? numberField(row, "reserved") ?? 0;
+  const enrolledCount = numberField(row, "enrolled_count") ?? numberField(row, "enrolled") ?? 0;
+  const seatsRemaining = numberField(row, "seats_remaining") ?? Math.max(0, capacity - reservedCount);
   const rawStatus = String(row.status ?? "Active");
   const status: SchoolClassRow["status"] =
-    rawStatus.toLowerCase() === "full" ? "Full" : "Active";
+    rawStatus.toLowerCase() === "full" || seatsRemaining <= 0 ? "Full" : "Active";
 
   const pendingRaw = row.pending_count ?? row.pending_enrollments;
   const pendingCount =
@@ -90,6 +156,11 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
     prerequisites: String(row.prerequisites ?? "").trim(),
     pendingCount,
     waitlistCount,
+    capacity,
+    enrolledCount,
+    reservedCount,
+    seatsRemaining,
+    availabilityLabel: String(row.availability_label ?? "").trim() || formatAvailabilityLabel(seatsRemaining, capacity),
   };
 }
 
@@ -106,13 +177,18 @@ function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unkno
   }
 
   const enrollments = row.enrollments as unknown[] | null;
-  const { approved, pending } = splitEnrollmentCounts(enrollments);
+  const classRequests = row.class_requests as unknown[] | null;
+  const capacity = numberField(row, "capacity") ?? 1;
+  const seatCounts = splitSeatCounts({ capacity, enrollments, classRequests });
 
   return {
     ...row,
     teacher_name: teacherName,
-    enrolled_count: approved,
-    pending_count: pending,
+    enrolled_count: seatCounts.enrolledCount,
+    pending_count: seatCounts.pendingCount,
+    reserved_count: seatCounts.reservedCount,
+    seats_remaining: seatCounts.seatsRemaining,
+    availability_label: formatAvailabilityLabel(seatCounts.seatsRemaining, capacity),
     level: row.level,
     block: row.block,
     location: row.location,
@@ -128,7 +204,9 @@ async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = isSupabaseAdminConfigured()
+      ? createSupabaseAdminClient()
+      : await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("classes")
       .select(
@@ -149,7 +227,8 @@ async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
             display_name
           )
         ),
-        enrollments ( id, status )
+        enrollments ( id, student_id, status ),
+        class_requests ( id, student_id, status )
       `,
       )
       .order("created_at", { ascending: true });

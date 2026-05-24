@@ -806,6 +806,85 @@ async function insertEnrichmentRequestRows(
   return { ok: true, rows };
 }
 
+function activeSeatStatus(raw: unknown): boolean {
+  const status = String(raw ?? "approved").toLowerCase();
+  return status === "approved" || status === "pending";
+}
+
+function rowStudentKey(raw: Record<string, unknown>, fallbackPrefix: string, index: number): string {
+  return String(raw.student_id ?? raw.id ?? `${fallbackPrefix}-${index}`);
+}
+
+function reservedSeatCount(row: Record<string, unknown>): number {
+  const reserved = new Set<string>();
+  const enrollments = Array.isArray(row.enrollments) ? row.enrollments : [];
+  enrollments.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object") return;
+    const enrollment = raw as Record<string, unknown>;
+    if (activeSeatStatus(enrollment.status)) reserved.add(rowStudentKey(enrollment, "enrollment", index));
+  });
+
+  const classRequests = Array.isArray(row.class_requests) ? row.class_requests : [];
+  classRequests.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object") return;
+    const request = raw as Record<string, unknown>;
+    if (activeSeatStatus(request.status)) reserved.add(rowStudentKey(request, "request", index));
+  });
+
+  return reserved.size;
+}
+
+async function ensureClassCapacityForChoices(
+  supabase: SupabaseMutationClient,
+  choices: {
+    classId: string;
+  }[],
+): Promise<WriteFail | { ok: true }> {
+  const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
+    next.set(choice.classId, (next.get(choice.classId) ?? 0) + 1);
+    return next;
+  }, new Map());
+  const classIds = [...requestedByClass.keys()];
+  if (classIds.length === 0) return { ok: true };
+
+  const { data, error } = await supabase
+    .from("classes")
+    .select(`
+      id,
+      name,
+      capacity,
+      enrollments ( id, student_id, status ),
+      class_requests ( id, student_id, status )
+    `)
+    .in("id", classIds);
+
+  if (error) return { ok: false, message: error.message };
+
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
+  const rowsById = new Map(rows.map((row) => [String(row.id), row]));
+  for (const classId of classIds) {
+    const row = rowsById.get(classId);
+    if (!row) return { ok: false, message: "Selected class was not found" };
+
+    const capacity = Math.max(0, Math.floor(Number(row.capacity ?? 0)));
+    const reserved = reservedSeatCount(row);
+    const requested = requestedByClass.get(classId) ?? 0;
+    if (capacity > 0 && reserved + requested > capacity) {
+      const remaining = Math.max(0, capacity - reserved);
+      const className = String(row.name ?? "Selected class");
+      return {
+        ok: false,
+        message:
+          remaining === 0
+            ? `${className} is full while pending requests are held.`
+            : `${className} only has ${remaining} seat${remaining === 1 ? "" : "s"} left.`,
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 function requestSlotKey(choice: { block: string; level: string }) {
   return `${choice.block}\u0000${choice.level}`;
 }
@@ -930,6 +1009,9 @@ export async function serverInsertEnrichmentRequests(input: {
       });
       if (!cleared.ok) return cleared;
 
+      const capacity = await ensureClassCapacityForChoices(admin, choices);
+      if (!capacity.ok) return capacity;
+
       return insertEnrichmentRequestRows(admin, {
         studentId,
         requestedByProfileId: requesterProfileId,
@@ -939,6 +1021,16 @@ export async function serverInsertEnrichmentRequests(input: {
 
     const studentId = await resolveRequestStudentId(supabase, user.id, input.studentId);
     if (!studentId) return { ok: false, message: "Could not resolve a student for this request" };
+
+    const capacityClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
+    const cleared = await clearPendingEnrichmentRequestChoices(capacityClient, {
+      studentId,
+      choices,
+    });
+    if (!cleared.ok) return cleared;
+
+    const capacity = await ensureClassCapacityForChoices(capacityClient, choices);
+    if (!capacity.ok) return capacity;
 
     const result = await insertEnrichmentRequestRows(supabase, {
       studentId,
