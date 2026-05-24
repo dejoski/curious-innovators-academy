@@ -16,7 +16,7 @@ BEGIN
     CREATE TYPE public.app_role AS ENUM ('admin', 'parent', 'student', 'teacher');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'workflow_status') THEN
-    CREATE TYPE public.workflow_status AS ENUM ('pending', 'approved', 'rejected');
+    CREATE TYPE public.workflow_status AS ENUM ('pending', 'approved', 'waitlisted', 'rejected');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'program_track') THEN
     CREATE TYPE public.program_track AS ENUM ('core', 'enrichment');

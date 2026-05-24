@@ -67,7 +67,7 @@ function normalizeProgram(raw: unknown): ProgramTrack {
 function normalizeRosterStatus(raw: unknown): StudentRosterStatus {
   const s = String(raw ?? "").toLowerCase();
   if (s === "approved") return "Approved";
-  if (s === "waitlist" || s === "rejected") return "Waitlist";
+  if (s === "waitlist" || s === "waitlisted" || s === "rejected") return "Waitlist";
   return "Pending";
 }
 
@@ -377,7 +377,7 @@ export function classRosterStudentsToRosterRows(input: {
     name: string;
     parent: string;
     age: number;
-    status: "Approved" | "Pending" | "Rejected";
+    status: "Approved" | "Pending" | "Waitlisted" | "Rejected";
     description: string;
   }[];
 }): StudentRosterRow[] {
@@ -386,7 +386,7 @@ export function classRosterStudentsToRosterRows(input: {
     name: student.name,
     parent: student.parent,
     age: student.age,
-    status: student.status === "Approved" ? "Approved" : student.status === "Rejected" ? "Waitlist" : "Pending",
+    status: student.status === "Approved" ? "Approved" : student.status === "Rejected" || student.status === "Waitlisted" ? "Waitlist" : "Pending",
     avatar: "/images/avatars/student-1.png",
     classId: input.classId,
     classRef: input.className,

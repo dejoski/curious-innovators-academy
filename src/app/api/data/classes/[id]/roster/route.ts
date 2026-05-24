@@ -36,7 +36,13 @@ export async function POST(req: Request, context: RouteContext) {
   const body = (await req.json()) as Record<string, unknown>;
   const statusRaw = String(body.status ?? "").trim();
   const status: ClassRosterStatus =
-    statusRaw === "Approved" ? "Approved" : statusRaw === "Rejected" ? "Rejected" : "Pending";
+    statusRaw === "Approved"
+      ? "Approved"
+      : statusRaw === "Waitlisted" || statusRaw === "Waitlist"
+        ? "Waitlisted"
+        : statusRaw === "Rejected"
+          ? "Rejected"
+          : "Pending";
   const result = await serverInsertRosterStudent({
     classId: id,
     name: String(body.name ?? ""),
@@ -61,7 +67,13 @@ export async function PATCH(req: Request, context: RouteContext) {
   const studentId = String(body.studentId ?? "").trim();
   const statusRaw = String(body.status ?? "").trim();
   const status: ClassRosterStatus =
-    statusRaw === "Approved" ? "Approved" : statusRaw === "Rejected" ? "Rejected" : "Pending";
+    statusRaw === "Approved"
+      ? "Approved"
+      : statusRaw === "Waitlisted" || statusRaw === "Waitlist"
+        ? "Waitlisted"
+        : statusRaw === "Rejected"
+          ? "Rejected"
+          : "Pending";
   const updatesStudent =
     body.name != null ||
     body.parent != null ||

@@ -20,6 +20,7 @@ export async function DashboardHomeResolved() {
   const statusPill: Record<string, string> = {
     Pending: "bg-[#fae7a6] text-[#8b6e00]",
     Approved: "bg-[#d7f0de] text-[#0c6a26]",
+    Waitlisted: "bg-[#fff8e6] text-[#7a5b00]",
     Rejected: "bg-[#ffd9d9] text-[#b31313]",
   };
 

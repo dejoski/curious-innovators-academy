@@ -18,7 +18,7 @@ export type ParentCatalogSlotRequest = {
 
 export type ParentCatalogRequests = Record<CatalogSlotId, ParentCatalogSlotRequest>;
 
-export type LocalReviewStatus = "Pending" | "Approved" | "Rejected";
+export type LocalReviewStatus = "Pending" | "Approved" | "Waitlisted" | "Rejected";
 export type LocalReviewStatuses = Record<string, LocalReviewStatus>;
 
 export type LocalCatalogChoiceReview = {
@@ -261,8 +261,15 @@ export function catalogBadgesForSlot(
   const rows = catalogChoiceReviews({ ...INITIAL_PARENT_CATALOG_REQUESTS, [slotId]: slot ?? {} }, reviewStatuses)
     .filter((row) => row.slotId === slotId);
   return rows.map((row) => ({
-    label: row.status === "Rejected" ? `${row.choice === "2nd" ? "Rejected 2nd" : "Rejected"}: ${row.name}` : row.choice === "2nd" ? `2nd: ${row.name}` : row.name,
-    tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : "pending",
+    label:
+      row.status === "Rejected"
+        ? `${row.choice === "2nd" ? "Rejected 2nd" : "Rejected"}: ${row.name}`
+        : row.status === "Waitlisted"
+          ? `${row.choice === "2nd" ? "Waitlisted 2nd" : "Waitlisted"}: ${row.name}`
+          : row.choice === "2nd"
+            ? `2nd: ${row.name}`
+            : row.name,
+    tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : row.status === "Waitlisted" ? "waitlisted" : "pending",
   }));
 }
 

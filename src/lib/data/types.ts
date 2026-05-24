@@ -49,7 +49,7 @@ export type SchoolClassRow = {
   availabilityLabel?: string;
 };
 
-export type ClassRosterStatus = "Approved" | "Pending" | "Rejected";
+export type ClassRosterStatus = "Approved" | "Pending" | "Waitlisted" | "Rejected";
 
 export type ClassRosterStudent = {
   id: string;
@@ -103,7 +103,7 @@ export type StudentProfileBundle = {
   directoryDataOnly?: boolean;
 };
 
-export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "draft" | "empty";
+export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "waitlisted" | "draft" | "empty";
 
 export type StudentScheduleBadge = {
   label: string;
@@ -192,7 +192,7 @@ export type ParentSummary = {
   linkedStudents?: { id: string; name: string }[];
 };
 
-export type RequestStatus = "Pending" | "Approved" | "Rejected";
+export type RequestStatus = "Pending" | "Approved" | "Waitlisted" | "Rejected";
 
 /** Enrichment requests (/dashboard/classes/requests). */
 export type EnrichmentRequestRow = {

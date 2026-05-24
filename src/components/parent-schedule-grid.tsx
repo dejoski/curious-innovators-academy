@@ -29,6 +29,7 @@ function badgeClasses(tone: StudentScheduleBadge["tone"], interactive: boolean) 
   if (tone === "core") return "border-[#14c1d5]/55 bg-[#d2f1f5]";
   if (tone === "approved") return "border-[#004d08]/15 bg-[#d9e7d8]";
   if (tone === "pending") return "border-[#d80509]/20 bg-[#ffd9d9]";
+  if (tone === "waitlisted") return "border-[#cfa500]/35 bg-[#fff5cc]";
   if (tone === "draft") return "border-[#84adff]/45 bg-[#eef4ff]";
   return `border-dashed border-[#dfe3ea] bg-[#fbfcfe] ${interactive ? "hover:border-[#14c1d5] hover:bg-[#f6fcfd]" : ""}`;
 }
@@ -37,6 +38,7 @@ function badgeCaption(badge: StudentScheduleBadge) {
   if (badge.tone === "core") return "School assigned";
   if (badge.tone === "approved") return "Enric. Approved";
   if (badge.tone === "pending") return "Enric. Pending";
+  if (badge.tone === "waitlisted") return "Enric. Waitlisted";
   if (badge.tone === "draft") return "Draft choice";
   return "+ Choose class";
 }

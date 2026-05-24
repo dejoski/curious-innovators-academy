@@ -237,6 +237,13 @@ export default function EnrichmentClassesPage() {
         </div>
       );
     }
+    if (status === "Waitlisted") {
+      return (
+        <div className="inline-flex items-center justify-center px-2 py-1 bg-[#fff8e6] border border-[#cfa500]/50 rounded-md">
+          <span className="text-[10px] text-[#7a5b00]">Waitlisted</span>
+        </div>
+      );
+    }
     if (status === "Rejected") {
       return (
         <div className="inline-flex items-center justify-center px-2 py-1 bg-[#ffd9d9] border border-[#d80509]/50 rounded-md">
@@ -330,7 +337,7 @@ export default function EnrichmentClassesPage() {
               </button>
               {isFilterOpen && (
                 <div className="absolute top-full right-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
-                  {["All", "Approved", "Pending", "Draft", "Rejected", "--"].map((status) => (
+                  {["All", "Approved", "Pending", "Waitlisted", "Draft", "Rejected", "--"].map((status) => (
                     <button
                       key={status}
                       onClick={() => { setFilterStatus(status); setIsFilterOpen(false); }}

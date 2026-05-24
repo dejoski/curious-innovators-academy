@@ -161,14 +161,20 @@ function sourceHint(source: DataSource | null): string | null {
 
 function reviewPillClasses(status: LocalReviewStatus): string {
   if (status === "Approved") return "border-[#004d08]/35 bg-[#004d08]/15 text-[#004d08]";
+  if (status === "Waitlisted") return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
   if (status === "Rejected") return "border-[#d80509]/35 bg-[#ffd9d9] text-[#d80509]";
   return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
+}
+
+function reviewPillLabel(status: LocalReviewStatus, state: LocalRequestState): string {
+  return state === "draft" ? "Draft" : status;
 }
 
 function scheduleBadgeStatusLabel(badge: StudentScheduleBadge): string {
   if (badge.tone === "core") return "School assigned";
   if (badge.tone === "approved") return "Approved";
   if (badge.tone === "pending") return "Pending";
+  if (badge.tone === "waitlisted") return "Waitlisted";
   if (badge.tone === "draft") return "Draft choice";
   return "Available";
 }
@@ -326,15 +332,16 @@ export default function ParentHomeDashboard() {
 
   const localPendingChoices = localChoiceReviews.filter((choice) => choice.status === "Pending").length;
   const localApprovedChoices = localChoiceReviews.filter((choice) => choice.status === "Approved").length;
+  const localWaitlistedChoices = localChoiceReviews.filter((choice) => choice.status === "Waitlisted").length;
   const localRejectedChoices = localChoiceReviews.filter((choice) => choice.status === "Rejected").length;
   const localBannerTone =
     localRequestState === "draft"
       ? "draft"
-      : localRejectedChoices && !localPendingChoices && !localApprovedChoices
+      : localRejectedChoices && !localPendingChoices && !localApprovedChoices && !localWaitlistedChoices
         ? "rejected"
-        : localApprovedChoices && !localPendingChoices && !localRejectedChoices
+        : localApprovedChoices && !localPendingChoices && !localRejectedChoices && !localWaitlistedChoices
           ? "approved"
-          : localApprovedChoices || localRejectedChoices
+          : localApprovedChoices || localRejectedChoices || localWaitlistedChoices
             ? "mixed"
             : "pending";
   const localBannerClass =
@@ -353,7 +360,7 @@ export default function ParentHomeDashboard() {
         : localBannerTone === "rejected"
           ? "Your enrichment request was not approved. Review the class selection page to choose another option."
           : localBannerTone === "mixed"
-            ? "Your enrichment request has review updates. Check each class status below."
+            ? "Your enrichment request has review updates, including waitlist decisions. Check each class status below."
             : "Your enrichment request is saved and pending school review.";
 
   const attendance = isStudentDataLoading ? "--" : profile ? metricValue(profile.attendanceLabel, "--") : "--";
@@ -551,7 +558,7 @@ export default function ParentHomeDashboard() {
                 className={`inline-flex max-w-full items-center gap-1 rounded-[999px] border px-2.5 py-1 text-[11px] font-semibold ${reviewPillClasses(choice.status)}`}
                 title={`${choice.slot} ${choice.choice}: ${choice.name}`}
               >
-                <span>{choice.status}</span>
+                <span>{reviewPillLabel(choice.status, localRequestState)}</span>
                 <span className="text-current/70">·</span>
                 <span className="truncate">{choice.choice}: {choice.name}</span>
               </span>

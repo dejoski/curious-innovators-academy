@@ -394,7 +394,7 @@ FROM (VALUES
   ('Anna Lee', 'Digital Storytelling & Animation', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
   ('George Lee', 'Journalism & Media Writing', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
   ('Bruna Lee', 'Creative Arts', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
-  ('James Smith', 'Ocean Explorers', 'parent.lee@cia.demo', 'rejected', 'B3', '3', '1st'),
+  ('James Smith', 'Ocean Explorers', 'parent.lee@cia.demo', 'waitlisted', 'B3', '3', '1st'),
   ('Bruce Collins', 'Robotics Lab', 'parent.collins@cia.demo', 'pending', 'B4', '3', '1st'),
   ('Maria Collins', 'Journalism & Media Writing', 'parent.collins@cia.demo', 'approved', 'B4', '3', '1st')
 ) AS v(student_name, class_name, requester_email, status, block, level, option_label)

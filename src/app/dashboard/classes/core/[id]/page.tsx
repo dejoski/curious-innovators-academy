@@ -257,6 +257,8 @@ export default function ClassDetailsPage() {
         return "bg-green-900/20 text-green-900 border-green-900/50";
       case "Pending":
         return "bg-yellow-500/20 text-yellow-600 border-yellow-500/50";
+      case "Waitlisted":
+        return "bg-[#fff8e6] text-[#7a5b00] border-[#cfa500]/50";
       case "Rejected":
         return "bg-red-100 text-red-600 border-red-600/50";
       default:
@@ -578,7 +580,7 @@ export default function ClassDetailsPage() {
                 </button>
                 {isFilterDropdownOpen && (
                   <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[100] w-32">
-                    {["All", "Approved", "Pending", "Rejected"].map((status) => (
+                    {["All", "Approved", "Pending", "Waitlisted", "Rejected"].map((status) => (
                       <button
                         key={status}
                         onClick={() => { setFilterStatus(status as Status); setIsFilterDropdownOpen(false); setCurrentPage(1); }}
@@ -843,6 +845,7 @@ export default function ClassDetailsPage() {
               >
                 <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
+                <option value="Waitlisted">Waitlisted</option>
                 <option value="Rejected">Rejected</option>
               </select>
               <textarea
@@ -1088,6 +1091,7 @@ export default function ClassDetailsPage() {
               >
                 <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
+                <option value="Waitlisted">Waitlisted</option>
                 <option value="Rejected">Rejected</option>
               </select>
               <textarea

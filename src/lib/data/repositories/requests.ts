@@ -6,10 +6,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function mapStatus(raw: unknown): RequestStatus {
   const s = String(raw ?? "");
-  if (s === "Approved" || s === "Rejected" || s === "Pending") return s;
+  if (s === "Approved" || s === "Rejected" || s === "Pending" || s === "Waitlisted") return s;
   const lower = s.toLowerCase();
   if (lower === "approved") return "Approved";
   if (lower === "rejected") return "Rejected";
+  if (lower === "waitlisted" || lower === "waitlist") return "Waitlisted";
   return "Pending";
 }
 

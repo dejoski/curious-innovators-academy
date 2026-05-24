@@ -15,7 +15,7 @@ const imgMaskGroup = "/images/mask-group.svg";
 const imgMaskGroup1 = "/images/mask-group.svg";
 const imgMaskGroup2 = "/images/mask-group.svg";
 
-type ApprovalStatus = "Approved" | "Rejected";
+type ApprovalStatus = "Approved" | "Waitlisted" | "Rejected";
 
 type ApprovalRow = {
   id: string;
@@ -40,7 +40,12 @@ function toApprovalRow(row: EnrichmentRequestRow): ApprovalRow | null {
     option: row.option,
     status: row.status,
     reviewedBy: "School team",
-    reason: row.status === "Approved" ? "Approved for placement" : "Not placed in this round",
+    reason:
+      row.status === "Approved"
+        ? "Approved for placement"
+        : row.status === "Waitlisted"
+          ? "Waitlisted until a seat opens"
+          : "Not placed in this round",
   };
 }
 
@@ -76,13 +81,13 @@ function ClassesApprovalHistory() {
 
   const stats = useMemo(() => {
     const approved = rows.filter((r) => r.status === "Approved").length;
+    const waitlisted = rows.filter((r) => r.status === "Waitlisted").length;
     const rejected = rows.filter((r) => r.status === "Rejected").length;
-    const distinctClasses = new Set(rows.map((r) => r.className.trim()).filter(Boolean)).size;
     return {
       total: rows.length,
       approved,
+      waitlisted,
       rejected,
-      distinctClasses,
     };
   }, [rows]);
 
@@ -271,22 +276,22 @@ function ClassesApprovalHistory() {
         </div>
 
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
+          <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
+            <img alt="Waitlisted" className="size-[20px]" src={imgMaskGroup} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Waitlisted</p>
+            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.waitlisted}</p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
           <div className="bg-[#ffd9d9] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
             <img alt="Rejected" className="size-[20px]" src={imgMaskGroup2} />
           </div>
           <div className="flex flex-col gap-1">
             <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Rejected</p>
             <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.rejected}</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
-          <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-            <img alt="Waitlisted" className="size-[20px]" src={imgMaskGroup} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Classes affected</p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.distinctClasses}</p>
           </div>
         </div>
       </div>
@@ -336,7 +341,7 @@ function ClassesApprovalHistory() {
               </button>
               {filterOpen && (
                 <div className="absolute right-0 top-full z-[100] mt-1 min-w-[160px] rounded-lg border border-[#f0f0f0] bg-white py-1 shadow-md">
-                  {(["All", "Approved", "Rejected"] as const).map((opt) => (
+                  {(["All", "Approved", "Waitlisted", "Rejected"] as const).map((opt) => (
                     <button
                       key={opt}
                       type="button"
@@ -463,6 +468,10 @@ function ClassesApprovalHistory() {
                     {row.status === "Approved" ? (
                       <div className="bg-[rgba(0,77,8,0.2)] border border-[rgba(0,77,8,0.5)] px-[8px] py-[2px] rounded-[6px]">
                         <span className="font-['Inter:Regular',sans-serif] text-[#004d08] text-[10px]">Approved</span>
+                      </div>
+                    ) : row.status === "Waitlisted" ? (
+                      <div className="bg-[#fff8e6] border border-[#cfa500]/50 px-[8px] py-[2px] rounded-[6px]">
+                        <span className="font-['Inter:Regular',sans-serif] text-[#7a5b00] text-[10px]">Waitlisted</span>
                       </div>
                     ) : (
                       <div className="bg-[#ffd9d9] border border-[rgba(216,5,9,0.5)] px-[8px] py-[2px] rounded-[6px]">

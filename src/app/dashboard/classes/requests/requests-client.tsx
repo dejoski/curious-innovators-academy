@@ -2,7 +2,7 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X } from "lucide-react";
+import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
@@ -13,7 +13,7 @@ import {
 } from "@/lib/parent-catalog-state";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
 
-type RequestStatus = "Pending" | "Approved" | "Rejected";
+type RequestStatus = "Pending" | "Approved" | "Waitlisted" | "Rejected";
 
 type EnrichmentRequestRow = {
   id: string;
@@ -38,7 +38,14 @@ type FilterValue = "All" | RequestStatus;
 function statusBadgeClass(status: RequestStatus) {
   if (status === "Pending") return "bg-[#cfa500]/20 text-[#8a6d00] border-[#cfa500]/50";
   if (status === "Approved") return "bg-[#004d08]/20 text-[#004d08] border-[#004d08]/50";
+  if (status === "Waitlisted") return "bg-[#fff8e6] text-[#7a5b00] border-[#cfa500]/50";
   return "bg-[#ffd9d9] text-[#d80509] border-[#d80509]/50";
+}
+
+function actionLabel(type: "approve" | "waitlist" | "reject") {
+  if (type === "approve") return "Approve";
+  if (type === "waitlist") return "Waitlist";
+  return "Reject";
 }
 
 function getVisiblePages(current: number, total: number): (number | "ellipsis")[] {
@@ -80,7 +87,7 @@ export default function ClassesEnrichmentRequests({
 
   const [confirmAction, setConfirmAction] = useState<
     | null
-    | { type: "approve" | "reject"; id: string; student: string }
+    | { type: "approve" | "waitlist" | "reject"; id: string; student: string }
   >(null);
   const [detailRequest, setDetailRequest] = useState<EnrichmentRequestRow | null>(null);
 
@@ -124,6 +131,7 @@ export default function ClassesEnrichmentRequests({
 
   const pendingCount = useMemo(() => requests.filter((r) => r.status === "Pending").length, [requests]);
   const approvedCount = useMemo(() => requests.filter((r) => r.status === "Approved").length, [requests]);
+  const waitlistedCount = useMemo(() => requests.filter((r) => r.status === "Waitlisted").length, [requests]);
   const rejectedCount = useMemo(() => requests.filter((r) => r.status === "Rejected").length, [requests]);
   const totalRequests = requests.length;
   const distinctClasses = useMemo(
@@ -236,7 +244,17 @@ export default function ClassesEnrichmentRequests({
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+          <div className="bg-[#fff8e6] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <ListPlus className="w-5 h-5 text-[#cfa500]" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[16px] font-semibold text-[#272932]">Waitlisted</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{waitlistedCount}</span>
+          </div>
+        </div>
+
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
           <div className="bg-[#cfa500]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5 text-[#cfa500]" />
@@ -307,7 +325,7 @@ export default function ClassesEnrichmentRequests({
               </button>
               {filterOpen && (
                 <div className="absolute right-0 top-full mt-1 z-[100] min-w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
-                  {(["All", "Pending", "Approved", "Rejected"] as const).map((opt) => (
+                  {(["All", "Pending", "Approved", "Waitlisted", "Rejected"] as const).map((opt) => (
                     <button
                       key={opt}
                       type="button"
@@ -420,6 +438,13 @@ export default function ClassesEnrichmentRequests({
                       </button>
                       <button
                         type="button"
+                        className="h-9 flex-1 rounded-[8px] bg-[#fff8e6] px-3 text-[12px] font-semibold text-[#7a5b00]"
+                        onClick={() => setConfirmAction({ type: "waitlist", id: req.id, student: req.student })}
+                      >
+                        Waitlist
+                      </button>
+                      <button
+                        type="button"
                         className="h-9 flex-1 rounded-[8px] bg-[#ffd9d9] px-3 text-[12px] font-semibold text-[#d80509]"
                         onClick={() => setConfirmAction({ type: "reject", id: req.id, student: req.student })}
                       >
@@ -506,6 +531,13 @@ export default function ClassesEnrichmentRequests({
                           onClick={() => setConfirmAction({ type: "approve", id: req.id, student: req.student })}
                         >
                           Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-[12px] text-[#7a5b00] hover:bg-[#fafafa]"
+                          onClick={() => setConfirmAction({ type: "waitlist", id: req.id, student: req.student })}
+                        >
+                          Waitlist
                         </button>
                         <button
                           type="button"
@@ -664,12 +696,14 @@ export default function ClassesEnrichmentRequests({
               <X className="w-5 h-5" />
             </button>
             <h2 id="confirm-request-title" className="pr-8 text-lg font-semibold text-[#272932]">
-              {confirmAction.type === "approve" ? "Approve request" : "Reject request"}
+              {actionLabel(confirmAction.type)} request
             </h2>
             <p className="mt-2 text-[14px] text-[#666d80]">
               {confirmAction.type === "approve"
                 ? `Approve enrollment for ${confirmAction.student}?`
-                : `Reject enrollment for ${confirmAction.student}?`}
+                : confirmAction.type === "waitlist"
+                  ? `Move ${confirmAction.student} to the waitlist? This does not reserve a seat.`
+                  : `Reject enrollment for ${confirmAction.student}?`}
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -682,10 +716,17 @@ export default function ClassesEnrichmentRequests({
               <button
                 type="button"
                 className={`rounded-[8px] px-4 py-2 text-[12px] font-semibold text-white ${
-                  confirmAction.type === "approve" ? "bg-[#004d08]" : "bg-[#d80509]"
+                  confirmAction.type === "approve"
+                    ? "bg-[#004d08]"
+                    : confirmAction.type === "waitlist"
+                      ? "bg-[#cfa500]"
+                      : "bg-[#d80509]"
                 }`}
                 onClick={() =>
-                  applyStatus(confirmAction.id, confirmAction.type === "approve" ? "Approved" : "Rejected")
+                  applyStatus(
+                    confirmAction.id,
+                    confirmAction.type === "approve" ? "Approved" : confirmAction.type === "waitlist" ? "Waitlisted" : "Rejected",
+                  )
                 }
               >
                 Confirm

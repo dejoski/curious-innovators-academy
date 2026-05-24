@@ -29,6 +29,13 @@ type SupabaseMutationClient =
   | Awaited<ReturnType<typeof createSupabaseServerClient>>
   | ReturnType<typeof createSupabaseAdminClient>;
 
+function workflowStatusForRoster(status: ClassRosterStatus) {
+  if (status === "Approved") return "approved";
+  if (status === "Waitlisted") return "waitlisted";
+  if (status === "Rejected") return "rejected";
+  return "pending";
+}
+
 function parseStudentsFraction(label: string): { enrolled: number; capacity: number } {
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
   if (!m) return { enrolled: 0, capacity: 1 };
@@ -356,7 +363,7 @@ export async function serverPatchEnrollmentStatus(input: {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const dbStatus = input.status === "Approved" ? "approved" : input.status === "Rejected" ? "rejected" : "pending";
+    const dbStatus = workflowStatusForRoster(input.status);
     const { error } = await supabase
       .from("enrollments")
       .update({ status: dbStatus })
@@ -446,7 +453,7 @@ export async function serverInsertRosterStudent(input: {
     if (studentError) return { ok: false, message: studentError.message };
     if (!student?.id) return { ok: false, message: "Student could not be created" };
 
-    const dbStatus = input.status === "Approved" ? "approved" : input.status === "Rejected" ? "rejected" : "pending";
+    const dbStatus = workflowStatusForRoster(input.status);
     const { error: enrollmentError } = await supabase.from("enrollments").insert({
       class_id: classId,
       student_id: student.id,
@@ -526,7 +533,7 @@ export async function serverUpdateRosterStudent(input: {
     }
 
     const status = input.status ?? "Pending";
-    const dbStatus = status === "Approved" ? "approved" : status === "Rejected" ? "rejected" : "pending";
+    const dbStatus = workflowStatusForRoster(status);
     if (input.status != null) {
       const { error } = await supabase
         .from("enrollments")

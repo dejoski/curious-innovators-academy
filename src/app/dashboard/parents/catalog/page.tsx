@@ -58,15 +58,18 @@ type SlotRequests = {
 
 const initialRequests = INITIAL_PARENT_CATALOG_REQUESTS as Record<SlotId, SlotRequests>;
 
-function statusDotClass(kind: "core" | "approved" | "pending" | "draft" | "empty") {
+type CatalogLegendKind = "core" | "approved" | "pending" | "waitlisted" | "draft" | "empty";
+
+function statusDotClass(kind: CatalogLegendKind) {
   if (kind === "core") return "border-[#14c1d5] bg-[#d2f1f5]";
   if (kind === "approved") return "border-[#004d08] bg-[#004d08]/20";
   if (kind === "pending") return "border-[#d80509] bg-[#ffd9d9]";
+  if (kind === "waitlisted") return "border-[#cfa500] bg-[#fff8e6]";
   if (kind === "draft") return "border-[#84adff] bg-[#eef4ff]";
   return "border-[#f0f0f0] bg-[#fafafa]";
 }
 
-function LegendItem({ kind, label }: { kind: "core" | "approved" | "pending" | "draft" | "empty"; label: string }) {
+function LegendItem({ kind, label }: { kind: CatalogLegendKind; label: string }) {
   return (
     <div className="flex items-center gap-[6px]">
       <span className={`size-[17px] rounded-[4px] border ${statusDotClass(kind)}`} />
@@ -85,6 +88,19 @@ function StepItem({ n, title, body }: { n: number; title: string; body: string }
       </div>
     </div>
   );
+}
+
+function submittedBadgeTone(status: LocalReviewStatus): StudentScheduleBadge["tone"] {
+  if (status === "Approved") return "approved";
+  if (status === "Waitlisted") return "waitlisted";
+  return "pending";
+}
+
+function submittedBadgeLabel(status: LocalReviewStatus, name: string, prefix: "first" | "second") {
+  const choicePrefix = prefix === "second" ? "2nd: " : "";
+  if (status === "Rejected") return `${prefix === "second" ? "Rejected 2nd" : "Rejected"}: ${name}`;
+  if (status === "Waitlisted") return `${prefix === "second" ? "Waitlisted 2nd" : "Waitlisted"}: ${name}`;
+  return `${choicePrefix}${name}`;
 }
 
 function ParentClassesEnrichmentCatalogContent() {
@@ -235,15 +251,17 @@ function ParentClassesEnrichmentCatalogContent() {
     const firstStatus = localReviewStatuses[localReviewKey(slotId, "first")] ?? "Pending";
     const secondStatus = localReviewStatuses[localReviewKey(slotId, "second")] ?? "Pending";
     if (slot.firstChoice) {
+      const name = slot.firstChoice.name ?? "Selected class";
       badges.push({
-        label: isSubmitted && firstStatus === "Rejected" ? `Rejected: ${slot.firstChoice.name}` : slot.firstChoice.name,
-        tone: isSubmitted ? (firstStatus === "Approved" ? "approved" : "pending") : "draft",
+        label: isSubmitted ? submittedBadgeLabel(firstStatus, name, "first") : name,
+        tone: isSubmitted ? submittedBadgeTone(firstStatus) : "draft",
       });
     }
     if (slot.secondChoice) {
+      const name = slot.secondChoice.name ?? "Selected class";
       badges.push({
-        label: `${isSubmitted && secondStatus === "Rejected" ? "Rejected" : "2nd"}: ${slot.secondChoice.name}`,
-        tone: isSubmitted ? (secondStatus === "Approved" ? "approved" : "pending") : "draft",
+        label: isSubmitted ? submittedBadgeLabel(secondStatus, name, "second") : `2nd: ${name}`,
+        tone: isSubmitted ? submittedBadgeTone(secondStatus) : "draft",
       });
     }
     return badges;
@@ -379,6 +397,7 @@ function ParentClassesEnrichmentCatalogContent() {
         <LegendItem kind="core" label="Core (School assigned)" />
         <LegendItem kind="approved" label="Enrichment approved" />
         <LegendItem kind="pending" label="Enrichment pending" />
+        <LegendItem kind="waitlisted" label="Waitlisted" />
         {localRequestState === "draft" && hasChoices ? <LegendItem kind="draft" label="Draft selection" /> : null}
         <LegendItem kind="empty" label="Empty" />
       </div>

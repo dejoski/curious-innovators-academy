@@ -47,6 +47,11 @@ function pendingStatus(raw: unknown): boolean {
   return String(raw ?? "").toLowerCase() === "pending";
 }
 
+function waitlistedStatus(raw: unknown): boolean {
+  const status = String(raw ?? "").toLowerCase();
+  return status === "waitlisted" || status === "waitlist";
+}
+
 function studentKey(raw: Record<string, unknown>, fallbackPrefix: string, index: number): string {
   return String(raw.student_id ?? raw.id ?? `${fallbackPrefix}-${index}`);
 }
@@ -58,11 +63,13 @@ function splitSeatCounts(input: {
 }): {
   enrolledCount: number;
   pendingCount: number;
+  waitlistCount: number;
   reservedCount: number;
   seatsRemaining: number;
 } {
   const approvedEnrolled = new Set<string>();
   const pendingHolds = new Set<string>();
+  const waitlisted = new Set<string>();
   const reserved = new Set<string>();
 
   const enrollments = Array.isArray(input.enrollments) ? input.enrollments : [];
@@ -72,6 +79,7 @@ function splitSeatCounts(input: {
       const key = studentKey(row, "enrollment", index);
       if (activeStatus(row.status)) reserved.add(key);
       if (pendingStatus(row.status)) pendingHolds.add(key);
+      if (waitlistedStatus(row.status)) waitlisted.add(key);
       if (String(row.status ?? "approved").toLowerCase() === "approved") approvedEnrolled.add(key);
       return;
     }
@@ -86,16 +94,17 @@ function splitSeatCounts(input: {
   classRequests.forEach((raw, index) => {
     if (!raw || typeof raw !== "object") return;
     const row = raw as Record<string, unknown>;
-    if (!activeStatus(row.status)) return;
     const key = studentKey(row, "request", index);
-    reserved.add(key);
+    if (activeStatus(row.status)) reserved.add(key);
     if (pendingStatus(row.status)) pendingHolds.add(key);
+    if (waitlistedStatus(row.status)) waitlisted.add(key);
   });
 
   const reservedCount = Math.max(0, reserved.size);
   return {
     enrolledCount: Math.max(0, approvedEnrolled.size),
     pendingCount: Math.max(0, pendingHolds.size),
+    waitlistCount: Math.max(0, waitlisted.size),
     reservedCount,
     seatsRemaining: Math.max(0, input.capacity - reservedCount),
   };
@@ -109,6 +118,7 @@ function normalizeProgram(raw: unknown): ProgramTrack {
 function normalizeRosterStatus(raw: unknown): ClassRosterStatus {
   const s = String(raw ?? "").toLowerCase();
   if (s === "approved") return "Approved";
+  if (s === "waitlisted" || s === "waitlist") return "Waitlisted";
   if (s === "rejected") return "Rejected";
   return "Pending";
 }
@@ -186,6 +196,7 @@ function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unkno
     teacher_name: teacherName,
     enrolled_count: seatCounts.enrolledCount,
     pending_count: seatCounts.pendingCount,
+    waitlist_count: seatCounts.waitlistCount,
     reserved_count: seatCounts.reservedCount,
     seats_remaining: seatCounts.seatsRemaining,
     availability_label: formatAvailabilityLabel(seatCounts.seatsRemaining, capacity),

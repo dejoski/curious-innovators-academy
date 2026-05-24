@@ -66,7 +66,7 @@ function mapClassRosterRows(
     name: student.name,
     parent: student.parent,
     age: student.age,
-    status: student.status === "Approved" ? "Approved" : student.status === "Rejected" ? "Waitlist" : "Pending",
+    status: student.status === "Approved" ? "Approved" : student.status === "Rejected" || student.status === "Waitlisted" ? "Waitlist" : "Pending",
     avatar: "/images/avatars/student-1.png",
     classId,
     classRef: classInfo?.name ?? "Selected class",
@@ -229,7 +229,7 @@ export default function StudentClassRoster() {
       const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: id, status: status === "Waitlist" ? "Rejected" : status }),
+        body: JSON.stringify({ studentId: id, status: status === "Waitlist" ? "Waitlisted" : status }),
       });
       if (!res.ok) {
         setActionHint("Could not update enrollment status. Check your permissions and try again.");

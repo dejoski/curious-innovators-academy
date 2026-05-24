@@ -284,6 +284,8 @@ export default function EnrichmentClassDetail() {
         return "bg-[rgba(0,77,8,0.2)] border-[rgba(0,77,8,0.5)] text-[#004d08]";
       case 'Pending':
         return "bg-[rgba(207,165,0,0.2)] border-[rgba(207,165,0,0.5)] text-[#cfa500]";
+      case 'Waitlisted':
+        return "bg-[#fff8e6] border-[#cfa500]/50 text-[#7a5b00]";
       case 'Rejected':
         return "bg-[#ffd9d9] border-[rgba(216,5,9,0.5)] text-[#d80509]";
     }
@@ -654,7 +656,7 @@ export default function EnrichmentClassDetail() {
                 </button>
                 {isFilterDropdownOpen && (
                   <div className="absolute top-full right-0 mt-1 w-32 bg-white border border-[#f0f0f0] rounded-[8px] shadow-lg z-10 py-1">
-                    {(['All', 'Approved', 'Pending', 'Rejected'] as const).map(status => (
+                    {(['All', 'Approved', 'Pending', 'Waitlisted', 'Rejected'] as const).map(status => (
                       <button 
                         key={status}
                         type="button"
@@ -1064,6 +1066,7 @@ export default function EnrichmentClassDetail() {
               >
                 <option value="Approved">Approved</option>
                 <option value="Pending">Pending</option>
+                <option value="Waitlisted">Waitlisted</option>
                 <option value="Rejected">Rejected</option>
               </select>
               <label className="text-[12px] font-semibold text-[#666d80] uppercase tracking-wide">Description</label>

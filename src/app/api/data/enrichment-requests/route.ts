@@ -50,7 +50,7 @@ export async function PATCH(req: Request) {
   if (!id || !status) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
-  if (status !== "Approved" && status !== "Rejected" && status !== "Pending") {
+  if (status !== "Approved" && status !== "Rejected" && status !== "Pending" && status !== "Waitlisted") {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
   const result = await serverPatchEnrichmentRequest(id, status);
