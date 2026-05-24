@@ -1,3 +1,4 @@
+import { canUsePrivilegedDemoData } from "@/lib/data/env";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export async function GET() {
@@ -10,6 +11,7 @@ export async function GET() {
     productionGuards: {
       requireRemoteData: env.NEXT_PUBLIC_REQUIRE_REMOTE_DATA?.trim() === "true",
       demoLoginDisabled: env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "false",
+      privilegedDemoDataDisabled: !canUsePrivilegedDemoData(),
       testPersonaUiDisabled: !isTestPersonaSwitcherEnabled(),
       figmaCaptureDisabled: env.NEXT_PUBLIC_ENABLE_FIGMA_CAPTURE?.trim() !== "true",
       mockNotificationHeaderDisabled:
