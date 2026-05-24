@@ -1,8 +1,29 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { DashboardNotification } from "@/lib/data/types";
-import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
+import {
+  fallbackList,
+  isRemoteDataRequired,
+  isSupabaseConfigured,
+  unavailableList,
+} from "@/lib/data/env";
+import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
+import { DEMO_UI_ROLE_COOKIE_NAME } from "@/lib/demo-login";
+import type { DashboardPersona } from "@/lib/demo-accounts";
 import { NOTIFICATIONS_FALLBACK } from "@/lib/data/mock/notifications";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+
+type NotificationReadClient =
+  | Awaited<ReturnType<typeof createSupabaseServerClient>>
+  | ReturnType<typeof createSupabaseAdminClient>;
+
+const DEMO_NOTIFICATION_EMAIL_BY_ROLE: Record<DashboardPersona, string> = {
+  admin: "name.example@gmail.com",
+  parent: "parent.lee@cia.demo",
+  teacher: "teacher.emily@cia.demo",
+  student: "student.anna@cia.demo",
+};
 
 export function mapNotificationRow(row: Record<string, unknown>): DashboardNotification | null {
   const id = row.id != null ? String(row.id) : "";
@@ -20,6 +41,58 @@ export function mapNotificationRow(row: Record<string, unknown>): DashboardNotif
   };
 }
 
+function demoRoleFromCookieValue(value: string | undefined): DashboardPersona {
+  if (value === "admin" || value === "parent" || value === "teacher" || value === "student") {
+    return value;
+  }
+  return "parent";
+}
+
+async function resolveDemoRecipientProfileId(): Promise<string | null> {
+  if (!isSupabaseAdminConfigured()) return null;
+
+  const cookieStore = await cookies();
+  const role = demoRoleFromCookieValue(cookieStore.get(DEMO_UI_ROLE_COOKIE_NAME)?.value);
+  const email = DEMO_NOTIFICATION_EMAIL_BY_ROLE[role];
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (error || !data?.id) return null;
+  return String(data.id);
+}
+
+async function queryNotificationsForRecipient(
+  supabase: NotificationReadClient,
+  recipientProfileId: string,
+): Promise<ResolvedList<DashboardNotification>> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, title, body, href, read_at, created_at")
+    .eq("recipient_profile_id", recipientProfileId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return fallbackList(NOTIFICATIONS_FALLBACK);
+  }
+
+  if (!data?.length) {
+    return { items: [], source: "remote" };
+  }
+
+  const mapped = data
+    .map((row) => mapNotificationRow(row as unknown as Record<string, unknown>))
+    .filter((x): x is DashboardNotification => x !== null);
+
+  if (mapped.length === 0) {
+    return fallbackList(NOTIFICATIONS_FALLBACK);
+  }
+  return { items: mapped, source: "remote" };
+}
+
 async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotification>> {
   if (!isSupabaseConfigured()) {
     return fallbackList(NOTIFICATIONS_FALLBACK);
@@ -27,27 +100,24 @@ async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotifi
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id, title, body, href, read_at, created_at")
-      .order("created_at", { ascending: false });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
 
-    if (error) {
+    if (user?.id) {
+      return queryNotificationsForRecipient(supabase, user.id);
+    }
+
+    if (isRemoteDataRequired()) {
+      return unavailableList();
+    }
+
+    const demoRecipientProfileId = await resolveDemoRecipientProfileId();
+    if (!demoRecipientProfileId) {
       return fallbackList(NOTIFICATIONS_FALLBACK);
     }
 
-    if (!data?.length) {
-      return { items: [], source: "remote" };
-    }
-
-    const mapped = data
-      .map((row) => mapNotificationRow(row as unknown as Record<string, unknown>))
-      .filter((x): x is DashboardNotification => x !== null);
-
-    if (mapped.length === 0) {
-      return fallbackList(NOTIFICATIONS_FALLBACK);
-    }
-    return { items: mapped, source: "remote" };
+    return queryNotificationsForRecipient(createSupabaseAdminClient(), demoRecipientProfileId);
   } catch {
     return fallbackList(NOTIFICATIONS_FALLBACK);
   }

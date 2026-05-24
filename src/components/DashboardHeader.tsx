@@ -37,6 +37,7 @@ const imgRiParentLine = "/images/icon-person-feedback.svg";
 
 type NotificationsBody = {
   notifications?: DashboardNotification[];
+  source?: string;
 };
 
 function readCachedNotifications() {
@@ -56,6 +57,7 @@ export default function DashboardHeader() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notificationsSource, setNotificationsSource] = useState<string | null>(null);
   const [notificationSyncHint, setNotificationSyncHint] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -107,7 +109,10 @@ export default function DashboardHeader() {
       if (cached.length) setNotifications(cached);
       try {
         const body = await cachedJson<NotificationsBody>("/api/data/notifications");
-        if (!cancelled) setNotifications(Array.isArray(body.notifications) ? body.notifications : []);
+        if (!cancelled) {
+          setNotifications(Array.isArray(body.notifications) ? body.notifications : []);
+          setNotificationsSource(body.source ?? null);
+        }
       } catch (err) {
         if (!cancelled) {
           setNotifications([]);
@@ -132,12 +137,17 @@ export default function DashboardHeader() {
 
   async function markAllNotificationsRead(): Promise<void> {
     const previous = notifications;
+    const unreadIds = previous.filter((item) => !item.read).map((item) => item.id);
     setNotifications((items) => items.map((item) => ({ ...item, read: true })));
     setNotificationSyncHint(null);
+    if (notificationsSource === "fallback") {
+      setNotificationSyncHint("Read state saved locally for this browser session.");
+      return;
+    }
     const res = await fetch("/api/data/notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scope: "all" }),
+      body: JSON.stringify({ scope: "all", ids: unreadIds }),
     });
     if (!res.ok) {
       setNotifications(previous);

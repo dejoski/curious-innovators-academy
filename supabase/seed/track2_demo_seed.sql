@@ -549,24 +549,48 @@ SELECT pr.id,
 FROM public.profiles pr
 CROSS JOIN (VALUES
   (
+    'parent.lee@cia.demo',
+    'New enrichment class request',
+    'Anna Lee requested Robotics Lab — review prerequisites.',
+    '/dashboard/parents/catalog',
+    NULL::timestamptz
+  ),
+  (
+    'parent.lee@cia.demo',
+    'Teacher schedule updated',
+    'Emily Carter updated her availability for next term.',
+    '/dashboard/parents/schedule',
+    NULL::timestamptz
+  ),
+  (
+    'parent.lee@cia.demo',
+    'System maintenance',
+    'Scheduled backup tonight at 2:00 AM local time.',
+    '/dashboard/parents/home',
+    now() - interval '5 hours'
+  ),
+  (
+    'name.example@gmail.com',
     'New enrichment class request',
     'Anna Lee requested Force & Motion — review prerequisites.',
     '/dashboard/classes/requests',
     NULL::timestamptz
   ),
   (
+    'name.example@gmail.com',
     'Teacher schedule updated',
     'Emily Carter updated her availability for next term.',
     '/dashboard/schedule',
     NULL::timestamptz
   ),
   (
+    'name.example@gmail.com',
     'System maintenance',
     'Scheduled backup tonight at 2:00 AM local time.',
     '/dashboard',
     now() - interval '5 hours'
   )
-) AS n(title, body, href, read_at)
-WHERE lower(pr.email) = lower('name.example@gmail.com');
+) AS n(recipient_email, title, body, href, read_at)
+WHERE lower(pr.email) = lower(n.recipient_email);
 
 COMMIT;

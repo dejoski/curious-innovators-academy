@@ -20,7 +20,8 @@ export async function PATCH(req: Request) {
 
   const body = (await req.json()) as Record<string, unknown>;
   if (body.scope === "all") {
-    const result = await serverPatchNotificationsReadAll();
+    const ids = Array.isArray(body.ids) ? body.ids.map((id) => String(id)) : undefined;
+    const result = await serverPatchNotificationsReadAll(ids);
     if (!result.ok) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }

@@ -4,6 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useDashboardPersona } from "@/components/dashboard-persona";
+import { invalidateClientDataCache } from "@/lib/client-data-cache";
 import {
   dashboardHomeForPersona,
   dashboardHrefForPersona,
@@ -54,17 +55,23 @@ export default function DashboardNotificationsPage({
 
   const markAllRead = async () => {
     const previous = items;
+    const unreadIds = previous.filter((n) => !n.read).map((n) => n.id);
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+    if (dataSource === "fallback") {
+      setSyncHint("Read state saved locally for this browser session.");
+      return;
+    }
     const res = await fetch("/api/data/notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scope: "all" }),
+      body: JSON.stringify({ scope: "all", ids: unreadIds }),
     });
     if (!res.ok) {
       setItems(previous);
       setSyncHint(`Could not sync read state (${await readApiError(res)}).`);
       return;
     }
+    invalidateClientDataCache("/api/data/notifications");
     setSyncHint(null);
   };
 
@@ -72,6 +79,10 @@ export default function DashboardNotificationsPage({
     const prevRow = items.find((n) => n.id === id);
     const nextRead = !prevRow?.read;
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: nextRead } : n)));
+    if (dataSource === "fallback") {
+      setSyncHint("Read state saved locally for this browser session.");
+      return;
+    }
     const res = await fetch("/api/data/notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -80,7 +91,10 @@ export default function DashboardNotificationsPage({
     if (!res.ok && prevRow) {
       setItems((prev) => prev.map((n) => (n.id === id ? prevRow : n)));
       setSyncHint(`Could not sync read state (${await readApiError(res)}).`);
+      return;
     }
+    invalidateClientDataCache("/api/data/notifications");
+    setSyncHint(null);
   };
 
   return (

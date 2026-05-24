@@ -986,20 +986,39 @@ export async function serverInsertScheduleEvent(input: {
   }
 }
 
-export async function serverPatchNotificationsReadAll(): Promise<WriteFail | { ok: true }> {
+export async function serverPatchNotificationsReadAll(ids?: string[]): Promise<WriteFail | { ok: true }> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const notificationIds = (ids ?? []).map((id) => id.trim()).filter(Boolean);
   try {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
       error: ue,
     } = await supabase.auth.getUser();
-    if (ue || !user) return { ok: false, message: "Not signed in" };
-    const { error } = await supabase
+
+    if (ue || !user) {
+      if (isRemoteDataRequired()) return { ok: false, message: "Not signed in" };
+      if (!isSupabaseAdminConfigured()) return { ok: false, message: "Supabase demo write is not configured" };
+      if (notificationIds.length === 0) return { ok: true };
+
+      const admin = createSupabaseAdminClient();
+      const { error } = await admin
+        .from("notifications")
+        .update({ read_at: new Date().toISOString() })
+        .in("id", notificationIds)
+        .is("read_at", null);
+      if (error) return { ok: false, message: error.message };
+      return { ok: true };
+    }
+
+    let query = supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("recipient_profile_id", user.id)
       .is("read_at", null);
+    if (notificationIds.length > 0) query = query.in("id", notificationIds);
+
+    const { error } = await query;
     if (error) return { ok: false, message: error.message };
     return { ok: true };
   } catch (e) {
@@ -1013,16 +1032,39 @@ export async function serverPatchNotificationRead(
   read: boolean,
 ): Promise<WriteOk<DashboardNotification> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const notificationId = id.trim();
+  if (!notificationId) return { ok: false, message: "Missing notification id" };
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+    const {
+      data: { user },
+      error: ue,
+    } = await supabase.auth.getUser();
+
+    const client = ue || !user
+      ? isRemoteDataRequired()
+        ? null
+        : isSupabaseAdminConfigured()
+          ? createSupabaseAdminClient()
+          : null
+      : supabase;
+
+    if (!client) {
+      return { ok: false, message: ue || !user ? "Not signed in" : "Supabase demo write is not configured" };
+    }
+
+    let query = client
       .from("notifications")
       .update({ read_at: read ? new Date().toISOString() : null })
-      .eq("id", id)
-      .select("id, title, body, href, read_at, created_at")
-      .maybeSingle();
+      .eq("id", notificationId);
+
+    if (user?.id) {
+      query = query.eq("recipient_profile_id", user.id);
+    }
+
+    const { data, error } = await query.select("id, title, body, href, read_at, created_at").maybeSingle();
     if (error) return { ok: false, message: error.message };
-    if (!data) return { ok: false, message: "No row updated" };
+    if (!data) return { ok: false, message: "Notification was not found for this account" };
     const mapped = mapNotificationRow(data as unknown as Record<string, unknown>);
     if (!mapped) return { ok: false, message: "Could not map notification" };
     return { ok: true, row: mapped };
