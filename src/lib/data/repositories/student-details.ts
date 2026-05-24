@@ -28,6 +28,8 @@ type StudentScheduleResolved = {
   source: DataSource;
 };
 
+const SCHOOL_TIME_ZONE = "America/New_York";
+
 function fallbackProfile(studentId: string): StudentProfileResolved {
   if (!canUseBundledFallbackData()) return { profile: null, source: "unavailable" };
   return {
@@ -78,6 +80,7 @@ function formatDate(raw: unknown): string {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: SCHOOL_TIME_ZONE,
   });
 }
 
@@ -87,6 +90,7 @@ function formatTime(raw: unknown): string {
   return d.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SCHOOL_TIME_ZONE,
   });
 }
 
