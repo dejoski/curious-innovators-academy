@@ -47,6 +47,10 @@ import {
   catalogSlotIdFromScheduleSlot,
   type CatalogSlotId,
 } from "@/lib/schedule-slots";
+import {
+  parentScheduleFinalityClasses,
+  parentScheduleFinalityFromBadges,
+} from "@/lib/parent-schedule-status";
 import type { SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
 type SlotId = CatalogSlotId;
@@ -275,11 +279,12 @@ function ParentClassesEnrichmentCatalogContent() {
     }, {});
     return buildParentScheduleBadges(studentSchedule, draftOverrides);
   }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
+  const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
 
-    const selectedChoices = useMemo(
-      () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
-      [requests],
-    );
+  const selectedChoices = useMemo(
+    () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
+    [requests],
+  );
 
   const hasChoices = selectedChoices.length > 0;
   const activeMeta = SLOT_META[activeSlot];
@@ -419,7 +424,13 @@ function ParentClassesEnrichmentCatalogContent() {
       )}
 
       <div className="mt-6 grid gap-6">
-        <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full" />
+        <div className="grid gap-3">
+          <div className={`flex flex-col gap-1 rounded-[10px] border px-4 py-3 text-sm min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between ${parentScheduleFinalityClasses(scheduleFinality.state)}`}>
+            <span className="font-semibold">{scheduleFinality.label}</span>
+            <span>{scheduleFinality.description}</span>
+          </div>
+          <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full" />
+        </div>
 
         <section className="w-full rounded-[16px] border border-[#e6e9ef] bg-white px-6 py-5 shadow-sm">
           <h2 className="text-[16px] font-semibold leading-[1.4] text-[#0d0d12]">How it works</h2>

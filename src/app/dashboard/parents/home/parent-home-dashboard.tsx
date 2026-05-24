@@ -49,6 +49,10 @@ import {
   catalogSlotIdFromScheduleSlot,
   type CatalogSlotId,
 } from "@/lib/schedule-slots";
+import {
+  parentScheduleFinalityClasses,
+  parentScheduleFinalityFromBadges,
+} from "@/lib/parent-schedule-status";
 import type {
   DashboardNotification,
   DataSource,
@@ -384,6 +388,7 @@ export default function ParentHomeDashboard() {
     }, {});
     return buildParentScheduleBadges(selectedSchedule, draftOverrides);
   }, [catalogDraft, localRequestState, localReviewStatuses, selectedSchedule]);
+  const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
 
   const catalogIdentity = useMemo<ParentCatalogIdentity>(
     () => ({
@@ -605,11 +610,16 @@ export default function ParentHomeDashboard() {
       <div className="flex flex-col xl:flex-row gap-6 items-start">
         <div className="w-full xl:flex-1 min-w-0 flex flex-col gap-6">
           <div>
-            <div className="mb-4 flex flex-col gap-1">
-              <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[16px] font-semibold text-[#0d0d12]">
-                {student ? `${student.name}'s schedule` : "Student schedule"}
-              </h2>
-              <p className="text-sm text-[#666d80]">Current core and enrichment blocks.</p>
+            <div className="mb-4 flex flex-col gap-3 min-[760px]:flex-row min-[760px]:items-start min-[760px]:justify-between">
+              <div className="min-w-0">
+                <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[16px] font-semibold text-[#0d0d12]">
+                  {student ? `${student.name}'s schedule` : "Student schedule"}
+                </h2>
+                <p className="mt-1 text-sm text-[#666d80]">{scheduleFinality.description}</p>
+              </div>
+              <span className={`inline-flex w-fit shrink-0 rounded-[999px] border px-3 py-1 text-[12px] font-semibold ${parentScheduleFinalityClasses(scheduleFinality.state)}`}>
+                {scheduleFinality.label}
+              </span>
             </div>
             {isStudentDataLoading ? (
               <StudentDashboardLoading studentName={student?.name} />
