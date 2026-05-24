@@ -4,7 +4,7 @@
   "summary": "All image assets have been verified as locally stored. No Figma MCP asset URLs (https://www.figma.com/api/mcp/asset/) found in the codebase.",
   "filesScanned": 124,
   "figmaUrlsFound": 0,
-  "assetsVerified": 33,
+  "assetsVerified": 28,
   "uuidToLocalPathMapping": {
     "note": "No external Figma asset URLs were found. This mapping would contain UUID → local path conversions if migrations were needed. Currently, all assets use local /public/images paths.",
     "exampleFormat": {
@@ -18,12 +18,11 @@
   ],
   "assetCategorization": {
     "icons": {
-      "count": 14,
+      "count": 9,
       "totalSize": "~250KB",
       "examples": [
         "icon-generic.svg",
         "icon-student.svg",
-        "icon-chevron-down.svg",
         "icon-dashboard.svg"
       ]
     },
@@ -45,10 +44,7 @@
   "downloadedAssets": [],
   "unusedAssets": [
     "Note: The following assets exist in public/images but may not be actively used:",
-    "- icon-generic2.svg",
-    "- icon-chevron-down2.svg",
-    "- icon-chevron-down3.svg",
-    "- icon-chevron-down4.svg"
+    "- icon-generic2.svg"
   ],
   "registryFiles": [
     {

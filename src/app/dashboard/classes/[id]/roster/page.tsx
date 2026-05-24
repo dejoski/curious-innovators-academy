@@ -3,17 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { ClassRosterStudent, SchoolClassRow, StudentRosterRow, StudentRosterStatus } from "@/lib/data/types";
 
 const imgGroup = "/images/icon-group.svg";
-const imgIcon = "/images/icon-caret-down.svg";
 const imgGroup1 = "/images/icon-search.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown = "/images/icon-chevron-down.svg";
-const imgChevronDown1 = "/images/icon-chevron-down2.svg";
 
 type SortOption = "None" | "Student A-Z" | "Student Z-A" | "Status";
 
@@ -374,7 +371,7 @@ export default function StudentClassRoster() {
                 <img src={imgGroup} alt="Notebook" className="size-[18px] object-contain" />
                 <p className="font-normal text-[#0d0d12] text-[16px]">{selectedClass || "No classes"}</p>
               </div>
-              <img src={imgIcon} alt="Chevron" className={`size-[20px] object-contain transition-transform ${openDropdown === "class" ? "rotate-0" : "rotate-180"}`} />
+              <ChevronDown className={`size-[20px] shrink-0 text-[#666d80] transition-transform ${openDropdown === "class" ? "rotate-180" : ""}`} aria-hidden strokeWidth={1.8} />
             </button>
             {openDropdown === "class" && (
               <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-[260px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
@@ -406,7 +403,7 @@ export default function StudentClassRoster() {
                 <img src={imgGroup} alt="Notebook" className="size-[18px] object-contain" />
                 <p className="font-normal text-[#0d0d12] text-[16px]">{selectedBlock}</p>
               </div>
-              <img src={imgIcon} alt="Chevron" className={`size-[20px] object-contain transition-transform ${openDropdown === "block" ? "rotate-0" : "rotate-180"}`} />
+              <ChevronDown className={`size-[20px] shrink-0 text-[#666d80] transition-transform ${openDropdown === "block" ? "rotate-180" : ""}`} aria-hidden strokeWidth={1.8} />
             </button>
             {openDropdown === "block" && (
               <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-[260px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
@@ -438,7 +435,7 @@ export default function StudentClassRoster() {
                 <img src={imgGroup} alt="Notebook" className="size-[18px] object-contain" />
                 <p className="font-normal text-[#0d0d12] text-[16px]">{selectedLevel}</p>
               </div>
-              <img src={imgIcon} alt="Chevron" className={`size-[20px] object-contain transition-transform ${openDropdown === "level" ? "rotate-0" : "rotate-180"}`} />
+              <ChevronDown className={`size-[20px] shrink-0 text-[#666d80] transition-transform ${openDropdown === "level" ? "rotate-180" : ""}`} aria-hidden strokeWidth={1.8} />
             </button>
             {openDropdown === "level" && (
               <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-[260px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
@@ -504,7 +501,7 @@ export default function StudentClassRoster() {
               >
                 <img src={imgFlowbiteSortOutline} alt="Sort" className="size-[14px]" />
                 <p className="font-normal text-[#0d0d12] text-[12px]">Sort</p>
-                <img src={imgIconCaretDown} alt="Caret" className="size-[14px]" />
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isSortOpen && (
                 <div className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-lg">
@@ -673,9 +670,10 @@ export default function StudentClassRoster() {
               type="button"
               disabled={displayPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="rotate-90 hover:bg-gray-100 p-1 rounded transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              className="hover:bg-gray-100 p-1 rounded transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              aria-label="Previous page"
             >
-              <img src={imgChevronDown} alt="Previous" className="size-[18px]" />
+              <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex items-center gap-[3px]">
               {pageSlice.map((item, idx) =>
@@ -699,9 +697,10 @@ export default function StudentClassRoster() {
               type="button"
               disabled={displayPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="-rotate-90 hover:bg-gray-100 p-1 rounded transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              className="hover:bg-gray-100 p-1 rounded transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              aria-label="Next page"
             >
-              <img src={imgChevronDown1} alt="Next" className="size-[18px]" />
+              <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
           </div>
         </div>

@@ -410,11 +410,128 @@ SELECT cl.id,
   'Lab 2'
 FROM public.classes cl WHERE cl.name = 'Robotics Lab' LIMIT 1;
 
-INSERT INTO public.student_records (student_id, author_profile_id, body)
-SELECT st.id, pr.id, 'Focused and participative in group activities (seed).'
-FROM public.students st
-JOIN public.profiles pr ON lower(pr.email) = lower('teacher.emily@cia.demo')
-WHERE st.display_name = 'Anna Lee';
+INSERT INTO public.student_records (
+  student_id, author_profile_id, title, category, urgent, body, created_at
+)
+SELECT st.id,
+  pr.id,
+  v.title,
+  v.category,
+  v.urgent,
+  v.body,
+  now() - v.age
+FROM (VALUES
+  (
+    'Anna Lee',
+    'teacher.emily@cia.demo',
+    'Enrichment deadline reminder',
+    'Academic',
+    true,
+    'Anna has two pending enrichment choices. Please submit final preferences before the school review window closes.\n- Deadline: March 12, 2026.\n- Current choices: Force & Motion and Digital Storytelling & Animation.',
+    interval '1 day'
+  ),
+  (
+    'Anna Lee',
+    'teacher.emily@cia.demo',
+    'Collaboration progress',
+    'General',
+    false,
+    'Anna contributed clearly during the Economics & Financial Literacy group simulation and helped organize team notes.',
+    interval '5 days'
+  ),
+  (
+    'Bruce Collins',
+    'teacher.emily@cia.demo',
+    'Robotics request follow-up',
+    'Academic',
+    true,
+    'Bruce requested Robotics Lab for Block 4. Staff should confirm prerequisites and available seats before approving the request.',
+    interval '2 days'
+  ),
+  (
+    'Bruce Collins',
+    'teacher.emily@cia.demo',
+    'Lab readiness note',
+    'General',
+    false,
+    'Bruce is prepared for hands-on lab work and benefits from receiving materials at the start of each session.',
+    interval '7 days'
+  ),
+  (
+    'Bruna Lee',
+    'teacher.emily@cia.demo',
+    'Creative Arts seat review',
+    'Academic',
+    true,
+    'Bruna has a pending Creative Arts preference. Please review class capacity and alternate placement options this week.',
+    interval '2 days'
+  ),
+  (
+    'Bruna Lee',
+    'teacher.emily@cia.demo',
+    'Reading workshop participation',
+    'General',
+    false,
+    'Bruna participated thoughtfully in peer discussion and used extra planning time effectively.',
+    interval '6 days'
+  ),
+  (
+    'George Lee',
+    'teacher.emily@cia.demo',
+    'Journalism preference review',
+    'Academic',
+    true,
+    'George selected Journalism & Media Writing as a second preference. Confirm whether it should remain as the backup option.',
+    interval '3 days'
+  ),
+  (
+    'George Lee',
+    'teacher.emily@cia.demo',
+    'Assessment preparation',
+    'General',
+    false,
+    'George solved the warm-up problems quickly and should continue using the checklist before major assessments.',
+    interval '8 days'
+  ),
+  (
+    'James Smith',
+    'teacher.emily@cia.demo',
+    'Rejected request needs parent notice',
+    'Academic',
+    true,
+    'James had an Ocean Explorers request rejected. Parent notification and a suggested alternate enrichment should be sent.',
+    interval '1 day'
+  ),
+  (
+    'James Smith',
+    'teacher.emily@cia.demo',
+    'Class participation',
+    'General',
+    false,
+    'James showed strong engagement during the Chemistry Lab demonstration and asked useful follow-up questions.',
+    interval '4 days'
+  ),
+  (
+    'Maria Collins',
+    'teacher.emily@cia.demo',
+    'Approved request confirmation',
+    'Academic',
+    true,
+    'Maria has an approved Journalism & Media Writing placement. Confirm the family can see the updated schedule.',
+    interval '2 days'
+  ),
+  (
+    'Maria Collins',
+    'teacher.emily@cia.demo',
+    'Support check-in',
+    'Behavioral',
+    false,
+    'Maria benefits from a quick check-in before long independent writing blocks and responded well to the outline template.',
+    interval '9 days'
+  )
+) AS v(student_name, author_email, title, category, urgent, body, age)
+JOIN public.students st ON st.display_name = v.student_name
+JOIN public.profiles pr ON lower(pr.email) = lower(v.author_email);
 
 INSERT INTO public.feedback (student_id, author_profile_id, class_id, body, rating)
 SELECT st.id, pr.id, cl.id, 'Strong engagement this week.', 5

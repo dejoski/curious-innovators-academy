@@ -5,7 +5,7 @@ import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { downloadCsv } from "@/lib/client-directory-actions";
 
@@ -13,10 +13,7 @@ const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgFilterFunnel = "/images/icon-filter-funnel.svg";
-const imgCaretDown = "/images/icon-caret-down-fine.svg";
 const imgCheckRounded = "/images/icon-check-rounded.svg";
-const imgChevronPrev = "/images/icon-chevron-down3.svg";
-const imgChevronNext = "/images/icon-chevron-down4.svg";
 
 type ClassStatus = "Active" | "Full";
 
@@ -405,7 +402,7 @@ export default function ClassesPageClient({
               >
                 <img src={imgFilterFunnel} alt="" className="size-[14px]" />
                 <span className="truncate">Filter by: {visibilityFilter === "inactive" ? "Inactive Classes" : visibilityFilter === "active" ? "Active Classes" : "All Classes"}</span>
-                <img src={imgCaretDown} alt="" className="size-[14px]" />
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
 
               <div className="relative" ref={sortRef}>
@@ -420,7 +417,7 @@ export default function ClassesPageClient({
                 >
                   <img src={imgFlowbiteSortOutline} alt="" className="size-[14px]" />
                   Sort
-                  <img src={imgCaretDown} alt="" className="size-[14px]" />
+                  <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
                 </button>
                 {sortOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-[220px] rounded-lg border border-[#ebecef] bg-white py-1 shadow-md">
@@ -607,7 +604,7 @@ export default function ClassesPageClient({
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 aria-label="Previous page"
               >
-                <img src={imgChevronPrev} alt="" className="size-[18px] rotate-90" aria-hidden />
+                <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
               </button>
               <div className="flex items-center gap-2">
                 {visiblePages.map((item, i) =>
@@ -639,7 +636,7 @@ export default function ClassesPageClient({
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 aria-label="Next page"
               >
-                <img src={imgChevronNext} alt="" className="size-[18px] -rotate-90" aria-hidden />
+                <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
               </button>
             </div>
           )}

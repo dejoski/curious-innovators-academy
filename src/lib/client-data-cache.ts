@@ -3,7 +3,7 @@ type CacheEntry<T> = {
   data: T;
 };
 
-const VERSION = "cia-client-data-v1";
+const VERSION = "cia-client-data-v2";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();

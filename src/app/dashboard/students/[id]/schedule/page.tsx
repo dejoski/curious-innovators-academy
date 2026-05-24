@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource } from "@/lib/data/fetch-source";
@@ -9,10 +10,7 @@ import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types"
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/icon-filter-funnel.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown2 = "/images/icon-chevron-down2.svg";
-const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
 type BadgeData = StudentScheduleBadge;
 
@@ -205,7 +203,7 @@ export default function StudentSchedulePage() {
                 </span>
                 <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">Active Students</span>
                 <span className="flex items-center py-[2px]">
-                  <img alt="Expand" className="size-[14px]" src={imgIconCaretDown} />
+                  <ChevronDown className="size-[14px] text-[#666d80]" aria-hidden strokeWidth={1.8} />
                 </span>
               </button>
               <button type="button" className="rounded-[8px] bg-[#fafafa] p-[8px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">
@@ -252,8 +250,8 @@ export default function StudentSchedulePage() {
         </div>
 
         <div className="mt-[10px] flex w-full items-center justify-center gap-[12px]">
-          <button type="button" className="flex size-[18px] items-center justify-center">
-            <img alt="Previous" className="size-[18px] rotate-90" src={imgChevronDown2} />
+          <button type="button" className="flex size-[18px] items-center justify-center" aria-label="Previous page">
+            <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
           </button>
           <div className="flex items-center gap-[3px]">
             <div className="flex size-[18px] items-center justify-center rounded-[9px] bg-[#14c1d5] px-[5px] py-[9px]">
@@ -272,8 +270,8 @@ export default function StudentSchedulePage() {
               <span className="font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-none text-[#666d80]">9</span>
             </div>
           </div>
-          <button type="button" className="flex size-[18px] items-center justify-center">
-            <img alt="Next" className="size-[18px] -rotate-90" src={imgChevronDown3} />
+          <button type="button" className="flex size-[18px] items-center justify-center" aria-label="Next page">
+            <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
           </button>
         </div>
 

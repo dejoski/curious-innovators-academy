@@ -2,6 +2,7 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
@@ -13,11 +14,8 @@ const imgGroup2 = "/images/figma-icon-fully-scheduled.svg";
 const imgGroup3 = "/images/figma-icon-open-blocks.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown2 = "/images/icon-chevron-down2.svg";
-const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
 function TableRow({
   studentId,
@@ -522,13 +520,7 @@ export default function StudentsStudentsList({
                       ? "Core"
                       : "Enrichment"}
                 </p>
-                <div className="relative shrink-0 size-[14px]">
-                  <img
-                    alt=""
-                    className="absolute block inset-0 max-w-none size-full"
-                    src={imgIconCaretDown}
-                  />
-                </div>
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isCoreFilterOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-40">
@@ -582,13 +574,7 @@ export default function StudentsStudentsList({
                   Schedule Status:
                   {` ${scheduleFilter === "all" ? "All" : scheduleFilter}`}
                 </p>
-                <div className="relative shrink-0 size-[14px]">
-                  <img
-                    alt=""
-                    className="absolute block inset-0 max-w-none size-full"
-                    src={imgIconCaretDown}
-                  />
-                </div>
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isStatusFilterOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-40">
@@ -719,9 +705,10 @@ export default function StudentsStudentsList({
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`flex items-center justify-center size-[18px] rotate-90 rounded-full transition-colors ${currentPage === 1 ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
+              className={`flex items-center justify-center size-[18px] rounded-full transition-colors ${currentPage === 1 ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
+              aria-label="Previous page"
             >
-              <img alt="" className="w-[18px] h-[18px]" src={imgChevronDown2} />
+              <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex gap-[3px] items-center">
               {[1, 2, 3].map((page) => (
@@ -755,9 +742,10 @@ export default function StudentsStudentsList({
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className={`flex items-center justify-center size-[18px] -rotate-90 rounded-full transition-colors ${currentPage === totalPages ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
+              className={`flex items-center justify-center size-[18px] rounded-full transition-colors ${currentPage === totalPages ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
+              aria-label="Next page"
             >
-              <img alt="" className="w-[18px] h-[18px]" src={imgChevronDown3} />
+              <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
           </div>
         </div>

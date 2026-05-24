@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import {
@@ -19,7 +20,6 @@ import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
@@ -326,7 +326,7 @@ export default function EnrichmentClassesPage() {
               >
                 <img src={imgVector3} className="w-[14px] h-[14px]" alt="Filter" />
                 <span className="text-[12px] text-[#0d0d12]">Status: {filterStatus}</span>
-                <img src={imgIconCaretDown} className="w-[14px] h-[14px]" alt="Dropdown" />
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isFilterOpen && (
                 <div className="absolute top-full right-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
@@ -352,7 +352,7 @@ export default function EnrichmentClassesPage() {
                 <span className="text-[12px] text-[#0d0d12]">
                   Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}
                 </span>
-                <img src={imgIconCaretDown} className="w-[14px] h-[14px]" alt="Dropdown" />
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isSortOpen && (
                 <div className="absolute top-full right-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">

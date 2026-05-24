@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import type {
   ClassRosterStudent,
@@ -10,20 +11,15 @@ import type {
   SchoolClassRow,
 } from "@/lib/data/types";
 
-const imgChevronDown = "/images/icon-chevron-down.svg";
 const imgGroup = "/images/icon-group.svg";
-const imgChevronDown1 = "/images/icon-chevron-down2.svg";
 const imgGroup2 = "/images/icon-group.svg";
 const imgGroup3 = "/images/icon-generic2.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgWeuiMoreOutlined1 = "/images/icon-more.svg";
-const imgChevronDown4 = "/images/icon-chevron-down3.svg";
-const imgChevronDown5 = "/images/icon-chevron-down4.svg";
 
 type StudentStatus = ClassRosterStatus;
 
@@ -504,9 +500,7 @@ export default function EnrichmentClassDetail() {
     <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto font-['Inter',sans-serif]">
       {/* Back Link */}
       <Link href="/dashboard/classes" className="flex items-center gap-4 w-fit">
-        <div className="rotate-90 w-[18px] h-[18px]">
-          <img src={imgChevronDown} alt="Back" className="w-full h-full object-contain" />
-        </div>
+        <ArrowLeft className="size-[18px] text-[#666d80]" aria-hidden strokeWidth={1.8} />
         <span className="font-medium text-[#666d80] text-[14px]">Back to class setup</span>
       </Link>
 
@@ -524,7 +518,7 @@ export default function EnrichmentClassDetail() {
             className="flex items-center gap-2 font-semibold text-[#272932] text-[16px] hover:text-[#14c1d5] transition-colors"
           >
             Review Requests
-            <img src={imgChevronDown1} alt="" className="w-[18px] h-[18px] -rotate-90" />
+            <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
           </Link>
         </div>
       </div>
@@ -656,7 +650,7 @@ export default function EnrichmentClassDetail() {
                 >
                   <img src={imgVector} alt="Filter" className="w-[14px] h-[14px]" />
                   <span className="text-[12px] text-[#0d0d12]">Filter by: {filterStatus}</span>
-                  <img src={imgIconCaretDown} alt="Expand" className={`w-[14px] h-[14px] transition-transform ${isFilterDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`size-[14px] shrink-0 text-[#666d80] transition-transform ${isFilterDropdownOpen ? 'rotate-180' : ''}`} aria-hidden strokeWidth={1.8} />
                 </button>
                 {isFilterDropdownOpen && (
                   <div className="absolute top-full right-0 mt-1 w-32 bg-white border border-[#f0f0f0] rounded-[8px] shadow-lg z-10 py-1">
@@ -683,7 +677,7 @@ export default function EnrichmentClassDetail() {
                 >
                   <img src={imgFlowbiteSortOutline} alt="Sort" className="w-[14px] h-[14px]" />
                   <span className="text-[12px] text-[#0d0d12]">Sort{sortBy !== 'None' ? `: ${sortBy}` : ''}</span>
-                  <img src={imgIconCaretDown} alt="Expand" className={`w-[14px] h-[14px] transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`size-[14px] shrink-0 text-[#666d80] transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} aria-hidden strokeWidth={1.8} />
                 </button>
                 {isSortDropdownOpen && (
                   <div className="absolute top-full right-0 mt-1 w-32 bg-white border border-[#f0f0f0] rounded-[8px] shadow-lg z-10 py-1">
@@ -842,9 +836,10 @@ export default function EnrichmentClassDetail() {
                 type="button"
                 onClick={() => setCurrentPage(Math.max(1, boundedPage - 1))}
                 disabled={boundedPage === 1}
-                className="w-[18px] h-[18px] flex items-center justify-center rotate-90 disabled:opacity-30 hover:opacity-70 transition-opacity"
+                className="w-[18px] h-[18px] flex items-center justify-center disabled:opacity-30 hover:opacity-70 transition-opacity"
+                aria-label="Previous page"
               >
-                <img src={imgChevronDown4} alt="Prev" className="w-full h-full" />
+                <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
               </button>
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
@@ -866,9 +861,10 @@ export default function EnrichmentClassDetail() {
                 type="button"
                 onClick={() => setCurrentPage(Math.min(totalPages, boundedPage + 1))}
                 disabled={boundedPage === totalPages}
-                className="w-[18px] h-[18px] flex items-center justify-center -rotate-90 disabled:opacity-30 hover:opacity-70 transition-opacity"
+                className="w-[18px] h-[18px] flex items-center justify-center disabled:opacity-30 hover:opacity-70 transition-opacity"
+                aria-label="Next page"
               >
-                <img src={imgChevronDown5} alt="Next" className="w-full h-full" />
+                <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
               </button>
             </div>
           )}

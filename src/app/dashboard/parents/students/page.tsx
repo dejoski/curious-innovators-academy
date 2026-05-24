@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { Filter } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import type {
@@ -16,12 +17,10 @@ import { selectedParentStudentIdFromSearchParams } from "@/lib/parent-student-se
 const imgLine10 = "/images/icon-divider-students.svg";
 const imgMaskGroup = "/images/mask-group.svg";
 const imgGroup2 = "/images/icon-group2.svg";
-const imgVector3 = "/images/icon-filter-funnel.svg";
 const imgVuesaxLinearClipboardText = "/images/icon-clipboard-text.svg";
 const imgHistoryLine = "/images/icon-history-line.svg";
 const imgRiParentLine = "/images/icon-parent.svg";
 const imgVuesaxOutlineCalendar = "/images/icon-calendar-outline.svg";
-const imgCaretDown = "/images/icon-caret-down-fine.svg";
 
 const URGENCY_OPTIONS = ["Urgent", "All"] as const;
 
@@ -391,23 +390,18 @@ function ParentStudentsProfileContent() {
                     key={opt}
                     type="button"
                     onClick={() => setUrgency(opt)}
-                    className={`flex h-[34px] items-center gap-[4px] rounded-[8px] border border-[#dfe1e7] bg-white p-[8px] text-[#4b4d4f] ${
-                      opt === "Urgent" ? "w-[98px]" : "w-[73px]"
+                    className={`flex h-[34px] items-center gap-[6px] rounded-[8px] border px-[10px] py-[8px] transition-colors ${
+                      urgency === opt
+                        ? "border-[#14c1d5] bg-[#e9fbfd] text-[#0b6f7d]"
+                        : "border-[#dfe1e7] bg-white text-[#4b4d4f] hover:bg-[#fafafa]"
                     }`}
                     aria-label={`Filter history by ${opt.toLowerCase()}`}
                     aria-pressed={urgency === opt}
                   >
-                    <div className="flex h-[18px] w-[16px] items-center py-[2px] pr-[2px]">
-                      <img alt="" className="size-[14px]" src={imgVector3} />
-                    </div>
-                    <div className="flex h-[12px] items-center px-[2px]">
-                      <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-none tracking-[0.12px] text-[#4b4d4f]">
-                        {opt}
-                      </span>
-                    </div>
-                    <div className="flex h-[18px] w-[14px] items-center py-[2px]">
-                      <img alt="" className="size-[14px]" src={imgCaretDown} />
-                    </div>
+                    <Filter className="size-[14px] shrink-0" aria-hidden strokeWidth={1.8} />
+                    <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-none tracking-[0.12px]">
+                      {opt}
+                    </span>
                   </button>
                 ))}
               </div>

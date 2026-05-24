@@ -10,7 +10,7 @@
  *   <img src={ASSET_PATHS.icons.student} alt="Student" />
  * 
  * Last Updated: 2026-05-11
- * Total Assets: 33
+ * Total Assets: 28
  */
 
 export const ASSET_PATHS = {
@@ -20,11 +20,6 @@ export const ASSET_PATHS = {
     student: "/images/icon-student.svg",
     parent: "/images/icon-parent.svg",
     dashboard: "/images/icon-dashboard.svg",
-    chevronDown: "/images/icon-chevron-down.svg",
-    chevronDown2: "/images/icon-chevron-down2.svg",
-    chevronDown3: "/images/icon-chevron-down3.svg",
-    chevronDown4: "/images/icon-chevron-down4.svg",
-    caretDown: "/images/icon-caret-down.svg",
     group: "/images/icon-group.svg",
     plus: "/images/icon-plus.svg",
     search: "/images/icon-search.svg",

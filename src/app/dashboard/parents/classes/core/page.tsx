@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import {
@@ -12,11 +13,8 @@ import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown2 = "/images/icon-chevron-down2.svg";
-const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 
 type ParentClassRow = {
   id: string;
@@ -250,9 +248,7 @@ export default function ParentClassesClassListCore() {
                   <img alt="Filter" className="size-full" src={imgVector3} />
                 </div>
                 <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">Filter by: {filterDay}</span>
-                <div className="size-[14px]">
-                  <img alt="Dropdown" className="size-full" src={imgIconCaretDown} />
-                </div>
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isFilterOpen && (
                 <div className="absolute top-full left-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
@@ -280,9 +276,7 @@ export default function ParentClassesClassListCore() {
                 <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
                   Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}
                 </span>
-                <div className="size-[14px]">
-                  <img alt="Dropdown" className="size-full" src={imgIconCaretDown} />
-                </div>
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isSortOpen && (
                 <div className="absolute top-full left-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
@@ -414,16 +408,16 @@ export default function ParentClassesClassListCore() {
         {/* Pagination */}
         {filteredAndSortedClasses.length > 0 && (
           <div className="flex items-center justify-center py-4 border-t border-[#f0f0f0] gap-3">
-            <button className="rotate-90 size-[18px] flex items-center justify-center hover:opacity-70">
-              <img alt="Previous" className="size-full" src={imgChevronDown2} />
+            <button className="size-[18px] flex items-center justify-center hover:opacity-70" aria-label="Previous page">
+              <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex items-center gap-1">
               <button className="bg-[#14c1d5] text-white font-['Inter:Semi_Bold',sans-serif] text-[12px] size-[24px] rounded-[6px] flex items-center justify-center">
                 1
               </button>
             </div>
-            <button className="-rotate-90 size-[18px] flex items-center justify-center hover:opacity-70">
-              <img alt="Next" className="size-full" src={imgChevronDown3} />
+            <button className="size-[18px] flex items-center justify-center hover:opacity-70" aria-label="Next page">
+              <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
           </div>
         )}

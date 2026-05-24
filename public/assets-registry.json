@@ -69,13 +69,6 @@
     ],
     "icons": [
       {
-        "name": "icon-chevron-down.svg",
-        "path": "/images/icon-chevron-down.svg",
-        "type": "icon",
-        "size": "small",
-        "usage": "Dropdown indicators"
-      },
-      {
         "name": "icon-dashboard.svg",
         "path": "/images/icon-dashboard.svg",
         "type": "icon",
@@ -151,13 +144,6 @@
         "type": "icon",
         "size": "small",
         "usage": "Table sorting"
-      },
-      {
-        "name": "icon-caret-down.svg",
-        "path": "/images/icon-caret-down.svg",
-        "type": "icon",
-        "size": "small",
-        "usage": "Caret/chevron indicator"
       }
     ],
     "illustrations": [
@@ -299,9 +285,9 @@
   },
   "migrationNotes": {
     "summary": "✅ All assets are already stored locally. No Figma MCP asset URLs detected in codebase.",
-    "totalAssets": 33,
+    "totalAssets": 28,
     "categories": {
-      "icons": 14,
+      "icons": 9,
       "illustrations": 13,
       "avatars": 6
     },

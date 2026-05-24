@@ -1,7 +1,7 @@
 # Assets Quick Reference Guide
 
 ## Overview
-✅ **All 33 assets are locally stored** with zero external dependencies
+✅ **All 28 assets are locally stored** with zero external dependencies
 ✅ **Zero Figma MCP URLs** found in codebase
 ✅ **Production-ready** asset management
 
@@ -10,7 +10,7 @@
 ## Files Created
 
 ### 1. `public/assets-registry.json`
-**Master registry** of all 33 image assets with:
+**Master registry** of all 28 image assets with:
 - Complete metadata for each asset
 - Usage information by page/component
 - Asset categorization (icons, illustrations, avatars)
@@ -26,7 +26,7 @@
 ### 3. `ASSET_MIGRATION_REPORT.md`
 **Comprehensive audit report** including:
 - Complete scan results (124 files checked)
-- Asset inventory with all 33 assets cataloged
+- Asset inventory with all 28 assets cataloged
 - Usage patterns by page/component
 - Production readiness checklist
 - Optimization recommendations
@@ -51,13 +51,11 @@ const specificAvatar = getStudentAvatarByIndex(2);
 
 ## Asset Categories
 
-### Icons (14)
+### Icons (9)
 - `icon-generic.svg` - Fallback/placeholder
 - `icon-student.svg` - Student profiles
 - `icon-parent.svg` - Parent profiles
 - `icon-dashboard.svg` - Navigation
-- `icon-chevron-down.svg`, `-2.svg`, `-3.svg`, `-4.svg` - Dropdown variants
-- `icon-caret-down.svg` - Caret indicator
 - `icon-group.svg` - Groups/classes
 - `icon-plus.svg` - Add action
 - `icon-search.svg` - Search
@@ -123,8 +121,8 @@ import { getRandomStudentAvatar, getStudentAvatarByIndex } from '@/lib/asset-pat
 |--------|--------|
 | Files Scanned | 124 |
 | Figma URLs Found | 0 ✅ |
-| Local Assets | 33 ✅ |
-| Assets Mapped | 33 ✅ |
+| Local Assets | 28 ✅ |
+| Assets Mapped | 28 ✅ |
 | Production Ready | Yes ✅ |
 
 ---

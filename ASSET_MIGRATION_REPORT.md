@@ -11,7 +11,7 @@
 
 The codebase has been thoroughly scanned and verified:
 - **0 Figma MCP asset URLs found** (no external `https://www.figma.com/api/mcp/asset/` URLs)
-- **33 assets verified** as locally stored in `/public/images/`
+- **28 assets verified** as locally stored in `/public/images/`
 - **All image references** use local paths
 - **Production-ready** with comprehensive asset registry
 
@@ -34,17 +34,15 @@ The codebase has been thoroughly scanned and verified:
 
 ---
 
-## 2. Asset Inventory (33 total)
+## 2. Asset Inventory (28 total)
 
-### Icons (14 assets)
+### Icons (9 assets)
 | Asset | Path | Usage |
 |-------|------|-------|
 | icon-generic.svg | `/images/icon-generic.svg` | Fallback/placeholder |
 | icon-student.svg | `/images/icon-student.svg` | Student metric card |
 | icon-parent.svg | `/images/icon-parent.svg` | Parent profile |
 | icon-dashboard.svg | `/images/icon-dashboard.svg` | Navigation |
-| icon-chevron-down.svg | `/images/icon-chevron-down.svg` | Dropdowns |
-| icon-caret-down.svg | `/images/icon-caret-down.svg` | Caret indicator |
 | icon-group.svg | `/images/icon-group.svg` | Groups/classes |
 | icon-plus.svg | `/images/icon-plus.svg` | Add action |
 | icon-search.svg | `/images/icon-search.svg` | Search |
@@ -112,7 +110,7 @@ The codebase has been thoroughly scanned and verified:
 
 ### `/public/assets-registry.json`
 ✅ **Created** - Comprehensive master registry containing:
-- All 33 assets with metadata
+- All 28 assets with metadata
 - Usage information by page/component
 - Asset categorization (icons, illustrations, avatars)
 - Type information (SVG, PNG)
@@ -172,7 +170,6 @@ const imgAssetName = "/images/asset-name.svg";
 
 ### Unused/Variant Assets
 The following assets may be legacy versions:
-- `icon-chevron-down2.svg` (variants 3, 4 also exist)
 - `icon-generic2.svg` (secondary version)
 - `chatgpt-photoroom.png` (prefer `chatgpt-fresh.png`)
 - `avatars-people.png` (prefer `avatars-people-fresh.png`)
@@ -189,7 +186,7 @@ The following assets may be legacy versions:
 - ✅ No expired Figma links
 - ✅ Asset registry created
 - ✅ UUID mapping documented
-- ✅ All 33 assets verified
+- ✅ All 28 assets verified
 - ✅ Usage patterns documented
 - ✅ Zero migration costs
 - ✅ Production-ready
@@ -229,7 +226,7 @@ The following assets may be legacy versions:
 | Metric | Result |
 |--------|--------|
 | **Figma URLs Remaining** | 0 ✅ |
-| **Local Assets** | 33 ✅ |
+| **Local Assets** | 28 ✅ |
 | **Files Scanned** | 124 ✅ |
 | **Registry Generated** | Yes ✅ |
 | **Production Ready** | Yes ✅ |

@@ -3,6 +3,7 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
@@ -13,11 +14,8 @@ import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 
 const imgVector = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown = "/images/icon-chevron-down.svg";
-const imgChevronDown1 = "/images/icon-chevron-down2.svg";
 const imgHugeiconsTeacher = "/images/icon-group.svg";
 
 type ProgramKind = "core" | "enrichment";
@@ -318,11 +316,7 @@ export default function TeachersTeacherList({
                       Program: {filterLabel}
                     </p>
                   </div>
-                  <div className="flex items-center py-[2px]">
-                    <div className="relative shrink-0 size-[14px]">
-                      <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgIconCaretDown} />
-                    </div>
-                  </div>
+                  <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
                 </button>
 
                 {isFilterOpen && (
@@ -534,11 +528,12 @@ export default function TeachersTeacherList({
               type="button"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`flex items-center justify-center size-[24px] rotate-90 rounded-full transition-colors ${
+              className={`flex items-center justify-center size-[24px] rounded-full transition-colors ${
                 currentPage === 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-gray-100 hover:opacity-70"
               }`}
+              aria-label="Previous page"
             >
-              <img alt="Previous" className="block w-[18px] h-[18px]" src={imgChevronDown} />
+              <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex gap-[3px] items-center">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -564,11 +559,12 @@ export default function TeachersTeacherList({
               type="button"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className={`flex items-center justify-center size-[24px] -rotate-90 rounded-full transition-colors ${
+              className={`flex items-center justify-center size-[24px] rounded-full transition-colors ${
                 currentPage === totalPages ? "opacity-30 cursor-not-allowed" : "hover:bg-gray-100 hover:opacity-70"
               }`}
+              aria-label="Next page"
             >
-              <img alt="Next" className="block w-[18px] h-[18px]" src={imgChevronDown1} />
+              <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
           </div>
         </div>

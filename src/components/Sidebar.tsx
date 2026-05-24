@@ -37,8 +37,6 @@ const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
 const imgImage1 = "/images/lightbulb-fresh.png";
 const imgSiDashboardLine = "/images/icon-dashboard.svg";
 const imgGroup = "/images/icon-notebook-outline.svg";
-const imgChevronDown = "/images/icon-chevron-down.svg";
-const imgChevronDownGray = "/images/icon-chevron-down2.svg";
 const imgHugeiconsStudent = "/images/figma-icon-student.svg";
 const imgHugeiconsStudentActive = "/images/icon-student-active.svg";
 const imgHugeiconsStudentInactive = "/images/icon-student.svg";
@@ -338,10 +336,10 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       Classes
                     </p>
                     <div className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} transition-transform duration-200 ${classesExpanded ? "rotate-180" : ""}`} data-node-id="8:2817" data-name="chevron-down">
-                      <img
-                        alt=""
-                        className="absolute block inset-0 max-w-none size-full"
-                        src={adminClassesActive || classesExpanded ? imgChevronDown : imgChevronDownGray}
+                      <ChevronDown
+                        aria-hidden
+                        strokeWidth={1.75}
+                        className={`size-[18px] ${adminClassesActive || classesExpanded ? "text-[#14c1d5]" : "text-[#666d80]"}`}
                       />
                     </div>
                   </button>
@@ -377,17 +375,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     <p className={`flex-[1_0_0] text-left ${navLabel(adminStudentsActive)}`} data-node-id="8:2803">
                       Students
                     </p>
-                    <div className="flex items-center justify-center relative shrink-0" data-node-id="8:2804" data-name="chevron-down">
-                      <div className={`${studentsExpanded ? "-scale-y-100" : ""} flex-none`}>
-                        <div className="relative size-[18px]">
-                          <img
-                            alt=""
-                            className="absolute block inset-0 max-w-none size-full"
-                            src={adminStudentsActive || studentsExpanded ? imgChevronDown : imgChevronDownGray}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <ChevronDown
+                      aria-hidden
+                      strokeWidth={1.75}
+                      className={`size-[18px] shrink-0 transition-transform duration-200 ${studentsExpanded ? "rotate-180" : ""} ${
+                        adminStudentsActive || studentsExpanded ? "text-[#14c1d5]" : "text-[#666d80]"
+                      }`}
+                    />
                   </button>
                   {studentsExpanded && (
                     <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative mt-[8px]">
@@ -457,10 +451,10 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       Teachers
                     </p>
                     <div className={`${DASHBOARD_SIDEBAR_CHEVRON_CLASS} transition-transform duration-200 ${teachersExpanded ? "rotate-180" : ""}`} data-node-id="8:2791" data-name="chevron-down">
-                      <img
-                        alt=""
-                        className="absolute block inset-0 max-w-none size-full"
-                        src={adminTeachersActive || teachersExpanded ? imgChevronDown : imgChevronDownGray}
+                      <ChevronDown
+                        aria-hidden
+                        strokeWidth={1.75}
+                        className={`size-[18px] ${adminTeachersActive || teachersExpanded ? "text-[#14c1d5]" : "text-[#666d80]"}`}
                       />
                     </div>
                   </button>
@@ -566,17 +560,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     >
                       Classes
                     </p>
-                    <div className="flex items-center justify-center relative shrink-0">
-                      <div className={`${parentClassesNavExpanded ? "-scale-y-100" : ""} flex-none`}>
-                        <div className="relative size-[18px]">
-                          <img
-                            alt=""
-                            className="absolute block inset-0 max-w-none size-full"
-                            src={parentClassesHeaderAccent ? imgChevronDown : imgChevronDownGray}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <ChevronDown
+                      aria-hidden
+                      strokeWidth={1.75}
+                      className={`size-[18px] shrink-0 transition-transform duration-200 ${
+                        parentClassesNavExpanded ? "rotate-180" : ""
+                      } ${parentClassesHeaderAccent ? "text-[#14c1d5]" : "text-[#666d80]"}`}
+                    />
                   </button>
                   {parentClassesNavExpanded && (
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
@@ -623,21 +613,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     >
                       Students
                     </p>
-                    <div className="flex items-center justify-center relative shrink-0">
-                      <div className={`${parentStudentsOpen ? "-scale-y-100" : ""} flex-none`}>
-                        <div className="relative size-[18px]">
-                          <img
-                            alt=""
-                            className="absolute block inset-0 max-w-none size-full"
-                            src={
-                              parentStudentsVisualActive || parentStudentsOpen
-                                ? imgChevronDown
-                                : imgChevronDownGray
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <ChevronDown
+                      aria-hidden
+                      strokeWidth={1.75}
+                      className={`size-[18px] shrink-0 transition-transform duration-200 ${
+                        parentStudentsOpen ? "rotate-180" : ""
+                      } ${parentStudentsVisualActive || parentStudentsOpen ? "text-[#14c1d5]" : "text-[#666d80]"}`}
+                    />
                   </button>
                   {parentStudentsOpen && (
                     <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative">

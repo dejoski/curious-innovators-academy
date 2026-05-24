@@ -4,6 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
@@ -15,10 +16,7 @@ const imgEllipse2735 = "/images/parent-female-dark-hair.png";
 const imgEllipse2736 = "/images/parent-female-dark-hair.png";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown2 = "/images/icon-chevron-down2.svg";
-const imgChevronDown3 = "/images/icon-chevron-down3.svg";
 const imgHugeiconsFamilies = "/images/icon-parent.svg";
 
 export type ParentsDirectoryPageClientProps = {
@@ -325,9 +323,7 @@ export function ParentsAdminDirectory({
                 <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
                   Status: {statusFilter === "All" ? "All" : statusFilter}
                 </span>
-                <div className="size-[14px]">
-                  <img alt="" className="size-full" src={imgIconCaretDown} />
-                </div>
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
 
               {isFilterDropdownOpen && (
@@ -532,11 +528,12 @@ export function ParentsAdminDirectory({
             type="button"
             onClick={() => handlePageChange("prev")}
             disabled={currentPage === 1}
-            className={`flex items-center justify-center size-[24px] rotate-90 rounded-full transition-colors ${
+            className={`flex items-center justify-center size-[24px] rounded-full transition-colors ${
               currentPage === 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-gray-100 hover:opacity-70"
             }`}
+            aria-label="Previous page"
           >
-            <img alt="" className="w-[18px] h-[18px]" src={imgChevronDown2} />
+            <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
           </button>
           <div className="flex gap-[3px] items-center">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
@@ -562,13 +559,14 @@ export function ParentsAdminDirectory({
             type="button"
             onClick={() => handlePageChange("next")}
             disabled={currentPage === totalPages || totalPages === 0}
-            className={`flex items-center justify-center size-[24px] -rotate-90 rounded-full transition-colors ${
+            className={`flex items-center justify-center size-[24px] rounded-full transition-colors ${
               currentPage === totalPages || totalPages === 0
                 ? "opacity-30 cursor-not-allowed"
                 : "hover:bg-gray-100 hover:opacity-70"
             }`}
+            aria-label="Next page"
           >
-            <img alt="" className="w-[18px] h-[18px]" src={imgChevronDown3} />
+            <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useTransition } from "react";
+import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DataSource, StudentListItem } from "@/lib/data";
 import { cachedJson, peekCachedJson, preloadJson } from "@/lib/client-data-cache";
@@ -15,7 +16,6 @@ import {
 } from "@/lib/dashboard-shell-classes";
 
 const imgHugeiconsStudentPicker = "/images/figma-icon-student.svg";
-const imgChevronDown = "/images/icon-caret-down.svg";
 
 type StudentsBody = {
   students?: StudentListItem[];
@@ -194,20 +194,7 @@ export default function ParentStudentContextSelector() {
             aria-hidden
           />
         ) : null}
-        <div className="relative flex shrink-0 items-center justify-center">
-          <div className="-scale-y-100 flex-none">
-            <div className="overflow-clip relative size-[20px]">
-              <div className="absolute bottom-[37.5%] left-1/4 right-1/4 top-[37.5%]">
-                <img
-                  alt=""
-                  aria-hidden
-                  className="absolute inset-[-9.76%_-8.33%_-16.67%_-8.33%] max-w-none size-full"
-                  src={imgChevronDown}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChevronDown className="mr-1 size-4 shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
       </div>
     </div>
   );

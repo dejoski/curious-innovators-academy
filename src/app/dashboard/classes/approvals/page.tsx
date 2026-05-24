@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useRef, useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
@@ -9,11 +9,8 @@ import type { EnrichmentRequestRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown = "/images/icon-chevron-down.svg";
-const imgChevronDown1 = "/images/icon-chevron-down2.svg";
 const imgMaskGroup = "/images/mask-group.svg";
 const imgMaskGroup1 = "/images/mask-group.svg";
 const imgMaskGroup2 = "/images/mask-group.svg";
@@ -335,7 +332,7 @@ function ClassesApprovalHistory() {
               >
                 <img alt="Filter" className="size-[14px]" src={imgVector3} />
                 <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">Filter by: {filter}</span>
-                <img alt="Dropdown" className="size-[14px]" src={imgIconCaretDown} />
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {filterOpen && (
                 <div className="absolute right-0 top-full z-[100] mt-1 min-w-[160px] rounded-lg border border-[#f0f0f0] bg-white py-1 shadow-md">
@@ -367,7 +364,7 @@ function ClassesApprovalHistory() {
               >
                 <img alt="Sort" className="size-[14px]" src={imgFlowbiteSortOutline} />
                 <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">Sort</span>
-                <img alt="Dropdown" className="size-[14px]" src={imgIconCaretDown} />
+                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {sortOpen && (
                 <div className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-[#f0f0f0] bg-white py-1 shadow-md">
@@ -548,11 +545,11 @@ function ClassesApprovalHistory() {
             <button
               type="button"
               disabled={safePage <= 1}
-              className="rotate-90 hover:opacity-70 transition-opacity disabled:opacity-40"
+              className="hover:opacity-70 transition-opacity disabled:opacity-40"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               aria-label="Previous page"
             >
-              <img alt="Prev" className="size-[18px]" src={imgChevronDown} />
+              <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex gap-[3px] items-center">
               {visiblePages.map((item, i) =>
@@ -579,11 +576,11 @@ function ClassesApprovalHistory() {
             <button
               type="button"
               disabled={safePage >= totalPages}
-              className="-rotate-90 hover:opacity-70 transition-opacity disabled:opacity-40"
+              className="hover:opacity-70 transition-opacity disabled:opacity-40"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               aria-label="Next page"
             >
-              <img alt="Next" className="size-[18px]" src={imgChevronDown1} />
+              <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
           </div>
         </div>

@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import type {
   ClassRosterStatus,
@@ -16,13 +16,9 @@ const imgGroup1 = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-generic2.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
-const imgIconCaretDown = "/images/icon-caret-down.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgChevronDown3 = "/images/icon-chevron-down3.svg";
-const imgChevronDown4 = "/images/icon-chevron-down4.svg";
-const imgChevronDown = "/images/icon-chevron-down.svg";
 
 type Status = ClassRosterStatus;
 
@@ -445,9 +441,7 @@ export default function ClassDetailsPage() {
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-2">
           <Link href="/dashboard/classes" className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors mb-4">
-            <div className="rotate-90 relative w-[18px] h-[18px]">
-               <Image src={imgChevronDown} alt="Back" fill />
-            </div>
+            <ArrowLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             <span className="text-sm font-medium">Back to class setup</span>
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">{classMeta.title}</h1>
@@ -580,7 +574,7 @@ export default function ClassDetailsPage() {
                 >
                   <div className="relative w-3.5 h-3.5"><Image src={imgVector} alt="Filter" fill /></div>
                   <span className="text-xs">Filter by: {filterStatus}</span>
-                  <div className="relative w-3.5 h-3.5"><Image src={imgIconCaretDown} alt="" fill /></div>
+                  <ChevronDown className="size-3.5 shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
                 </button>
                 {isFilterDropdownOpen && (
                   <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[100] w-32">
@@ -604,7 +598,7 @@ export default function ClassDetailsPage() {
                 >
                   <div className="relative w-3.5 h-3.5"><Image src={imgFlowbiteSortOutline} alt="Sort" fill /></div>
                   <span className="text-xs">Sort: {sortOption === "None" ? "" : sortOption}</span>
-                  <div className="relative w-3.5 h-3.5"><Image src={imgIconCaretDown} alt="" fill /></div>
+                  <ChevronDown className="size-3.5 shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
                 </button>
                 {isSortDropdownOpen && (
                   <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[100] w-40">
@@ -761,9 +755,10 @@ export default function ClassDetailsPage() {
               <button 
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={displayPage === 1}
-                className="relative w-4 h-4 rotate-90 disabled:opacity-20 hover:opacity-70 transition-opacity"
+                className="w-4 h-4 disabled:opacity-20 hover:opacity-70 transition-opacity"
+                aria-label="Previous page"
               >
-                <Image src={imgChevronDown3} alt="Previous" fill />
+                <ChevronLeft className="size-4" aria-hidden strokeWidth={1.8} />
               </button>
               
               <div className="flex items-center gap-1">
@@ -785,9 +780,10 @@ export default function ClassDetailsPage() {
               <button 
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={displayPage === totalPages}
-                className="relative w-4 h-4 -rotate-90 disabled:opacity-20 hover:opacity-70 transition-opacity"
+                className="w-4 h-4 disabled:opacity-20 hover:opacity-70 transition-opacity"
+                aria-label="Next page"
               >
-                <Image src={imgChevronDown4} alt="Next" fill />
+                <ChevronRight className="size-4" aria-hidden strokeWidth={1.8} />
               </button>
             </div>
           </div>
