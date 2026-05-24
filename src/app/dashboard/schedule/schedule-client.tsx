@@ -14,6 +14,10 @@ import {
   typeLabel,
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
+import {
+  ParentClassDetailsContent,
+  parentClassOptionFromRow,
+} from "@/components/parent-class-drawers";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
 
@@ -107,26 +111,6 @@ const EventBadge = ({
   );
 };
 
-function seatsSummary(event: CalendarEvent): string {
-  const details = event.classDetails;
-  if (!details) return "Availability not available";
-  const base = details.students || "Seats not set";
-  if (typeof details.seatsRemaining !== "number" || !Number.isFinite(details.seatsRemaining)) {
-    return details.availabilityLabel ? `${base} - ${details.availabilityLabel}` : base;
-  }
-  if (details.seatsRemaining <= 0) return `${base} - Full`;
-  return `${base} - ${details.seatsRemaining} remaining`;
-}
-
-function classStatusTone(event: CalendarEvent): string {
-  const status = event.statusLabel ?? typeLabel(event.type);
-  if (/pending/i.test(status)) return "border-[#cfa500]/35 bg-[#fff8e6] text-[#7a5b00]";
-  if (/waitlist/i.test(status)) return "border-[#cfa500]/35 bg-[#fff8e6] text-[#7a5b00]";
-  if (/draft/i.test(status)) return "border-[#84adff]/45 bg-[#eef4ff] text-[#3451a4]";
-  if (/approved|assigned/i.test(status)) return "border-[#004d08]/25 bg-[#f3fbf4] text-[#004d08]";
-  return "border-[#d9dde7] bg-[#f7f8fa] text-[#4f5665]";
-}
-
 function EventDetailsModal({
   event,
   onClose,
@@ -135,7 +119,6 @@ function EventDetailsModal({
   onClose: () => void;
 }) {
   const details = event.classDetails;
-  const statusLabel = event.statusLabel ?? typeLabel(event.type);
 
   if (!details) {
     return (
@@ -183,76 +166,24 @@ function EventDetailsModal({
     );
   }
 
+  const option = parentClassOptionFromRow(details);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
       onClick={onClose}
     >
-      <div className="w-full max-w-[680px] rounded-[18px] bg-white p-6 shadow-2xl md:p-8" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-[#e6e9ef] pb-5">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-[28px] font-bold leading-tight text-[#272932]">{details.name}</h3>
-              <span className="rounded-full bg-[#d80509] px-3 py-1 text-[12px] font-semibold text-white">
-                {details.program === "core" ? "Core Class" : "Enrichment Class"}
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1 text-[#666d80] hover:bg-[#f5f7fa] hover:text-[#272932]"
-            aria-label="Close class details"
-          >
-            &times;
-          </button>
-        </div>
-
-        <div className="grid gap-5 py-5 text-[#272932]">
-          <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Teacher</p>
-            <p className="mt-1 text-[18px] font-semibold">{details.teacher || "Teacher not assigned"}</p>
-          </div>
-
-          <div className="grid gap-4 rounded-[10px] border border-[#e6e9ef] bg-[#fafbfc] p-4 md:grid-cols-3">
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Schedule</p>
-              <p className="mt-1 text-[15px] font-semibold">{details.schedule || event.scheduleSlotLabel || "Schedule not set"}</p>
-            </div>
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Block</p>
-              <p className="mt-1 text-[15px] font-semibold">{details.block || event.scheduleSlotLabel || "Block not set"}</p>
-            </div>
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Level</p>
-              <p className="mt-1 text-[15px] font-semibold">{details.level || "Level not set"}</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="border-b border-[#e6e9ef] pb-4 md:border-b-0 md:border-r md:pb-0 md:pr-4">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Status</p>
-              <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[14px] font-semibold ${classStatusTone(event)}`}>
-                {statusLabel}
-              </span>
-            </div>
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Available Seats</p>
-              <p className="mt-2 text-[18px] font-semibold text-[#4f5665]">{seatsSummary(event)}</p>
-            </div>
-          </div>
-
-          <div className="border-t border-[#e6e9ef] pt-5">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#666d80]">Description</p>
-            <p className="mt-2 text-[16px] leading-[1.5] text-[#4f5665]">
-              {details.description || event.description || "Class details are not available from the class catalog yet."}
-            </p>
-          </div>
-
-          <div className="grid gap-4 text-sm text-[#4f5665] md:grid-cols-2">
-            <p><span className="font-semibold text-[#272932]">Location:</span> {details.location || "Location not set"}</p>
-            <p><span className="font-semibold text-[#272932]">Prerequisites:</span> {details.prerequisites || "None listed"}</p>
-          </div>
+      <div className="relative max-h-[calc(100dvh-32px)] w-full max-w-[760px] overflow-hidden rounded-[18px] bg-white p-6 shadow-2xl md:p-8" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-5 top-5 z-10 rounded-full p-1 text-[#666d80] hover:bg-[#f5f7fa] hover:text-[#272932]"
+          aria-label="Close class details"
+        >
+          &times;
+        </button>
+        <div className="max-h-[calc(100dvh-112px)] overflow-y-auto pr-1">
+          <ParentClassDetailsContent option={option} statusLabel={event.statusLabel ?? typeLabel(event.type)} />
         </div>
 
         <div className="flex justify-end border-t border-[#e6e9ef] pt-5">

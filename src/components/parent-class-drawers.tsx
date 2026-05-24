@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, Loader2, UserRound, X } from "lucide-react";
 
 import type { ProgramTrack, SchoolClassRow, StudentScheduleBadge } from "@/lib/data/types";
 
@@ -96,6 +96,135 @@ function availabilityLabelForOption(option: ParentClassOption): string {
 function isOptionFull(option: ParentClassOption): boolean {
   const remaining = seatsRemainingForOption(option);
   return option.status === "Full" || remaining === 0;
+}
+
+function detailsStatusLabel(option: ParentClassOption, statusLabel?: string): string {
+  const label = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
+  if (/school assigned/i.test(label)) return "Assigned by school";
+  if (/pending$/i.test(label)) return "Pending approval";
+  return label;
+}
+
+function detailsStatusClasses(label: string): string {
+  if (/assigned|approved/i.test(label)) return "text-[#004d08]";
+  if (/pending|waitlist|draft/i.test(label)) return "text-[#7a5b00]";
+  if (/rejected|full/i.test(label)) return "text-[#a00408]";
+  return "text-[#4f5665]";
+}
+
+function detailsProgramClasses(option: ParentClassOption): string {
+  return option.program === "core" ? "bg-[#14c1d5] text-white" : "bg-[#d80509] text-white";
+}
+
+function detailsProgramLabel(option: ParentClassOption): string {
+  return option.program === "core" ? "Core Class" : "Enrichment Class";
+}
+
+function scheduleParts(option: ParentClassOption): { day: string; time: string } {
+  const parts = (option.schedule ?? "").split("·").map((part) => part.trim()).filter(Boolean);
+  return {
+    day: parts[0] || option.block || "Schedule not set",
+    time: parts[2] || parts[1] || "Time not set",
+  };
+}
+
+function detailsAvailabilityLabel(option: ParentClassOption): string {
+  const remaining = seatsRemainingForOption(option);
+  const base = option.seats || "Seats not set";
+  if (remaining == null) return option.availabilityLabel ? `${base} - ${option.availabilityLabel}` : base;
+  if (remaining <= 0) return `${base} - Full`;
+  return `${base} - ${remaining} remaining`;
+}
+
+export function ParentClassDetailsContent({
+  option,
+  statusLabel,
+  titleId,
+}: {
+  option: ParentClassOption;
+  statusLabel?: string;
+  titleId?: string;
+}) {
+  const status = detailsStatusLabel(option, statusLabel);
+  const statusClasses = detailsStatusClasses(status);
+  const schedule = scheduleParts(option);
+  const isCore = option.program === "core";
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#e6e9ef] pb-5 pr-10">
+        <h2 id={titleId} className="text-[28px] font-bold leading-[1.1] text-[#272932] md:text-[34px]">
+          {option.name}
+        </h2>
+        <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${detailsProgramClasses(option)}`}>
+          {detailsProgramLabel(option)}
+        </span>
+      </div>
+
+      <div className="border-b border-[#e6e9ef] py-6">
+        <div className="flex items-center gap-4">
+          <span className="flex size-[64px] shrink-0 items-center justify-center rounded-[14px] bg-[#d2f1f5] text-[#14c1d5]">
+            <UserRound className="size-7" aria-hidden strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[20px] font-semibold leading-tight text-[#272932]">Teacher</p>
+            <p className="mt-1 text-[20px] leading-tight text-[#666d80]">{option.teacher || "Teacher not assigned"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-b border-[#e6e9ef] py-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <span className="flex size-[64px] shrink-0 items-center justify-center rounded-[14px] bg-[#d2f1f5] text-[#14c1d5]">
+            <CalendarDays className="size-7" aria-hidden strokeWidth={2} />
+          </span>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 text-[18px] leading-tight text-[#666d80]">
+            <span className="font-semibold text-[#272932]">{schedule.day}</span>
+            <span className="hidden h-8 w-px bg-[#e6e9ef] md:inline-block" aria-hidden />
+            <span>{schedule.time}</span>
+            <span className="hidden h-8 w-px bg-[#e6e9ef] md:inline-block" aria-hidden />
+            <span>{option.block || "Block not set"}</span>
+            <span className="hidden h-8 w-px bg-[#e6e9ef] md:inline-block" aria-hidden />
+            <span>{option.level || "Level not set"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={`grid gap-5 border-b border-[#e6e9ef] py-6 ${isCore ? "" : "md:grid-cols-2"}`}>
+        <div className={isCore ? "" : "md:border-r md:border-[#e6e9ef] md:pr-5"}>
+          <p className="text-[18px] font-semibold leading-tight text-[#272932]">Status</p>
+          <p className={`mt-3 flex items-center gap-3 text-[20px] leading-tight ${statusClasses}`}>
+            <CheckCircle2 className="size-5 shrink-0" aria-hidden strokeWidth={2} />
+            <span>{status}</span>
+          </p>
+        </div>
+        {!isCore ? (
+          <div>
+            <p className="text-[18px] font-semibold leading-tight text-[#272932]">Available Seats</p>
+            <p className="mt-3 text-[20px] leading-tight text-[#666d80]">{detailsAvailabilityLabel(option)}</p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="py-6">
+        <p className="text-[18px] font-semibold leading-tight text-[#272932]">Description</p>
+        <p className="mt-4 text-[20px] leading-[1.35] text-[#666d80]">
+          {option.description || "Class details are not available from the class catalog yet."}
+        </p>
+        {isCore ? (
+          <p className="mt-6 text-[18px] italic leading-[1.45] text-[#818898]">
+            This class is part of your child&apos;s core academic program and cannot be changed by parents.
+          </p>
+        ) : null}
+        <div className="mt-5 grid gap-2 text-[14px] text-[#666d80] md:grid-cols-2">
+          {option.location ? <p><span className="font-semibold text-[#272932]">Location:</span> {option.location}</p> : null}
+          {option.prerequisites && option.prerequisites !== "None listed" ? (
+            <p><span className="font-semibold text-[#272932]">Prerequisites:</span> {option.prerequisites}</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function classNameFromScheduleBadge(label: string): string {
@@ -389,31 +518,24 @@ export function ParentClassDetailsDrawer({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/20"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="class-details-title"
       onMouseDown={onClose}
     >
       <div
-        className="flex h-full w-full flex-col rounded-l-[18px] bg-white px-[24px] py-[24px] shadow-2xl sm:w-[570px]"
+        className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[18px] bg-white px-6 py-6 shadow-2xl md:px-8 md:py-8"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="class-details-title" className="text-[24px] font-bold leading-[1.1] text-[#272932]">Class Details</h2>
-            <p className="mt-[8px] text-[14px] leading-[1.4] text-[#666d80]">Review the class information from the catalog.</p>
-          </div>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">
-            <X className="size-5" aria-hidden />
-          </button>
+        <button type="button" aria-label="Close" onClick={onClose} className="absolute right-5 top-5 z-10 rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">
+          <X className="size-7" aria-hidden />
+        </button>
+        <div className="flex-1 overflow-y-auto pr-1">
+          <ParentClassDetailsContent option={option} statusLabel={statusLabel ?? option.status ?? "Open"} titleId="class-details-title" />
         </div>
 
-        <div className="mt-[28px] flex-1 overflow-y-auto pr-1">
-          <ParentClassSummaryCard option={option} statusLabel={statusLabel ?? option.status ?? "Open"} />
-        </div>
-
-        <div className="mt-[30px] flex flex-col gap-3 border-t border-[#f0f0f0] pt-[24px] sm:flex-row">
+        <div className="flex flex-col gap-3 border-t border-[#f0f0f0] pt-[24px] sm:flex-row">
           <button type="button" onClick={onClose} className="h-[42px] flex-1 rounded-[6px] bg-[#d2f1f5] px-4 text-[14px] font-semibold text-[#14c1d5]">
             Back
           </button>
