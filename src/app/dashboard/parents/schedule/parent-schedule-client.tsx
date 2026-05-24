@@ -140,8 +140,11 @@ export default function ParentScheduleClient() {
           heroSubtitle="View your child's schedule"
           titleByView={{
             Month: "Month Class Schedule",
-            Week: "Week Class Schedule",
+            Week: "Weekly Class Schedule",
             Day: "Day Class Schedule",
+          }}
+          subtitleByView={{
+            Week: "View your child's schedule by time and day",
           }}
           showDataSourceBanner={false}
           showTodayButton={false}

@@ -4,7 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserRound } from "lucide-react";
 import {
   type CalendarEvent,
   type CalendarEventType,
@@ -44,6 +44,21 @@ const EVENT_TYPE_STYLES = {
   },
 } satisfies Record<CalendarEventType, { surface: string; dot: string; text: string }>;
 
+const WEEK_TIME_ROWS = [
+  { label: "7:00 am", minutes: 7 * 60 },
+  { label: "8:30 am", minutes: 8 * 60 + 30 },
+  { label: "10:00 am", minutes: 10 * 60 },
+  { label: "11:30 am", minutes: 11 * 60 + 30 },
+  { label: "1:00 pm", minutes: 13 * 60 },
+  { label: "2:30 pm", minutes: 14 * 60 + 30 },
+  { label: "4:00 pm", minutes: 16 * 60 },
+  { label: "5:30 pm", minutes: 17 * 60 + 30 },
+  { label: "7:30 pm", minutes: 19 * 60 + 30 },
+  { label: "9:00 pm", minutes: 21 * 60 },
+] as const;
+
+const FULL_DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
 function scheduleViewFromParam(raw: string | null): ScheduleCanvasView {
   const x = (raw ?? "").toLowerCase();
   if (x === "week") return "Week";
@@ -82,6 +97,28 @@ function sortedEvents(events: CalendarEvent[]): CalendarEvent[] {
     .map(({ event }) => event);
 }
 
+function displayEventTitle(title: string): string {
+  return title
+    .replace(/\s+-\s+(Core|Enrichment)$/i, "")
+    .replace(/\s+-\s+Enrichment Class$/i, "")
+    .trim();
+}
+
+function eventTeacherLabel(event: CalendarEvent): string | null {
+  const teacher = event.classDetails?.teacher?.trim();
+  return teacher || null;
+}
+
+function weekTimeRowIndex(event: CalendarEvent): number {
+  const minutes = event.sortOrder == null ? timeLabelToMinutes(event.time) : timeLabelToMinutes(event.time);
+  if (minutes === Number.MAX_SAFE_INTEGER) return 0;
+  let rowIndex = 0;
+  for (let i = 0; i < WEEK_TIME_ROWS.length; i += 1) {
+    if (minutes >= WEEK_TIME_ROWS[i].minutes) rowIndex = i;
+  }
+  return rowIndex;
+}
+
 const EventBadge = ({
   event,
   onClick,
@@ -110,6 +147,38 @@ const EventBadge = ({
     </button>
   );
 };
+
+function WeekEventCard({
+  event,
+  onClick,
+}: {
+  event: CalendarEvent;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const style = EVENT_TYPE_STYLES[event.type];
+  const teacher = eventTeacherLabel(event);
+
+  return (
+    <button
+      type="button"
+      title={`${event.time} ${event.title}`}
+      className={`${style.surface} group/week-event flex min-h-[58px] w-full flex-col rounded-[6px] border px-2 py-2 text-left transition hover:border-[#14c1d5] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35`}
+      onClick={onClick}
+    >
+      <span className="line-clamp-2 text-[12px] font-semibold leading-[1.15] text-[#272932]">
+        {displayEventTitle(event.title)}
+      </span>
+      {teacher ? (
+        <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] font-semibold leading-none text-[#667085]">
+          <UserRound className="size-3 shrink-0" aria-hidden strokeWidth={1.8} />
+          <span className="truncate">{teacher}</span>
+        </span>
+      ) : (
+        <span className={`${style.text} mt-1 text-[11px] font-semibold leading-none`}>{event.time}</span>
+      )}
+    </button>
+  );
+}
 
 function EventDetailsModal({
   event,
@@ -211,6 +280,8 @@ export type ScheduleMonthProps = {
   heroSubtitle?: string;
   /** Override heading by active canvas view. */
   titleByView?: Partial<Record<ScheduleCanvasView, string>>;
+  /** Override supporting copy by active canvas view. */
+  subtitleByView?: Partial<Record<ScheduleCanvasView, string>>;
   /** Whether to show the source/sync warning banners beneath the hero copy. */
   showDataSourceBanner?: boolean;
   /** Whether to show the Today shortcut in date navigation. */
@@ -232,6 +303,7 @@ export default function ScheduleMonth({
   viewClassesHref = "/dashboard/classes",
   heroSubtitle = "Organization-wide class and event calendar — add extras that sync when Supabase is connected.",
   titleByView,
+  subtitleByView,
   showDataSourceBanner = true,
   showTodayButton = true,
   dayLabels = DAYS_OF_WEEK,
@@ -542,64 +614,101 @@ export default function ScheduleMonth({
   const renderWeekView = () => {
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+    const weekDates = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      return d;
+    });
+    const eventsByDayAndRow = weekDates.map((d) => {
+      return sortedEvents(eventsForDate(d)).reduce<Record<number, CalendarEvent[]>>((acc, event) => {
+        const rowIndex = weekTimeRowIndex(event);
+        acc[rowIndex] = [...(acc[rowIndex] ?? []), event];
+        return acc;
+      }, {});
+    });
 
     return (
       <div className="w-full">
-        <div className="mb-4 hidden grid-cols-7 gap-4 xl:grid">
-          {Array.from({ length: 7 }).map((_, i) => {
-            const d = new Date(startOfWeek);
-            d.setDate(startOfWeek.getDate() + i);
-            const isToday = d.toDateString() === new Date().toDateString();
-            return (
-              <div
-                key={i}
-                className={`text-center text-[12px] font-sans ${isToday ? "text-[#14c1d5] font-bold" : "text-[#625f6e]"}`}
-              >
-                {dayLabels[d.getDay()] ?? DAYS_OF_WEEK[d.getDay()]} {d.getDate()}
+        <div className="hidden overflow-hidden rounded-[10px] border border-[#e8ebf0] bg-white xl:grid xl:grid-cols-[minmax(96px,0.9fr)_repeat(7,minmax(0,1fr))]">
+          <div className="flex min-h-[72px] items-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-4 text-[13px] font-medium text-[#666d80]">
+            Schedule
+          </div>
+          {weekDates.map((d) => (
+            <div key={`head-${d.toISOString()}`} className="flex min-h-[72px] items-center justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-2 text-center text-[13px] font-semibold text-[#0d0d12] last:border-r-0">
+              {FULL_DAY_LABELS[d.getDay()] ?? dayLabels[d.getDay()] ?? DAYS_OF_WEEK[d.getDay()]}
+            </div>
+          ))}
+
+          {WEEK_TIME_ROWS.map((timeRow, rowIndex) => (
+            <React.Fragment key={timeRow.label}>
+              <div className="flex min-h-[70px] items-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-4 text-[13px] text-[#666d80] last:border-b-0">
+                {timeRow.label}
               </div>
-            );
-          })}
+              {weekDates.map((d, dayIndex) => {
+                const events = eventsByDayAndRow[dayIndex][rowIndex] ?? [];
+                return (
+                  <div
+                    key={`${timeRow.label}-${d.toISOString()}`}
+                    className="min-h-[70px] border-b border-r border-[#e8ebf0] bg-white p-1.5 last:border-r-0"
+                    onClick={() => {
+                      if (allowEventCreation && events.length === 0) handleSlotClick(d);
+                    }}
+                  >
+                    <div className="flex h-full min-w-0 flex-col gap-1.5">
+                      {events.map((ev) => (
+                        <WeekEventCard key={ev.id} event={ev} onClick={(clickEv) => handleEventClick(clickEv, ev)} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 xl:gap-2">
-          {Array.from({ length: 7 }).map((_, i) => {
-            const d = new Date(startOfWeek);
-            d.setDate(startOfWeek.getDate() + i);
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:hidden">
+          {weekDates.map((d, dayIndex) => {
             const events = sortedEvents(eventsForDate(d));
             const isToday = d.toDateString() === new Date().toDateString();
             return (
-              <div
-                key={i}
-                onClick={() => handleDayClick(d, events)}
-                className={`flex min-h-[148px] flex-col overflow-hidden rounded-[8px] border border-[#f0f0f0] bg-white p-3 transition-colors hover:border-[#14c1d5] xl:h-[400px] xl:p-2 ${
-                  events.length > 0 || allowEventCreation ? "cursor-pointer" : ""
-                }`}
-              >
-                <div className="mb-2 flex items-start justify-between gap-2 xl:hidden">
+              <div key={d.toISOString()} className="min-w-0 rounded-[10px] border border-[#e8ebf0] bg-white p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <span
-                      className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${
-                        isToday ? "bg-[#14c1d5] text-white" : "text-[#020204]"
+                      className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${
+                        isToday ? "bg-[#14c1d5] text-white" : "bg-[#f5f7fa] text-[#272932]"
                       }`}
                     >
                       {d.getDate()}
                     </span>
-                    <span className="truncate text-[12px] font-medium text-[#625f6e]">
-                      {dayLabels[d.getDay()] ?? DAYS_OF_WEEK[d.getDay()]}
+                    <span className="truncate text-[14px] font-semibold text-[#272932]">
+                      {FULL_DAY_LABELS[d.getDay()] ?? dayLabels[d.getDay()] ?? DAYS_OF_WEEK[d.getDay()]}
                     </span>
                   </div>
-                  <span className="shrink-0 rounded-full bg-[#f5f7fa] px-2 py-0.5 text-[10px] font-medium text-[#666d80]">
+                  <span className="shrink-0 rounded-full bg-[#f5f7fa] px-2 py-0.5 text-[11px] font-medium text-[#666d80]">
                     {events.length === 0 ? "Empty" : `${events.length} item${events.length === 1 ? "" : "s"}`}
                   </span>
                 </div>
-                <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto no-scrollbar">
+                <div className="flex flex-col gap-2">
                   {events.length === 0 ? (
-                    <p className="rounded-[6px] border border-dashed border-[#d9dde7] px-2 py-2 text-[12px] text-[#666d80]">
+                    <p className="rounded-[6px] border border-dashed border-[#d9dde7] px-3 py-3 text-[13px] text-[#666d80]">
                       No scheduled items
                     </p>
                   ) : null}
-                  {events.map((ev) => (
-                    <EventBadge key={ev.id} event={ev} onClick={(clickEv) => handleEventClick(clickEv, ev)} />
-                  ))}
+                  {WEEK_TIME_ROWS.map((timeRow, rowIndex) => {
+                    const rowEvents = eventsByDayAndRow[dayIndex][rowIndex] ?? [];
+                    if (!rowEvents.length) return null;
+                    return (
+                      <div key={`${d.toISOString()}-${timeRow.label}`} className="grid grid-cols-[76px_minmax(0,1fr)] gap-2">
+                        <span className="pt-2 text-[12px] text-[#666d80]">{timeRow.label}</span>
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                          {rowEvents.map((ev) => (
+                            <WeekEventCard key={ev.id} event={ev} onClick={(clickEv) => handleEventClick(clickEv, ev)} />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -655,7 +764,7 @@ export default function ScheduleMonth({
           {titleByView?.[view] ?? `Schedule (${view})`}
         </h1>
         <p className="font-sans font-normal text-[#666d80] text-[16px] leading-[1.4]">
-          {heroSubtitle}
+          {subtitleByView?.[view] ?? heroSubtitle}
         </p>
         {showDataSourceBanner && (activeDataSource === "fallback" || syncHint) && (
           <div className="mt-2 flex flex-col gap-2 max-w-3xl">
@@ -702,7 +811,7 @@ export default function ScheduleMonth({
           </div>
           <div className="flex gap-[6px] items-center">
             <div className="bg-[rgba(138,56,245,0.3)] border border-[#a555f1] rounded-[4px] size-[17px]" />
-            <span className="text-[#0d0d12] text-[12px]">Event</span>
+            <span className="text-[#0d0d12] text-[12px]">Others</span>
           </div>
         </div>
       </div>

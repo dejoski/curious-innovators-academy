@@ -2,7 +2,6 @@ import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@
 import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
 import {
   CATALOG_SLOT_META,
-  SLOT_START_TIME,
   SLOT_TO_WEEKDAY,
   eventTypeFromBadgeTone,
   catalogSlotIdFromScheduleSlot,
@@ -20,6 +19,17 @@ const SLOT_DISPLAY_ORDER: Record<ParentScheduleSlotKey, number> = {
   b4Tue: 40,
   b4Wed: 40,
   b4Thu: 40,
+};
+
+const CALENDAR_SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
+  b1: "7:00 am",
+  b2: "8:30 am",
+  b3Tue: "1:00 pm",
+  b3Wed: "1:00 pm",
+  b3Thu: "1:00 pm",
+  b4Tue: "2:30 pm",
+  b4Wed: "2:30 pm",
+  b4Thu: "2:30 pm",
 };
 
 function dateKey(year: number, monthIndex: number, day: number) {
@@ -83,7 +93,7 @@ export function studentScheduleToMonthEvents(row: StudentScheduleRow | null, cla
         const details = byClassName.get(normalizedClassName(badge.label));
         addEvent(events, dateKey(FEB_2026.year, FEB_2026.monthIndex, day), {
           id: `${row.id}-${slot}-${day}-${index}`,
-          time: SLOT_START_TIME[slot],
+          time: CALENDAR_SLOT_START_TIME[slot],
           title: className || badge.label,
           type: eventTypeFromBadgeTone(badge.tone),
           description: details?.description || `${row.name} · ${slotLabel(slot)}`,
