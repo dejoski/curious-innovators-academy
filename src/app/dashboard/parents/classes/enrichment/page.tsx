@@ -89,7 +89,6 @@ export default function EnrichmentClassesPage() {
   const [sortBy, setSortBy] = useState<string>("name");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [toolbarBanner, setToolbarBanner] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -215,28 +214,6 @@ export default function EnrichmentClassesPage() {
     document.addEventListener("mousedown", handleDown);
     return () => document.removeEventListener("mousedown", handleDown);
   }, []);
-
-  const handleSelectAll = () => {
-    const ids = filteredAndSortedClasses.map((c) => c.id);
-    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.includes(id));
-    if (allSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
-      setToolbarBanner(null);
-      return;
-    }
-    setSelectedIds((prev) => [...new Set([...prev, ...ids.filter((id) => !prev.includes(id))])]);
-    setToolbarBanner(`Selected ${ids.length} enrichment row(s).`);
-  };
-
-  const toggleRowSelection = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const visibleIds = filteredAndSortedClasses.map((c) => c.id);
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   const renderStatusBadge = (status: string) => {
     if (status === "Approved") {
@@ -392,25 +369,23 @@ export default function EnrichmentClassesPage() {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleSelectAll}
+            <Link
+              href={withParentStudentParam("/dashboard/parents/catalog", selectedParentStudentId)}
               className="bg-[#fafafa] hover:bg-[#f0f0f0] px-3 py-2 rounded-lg transition-colors"
             >
               <span className="text-[12px] text-[#0d0d12]">
-                {allVisibleSelected ? "Deselect All" : "Select All"}
+                Class selection
               </span>
-            </button>
+            </Link>
           </div>
         </div>
 
         {/* Table Content */}
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left min-w-[940px]">
+          <table className="w-full text-left min-w-[900px]">
             {/* Headers */}
             <thead>
               <tr className="border-t border-b border-[#f0f0f0]">
-                <th className="w-10 py-4 px-1" aria-hidden />
                 <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Class Name</th>
                 <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Teacher</th>
                 <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Level</th>
@@ -426,7 +401,7 @@ export default function EnrichmentClassesPage() {
             <tbody>
               {filteredAndSortedClasses.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-gray-500 font-sans">
+                  <td colSpan={9} className="py-8 text-center text-gray-500 font-sans">
                     No classes found matching the criteria.
                   </td>
                 </tr>
@@ -438,26 +413,6 @@ export default function EnrichmentClassesPage() {
                       cls.current ? "bg-[rgba(208,243,247,0.29)] hover:bg-[rgba(208,243,247,0.4)]" : "bg-white hover:bg-gray-50"
                     }`}
                   >
-                    <td className="py-3 px-1 align-middle">
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleRowSelection(cls.id)}
-                          className={`size-[14px] rounded-[4px] border flex items-center justify-center transition-colors shrink-0 ${
-                            selectedIds.includes(cls.id)
-                              ? "bg-[#14c1d5] border-[#14c1d5]"
-                              : "bg-white border-[#c2c2c2]"
-                          }`}
-                          aria-label={selectedIds.includes(cls.id) ? "Deselect row" : "Select row"}
-                        >
-                          {selectedIds.includes(cls.id) && (
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
                     <td className="py-3 px-2">
                       <span className="text-[16px] text-[#0d0d12]">{cls.name}</span>
                     </td>

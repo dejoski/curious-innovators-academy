@@ -145,7 +145,6 @@ export default function ParentClassesClassListCore() {
     return result;
   }, [classes, searchQuery, filterDay, sortBy]);
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [toolbarBanner, setToolbarBanner] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -165,29 +164,6 @@ export default function ParentClassesClassListCore() {
     document.addEventListener("mousedown", handleDown);
     return () => document.removeEventListener("mousedown", handleDown);
   }, []);
-
-  const handleSelectAll = () => {
-    const visibleIds = filteredAndSortedClasses.map((c) => c.id);
-    const allSelected =
-      visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
-    if (allSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
-      setToolbarBanner(null);
-      return;
-    }
-    setSelectedIds((prev) => [...new Set([...prev, ...visibleIds.filter((id) => !prev.includes(id))])]);
-    setToolbarBanner(`Selected ${visibleIds.length} class row(s) on this page.`);
-  };
-
-  const toggleRowSelection = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const visibleIds = filteredAndSortedClasses.map((c) => c.id);
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   return (
     <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-8 font-sans">
@@ -323,24 +299,22 @@ export default function ParentClassesClassListCore() {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleSelectAll}
+            <Link
+              href={withParentStudentParam("/dashboard/parents/schedule", selectedParentStudentId)}
               className="bg-[#fafafa] flex items-center p-[8px] rounded-[8px] hover:bg-gray-100 transition-colors"
             >
               <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
-                {allVisibleSelected ? "Deselect All" : "Select All"}
+                View schedule
               </span>
-            </button>
+            </Link>
           </div>
         </div>
 
         {/* Table Content */}
         <div className="overflow-x-auto w-full">
-          <div className="min-w-[940px]">
+          <div className="min-w-[880px]">
             {/* Table Header Columns */}
-            <div className="grid grid-cols-[44px_14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[16px] px-4 w-full items-center gap-x-2">
-              <div />
+            <div className="grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[16px] px-4 w-full items-center gap-x-2">
               <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif]">Class Name</div>
               <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif]">Teacher</div>
               <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Level</div>
@@ -361,28 +335,10 @@ export default function ParentClassesClassListCore() {
                 filteredAndSortedClasses.map((cls) => (
                   <div
                     key={cls.id}
-                    className={`grid grid-cols-[44px_14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[12px] px-4 w-full items-center gap-x-2 transition-colors ${
+                    className={`grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[12px] px-4 w-full items-center gap-x-2 transition-colors ${
                       cls.current ? "bg-[rgba(208,243,247,0.29)] hover:bg-[rgba(208,243,247,0.4)]" : "bg-white hover:bg-gray-50"
                     }`}
                   >
-                    <div className="flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => toggleRowSelection(cls.id)}
-                        className={`size-[14px] rounded-[4px] border flex items-center justify-center transition-colors shrink-0 ${
-                          selectedIds.includes(cls.id)
-                            ? "bg-[#14c1d5] border-[#14c1d5]"
-                            : "bg-white border-[#c2c2c2]"
-                        }`}
-                        aria-label={selectedIds.includes(cls.id) ? "Deselect row" : "Select row"}
-                      >
-                        {selectedIds.includes(cls.id) && (
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
                     <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px] pr-2">
                       {cls.name}
                     </div>
