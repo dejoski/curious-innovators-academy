@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
   ChevronLeft,
@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
+import {
+  readStoredParentStudentId,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
 import {
   DASHBOARD_FONT_NAV_PRIMARY_CLASS,
   DASHBOARD_SIDEBAR_COLLAPSE_BTN_CLASS,
@@ -70,6 +74,8 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const { persona, demoStudentId } = useDashboardPersona();
   const studentDemoRoot = `/dashboard/students/${demoStudentId}`;
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
 
   const [classesExpanded, setClassesExpanded] = React.useState(() =>
     pathname.startsWith("/dashboard/classes"),
@@ -131,6 +137,9 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     return active
       ? DASHBOARD_SIDEBAR_NAV_ACTIVE_BG_CLASS
       : DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS;
+  }
+  function parentRouteHref(href: string) {
+    return withParentStudentParam(href, selectedParentStudentId);
   }
   function adminAllClassesPath(p: string) {
     if (p === "/dashboard/classes") return true;
@@ -490,7 +499,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             )}
             {isOpen && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
               <>
-                <Link href="/dashboard/parents/home" className={navRow(parentOverviewActive)}>
+                <Link href={parentRouteHref("/dashboard/parents/home")} className={navRow(parentOverviewActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
                   </div>
@@ -498,7 +507,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     Dashboard
                   </p>
                 </Link>
-                <Link href={PARENT_SCHEDULE_HREF} className={navRow(parentScheduleActive)} data-name="parent-schedule-nav">
+                <Link href={parentRouteHref(PARENT_SCHEDULE_HREF)} className={navRow(parentScheduleActive)} data-name="parent-schedule-nav">
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(parentScheduleActive)}
                   </div>
@@ -506,7 +515,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     Schedule
                   </p>
                 </Link>
-                <Link href="/dashboard/parents/billing" className={navRow(parentBillingActive)}>
+                <Link href={parentRouteHref("/dashboard/parents/billing")} className={navRow(parentBillingActive)}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     <ReceiptText
                       aria-hidden
@@ -572,13 +581,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   {parentClassesNavExpanded && (
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
                       <Link
-                        href={PARENT_CATALOG_HREF}
+                        href={parentRouteHref(PARENT_CATALOG_HREF)}
                         className={parentNavSubLinkClass(parentCatalogActive)}
                       >
                         Class Selection
                       </Link>
                       <Link
-                        href={PARENT_CLASSES_CORE_HREF}
+                        href={parentRouteHref(PARENT_CLASSES_CORE_HREF)}
                         className={parentNavSubLinkClass(parentClassListNavActive)}
                       >
                         Class List
@@ -634,7 +643,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative">
                       <div className="bg-[#d2f1f5] col-1 row-1 ml-0 mt-0 content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
                         <Link
-                          href="/dashboard/parents/students"
+                          href={parentRouteHref("/dashboard/parents/students")}
                           className="content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full"
                         >
                           <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
@@ -714,17 +723,17 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             )}
             {isClose && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-name="Menu Items Parent">
-                <Link href="/dashboard/parents/home" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/home")} title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
                   </div>
                 </Link>
-                <Link href={PARENT_SCHEDULE_HREF} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
+                <Link href={parentRouteHref(PARENT_SCHEDULE_HREF)} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(parentScheduleActive)}
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/billing" title="Billing" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentBillingActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/billing")} title="Billing" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentBillingActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     <ReceiptText
                       aria-hidden
@@ -733,7 +742,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     />
                   </div>
                 </Link>
-                <Link href={PARENT_CATALOG_HREF} title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
+                <Link href={parentRouteHref(PARENT_CATALOG_HREF)} title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
                       <img alt="" className="block size-[18px] max-w-none" src={imgNotebookOneSidebar} />
@@ -748,12 +757,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     )}
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/students" title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/students")} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/feedback" title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/feedback")} title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
                   </div>
@@ -836,17 +845,17 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             )}
             {isWTooltip && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
               <>
-                <Link href="/dashboard/parents/home" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/home")} title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
                   </div>
                 </Link>
-                <Link href={PARENT_SCHEDULE_HREF} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
+                <Link href={parentRouteHref(PARENT_SCHEDULE_HREF)} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(parentScheduleActive)}
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/billing" title="Billing" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentBillingActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/billing")} title="Billing" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentBillingActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     <ReceiptText
                       aria-hidden
@@ -855,7 +864,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     />
                   </div>
                 </Link>
-                <Link href={PARENT_CATALOG_HREF} title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
+                <Link href={parentRouteHref(PARENT_CATALOG_HREF)} title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentClassesNavActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} relative overflow-clip flex items-center justify-center`}>
                     {parentClassesBrandActive ? (
                       <img alt="" className="block size-[18px] max-w-none" src={imgNotebookOneSidebar} />
@@ -870,12 +879,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     )}
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/students" title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/students")} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
                 </Link>
-                <Link href="/dashboard/parents/feedback" title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
+                <Link href={parentRouteHref("/dashboard/parents/feedback")} title="Feedback" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentFeedbackActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
                   </div>

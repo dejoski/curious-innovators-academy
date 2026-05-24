@@ -19,6 +19,10 @@ import {
 } from "@/components/parent-schedule-grid";
 import { cachedJson } from "@/lib/client-data-cache";
 import {
+  selectedParentStudentIdFromSearchParams,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
+import {
   INITIAL_PARENT_CATALOG_REQUESTS,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
@@ -81,7 +85,7 @@ function StepItem({ n, title, body }: { n: number; title: string; body: string }
 
 function ParentClassesEnrichmentCatalogContent() {
   const searchParams = useSearchParams();
-  const requestedStudentId = searchParams.get("student") ?? "";
+  const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [availableClasses, setAvailableClasses] = useState<ParentClassOption[]>([]);
   const [catalogHint, setCatalogHint] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotId>("block4_day3");
@@ -162,10 +166,10 @@ function ParentClassesEnrichmentCatalogContent() {
     };
   }, [requestedStudentId]);
 
-	  useEffect(() => {
-	    function readReviewStatuses() {
-	      setLocalReviewStatuses(readLocalReviewStatuses());
-	    }
+  useEffect(() => {
+    function readReviewStatuses() {
+      setLocalReviewStatuses(readLocalReviewStatuses());
+    }
 
     readReviewStatuses();
     window.addEventListener("storage", readReviewStatuses);
@@ -176,19 +180,19 @@ function ParentClassesEnrichmentCatalogContent() {
     };
   }, []);
 
-	  useEffect(() => {
-	    if (!activeStudent?.id) return;
-	    const snapshot = readParentCatalogSnapshot({
-	      studentId: activeStudent.id,
-	      studentName: activeStudent.name,
-	    });
-	    setRequests((snapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
-	    setLocalSubmittedAt(snapshot.submittedAt);
-	    setLocalRequestState(snapshot.state);
-	    setLocalReviewStatuses(snapshot.reviewStatuses);
-	    setRestoredDraft(Boolean(snapshot.requests));
-	    setCatalogStorageReadyFor(activeStudent.id);
-	  }, [activeStudent?.id]);
+  useEffect(() => {
+    if (!activeStudent?.id) return;
+    const snapshot = readParentCatalogSnapshot({
+      studentId: activeStudent.id,
+      studentName: activeStudent.name,
+    });
+    setRequests((snapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
+    setLocalSubmittedAt(snapshot.submittedAt);
+    setLocalRequestState(snapshot.state);
+    setLocalReviewStatuses(snapshot.reviewStatuses);
+    setRestoredDraft(Boolean(snapshot.requests));
+    setCatalogStorageReadyFor(activeStudent.id);
+  }, [activeStudent?.id, activeStudent?.name]);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -208,18 +212,18 @@ function ParentClassesEnrichmentCatalogContent() {
     [activeStudent],
   );
 
-	  useEffect(() => {
-	    if (!activeStudent?.id || catalogStorageReadyFor !== activeStudent.id) return;
-	    try {
-	      if (hasParentCatalogChoices(requests as ParentCatalogRequests)) {
-	        writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
-	      } else {
-	        clearPendingParentCatalogRequests({ studentId: activeStudent.id });
-	      }
-	    } catch {
-	      /* Browser storage can be unavailable in privacy modes. */
-	    }
-	  }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, requests]);
+  useEffect(() => {
+    if (!activeStudent?.id || catalogStorageReadyFor !== activeStudent.id) return;
+    try {
+      if (hasParentCatalogChoices(requests as ParentCatalogRequests)) {
+        writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
+      } else {
+        clearPendingParentCatalogRequests({ studentId: activeStudent.id });
+      }
+    } catch {
+      /* Browser storage can be unavailable in privacy modes. */
+    }
+  }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, requests]);
 
   function draftSlotBadges(slot: SlotRequests, slotId: SlotId): StudentScheduleBadge[] {
     const badges: StudentScheduleBadge[] = [];
@@ -250,10 +254,10 @@ function ParentClassesEnrichmentCatalogContent() {
     });
   }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
 
-	  const selectedChoices = useMemo(
-	    () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
-	    [requests],
-	  );
+    const selectedChoices = useMemo(
+      () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
+      [requests],
+    );
 
   const hasChoices = selectedChoices.length > 0;
   const activeMeta = SLOT_META[activeSlot];
@@ -279,17 +283,17 @@ function ParentClassesEnrichmentCatalogContent() {
     setOpenChoice(null);
   }
 
-	  function openScheduleSlot(slot: ParentScheduleSlotKey) {
-	    const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
-	    if (catalogSlot) openSlot(catalogSlot);
-	  }
+    function openScheduleSlot(slot: ParentScheduleSlotKey) {
+      const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
+      if (catalogSlot) openSlot(catalogSlot);
+    }
 
-	  function clearSubmittedSnapshot() {
-	    try {
-	      clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
-	    } catch {
-	      /* ignore storage failures */
-	    }
+    function clearSubmittedSnapshot() {
+      try {
+        clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
+      } catch {
+        /* ignore storage failures */
+      }
     setLocalSubmittedAt(null);
     setLocalRequestState("draft");
     setLocalReviewStatuses({});
@@ -313,13 +317,13 @@ function ParentClassesEnrichmentCatalogContent() {
     clearSubmittedSnapshot();
   }
 
-	  function persistSubmittedSnapshot() {
-	    let submittedAt: string | null = null;
-	    try {
-	      submittedAt = writeSubmittedParentCatalogSnapshot(requests as ParentCatalogRequests, catalogIdentity);
-	    } catch {
-	      /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
-	    }
+    function persistSubmittedSnapshot() {
+      let submittedAt: string | null = null;
+      try {
+        submittedAt = writeSubmittedParentCatalogSnapshot(requests as ParentCatalogRequests, catalogIdentity);
+      } catch {
+        /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
+      }
     setLocalSubmittedAt(submittedAt);
     setLocalRequestState("submitted");
     setLocalReviewStatuses({});
@@ -422,7 +426,7 @@ function ParentClassesEnrichmentCatalogContent() {
           <p className="min-w-0 flex-1 text-[16px] font-semibold leading-[1.4] text-[#272932]">
             Enrichment classes allow students to explore interests beyond core subjects such as arts, technology, entrepreneurship and science.
           </p>
-          <Link href="/dashboard/parents/students" className="hidden shrink-0 items-center gap-[8px] text-[16px] font-semibold text-[#272932] sm:inline-flex">
+          <Link href={withParentStudentParam("/dashboard/parents/students", activeStudent?.id)} className="hidden shrink-0 items-center gap-[8px] text-[16px] font-semibold text-[#272932] sm:inline-flex">
             View profile
             <ArrowRight className="size-[18px]" aria-hidden />
           </Link>

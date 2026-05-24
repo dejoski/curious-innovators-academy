@@ -11,6 +11,7 @@ import type {
 } from "@/lib/data";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
+import { selectedParentStudentIdFromSearchParams } from "@/lib/parent-student-selection";
 
 const imgLine10 = "/images/icon-divider-students.svg";
 const imgMaskGroup = "/images/mask-group.svg";
@@ -149,7 +150,7 @@ function HistoryCard({ entry }: { entry: StudentProfileTimelineEvent }) {
 
 function ParentStudentsProfileContent() {
   const searchParams = useSearchParams();
-  const requestedStudentId = searchParams.get("student") ?? "";
+  const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
 
   const [studentsSource, setStudentsSource] = useState<DataSource | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState("");
@@ -174,7 +175,7 @@ function ParentStudentsProfileContent() {
         if (cancelled) return;
         const rows = Array.isArray(body.students) ? body.students : [];
         setStudentsSource(body.source ?? null);
-        setSelectedStudentId(requestedStudentId || rows[0]?.id || "");
+        setSelectedStudentId(rows.some((row) => row.id === requestedStudentId) ? requestedStudentId : rows[0]?.id || "");
       } catch (err) {
         if (cancelled) return;
         setStudentsSource(null);

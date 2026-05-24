@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  readStoredParentStudentId,
+  writeStoredParentStudentId,
+} from "@/lib/parent-student-selection";
 
 const imgGroup1 = "/images/feedback-angry-face.svg";
 const imgHealthiconsNeutralOutline24Px = "/images/feedback-neutral-face.svg";
@@ -111,9 +115,14 @@ export default function ParentFeedback() {
         };
         if (cancelled) return;
         const nextStudents = Array.isArray(body.students) ? body.students : [];
+        const storedStudentId = readStoredParentStudentId();
         setStudents(nextStudents);
         setStudentSource(body.source ?? "unavailable");
-        setSelectedStudentId((current) => current || nextStudents[0]?.id || "");
+        setSelectedStudentId((current) => (
+          current ||
+          (nextStudents.some((student) => student.id === storedStudentId) ? storedStudentId : nextStudents[0]?.id) ||
+          ""
+        ));
       } catch {
         if (!cancelled) setStudentSource("unavailable");
       }
@@ -276,7 +285,10 @@ export default function ParentFeedback() {
         <select
           id="feedback-student"
           value={selectedStudentId}
-          onChange={(e) => setSelectedStudentId(e.target.value)}
+          onChange={(e) => {
+            writeStoredParentStudentId(e.target.value);
+            setSelectedStudentId(e.target.value);
+          }}
           className="h-[44px] w-full max-w-[420px] rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] text-[15px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
         >
           {students.length === 0 ? (

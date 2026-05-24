@@ -6,6 +6,10 @@ import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
+  selectedParentStudentIdFromSearchParams,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
+import {
   mergeCalendarEvents,
   studentScheduleToMonthEvents,
 } from "@/lib/parent-schedule-month-events";
@@ -58,7 +62,7 @@ function readCachedParentScheduleState(requestedStudentId: string): ParentSchedu
 
 export default function ParentScheduleClient() {
   const searchParams = useSearchParams();
-  const requestedStudentId = searchParams.get("student") ?? "";
+  const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [scheduleState, setScheduleState] = useState<ParentScheduleState>({
     eventsByDate: {},
     source: "unavailable",
@@ -128,7 +132,7 @@ export default function ParentScheduleClient() {
           initialExtrasByDate={scheduleState.eventsByDate}
           dataSource={scheduleState.source}
           scheduleRouteBase={PARENT_SCHEDULE_HREF}
-          viewClassesHref="/dashboard/parents/classes/core"
+          viewClassesHref={withParentStudentParam("/dashboard/parents/classes/core", scheduleState.studentId)}
           heroSubtitle="View your child's schedule"
           titleByView={{
             Month: "Month Class Schedule",

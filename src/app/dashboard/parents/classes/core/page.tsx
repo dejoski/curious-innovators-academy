@@ -1,7 +1,12 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
+import {
+  selectedParentStudentIdFromSearchParams,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
 import { splitScheduleLabel } from "@/lib/schedule-slots";
 import type { SchoolClassRow } from "@/lib/data/types";
 
@@ -59,6 +64,8 @@ function readCachedCoreClasses() {
 }
 
 export default function ParentClassesClassListCore() {
+  const searchParams = useSearchParams();
+  const selectedParentStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [classes, setClasses] = useState<ParentClassRow[]>([]);
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,13 +205,13 @@ export default function ParentClassesClassListCore() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full border-b border-[#f0f0f0] pb-0">
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard/parents/classes/core"
+            href={withParentStudentParam("/dashboard/parents/classes/core", selectedParentStudentId)}
             className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
           >
             Core
           </Link>
           <Link
-            href="/dashboard/parents/classes/enrichment"
+            href={withParentStudentParam("/dashboard/parents/classes/enrichment", selectedParentStudentId)}
             className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
           >
             Enrichment
@@ -432,7 +439,7 @@ export default function ParentClassesClassListCore() {
                             View schedule detail
                           </button>
                           <Link
-                            href="/dashboard/parents/catalog"
+                            href={withParentStudentParam("/dashboard/parents/catalog", selectedParentStudentId)}
                             className="block w-full px-4 py-2 text-sm text-[#14c1d5] hover:bg-gray-50 font-medium"
                             onClick={() => setOpenMenuId(null)}
                           >

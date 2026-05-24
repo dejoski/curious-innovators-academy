@@ -1,7 +1,12 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
+import {
+  selectedParentStudentIdFromSearchParams,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
 import { splitScheduleLabel } from "@/lib/schedule-slots";
 import {
   catalogChoiceReviews,
@@ -71,6 +76,8 @@ function readCachedEnrichmentClasses() {
 }
 
 export default function EnrichmentClassesPage() {
+  const searchParams = useSearchParams();
+  const selectedParentStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
@@ -121,13 +128,15 @@ export default function EnrichmentClassesPage() {
     };
   }, []);
 
-	  useEffect(() => {
-	    function readCatalogDraft() {
-	      const snapshot = readParentCatalogSnapshot();
-	      setCatalogDraft(snapshot.requests);
-	      setLocalRequestState(snapshot.state);
-	      setLocalReviewStatuses(snapshot.reviewStatuses);
-	    }
+  useEffect(() => {
+    function readCatalogDraft() {
+      const snapshot = selectedParentStudentId
+        ? readParentCatalogSnapshot({ studentId: selectedParentStudentId })
+        : readParentCatalogSnapshot();
+      setCatalogDraft(snapshot.requests);
+      setLocalRequestState(snapshot.state);
+      setLocalReviewStatuses(snapshot.reviewStatuses);
+    }
 
     readCatalogDraft();
     window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
@@ -136,14 +145,14 @@ export default function EnrichmentClassesPage() {
       window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
       window.removeEventListener("storage", readCatalogDraft);
     };
-  }, []);
+  }, [selectedParentStudentId]);
 
-	  const filteredAndSortedClasses = useMemo(() => {
-	    const draftChoices: DraftChoiceWithLocalId[] = catalogChoiceReviews(catalogDraft, localReviewStatuses).map((choice) => ({
-	      id: choice.classId,
-	      name: choice.name,
-	      localId: choice.id,
-	    }));
+  const filteredAndSortedClasses = useMemo(() => {
+    const draftChoices: DraftChoiceWithLocalId[] = catalogChoiceReviews(catalogDraft, localReviewStatuses).map((choice) => ({
+      id: choice.classId,
+      name: choice.name,
+      localId: choice.id,
+    }));
     const draftIds = new Set(draftChoices.map((choice) => choice.id).filter(Boolean));
     const draftNames = new Set(draftChoices.map((choice) => choice.name).filter(Boolean));
 
@@ -277,13 +286,13 @@ export default function EnrichmentClassesPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full border-b border-[#f0f0f0] pb-0">
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard/parents/classes/core"
+            href={withParentStudentParam("/dashboard/parents/classes/core", selectedParentStudentId)}
             className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
           >
             Core
           </Link>
           <Link
-            href="/dashboard/parents/classes/enrichment"
+            href={withParentStudentParam("/dashboard/parents/classes/enrichment", selectedParentStudentId)}
             className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
           >
             Enrichment
@@ -507,14 +516,14 @@ export default function EnrichmentClassesPage() {
                               View class summary
                             </button>
                             <Link
-                              href="/dashboard/parents/catalog"
+                              href={withParentStudentParam("/dashboard/parents/catalog", selectedParentStudentId)}
                               className="block w-full px-4 py-2 text-sm font-medium text-[#14c1d5] hover:bg-gray-50"
                               onClick={() => setOpenMenuId(null)}
                             >
                               Open class catalog
                             </Link>
                             <Link
-                              href="/dashboard/parents/students"
+                              href={withParentStudentParam("/dashboard/parents/students", selectedParentStudentId)}
                               className="block w-full px-4 py-2 text-sm text-[#0d0d12] hover:bg-gray-50"
                               onClick={() => setOpenMenuId(null)}
                             >

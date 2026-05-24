@@ -80,6 +80,10 @@ function dashboardRoleRedirect(
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = redirectPath;
   redirectUrl.search = "";
+  if (role === "parent") {
+    const studentId = request.nextUrl.searchParams.get("student")?.trim();
+    if (studentId) redirectUrl.searchParams.set("student", studentId);
+  }
   return NextResponse.redirect(redirectUrl);
 }
 

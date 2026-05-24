@@ -2,17 +2,23 @@
 
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { ParentsAdminDirectory } from "./parents-directory-client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import {
+  selectedParentStudentIdFromSearchParams,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
 import type { ParentsDirectoryPageClientProps } from "./parents-directory-client";
 
 export default function ParentsIndexClientGate(props: ParentsDirectoryPageClientProps) {
   const { persona } = useDashboardPersona();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedParentStudentId = selectedParentStudentIdFromSearchParams(searchParams);
 
   useEffect(() => {
     if (persona === "parent") {
-      router.replace("/dashboard/parents/home");
+      router.replace(withParentStudentParam("/dashboard/parents/home", selectedParentStudentId));
     }
     if (persona === "student") {
       router.replace("/dashboard");
@@ -20,7 +26,7 @@ export default function ParentsIndexClientGate(props: ParentsDirectoryPageClient
     if (persona === "teacher") {
       router.replace("/dashboard/teachers");
     }
-  }, [persona, router]);
+  }, [persona, router, selectedParentStudentId]);
 
   if (persona !== "admin") {
     return (

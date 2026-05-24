@@ -2,13 +2,17 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
+import {
+  readStoredParentStudentId,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
 import type { DashboardNotification } from "@/lib/data";
 import {
   DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS,
@@ -48,6 +52,7 @@ export default function DashboardHeader() {
     roleLabel,
   } = useDashboardPersona();
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
@@ -57,16 +62,20 @@ export default function DashboardHeader() {
   const router = useRouter();
 
   const inParentShell = pathname.startsWith("/dashboard/parents");
+  const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
 
   const showNotificationDropdown = isNotificationDropdownEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
   const previewNotifications = useMemo(
     () =>
-      notifications.slice(0, 3).map((item) => ({
-        ...item,
-        href: dashboardHrefForPersona(item.href, persona, demoStudentId),
-      })),
-    [demoStudentId, notifications, persona],
+      notifications.slice(0, 3).map((item) => {
+        const href = dashboardHrefForPersona(item.href, persona, demoStudentId);
+        return {
+          ...item,
+          href: inParentShell ? withParentStudentParam(href, selectedParentStudentId) : href,
+        };
+      }),
+    [demoStudentId, inParentShell, notifications, persona, selectedParentStudentId],
   );
 
   const parentUtilityOrder = inParentShell;
@@ -157,7 +166,7 @@ export default function DashboardHeader() {
         <div className="content-stretch flex gap-[16px] items-center relative shrink-0">
           {parentUtilityOrder ? (
             <Link
-              href="/dashboard/parents/feedback"
+              href={withParentStudentParam("/dashboard/parents/feedback", selectedParentStudentId)}
               className="relative flex shrink-0 size-[32px] items-center justify-center"
               aria-label="Feedback"
             >

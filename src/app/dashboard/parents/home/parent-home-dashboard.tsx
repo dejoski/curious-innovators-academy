@@ -24,6 +24,10 @@ import { cachedJson } from "@/lib/client-data-cache";
 import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
+  selectedParentStudentIdFromSearchParams,
+  withParentStudentParam,
+} from "@/lib/parent-student-selection";
+import {
   INITIAL_PARENT_CATALOG_REQUESTS,
   catalogBadgesForSlot,
   catalogChoiceReviews,
@@ -176,12 +180,7 @@ function resolveRequestedStudent(students: StudentListItem[], requestedStudentId
 }
 
 function studentScopedHref(href: string, studentId: string | undefined): string {
-  if (!studentId) return href;
-  const [path, rawQuery = ""] = href.split("?");
-  const params = new URLSearchParams(rawQuery);
-  params.set("student", studentId);
-  const query = params.toString();
-  return query ? `${path}?${query}` : path;
+  return withParentStudentParam(href, studentId);
 }
 
 function StudentDashboardLoading({ studentName }: { studentName?: string }) {
@@ -209,7 +208,7 @@ function StudentDashboardLoading({ studentName }: { studentName?: string }) {
 
 export default function ParentHomeDashboard() {
   const searchParams = useSearchParams();
-  const requestedStudentId = searchParams.get("student") ?? "";
+  const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [student, setStudent] = useState<StudentListItem | null>(null);
   const [profile, setProfile] = useState<StudentProfileBundle | null>(null);
   const [schedule, setSchedule] = useState<StudentScheduleRow | null>(null);
@@ -319,9 +318,9 @@ export default function ParentHomeDashboard() {
     };
   }, [student?.id, student?.name]);
 
-	  const localChoiceReviews = useMemo(() => {
-	    return catalogChoiceReviews(catalogDraft, localReviewStatuses);
-	  }, [catalogDraft, localReviewStatuses]);
+  const localChoiceReviews = useMemo(() => {
+    return catalogChoiceReviews(catalogDraft, localReviewStatuses);
+  }, [catalogDraft, localReviewStatuses]);
 
   const localPendingChoices = localChoiceReviews.filter((choice) => choice.status === "Pending").length;
   const localApprovedChoices = localChoiceReviews.filter((choice) => choice.status === "Approved").length;
@@ -649,7 +648,7 @@ export default function ParentHomeDashboard() {
               <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={studentScopedHref(PARENT_SCHEDULE_HREF, activeStudentId)} />
               <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)} />
               <QuickRow title="View Profile" body="Access your child's personal and academic information." href={studentScopedHref("/dashboard/parents/students", activeStudentId)} />
-              <QuickRow title="View Classes" body="Explore all enrolled classes and details." href="/dashboard/parents/classes/core" />
+              <QuickRow title="View Classes" body="Explore all enrolled classes and details." href={studentScopedHref("/dashboard/parents/classes/core", activeStudentId)} />
             </div>
           </div>
         </div>

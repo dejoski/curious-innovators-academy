@@ -16,10 +16,14 @@ export default function DashboardLayout({
       <DashboardRouteGuard>
         <div className="flex h-dvh w-full overflow-hidden bg-[#fafafa] font-sans">
           <div className="block shrink-0 md:hidden">
-            <Sidebar type="close" />
+            <Suspense fallback={<div className="h-screen w-[72px] shrink-0 border-r border-[#f0f0f0] bg-white" />}>
+              <Sidebar type="close" />
+            </Suspense>
           </div>
           <div className="hidden shrink-0 md:block">
-            <Sidebar type="open" />
+            <Suspense fallback={<div className="h-screen w-[272px] shrink-0 border-r border-[#f0f0f0] bg-white" />}>
+              <Sidebar type="open" />
+            </Suspense>
           </div>
           <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
             <Suspense fallback={<div className="h-[56px] shrink-0 border-b border-[#f0f0f0] bg-white" />}>

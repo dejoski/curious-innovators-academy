@@ -6,6 +6,11 @@ import type { DataSource, StudentListItem } from "@/lib/data";
 import { cachedJson, peekCachedJson, preloadJson } from "@/lib/client-data-cache";
 import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import {
+  readStoredParentStudentId,
+  withParentStudentParam,
+  writeStoredParentStudentId,
+} from "@/lib/parent-student-selection";
+import {
   DASHBOARD_TEXT_PRIMARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
 
@@ -34,6 +39,7 @@ export default function ParentStudentContextSelector() {
   const [source, setSource] = useState<DataSource | null>(null);
   const [isLoading, setIsLoading] = useState(() => pathname.startsWith("/dashboard/parents"));
   const [pendingStudentId, setPendingStudentId] = useState("");
+  const [storedStudentId, setStoredStudentId] = useState("");
   const [isRoutePending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -68,11 +74,40 @@ export default function ParentStudentContextSelector() {
     };
   }, [pathname]);
 
-  const requestedStudentId = searchParams.get("student") ?? "";
+  useEffect(() => {
+    if (!pathname.startsWith("/dashboard/parents")) return;
+    setStoredStudentId(readStoredParentStudentId()); // eslint-disable-line react-hooks/set-state-in-effect -- hydrate persisted parent student selection after mount
+  }, [pathname]);
+
+  const queryStudentId = searchParams.get("student") ?? "";
+  const requestedStudentId = queryStudentId || storedStudentId;
 
   useEffect(() => {
     if (pendingStudentId && pendingStudentId === requestedStudentId) setPendingStudentId("");
   }, [pendingStudentId, requestedStudentId]);
+
+  useEffect(() => {
+    if (!pathname.startsWith("/dashboard/parents") || students.length === 0) return;
+
+    const queryStudentIsValid = students.some((s) => s.id === queryStudentId);
+    const storedStudentIsValid = students.some((s) => s.id === storedStudentId);
+    const nextStudentId = queryStudentIsValid
+      ? queryStudentId
+      : storedStudentIsValid
+        ? storedStudentId
+        : students[0]?.id ?? "";
+
+    if (!nextStudentId) return;
+    if (storedStudentId !== nextStudentId) {
+      writeStoredParentStudentId(nextStudentId);
+      setStoredStudentId(nextStudentId); // eslint-disable-line react-hooks/set-state-in-effect -- keep picker state aligned with canonical parent student selection
+    }
+    if (queryStudentId !== nextStudentId) {
+      startTransition(() => {
+        router.replace(withParentStudentParam(`${pathname}?${searchParams.toString()}`, nextStudentId), { scroll: false });
+      });
+    }
+  }, [pathname, queryStudentId, router, searchParams, storedStudentId, students]);
 
   if (!pathname.startsWith("/dashboard/parents")) {
     return null;
@@ -92,6 +127,8 @@ export default function ParentStudentContextSelector() {
     const encodedId = encodeURIComponent(studentId);
     preloadJson(`/api/data/students/${encodedId}/profile`);
     preloadJson(`/api/data/students/${encodedId}/schedule`);
+    writeStoredParentStudentId(studentId);
+    setStoredStudentId(studentId);
     setPendingStudentId(studentId);
     const p = new URLSearchParams(searchParams.toString());
     p.set("student", studentId);
