@@ -3,7 +3,11 @@ import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
-import { isRemoteDataRequired, isSupabaseConfigured } from "@/lib/data/env";
+import {
+  canUsePrivilegedDemoData,
+  isRemoteDataRequired,
+  isSupabaseConfigured,
+} from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import type {
   ClassRosterStatus,
@@ -858,7 +862,7 @@ export async function serverInsertEnrichmentRequests(input: {
       error: userError,
     } = await supabase.auth.getUser();
     if (userError || !user) {
-      if (isRemoteDataRequired()) return { ok: false, message: "Not signed in" };
+      if (!canUsePrivilegedDemoData()) return { ok: false, message: "Not signed in" };
 
       const studentId = input.studentId?.trim();
       if (!studentId) return { ok: false, message: "Choose a student before submitting class selections" };
@@ -997,7 +1001,7 @@ export async function serverPatchNotificationsReadAll(ids?: string[]): Promise<W
     } = await supabase.auth.getUser();
 
     if (ue || !user) {
-      if (isRemoteDataRequired()) return { ok: false, message: "Not signed in" };
+      if (!canUsePrivilegedDemoData()) return { ok: false, message: "Not signed in" };
       if (!isSupabaseAdminConfigured()) return { ok: false, message: "Supabase demo write is not configured" };
       if (notificationIds.length === 0) return { ok: true };
 
@@ -1041,13 +1045,12 @@ export async function serverPatchNotificationRead(
       error: ue,
     } = await supabase.auth.getUser();
 
-    const client = ue || !user
-      ? isRemoteDataRequired()
-        ? null
-        : isSupabaseAdminConfigured()
+    const client: SupabaseMutationClient | null =
+      ue || !user
+        ? canUsePrivilegedDemoData() && isSupabaseAdminConfigured()
           ? createSupabaseAdminClient()
           : null
-      : supabase;
+        : supabase;
 
     if (!client) {
       return { ok: false, message: ue || !user ? "Not signed in" : "Supabase demo write is not configured" };

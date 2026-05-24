@@ -1,8 +1,8 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { DashboardNotification } from "@/lib/data/types";
 import {
+  canUsePrivilegedDemoData,
   fallbackList,
-  isRemoteDataRequired,
   isSupabaseConfigured,
   unavailableList,
 } from "@/lib/data/env";
@@ -108,7 +108,7 @@ async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotifi
       return queryNotificationsForRecipient(supabase, user.id);
     }
 
-    if (isRemoteDataRequired()) {
+    if (!canUsePrivilegedDemoData()) {
       return unavailableList();
     }
 

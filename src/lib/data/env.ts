@@ -70,6 +70,15 @@ export function canUseBundledFallbackData(): boolean {
   return !isRemoteDataRequired();
 }
 
+/**
+ * Privileged demo writes use the server-only service role to simulate a signed-in
+ * seeded account. Keep that strictly local/off-Vercel; production and preview
+ * deployments must use real Supabase auth instead.
+ */
+export function canUsePrivilegedDemoData(): boolean {
+  return !isRemoteDataRequired() && readRuntimeEnv("VERCEL") !== "1";
+}
+
 export function unavailableList<T>(): import("./fetch-source").ResolvedList<T> {
   return { items: [], source: "unavailable" };
 }
