@@ -152,42 +152,38 @@ export default function ParentStudentContextSelector() {
       <label className="sr-only" htmlFor="parent-student-picker">
         Select student
       </label>
-      <div
-        className="flex h-[44px] w-full items-center overflow-hidden rounded-[10px] bg-white px-[12px] py-[8px] shadow-[0px_0px_0px_1px_#f0f0f0] sm:h-[48px] sm:w-[260px]"
-      >
-        <div className="flex h-[40px] min-w-px flex-[1_0_0] items-center gap-[12px] overflow-hidden rounded-[8px] px-[12px] py-[8px]">
-          <img
-            alt=""
-            className="size-[20px] shrink-0 object-contain"
-            src={imgHugeiconsStudentPicker}
-            aria-hidden
-          />
-          <select
-            id="parent-student-picker"
-            value={studentPickerValue}
-            onChange={(e) => setStudentQuery(e.target.value)}
-            disabled={isLoading || students.length === 0}
-            className={`h-full min-w-px flex-[1_0_0] border-0 bg-transparent font-['Inter:Regular',sans-serif] ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[16px] leading-[1.6] tracking-[-0.32px] outline-none cursor-pointer [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden`}
-            aria-describedby={source === "fallback" ? "parent-student-picker-source" : undefined}
-            aria-busy={false}
-          >
-            {students.length === 0 ? (
-              <option value="">{isLoading ? "Loading students..." : "No students"}</option>
-            ) : (
-              students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))
-            )}
-          </select>
-          {source === "fallback" ? (
-            <span id="parent-student-picker-source" className="sr-only">
-              Showing sample students because cloud data is unavailable.
-            </span>
-          ) : null}
-        </div>
-        <ChevronDown className="mr-1 size-4 shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
+      <div className="relative h-[44px] w-full overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:w-[260px]">
+        <img
+          alt=""
+          className="pointer-events-none absolute left-[24px] top-1/2 z-10 size-[20px] -translate-y-1/2 object-contain"
+          src={imgHugeiconsStudentPicker}
+          aria-hidden
+        />
+        <select
+          id="parent-student-picker"
+          value={studentPickerValue}
+          onChange={(e) => setStudentQuery(e.target.value)}
+          disabled={isLoading || students.length === 0}
+          className={`absolute inset-0 h-full w-full cursor-pointer rounded-[10px] border-0 bg-transparent py-[8px] pl-[56px] pr-[42px] font-['Inter:Regular',sans-serif] ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[16px] leading-[1.6] tracking-[-0.32px] outline-none disabled:cursor-not-allowed disabled:text-[#818898] [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden`}
+          aria-describedby={source === "fallback" ? "parent-student-picker-source" : undefined}
+          aria-busy={false}
+        >
+          {students.length === 0 ? (
+            <option value="">{isLoading ? "Loading students..." : "No students"}</option>
+          ) : (
+            students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))
+          )}
+        </select>
+        {source === "fallback" ? (
+          <span id="parent-student-picker-source" className="sr-only">
+            Showing sample students because cloud data is unavailable.
+          </span>
+        ) : null}
+        <ChevronDown className="pointer-events-none absolute right-[16px] top-1/2 z-10 size-4 -translate-y-1/2 text-[#666d80]" aria-hidden strokeWidth={1.8} />
       </div>
     </div>
   );
