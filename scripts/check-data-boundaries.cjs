@@ -194,6 +194,18 @@ if (
   violations.push("src/app/dashboard/classes/edit/[segment]/[id]/page.tsx: Edit Class must not submit placeholder teacher, seat, or schedule values");
 }
 
+const classRepository = fs.readFileSync(path.join(root, "src/lib/data/repositories/classes.ts"), "utf8");
+const classAvailabilityMigration = fs.readFileSync(
+  path.join(root, "supabase/migrations/20260525010500_class_catalog_availability_view.sql"),
+  "utf8",
+);
+if (!classRepository.includes("class_catalog_availability")) {
+  violations.push("src/lib/data/repositories/classes.ts: class list reads must use the database-owned class_catalog_availability view");
+}
+if (!/CREATE\s+OR\s+REPLACE\s+VIEW\s+public\.class_catalog_availability/i.test(classAvailabilityMigration)) {
+  violations.push("supabase/migrations/20260525010500_class_catalog_availability_view.sql: missing class_catalog_availability view");
+}
+
 if (serverWrites.includes('(555) 000-0000')) {
   violations.push("src/lib/data/server-writes.ts: teacher writes must store blank optional phone values, not fake phone numbers");
 }

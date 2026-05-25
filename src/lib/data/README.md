@@ -67,6 +67,8 @@ Repositories map common names (e.g. `full_name` or `name`, `avatar_url` or `avat
 
 `track` must be `core` or `enrichment` for the four head counts to succeed together. If the column is absent, dashboard stats fall back to `DASHBOARD_METRICS` in `src/lib/dashboard-metrics.ts`.
 
+`class_catalog_availability` is the database-owned view for enrolled, pending, waitlisted, reserved, and remaining seat counts. Parent catalog and class list reads should use that view instead of recomputing availability in each UI surface.
+
 ### `schedule_events`
 
 Expected fields: ISO date (`event_date` or `date`), `time_label`, `title`, optional `description`, `event_type` matching `CalendarEventType` (`core`, `enrichment-pending`, `enrichment-approved`, `event`).

@@ -6,8 +6,9 @@ import {
   DEFAULT_DEMO_ACCOUNT_ID,
   DEMO_ACCOUNTS,
 } from "@/lib/data/mock/demo-accounts";
+import type { DashboardPersona } from "@/lib/dashboard/persona";
 
-export type DashboardPersona = "admin" | "parent" | "teacher" | "student";
+export type { DashboardPersona } from "@/lib/dashboard/persona";
 
 export const DEMO_STATE_STORAGE_KEY = "cia-demo-dashboard-state";
 export const LEGACY_PERSONA_STORAGE_KEY = "cia-dashboard-persona";

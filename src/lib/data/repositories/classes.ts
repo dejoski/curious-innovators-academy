@@ -110,6 +110,31 @@ function splitSeatCounts(input: {
   };
 }
 
+const CLASS_SELECT = `
+  id,
+  name,
+  program,
+  capacity,
+  schedule_summary,
+  level,
+  block,
+  location,
+  description,
+  prerequisites,
+  status,
+  teachers (
+    profiles (
+      display_name
+    )
+  )
+`;
+
+const CLASS_SELECT_WITH_HOLDS = `
+  ${CLASS_SELECT},
+  enrollments ( id, student_id, status ),
+  class_requests ( id, student_id, status )
+`;
+
 function normalizeProgram(raw: unknown): ProgramTrack {
   const s = String(raw ?? "core").toLowerCase();
   return s === "enrichment" ? "enrichment" : "core";
@@ -174,7 +199,7 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
   };
 }
 
-function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unknown> {
+function flattenClassBaseRow(row: Record<string, unknown>): Record<string, unknown> {
   const teachers = row.teachers as Record<string, unknown> | Record<string, unknown>[] | null;
   const t = Array.isArray(teachers) ? teachers[0] : teachers;
   let teacherName = "";
@@ -186,14 +211,42 @@ function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unkno
     }
   }
 
+  return {
+    ...row,
+    teacher_name: teacherName,
+  };
+}
+
+function availabilityFields(row: Record<string, unknown> | undefined): Record<string, unknown> {
+  return {
+    enrolled_count: row ? (numberField(row, "enrolled_count") ?? 0) : 0,
+    pending_count: row ? (numberField(row, "pending_count") ?? 0) : 0,
+    waitlist_count: row ? (numberField(row, "waitlist_count") ?? 0) : 0,
+    reserved_count: row ? (numberField(row, "reserved_count") ?? 0) : 0,
+    seats_remaining: row ? (numberField(row, "seats_remaining") ?? undefined) : undefined,
+    availability_label: row?.availability_label,
+  };
+}
+
+function availabilityByClassId(rows: Record<string, unknown>[] | null | undefined): Map<string, Record<string, unknown>> {
+  const byClassId = new Map<string, Record<string, unknown>>();
+  for (const row of rows ?? []) {
+    const classId = row.class_id;
+    if (classId == null || String(classId) === "") continue;
+    byClassId.set(String(classId), row);
+  }
+  return byClassId;
+}
+
+function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unknown> {
+  const base = flattenClassBaseRow(row);
   const enrollments = row.enrollments as unknown[] | null;
   const classRequests = row.class_requests as unknown[] | null;
   const capacity = numberField(row, "capacity") ?? 1;
   const seatCounts = splitSeatCounts({ capacity, enrollments, classRequests });
 
   return {
-    ...row,
-    teacher_name: teacherName,
+    ...base,
     enrolled_count: seatCounts.enrolledCount,
     pending_count: seatCounts.pendingCount,
     waitlist_count: seatCounts.waitlistCount,
@@ -209,6 +262,27 @@ function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unkno
   };
 }
 
+async function loadClassesWithJoinCounts(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>> | ReturnType<typeof createSupabaseAdminClient>,
+): Promise<ResolvedList<SchoolClassRow>> {
+  const { data, error } = await supabase
+    .from("classes")
+    .select(CLASS_SELECT_WITH_HOLDS)
+    .order("created_at", { ascending: true });
+
+  if (error) return fallbackList(CLASSES_FALLBACK);
+  if (!data?.length) return { items: [], source: "remote" };
+
+  const mapped = data
+    .map((row) =>
+      mapClassRow(flattenClassJoinRow(row as unknown as Record<string, unknown>)),
+    )
+    .filter((x): x is SchoolClassRow => x !== null);
+
+  if (mapped.length === 0) return fallbackList(CLASSES_FALLBACK);
+  return { items: mapped, source: "remote" };
+}
+
 async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
   if (!isSupabaseConfigured()) {
     return fallbackList(CLASSES_FALLBACK);
@@ -218,44 +292,39 @@ async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
     const supabase = isSupabaseAdminConfigured()
       ? createSupabaseAdminClient()
       : await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("classes")
-      .select(
-        `
-        id,
-        name,
-        program,
-        capacity,
-        schedule_summary,
-        level,
-        block,
-        location,
-        description,
-        prerequisites,
-        status,
-        teachers (
-          profiles (
-            display_name
-          )
-        ),
-        enrollments ( id, student_id, status ),
-        class_requests ( id, student_id, status )
-      `,
-      )
-      .order("created_at", { ascending: true });
+    const [classesResult, availabilityResult] = await Promise.all([
+      supabase
+        .from("classes")
+        .select(CLASS_SELECT)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("class_catalog_availability")
+        .select("class_id, enrolled_count, pending_count, waitlist_count, reserved_count, seats_remaining, availability_label"),
+    ]);
 
-    if (error) {
+    if (classesResult.error) {
       return fallbackList(CLASSES_FALLBACK);
     }
 
+    if (availabilityResult.error) {
+      return loadClassesWithJoinCounts(supabase);
+    }
+
+    const data = classesResult.data;
     if (!data?.length) {
       return { items: [], source: "remote" };
     }
 
+    const countsByClassId = availabilityByClassId(availabilityResult.data as unknown as Record<string, unknown>[]);
     const mapped = data
-      .map((row) =>
-        mapClassRow(flattenClassJoinRow(row as unknown as Record<string, unknown>)),
-      )
+      .map((row) => {
+        const classRow = row as unknown as Record<string, unknown>;
+        const id = classRow.id == null ? "" : String(classRow.id);
+        return mapClassRow({
+          ...flattenClassBaseRow(classRow),
+          ...availabilityFields(countsByClassId.get(id)),
+        });
+      })
       .filter((x): x is SchoolClassRow => x !== null);
 
     if (mapped.length === 0) {

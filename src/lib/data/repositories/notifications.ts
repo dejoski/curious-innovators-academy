@@ -8,7 +8,10 @@ import {
 } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { DEMO_UI_ROLE_COOKIE_NAME } from "@/lib/demo-login";
-import type { DashboardPersona } from "@/lib/demo-accounts";
+import {
+  isDashboardPersona,
+  type DashboardPersona,
+} from "@/lib/dashboard/persona";
 import { NOTIFICATIONS_FALLBACK } from "@/lib/data/mock/notifications";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -42,10 +45,7 @@ export function mapNotificationRow(row: Record<string, unknown>): DashboardNotif
 }
 
 function demoRoleFromCookieValue(value: string | undefined): DashboardPersona {
-  if (value === "admin" || value === "parent" || value === "teacher" || value === "student") {
-    return value;
-  }
-  return "parent";
+  return isDashboardPersona(value) ? value : "parent";
 }
 
 async function resolveDemoRecipientProfileId(): Promise<string | null> {

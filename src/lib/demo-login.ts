@@ -1,6 +1,9 @@
 /** Server/client importable demo bypass flag logic; storage writes only via client invokes. */
 import { isRemoteDataRequired } from "@/lib/data/env";
-import type { DashboardPersona } from "@/lib/demo-accounts";
+import {
+  isDashboardPersona,
+  type DashboardPersona,
+} from "@/lib/dashboard/persona";
 
 /**
  * When `NEXT_PUBLIC_ENABLE_DEMO_LOGIN` is unset or empty, bypass UI stays available
@@ -14,10 +17,6 @@ export function isDemoLoginUiEnabled(): boolean {
 export const DEMO_UI_BYPASS_STORAGE_KEY = "cia-demo-ui-bypass";
 export const DEMO_UI_ROLE_STORAGE_KEY = "cia-demo-ui-role";
 export const DEMO_UI_ROLE_COOKIE_NAME = "cia-demo-role";
-
-function isDashboardPersona(value: string | null): value is DashboardPersona {
-  return value === "admin" || value === "parent" || value === "teacher" || value === "student";
-}
 
 export function markDemoUiBypass(role?: DashboardPersona): void {
   try {

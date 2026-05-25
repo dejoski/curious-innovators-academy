@@ -1,4 +1,4 @@
-import type { DashboardPersona } from "@/lib/demo-accounts";
+import type { DashboardPersona } from "@/lib/dashboard/persona";
 
 export const ADMIN_HOME_HREF = "/dashboard";
 export const PARENT_HOME_HREF = "/dashboard/parents/home";
