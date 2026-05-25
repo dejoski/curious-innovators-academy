@@ -17,10 +17,14 @@ import {
   scheduleSlotForClassFields,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type StudentReadClient = Pick<Awaited<ReturnType<typeof createSupabaseServerClient>>, "from">;
+type StudentReadClient = Pick<
+  Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient,
+  "from"
+>;
 
 type StudentProfileResolved = {
   profile: StudentProfileBundle | null;
@@ -269,6 +273,14 @@ export async function fetchStudentProfileResolved(
   } catch {
     return unavailableProfile();
   }
+}
+
+export async function fetchAdminStudentProfileResolved(
+  studentId: string,
+): Promise<StudentProfileResolved> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableProfile();
+  return fetchStudentProfileResolved(studentId, access.client);
 }
 
 export async function fetchStudentScheduleResolved(

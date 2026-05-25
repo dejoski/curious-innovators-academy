@@ -1,7 +1,10 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { CalendarEventType, ProgramTrack, ScheduleCalendarEvent } from "@/lib/data/types";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type ScheduleReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
 const DAY_INDEX: Record<string, number> = {
   sunday: 0,
@@ -218,7 +221,7 @@ export async function fetchScheduleExtrasByDate(): Promise<
   return extrasByDate;
 }
 
-export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResolved> {
+export async function fetchScheduleExtrasResolved(client?: ScheduleReadClient): Promise<ScheduleExtrasResolved> {
   if (!isSupabaseConfigured()) {
     return {
       extrasByDate: {},
@@ -227,7 +230,7 @@ export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResol
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("schedule_events")
       .select("id, title, starts_at, ends_at, location, class_id")
@@ -263,4 +266,15 @@ export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResol
       source: "unavailable",
     };
   }
+}
+
+export async function fetchAdminScheduleExtrasResolved(): Promise<ScheduleExtrasResolved> {
+  const access = await requireAdminReadClient();
+  if (!access) {
+    return {
+      extrasByDate: {},
+      source: "unavailable",
+    };
+  }
+  return fetchScheduleExtrasResolved(access.client);
 }

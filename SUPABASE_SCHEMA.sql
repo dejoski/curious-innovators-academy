@@ -36,6 +36,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.profiles p
@@ -49,6 +50,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
   SELECT EXISTS (
     SELECT 1
@@ -65,6 +67,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
   SELECT EXISTS (
     SELECT 1
@@ -76,12 +79,69 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION private.teacher_owns_class(p_class_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.classes c
+    JOIN public.teachers t ON t.id = c.teacher_id
+    WHERE c.id = p_class_id
+      AND t.profile_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION private.parent_or_student_enrolled_in_class(p_class_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.enrollments e
+    WHERE e.class_id = p_class_id
+      AND (
+        private.parent_can_see_student(e.student_id)
+        OR private.student_is_self(e.student_id)
+      )
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION private.parent_or_student_has_teacher(p_teacher_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.classes c
+    JOIN public.enrollments e ON e.class_id = c.id
+    WHERE c.teacher_id = p_teacher_id
+      AND (
+        private.parent_can_see_student(e.student_id)
+        OR private.student_is_self(e.student_id)
+      )
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION private.student_is_self(p_student_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.students s
@@ -361,15 +421,7 @@ CREATE POLICY teachers_select
   USING (
     private.is_admin()
     OR profile_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      JOIN public.enrollments e ON e.class_id = c.id
-      WHERE c.teacher_id = teachers.id
-        AND (
-          private.parent_can_see_student(e.student_id)
-          OR private.student_is_self(e.student_id)
-        )
-    )
+    OR private.parent_or_student_has_teacher(teachers.id)
   );
 
 CREATE POLICY teachers_insert_admin
@@ -432,18 +484,7 @@ CREATE POLICY classes_select
       SELECT 1 FROM public.profiles p
       WHERE p.id = auth.uid() AND p.role IN ('parent', 'student')
     )
-    OR EXISTS (
-      SELECT 1 FROM public.teachers t
-      WHERE t.id = classes.teacher_id AND t.profile_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.enrollments e
-      WHERE e.class_id = classes.id
-        AND (
-          private.parent_can_see_student(e.student_id)
-          OR private.student_is_self(e.student_id)
-        )
-    )
+    OR private.teacher_owns_class(classes.id)
   );
 
 CREATE POLICY classes_write_admin
@@ -458,11 +499,7 @@ CREATE POLICY enrollments_select
     private.is_admin()
     OR private.parent_can_see_student(enrollments.student_id)
     OR private.student_is_self(enrollments.student_id)
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      JOIN public.teachers t ON t.id = c.teacher_id
-      WHERE c.id = enrollments.class_id AND t.profile_id = auth.uid()
-    )
+    OR private.teacher_owns_class(enrollments.class_id)
   );
 
 CREATE POLICY enrollments_write_admin
@@ -477,11 +514,7 @@ CREATE POLICY class_requests_select
     private.is_admin()
     OR requested_by_profile_id = auth.uid()
     OR private.parent_can_see_student(class_requests.student_id)
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      JOIN public.teachers t ON t.id = c.teacher_id
-      WHERE c.id = class_requests.class_id AND t.profile_id = auth.uid()
-    )
+    OR private.teacher_owns_class(class_requests.class_id)
   );
 
 CREATE POLICY class_requests_insert_parent_or_admin
@@ -499,19 +532,11 @@ CREATE POLICY class_requests_update_admin_or_teacher
   ON public.class_requests FOR UPDATE TO authenticated
   USING (
     private.is_admin()
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      JOIN public.teachers t ON t.id = c.teacher_id
-      WHERE c.id = class_requests.class_id AND t.profile_id = auth.uid()
-    )
+    OR private.teacher_owns_class(class_requests.class_id)
   )
   WITH CHECK (
     private.is_admin()
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      JOIN public.teachers t ON t.id = c.teacher_id
-      WHERE c.id = class_requests.class_id AND t.profile_id = auth.uid()
-    )
+    OR private.teacher_owns_class(class_requests.class_id)
   );
 
 CREATE POLICY class_requests_delete_admin
@@ -524,19 +549,8 @@ CREATE POLICY schedule_events_select
   USING (
     private.is_admin()
     OR class_id IS NULL
-    OR EXISTS (
-      SELECT 1 FROM public.enrollments e
-      WHERE e.class_id = schedule_events.class_id
-        AND (
-          private.parent_can_see_student(e.student_id)
-          OR private.student_is_self(e.student_id)
-        )
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.classes c
-      JOIN public.teachers t ON t.id = c.teacher_id
-      WHERE c.id = schedule_events.class_id AND t.profile_id = auth.uid()
-    )
+    OR private.parent_or_student_enrolled_in_class(schedule_events.class_id)
+    OR private.teacher_owns_class(schedule_events.class_id)
   );
 
 CREATE POLICY schedule_events_write_admin

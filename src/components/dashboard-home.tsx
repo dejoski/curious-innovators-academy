@@ -3,12 +3,12 @@ import DashboardStatCard from "@/components/dashboard-stat-card";
 import Link from "next/link";
 import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
 import { resolveDashboardPresentation } from "@/lib/data/repositories/dashboard";
-import { fetchEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
+import { fetchAdminEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
 
 export async function DashboardHomeResolved() {
   const [{ metrics: m, dailyRows }, { items: requests }, { items: notifications }] = await Promise.all([
     resolveDashboardPresentation(),
-    fetchEnrichmentRequestsResolved(),
+    fetchAdminEnrichmentRequestsResolved(),
     fetchNotificationsResolved(),
   ]);
 

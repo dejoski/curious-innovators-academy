@@ -1,7 +1,10 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type StudentReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
 export const STUDENT_SELECT = `
   id,
@@ -58,13 +61,13 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
   };
 }
 
-async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
+async function loadStudentsResolved(client?: StudentReadClient): Promise<ResolvedList<StudentListItem>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("students")
       .select(STUDENT_SELECT)
@@ -91,7 +94,7 @@ async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
   }
 }
 
-/** Loads students for the admin students table. */
+/** Loads students using the current session/RLS scope. */
 export async function fetchStudents(): Promise<StudentListItem[]> {
   const { items } = await loadStudentsResolved();
   return items;
@@ -101,9 +104,16 @@ export async function fetchStudentsResolved(): Promise<ResolvedList<StudentListI
   return loadStudentsResolved();
 }
 
+export async function fetchAdminStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadStudentsResolved(access.client);
+}
+
 /** Single student for profile route — Supabase row when configured, else seed row if id matches. */
 export async function fetchStudentByIdResolved(
   id: string,
+  client?: StudentReadClient,
 ): Promise<{ student: StudentListItem | null; source: DataSource }> {
   const normalized = String(id).trim();
   if (!normalized) {
@@ -115,7 +125,7 @@ export async function fetchStudentByIdResolved(
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("students")
       .select(STUDENT_SELECT)
@@ -136,4 +146,12 @@ export async function fetchStudentByIdResolved(
   } catch {
     return { student: null, source: "unavailable" };
   }
+}
+
+export async function fetchAdminStudentByIdResolved(
+  id: string,
+): Promise<{ student: StudentListItem | null; source: DataSource }> {
+  const access = await requireAdminReadClient();
+  if (!access) return { student: null, source: "unavailable" };
+  return fetchStudentByIdResolved(id, access.client);
 }

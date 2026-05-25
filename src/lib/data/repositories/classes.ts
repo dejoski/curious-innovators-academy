@@ -7,11 +7,12 @@ import type {
   ProgramTrack,
   SchoolClassRow,
 } from "@/lib/data/types";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
-import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { firstRel } from "@/lib/data/repositories/relations";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type ClassReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
 function formatStudentsLabel(row: Record<string, unknown>): string {
   const direct = row.students_label ?? row.students;
@@ -264,7 +265,7 @@ function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unkno
 }
 
 async function loadClassesWithJoinCounts(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>> | ReturnType<typeof createSupabaseAdminClient>,
+  supabase: ClassReadClient,
 ): Promise<ResolvedList<SchoolClassRow>> {
   const { data, error } = await supabase
     .from("classes")
@@ -284,15 +285,13 @@ async function loadClassesWithJoinCounts(
   return { items: mapped, source: "remote" };
 }
 
-async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
+async function loadClassesResolved(client?: ClassReadClient): Promise<ResolvedList<SchoolClassRow>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
-    const supabase = isSupabaseAdminConfigured()
-      ? createSupabaseAdminClient()
-      : await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const [classesResult, availabilityResult] = await Promise.all([
       supabase
         .from("classes")
@@ -345,6 +344,12 @@ export async function fetchClasses(): Promise<SchoolClassRow[]> {
 
 export async function fetchClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
   return loadClassesResolved();
+}
+
+export async function fetchAdminClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadClassesResolved(access.client);
 }
 
 function unavailableRoster(): ResolvedList<ClassRosterStudent> {

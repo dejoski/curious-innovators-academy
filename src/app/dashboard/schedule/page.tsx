@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import { fetchScheduleExtrasResolved } from "@/lib/data/repositories/schedule";
+import { fetchAdminScheduleExtrasResolved } from "@/lib/data/repositories/schedule";
 import ScheduleMonth from "./schedule-client";
 
 export default async function SchedulePage() {
-  const { extrasByDate, source } = await fetchScheduleExtrasResolved();
+  const { extrasByDate, source } = await fetchAdminScheduleExtrasResolved();
   return (
     <Suspense
       fallback={

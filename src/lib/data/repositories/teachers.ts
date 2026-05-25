@@ -1,7 +1,10 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { TeacherRow } from "@/lib/data/types";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type TeacherReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
 export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
   if (row.id == null || String(row.id) === "") return null;
@@ -32,13 +35,13 @@ export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
   };
 }
 
-async function loadTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
+async function loadTeachersResolved(client?: TeacherReadClient): Promise<ResolvedList<TeacherRow>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("teachers")
       .select("id, subjects, phone, program, profiles ( display_name, email )")
@@ -73,4 +76,10 @@ export async function fetchTeachers(): Promise<TeacherRow[]> {
 
 export async function fetchTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
   return loadTeachersResolved();
+}
+
+export async function fetchAdminTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadTeachersResolved(access.client);
 }

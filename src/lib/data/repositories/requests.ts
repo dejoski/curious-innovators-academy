@@ -1,8 +1,11 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type RequestReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
 function mapStatus(raw: unknown): RequestStatus {
   const s = String(raw ?? "");
@@ -42,13 +45,13 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
   };
 }
 
-async function loadRequestsResolved(): Promise<ResolvedList<EnrichmentRequestRow>> {
+async function loadRequestsResolved(client?: RequestReadClient): Promise<ResolvedList<EnrichmentRequestRow>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("class_requests")
       .select(
@@ -96,4 +99,12 @@ export async function fetchEnrichmentRequestsResolved(): Promise<
   ResolvedList<EnrichmentRequestRow>
 > {
   return loadRequestsResolved();
+}
+
+export async function fetchAdminEnrichmentRequestsResolved(): Promise<
+  ResolvedList<EnrichmentRequestRow>
+> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadRequestsResolved(access.client);
 }

@@ -1,10 +1,11 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
-import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { firstRel } from "@/lib/data/repositories/relations";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type ParentReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
 function linkedStudentsFromRow(row: Record<string, unknown>): { id: string; name: string }[] {
   const joins = Array.isArray(row.parent_students) ? row.parent_students : [];
@@ -51,15 +52,13 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
   };
 }
 
-async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
+async function loadParentsResolved(client?: ParentReadClient): Promise<ResolvedList<ParentSummary>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
-    const supabase = isSupabaseAdminConfigured()
-      ? createSupabaseAdminClient()
-      : await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("parents")
       .select(
@@ -103,4 +102,10 @@ export async function fetchParents(): Promise<ParentSummary[]> {
 
 export async function fetchParentsResolved(): Promise<ResolvedList<ParentSummary>> {
   return loadParentsResolved();
+}
+
+export async function fetchAdminParentsResolved(): Promise<ResolvedList<ParentSummary>> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadParentsResolved(access.client);
 }
