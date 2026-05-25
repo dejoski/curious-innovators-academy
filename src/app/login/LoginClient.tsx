@@ -75,7 +75,7 @@ export default function LoginClient() {
         setLoginError(result.message);
         return;
       }
-      router.push(safeNextPathForKind(kind));
+      router.push(safeNextPath());
       router.refresh();
     } finally {
       setSubmitting(false);
@@ -94,7 +94,7 @@ export default function LoginClient() {
         router.push(fallbackRoute);
         return;
       }
-      router.push(safeNextPath());
+      router.push(safeNextPathForKind(kind));
       router.refresh();
     } finally {
       setSubmitting(false);
