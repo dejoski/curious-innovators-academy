@@ -74,18 +74,39 @@ export function preloadJson(url: string, ttlMs = DEFAULT_TTL_MS) {
   });
 }
 
-export async function preloadParentDashboardData() {
-  preloadJson("/api/data/me");
-  const studentsBody = await cachedJson<{ students?: { id: string }[] }>("/api/data/students").catch(() => null);
-  preloadJson("/api/data/classes");
-  preloadJson("/api/data/notifications");
-  preloadJson("/api/data/schedule-extras");
-  for (const student of studentsBody?.students ?? []) {
-    if (!student.id) continue;
-    const encodedId = encodeURIComponent(student.id);
-    preloadJson(`/api/data/students/${encodedId}/profile`);
-    preloadJson(`/api/data/students/${encodedId}/schedule`);
-  }
+export function parentStudentDataUrls(studentId: string) {
+  const encodedId = encodeURIComponent(studentId);
+  return [
+    `/api/data/students/${encodedId}/profile`,
+    `/api/data/students/${encodedId}/schedule`,
+  ] as const;
+}
+
+export function preloadParentStudentData(studentId: string) {
+  for (const url of parentStudentDataUrls(studentId)) preloadJson(url);
+}
+
+export async function preloadParentDashboardData(): Promise<{ ok: boolean; studentIds: string[] }> {
+  let studentsOk = true;
+  const studentsBody = await cachedJson<{ students?: { id: string }[] }>("/api/data/students").catch(() => {
+    studentsOk = false;
+    return null;
+  });
+  const studentIds = (studentsBody?.students ?? [])
+    .map((student) => String(student.id ?? "").trim())
+    .filter(Boolean);
+  const urls = [
+    "/api/data/me",
+    "/api/data/classes",
+    "/api/data/notifications",
+    "/api/data/schedule-extras",
+    ...studentIds.flatMap((studentId) => [...parentStudentDataUrls(studentId)]),
+  ];
+  const results = await Promise.allSettled(urls.map((url) => cachedJson(url)));
+  return {
+    ok: studentsOk && results.every((result) => result.status === "fulfilled"),
+    studentIds,
+  };
 }
 
 export function invalidateClientDataCache(url?: string) {

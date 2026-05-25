@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useEffect, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DataSource, StudentListItem } from "@/lib/data";
-import { cachedJson, peekCachedJson, preloadJson } from "@/lib/client-data-cache";
+import {
+  cachedJson,
+  peekCachedJson,
+  preloadParentStudentData,
+} from "@/lib/client-data-cache";
 import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import {
   readStoredParentStudentId,
@@ -40,7 +44,6 @@ export default function ParentStudentContextSelector() {
   const [isLoading, setIsLoading] = useState(() => pathname.startsWith("/dashboard/parents"));
   const [pendingStudentId, setPendingStudentId] = useState("");
   const [storedStudentId, setStoredStudentId] = useState("");
-  const [isRoutePending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!pathname.startsWith("/dashboard/parents")) return;
@@ -85,12 +88,19 @@ export default function ParentStudentContextSelector() {
     ? students.some((s) => s.id === pendingStudentId)
     : false;
 
+  const replaceStudentUrl = useCallback((studentId: string) => {
+    const href = withParentStudentParam(`${pathname}?${searchParams.toString()}`, studentId);
+    window.history.replaceState(null, "", href);
+    router.prefetch(href);
+  }, [pathname, router, searchParams]);
+
   useEffect(() => {
     if (pendingStudentId && pendingStudentId === requestedStudentId) setPendingStudentId("");
   }, [pendingStudentId, requestedStudentId]);
 
   useEffect(() => {
     if (!pathname.startsWith("/dashboard/parents") || students.length === 0) return;
+    for (const student of students) preloadParentStudentData(student.id);
     if (pendingStudentIsValid && pendingStudentId !== queryStudentId) return;
 
     const queryStudentIsValid = students.some((s) => s.id === queryStudentId);
@@ -107,11 +117,9 @@ export default function ParentStudentContextSelector() {
       setStoredStudentId(nextStudentId); // eslint-disable-line react-hooks/set-state-in-effect -- keep picker state aligned with canonical parent student selection
     }
     if (queryStudentId !== nextStudentId) {
-      startTransition(() => {
-        router.replace(withParentStudentParam(`${pathname}?${searchParams.toString()}`, nextStudentId), { scroll: false });
-      });
+      replaceStudentUrl(nextStudentId);
     }
-  }, [pathname, pendingStudentId, pendingStudentIsValid, queryStudentId, router, searchParams, storedStudentId, students]);
+  }, [pathname, pendingStudentId, pendingStudentIsValid, queryStudentId, replaceStudentUrl, storedStudentId, students]);
 
   if (!pathname.startsWith("/dashboard/parents")) {
     return null;
@@ -124,22 +132,14 @@ export default function ParentStudentContextSelector() {
   const studentPickerValue = pendingStudentIsValid
     ? pendingStudentId
     : resolvedStudentId;
-  const isSwitching = Boolean(isRoutePending || (pendingStudentId && pendingStudentId !== resolvedStudentId));
 
   function setStudentQuery(studentId: string) {
     if (!studentId) return;
-    const encodedId = encodeURIComponent(studentId);
-    preloadJson(`/api/data/students/${encodedId}/profile`);
-    preloadJson(`/api/data/students/${encodedId}/schedule`);
+    preloadParentStudentData(studentId);
     writeStoredParentStudentId(studentId);
     setStoredStudentId(studentId);
     setPendingStudentId(studentId);
-    const p = new URLSearchParams(searchParams.toString());
-    p.set("student", studentId);
-    const q = p.toString();
-    startTransition(() => {
-      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-    });
+    replaceStudentUrl(studentId);
   }
 
   return (
@@ -166,10 +166,10 @@ export default function ParentStudentContextSelector() {
             id="parent-student-picker"
             value={studentPickerValue}
             onChange={(e) => setStudentQuery(e.target.value)}
-            disabled={isLoading || isSwitching || students.length === 0}
+            disabled={isLoading || students.length === 0}
             className={`h-full min-w-px flex-[1_0_0] border-0 bg-transparent font-['Inter:Regular',sans-serif] ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[16px] leading-[1.6] tracking-[-0.32px] outline-none cursor-pointer [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden`}
             aria-describedby={source === "fallback" ? "parent-student-picker-source" : undefined}
-            aria-busy={isSwitching}
+            aria-busy={false}
           >
             {students.length === 0 ? (
               <option value="">{isLoading ? "Loading students..." : "No students"}</option>
@@ -186,18 +186,7 @@ export default function ParentStudentContextSelector() {
               Showing sample students because cloud data is unavailable.
             </span>
           ) : null}
-          {isSwitching ? (
-            <span className="sr-only" role="status">
-              Loading selected student.
-            </span>
-          ) : null}
         </div>
-        {isSwitching ? (
-          <span
-            className="mr-2 size-4 shrink-0 animate-spin rounded-full border-2 border-[#14c1d5]/25 border-t-[#14c1d5]"
-            aria-hidden
-          />
-        ) : null}
         <ChevronDown className="mr-1 size-4 shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
       </div>
     </div>

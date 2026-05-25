@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { preloadParentDashboardData } from "@/lib/client-data-cache";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
+import { withParentStudentParam } from "@/lib/parent-student-selection";
 
 const PARENT_PREFETCH_ROUTES = [
   "/dashboard/parents/home",
@@ -20,19 +21,34 @@ export default function ParentDashboardPreloader() {
 
   useEffect(() => {
     if (!pathname.startsWith("/dashboard/parents")) return;
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
 
-    const warm = () => {
-      void preloadParentDashboardData();
-      for (const route of PARENT_PREFETCH_ROUTES) router.prefetch(route);
-    };
-
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(warm, { timeout: 900 });
-      return () => window.cancelIdleCallback(idleId);
+    function prefetchRoutes(studentIds: string[]) {
+      for (const route of PARENT_PREFETCH_ROUTES) {
+        router.prefetch(route);
+        for (const studentId of studentIds) {
+          router.prefetch(withParentStudentParam(route, studentId));
+        }
+      }
     }
 
-    const timeoutId = globalThis.setTimeout(warm, 120);
-    return () => globalThis.clearTimeout(timeoutId);
+    async function warm(attempt = 0) {
+      const result = await preloadParentDashboardData();
+      if (cancelled) return;
+      prefetchRoutes(result.studentIds);
+      if (!result.ok && attempt < 3) {
+        timeoutId = globalThis.setTimeout(() => {
+          void warm(attempt + 1);
+        }, 1500 * (attempt + 1));
+      }
+    }
+
+    void warm();
+    return () => {
+      cancelled = true;
+      if (timeoutId) globalThis.clearTimeout(timeoutId);
+    };
   }, [pathname, router]);
 
   return null;
