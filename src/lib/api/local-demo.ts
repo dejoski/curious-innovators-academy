@@ -1,6 +1,6 @@
 import {
   DEMO_UI_ROLE_COOKIE_NAME,
-  isLocalDemoHost,
+  isDemoLoginEnabled,
 } from "@/lib/demo-login";
 import {
   isDashboardPersona,
@@ -18,7 +18,7 @@ function cookieValue(cookieHeader: string, name: string): string {
 
 export function localDemoRoleFromRequest(request: Request): DashboardPersona | null {
   const hostname = new URL(request.url).hostname;
-  if (!isLocalDemoHost(hostname)) return null;
+  if (!isDemoLoginEnabled(hostname)) return null;
 
   const rawRole = decodeURIComponent(
     cookieValue(request.headers.get("cookie") ?? "", DEMO_UI_ROLE_COOKIE_NAME),

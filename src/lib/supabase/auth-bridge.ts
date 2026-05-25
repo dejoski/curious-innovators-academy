@@ -53,6 +53,35 @@ export async function signInWithPasswordOrDemo(
   return { ok: true };
 }
 
+export async function signInWithDemoAccount(kind: "admin" | "parent"): Promise<LoginResult> {
+  try {
+    const response = await fetch("/api/auth/demo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: unknown;
+      error?: unknown;
+    };
+
+    if (!response.ok) {
+      const message = typeof payload.error === "string"
+        ? payload.error
+        : typeof payload.message === "string"
+        ? payload.message
+        : "Demo sign-in is not available right now.";
+      return { ok: false, message };
+    }
+
+    clearDemoUiBypass();
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "Demo sign-in request failed. Please try again." };
+  }
+}
+
 /**
  * Sign out when Supabase env is set; safe no-op when demo mode (no client).
  */

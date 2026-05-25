@@ -18,6 +18,10 @@ const DEMO_ACCOUNT_BY_KIND: Record<"admin" | "parent", DemoAccountId> = {
   parent: "parent-primary",
 };
 
+export function demoSessionStartRoute(kind: "admin" | "parent"): string {
+  return kind === "admin" ? DEMO_ADMIN_START_ROUTE : DEMO_PARENT_START_ROUTE;
+}
+
 /**
  * Marks the demo UI bypass and persists the chosen role before navigating from
  * the login screen. The role is separate from the QA persona switcher so demo
@@ -34,5 +38,5 @@ export function bootstrapDemoSession(kind: "admin" | "parent"): string {
       /* ignore */
     }
   }
-  return kind === "admin" ? DEMO_ADMIN_START_ROUTE : DEMO_PARENT_START_ROUTE;
+  return demoSessionStartRoute(kind);
 }

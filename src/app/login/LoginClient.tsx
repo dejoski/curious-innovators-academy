@@ -3,9 +3,18 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { bootstrapDemoSession } from "@/lib/demo-session-bootstrap";
+import { Eye, EyeOff } from "lucide-react";
+import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
+import { type DashboardPersona } from "@/lib/dashboard/persona";
+import {
+  bootstrapDemoSession,
+  demoSessionStartRoute,
+} from "@/lib/demo-session-bootstrap";
 import { isDemoLoginUiEnabled } from "@/lib/demo-login";
-import { signInWithPasswordOrDemo } from "@/lib/supabase/auth-bridge";
+import {
+  signInWithDemoAccount,
+  signInWithPasswordOrDemo,
+} from "@/lib/supabase/auth-bridge";
 
 const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
 const imgImage1 = "/images/login-logo-lightbulb.png";
@@ -14,11 +23,17 @@ const imgEllipse2732 = "/images/login-ellipse-2.svg";
 const imgEllipse2733 = "/images/login-ellipse-3.svg";
 const imgGroup = "/images/login-email-icon.svg";
 
+const DEMO_PERSONA_BY_KIND: Record<"admin" | "parent", DashboardPersona> = {
+  admin: "admin",
+  parent: "parent",
+};
+
 export default function LoginClient() {
   const router = useRouter();
   const demoLoginEnabled = isDemoLoginUiEnabled();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +56,14 @@ export default function LoginClient() {
     return raw;
   }
 
+  function safeNextPathForKind(kind: "admin" | "parent"): string {
+    const requested = new URLSearchParams(window.location.search).get("next")?.trim();
+    if (!requested || !requested.startsWith("/") || requested.startsWith("//")) {
+      return demoSessionStartRoute(kind);
+    }
+    return dashboardHrefForPersona(requested, DEMO_PERSONA_BY_KIND[kind]);
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
@@ -52,15 +75,30 @@ export default function LoginClient() {
         setLoginError(result.message);
         return;
       }
-      router.push(safeNextPath());
+      router.push(safeNextPathForKind(kind));
       router.refresh();
     } finally {
       setSubmitting(false);
     }
   }
 
-  function continueAsDemo(kind: "admin" | "parent") {
-    router.push(bootstrapDemoSession(kind));
+  async function continueAsDemo(kind: "admin" | "parent") {
+    if (submitting) return;
+    setSubmitting(true);
+    setLoginError(null);
+    try {
+      const demoResult = await signInWithDemoAccount(kind);
+      if (!demoResult.ok) {
+        setLoginError(demoResult.message);
+        const fallbackRoute = bootstrapDemoSession(kind);
+        router.push(fallbackRoute);
+        return;
+      }
+      router.push(safeNextPath());
+      router.refresh();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -141,7 +179,7 @@ export default function LoginClient() {
               </label>
               <div className="flex h-[52px] w-full items-center rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px]">
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   minLength={6}
                   value={password}
@@ -149,6 +187,14 @@ export default function LoginClient() {
                   placeholder="Enter your password"
                   className="min-w-0 flex-1 bg-transparent text-[16px] font-normal leading-[1.5] tracking-[0.32px] text-[#05080b] outline-none placeholder:text-[#818898]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="flex size-[32px] shrink-0 items-center justify-center rounded-[6px] text-[#666d80] transition-colors hover:bg-[#f7f8fa] hover:text-[#272932] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/40"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 

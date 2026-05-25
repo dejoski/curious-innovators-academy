@@ -5,16 +5,28 @@ import {
 } from "@/lib/dashboard/persona";
 
 /**
- * Demo entry is available on localhost unless explicitly disabled. Production
- * can still opt in with NEXT_PUBLIC_ENABLE_DEMO_LOGIN=true, but it stays off
- * by default away from local hosts.
+ * Demo entry is available on localhost unless explicitly disabled. Production can
+ * opt in with NEXT_PUBLIC_ENABLE_DEMO_LOGIN=true, while server-side callers can
+ * pass `hostname` to use the same policy for API requests.
  */
-export function isDemoLoginUiEnabled(): boolean {
+export function isDemoLoginEnabled(hostname?: string): boolean {
   const flag = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim().toLowerCase();
   if (flag === "false") return false;
   if (flag === "true") return true;
-  if (typeof window === "undefined") return process.env.NODE_ENV === "development";
-  return isLocalDemoHost(window.location.hostname);
+
+  if (typeof window === "undefined") {
+    if (process.env.NODE_ENV === "development" && hostname) {
+      return isLocalDemoHost(hostname);
+    }
+    return false;
+  }
+
+  if (process.env.NODE_ENV === "development") return true;
+  return isLocalDemoHost(hostname ?? window.location.hostname);
+}
+
+export function isDemoLoginUiEnabled(): boolean {
+  return isDemoLoginEnabled();
 }
 
 export const DEMO_UI_BYPASS_STORAGE_KEY = "cia-demo-ui-bypass";

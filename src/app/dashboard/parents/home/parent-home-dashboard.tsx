@@ -158,7 +158,7 @@ function metricValue(label: string, fallback: string): string {
 
 function sourceHint(source: DataSource | null): string | null {
   if (source === "fallback") return "Showing sample parent dashboard data because cloud data is unavailable.";
-  if (source === "unavailable") return "Parent dashboard data is unavailable. Ask an administrator to configure Supabase.";
+  if (source === "unavailable") return null;
   return null;
 }
 
