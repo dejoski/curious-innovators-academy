@@ -34,6 +34,20 @@ type StudentScheduleResolved = {
 
 const SCHOOL_TIME_ZONE = "America/New_York";
 
+function logStudentDetailsRepoIssue(
+  context: string,
+  studentId: string,
+  table: string,
+  error: unknown,
+) {
+  console.error(`[student-details] ${context}: ${table} query failed`, {
+    studentId,
+    table,
+    context,
+    error: String(error ?? "(none)"),
+  });
+}
+
 function unavailableProfile(): StudentProfileResolved {
   return { profile: null, source: "unavailable" };
 }
@@ -182,21 +196,30 @@ export async function fetchStudentProfileResolved(
       .eq("id", id)
       .maybeSingle();
 
-    if (error) return unavailableProfile();
+    if (error) {
+      logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "students", error);
+      return unavailableProfile();
+    }
     if (!student) return { profile: null, source: "remote" };
 
-    const { data: enrollments } = await supabase
+    const { data: enrollments, error: enrollmentsError } = await supabase
       .from("enrollments")
       .select("id, status, classes ( id, name, program )")
       .eq("student_id", id)
       .order("created_at", { ascending: true });
+    if (enrollmentsError) {
+      logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "enrollments", enrollmentsError);
+    }
 
-    const { data: records } = await supabase
+    const { data: records, error: recordsError } = await supabase
       .from("student_records")
       .select("id, title, body, category, urgent, created_at, profiles ( display_name, role )")
       .eq("student_id", id)
       .order("created_at", { ascending: false })
       .limit(20);
+    if (recordsError) {
+      logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "student_records", recordsError);
+    }
 
     const enrollmentRows = (enrollments ?? []) as unknown as Record<string, unknown>[];
     const coreClasses = enrollmentRows
@@ -263,7 +286,10 @@ export async function fetchStudentScheduleResolved(
       .select("id, display_name, guardian_label")
       .eq("id", id)
       .maybeSingle();
-    if (error) return unavailableSchedule();
+    if (error) {
+      logStudentDetailsRepoIssue("fetchStudentScheduleResolved", id, "students", error);
+      return unavailableSchedule();
+    }
     if (!student) return { rows: [], source: "remote" };
 
     const { data: enrollments, error: enrollmentsError } = await supabase
@@ -271,7 +297,10 @@ export async function fetchStudentScheduleResolved(
       .select("id, status, classes ( id, name, program, block, schedule_summary )")
       .eq("student_id", id)
       .order("created_at", { ascending: true });
-    if (enrollmentsError) return unavailableSchedule();
+    if (enrollmentsError) {
+      logStudentDetailsRepoIssue("fetchStudentScheduleResolved", id, "enrollments", enrollmentsError);
+      return unavailableSchedule();
+    }
 
     const row = emptyScheduleRow({
       id: String(student.id),

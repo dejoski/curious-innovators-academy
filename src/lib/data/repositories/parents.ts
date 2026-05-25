@@ -1,7 +1,9 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { firstRel } from "@/lib/data/repositories/relations";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function linkedStudentsFromRow(row: Record<string, unknown>): { id: string; name: string }[] {
@@ -55,7 +57,9 @@ async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = isSupabaseAdminConfigured()
+      ? createSupabaseAdminClient()
+      : await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("parents")
       .select(

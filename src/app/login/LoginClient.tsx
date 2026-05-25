@@ -67,8 +67,24 @@ export default function LoginClient() {
         setLoginError(result.message);
         return;
       }
+
+      try {
+        const response = await fetch("/api/data/me", { cache: "no-store" });
+        if (response.status === 401) {
+          setLoginError("Signed in, but your account has no accessible profile.");
+          return;
+        }
+        const payload = (await response.json().catch(() => null)) as { profile?: { email?: string } } | null;
+        if (!payload?.profile?.email) {
+          setLoginError("Signed in, but no account credentials were accepted for this email.");
+          return;
+        }
+      } catch {
+        // If session verification fails transiently, let existing flow continue.
+      }
+
       invalidateClientDataCache();
-      router.push(nextPath ?? safeNextPath());
+      router.replace(nextPath ?? safeNextPath());
       router.refresh();
     } finally {
       setSubmitting(false);

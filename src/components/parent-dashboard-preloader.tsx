@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useDashboardPersona } from "@/components/dashboard-persona";
 import { preloadParentDashboardData } from "@/lib/client-data-cache";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import { withParentStudentParam } from "@/lib/parent-student-selection";
@@ -18,9 +19,10 @@ const PARENT_PREFETCH_ROUTES = [
 export default function ParentDashboardPreloader() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
+  const { isAccountResolved, persona } = useDashboardPersona();
 
   useEffect(() => {
-    if (!pathname.startsWith("/dashboard/parents")) return;
+    if (!isAccountResolved || persona !== "parent" || !pathname.startsWith("/dashboard/parents")) return;
     let cancelled = false;
     let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
 
@@ -49,7 +51,7 @@ export default function ParentDashboardPreloader() {
       cancelled = true;
       if (timeoutId) globalThis.clearTimeout(timeoutId);
     };
-  }, [pathname, router]);
+  }, [isAccountResolved, pathname, persona, router]);
 
   return null;
 }

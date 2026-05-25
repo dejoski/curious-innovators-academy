@@ -56,6 +56,7 @@ export default function DashboardHeader() {
   const {
     displayName,
     demoStudentId,
+    isAccountResolved,
     persona,
     roleLabel,
   } = useDashboardPersona();
@@ -76,8 +77,11 @@ export default function DashboardHeader() {
   const utilityMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const inParentShell = pathname.startsWith("/dashboard/parents");
-  const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
+  const isParentDashboardPath = pathname.startsWith("/dashboard/parents");
+  const inParentShell = isAccountResolved && persona === "parent" && isParentDashboardPath;
+  const selectedParentStudentId = inParentShell
+    ? searchParams.get("student") ?? readStoredParentStudentId()
+    : "";
 
   const showNotificationDropdown = isNotificationDropdownEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
