@@ -81,6 +81,9 @@ export default function ParentStudentContextSelector() {
 
   const queryStudentId = searchParams.get("student") ?? "";
   const requestedStudentId = queryStudentId || storedStudentId;
+  const pendingStudentIsValid = pendingStudentId
+    ? students.some((s) => s.id === pendingStudentId)
+    : false;
 
   useEffect(() => {
     if (pendingStudentId && pendingStudentId === requestedStudentId) setPendingStudentId("");
@@ -88,6 +91,7 @@ export default function ParentStudentContextSelector() {
 
   useEffect(() => {
     if (!pathname.startsWith("/dashboard/parents") || students.length === 0) return;
+    if (pendingStudentIsValid && pendingStudentId !== queryStudentId) return;
 
     const queryStudentIsValid = students.some((s) => s.id === queryStudentId);
     const storedStudentIsValid = students.some((s) => s.id === storedStudentId);
@@ -107,7 +111,7 @@ export default function ParentStudentContextSelector() {
         router.replace(withParentStudentParam(`${pathname}?${searchParams.toString()}`, nextStudentId), { scroll: false });
       });
     }
-  }, [pathname, queryStudentId, router, searchParams, storedStudentId, students]);
+  }, [pathname, pendingStudentId, pendingStudentIsValid, queryStudentId, router, searchParams, storedStudentId, students]);
 
   if (!pathname.startsWith("/dashboard/parents")) {
     return null;
@@ -117,7 +121,7 @@ export default function ParentStudentContextSelector() {
   const resolvedStudentId = students.some((s) => s.id === requestedStudentId)
     ? requestedStudentId
     : students[0]?.id ?? "";
-  const studentPickerValue = pendingStudentId && students.some((s) => s.id === pendingStudentId)
+  const studentPickerValue = pendingStudentIsValid
     ? pendingStudentId
     : resolvedStudentId;
   const isSwitching = Boolean(isRoutePending || (pendingStudentId && pendingStudentId !== resolvedStudentId));
