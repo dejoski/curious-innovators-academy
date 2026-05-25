@@ -127,7 +127,7 @@ export default function SettingsQaTools() {
             >
               <span className="text-[14px] font-semibold">Parent</span>
               <span className="text-[12px] text-[#666d80]">
-                Opens student profiles ({getDemoAccountById("parent-mary").displayName} preview).
+                Opens the parent dashboard ({getDemoAccountById("parent-mary").displayName} preview).
               </span>
             </button>
           </div>

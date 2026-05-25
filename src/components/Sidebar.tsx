@@ -57,6 +57,23 @@ function routeBranchActive(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
+type AdminStudentRoute =
+  | { section: "list"; studentId: null }
+  | { section: "profile" | "schedule" | "roster" | "other"; studentId: string };
+
+function parseAdminStudentRoute(pathname: string): AdminStudentRoute | null {
+  if (pathname === "/dashboard/students" || pathname === "/dashboard/students/") {
+    return { section: "list", studentId: null };
+  }
+
+  const match = pathname.match(/^\/dashboard\/students\/([^/]+)(?:\/([^/]+))?\/?$/);
+  if (!match) return null;
+  const [, studentId = "", child] = match;
+  if (!child) return { section: "profile", studentId };
+  if (child === "schedule" || child === "roster") return { section: child, studentId };
+  return { section: "other", studentId };
+}
+
 type SidebarProps = {
   className?: string;
   type?: "close" | "open" | "w/ tooltip";
@@ -74,6 +91,10 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
+  const adminStudentRoute = parseAdminStudentRoute(pathname);
+  const adminStudentDetailRoot = adminStudentRoute?.studentId
+    ? `/dashboard/students/${encodeURIComponent(adminStudentRoute.studentId)}`
+    : null;
 
   const [classesExpanded, setClassesExpanded] = React.useState(() =>
     pathname.startsWith("/dashboard/classes"),
@@ -93,7 +114,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
         routeBranchActive(pathname, PARENT_CLASSES_HREF),
     );
 
-  const inParentRoutes = pathname.startsWith("/dashboard/parents");
   const parentStudentsBranchActive = pathname.startsWith(
     "/dashboard/parents/students",
   );
@@ -140,7 +160,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     return withParentStudentParam(href, selectedParentStudentId);
   }
   const brandHref =
-    inParentRoutes || persona === "parent"
+    persona === "parent"
       ? parentRouteHref("/dashboard/parents/home")
       : persona === "teacher"
         ? "/dashboard/teachers"
@@ -188,6 +208,11 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentBillingActive = pathname.startsWith("/dashboard/parents/billing");
   const parentStudentsOpen = parentStudentsNavExpanded;
   const parentStudentsVisualActive = parentStudentsBranchActive;
+
+  const adminStudentListActive = adminStudentRoute?.section === "list";
+  const adminStudentProfileActive = adminStudentRoute?.section === "profile";
+  const adminStudentScheduleActive = adminStudentRoute?.section === "schedule";
+  const adminStudentRosterActive = adminStudentRoute?.section === "roster";
 
   const studentProfileActive =
     pathname === studentDemoRoot || pathname === `${studentDemoRoot}/`;
@@ -315,7 +340,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
         <div className={`content-stretch flex flex-col items-start relative shrink-0 ${isCloseOrWTooltip ? "gap-[4px]" : "w-full"}`} id={isWTooltip ? "node-8_1132" : isClose ? "node-8_1097" : "node-8_1068"} data-name="Menu Section">
           {isCloseOrWTooltip && <div className="content-stretch flex h-[25px] items-center justify-center px-[12px] py-[4px] shrink-0 w-full" id={isWTooltip ? "node-8_1133" : "node-8_1098"} data-name="Menu Section Header" />}
           <div className={`content-stretch flex flex-col items-start relative shrink-0 ${isWTooltip ? "gap-[6px]" : isClose ? "" : "gap-[12px] w-full"}`} id={isWTooltip ? "node-8_1135" : isClose ? "node-8_1100" : "node-8_1071"} data-name="Menu Items">
-            {isOpen && persona === "admin" && !inParentRoutes && (
+            {isOpen && persona === "admin" && (
               <>
                 <Link
                   href="/dashboard"
@@ -401,43 +426,23 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     />
                   </button>
                   {studentsExpanded && (
-                    <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative mt-[8px]">
-                      <div className="col-1 row-1 ml-0 mt-0 content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
-                        <Link
-                          href="/dashboard/students"
-                          className="bg-[#d2f1f5] content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full"
-                        >
-                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
-                            Student List
-                          </p>
-                        </Link>
-                      </div>
-                      <div className="col-1 row-1 ml-0 mt-[40px] content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
-                        <Link
-                          href={`${studentDemoRoot}/schedule`}
-                          className={`content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full transition-colors hover:bg-black/[0.04] ${
-                            pathname.startsWith("/dashboard/students/") && pathname.includes("/schedule")
-                              ? "text-[#14c1d5]"
-                              : "text-[#666d80]"
-                          }`}
-                        >
-                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4]">
+                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
+                      <Link href="/dashboard/students" className={subNavClass(adminStudentListActive)}>
+                        Student List
+                      </Link>
+                      {adminStudentDetailRoot ? (
+                        <>
+                          <Link href={adminStudentDetailRoot} className={subNavClass(adminStudentProfileActive)}>
+                            Student Profile
+                          </Link>
+                          <Link href={`${adminStudentDetailRoot}/schedule`} className={subNavClass(adminStudentScheduleActive)}>
                             Student Schedule
-                          </p>
-                        </Link>
-                        <Link
-                          href={`${studentDemoRoot}/roster`}
-                          className={`content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full transition-colors hover:bg-black/[0.04] ${
-                            pathname.startsWith("/dashboard/students/") && pathname.includes("/roster")
-                              ? "text-[#14c1d5]"
-                              : "text-[#666d80]"
-                          }`}
-                        >
-                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4]">
+                          </Link>
+                          <Link href={`${adminStudentDetailRoot}/roster`} className={subNavClass(adminStudentRosterActive)}>
                             Student Roster
-                          </p>
-                        </Link>
-                      </div>
+                          </Link>
+                        </>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -508,7 +513,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </>
             )}
-            {isOpen && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
+            {isOpen && persona === "parent" && (
               <>
                 <Link href={parentRouteHref("/dashboard/parents/home")} className={navRow(parentOverviewActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
@@ -655,7 +660,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </div>
               </>
             )}
-            {isOpen && persona === "student" && !inParentRoutes && (
+            {isOpen && persona === "student" && (
               <>
                 <Link href={studentDemoRoot} className={navRow(studentProfileActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
@@ -683,7 +688,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </>
             )}
-            {isClose && persona === "admin" && !inParentRoutes && (
+            {isClose && persona === "admin" && (
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-node-id="10:3178" data-name="Menu Items">
                 <Link href="/dashboard" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminDashboardActive)}`} data-node-id="10:3179" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3183" data-name="si:dashboard-line">
@@ -720,7 +725,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </div>
             )}
-            {isClose && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
+            {isClose && persona === "parent" && (
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-name="Menu Items Parent">
                 <Link href={parentRouteHref("/dashboard/parents/home")} title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
@@ -781,7 +786,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </div>
             )}
-            {isClose && persona === "student" && !inParentRoutes && (
+            {isClose && persona === "student" && (
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-name="Menu Items Student">
                 <Link href={studentDemoRoot} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
@@ -800,7 +805,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </div>
             )}
-            {isWTooltip && persona === "admin" && !inParentRoutes && (
+            {isWTooltip && persona === "admin" && (
               <>
                 <Link href="/dashboard" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminDashboardActive)}`} data-node-id="8:2741" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="8:2919" data-name="si:dashboard-line">
@@ -837,7 +842,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </>
             )}
-            {isWTooltip && (persona === "parent" || inParentRoutes) && persona !== "teacher" && (
+            {isWTooltip && persona === "parent" && (
               <>
                 <Link href={parentRouteHref("/dashboard/parents/home")} title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
@@ -880,7 +885,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
               </>
             )}
-            {isWTooltip && persona === "student" && !inParentRoutes && (
+            {isWTooltip && persona === "student" && (
               <>
                 <Link href={studentDemoRoot} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>

@@ -2,12 +2,14 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { Ellipsis } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
+import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
 import {
   readStoredParentStudentId,
@@ -20,11 +22,6 @@ import {
   DASHBOARD_MAIN_HEADER_WRAP_CLASS,
   DASHBOARD_MAIN_HEADER_ROW_CLASS,
   DASHBOARD_BORDER_SUBTLE_CLASS,
-  DASHBOARD_RADIUS_CONTROL,
-  DASHBOARD_RADIUS_INSET,
-  DASHBOARD_TEXT_MUTED_CLASS,
-  DASHBOARD_TEXT_PRIMARY_CLASS,
-  DASHBOARD_TEXT_SECONDARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
 const imgAvatarsPeople = "/images/avatars-people-fresh.png";
 const imgSolarLogout2Outline = "/images/logout-icon.svg";
@@ -45,6 +42,17 @@ function readCachedNotifications() {
   return Array.isArray(body?.notifications) ? body.notifications : [];
 }
 
+let textMeasureCanvas: HTMLCanvasElement | null = null;
+
+function measureHeaderText(text: string, font: string) {
+  if (typeof document === "undefined" || !text) return 0;
+  textMeasureCanvas ??= document.createElement("canvas");
+  const context = textMeasureCanvas.getContext("2d");
+  if (!context) return 0;
+  context.font = font;
+  return context.measureText(text).width;
+}
+
 export default function DashboardHeader() {
   const {
     displayName,
@@ -56,11 +64,16 @@ export default function DashboardHeader() {
   const searchParams = useSearchParams();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isUtilityMenuOpen, setIsUtilityMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [notificationsSource, setNotificationsSource] = useState<string | null>(null);
   const [notificationSyncHint, setNotificationSyncHint] = useState<string | null>(null);
+  const [selectedStudentName, setSelectedStudentName] = useState("");
+  const [headerContentWidth, setHeaderContentWidth] = useState(0);
+  const headerContentRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const utilityMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const inParentShell = pathname.startsWith("/dashboard/parents");
@@ -87,6 +100,33 @@ export default function DashboardHeader() {
     : imgSolarLogout2Outline;
   const headerDisplayName = displayName;
   const headerRoleLine = roleLabel;
+  const compactMenuItemClass =
+    "block w-full px-4 py-2 text-left text-sm text-[#272932] transition-colors hover:bg-gray-50";
+  const parentContextLabel = inParentShell ? getParentStudentContextLabel(pathname) : "";
+  const canShowParentInlineActions = useMemo(() => {
+    if (!inParentShell) return true;
+    if (headerContentWidth <= 0) return false;
+
+    const labelWidth = measureHeaderText(parentContextLabel, "600 16px Inter, sans-serif");
+    const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 16px Inter, sans-serif");
+    const pickerWidth = Math.max(220, Math.ceil(studentNameWidth) + 128);
+    const fullActionWidth = 276;
+    const rowGapsAndPadding = 48;
+
+    return headerContentWidth >= labelWidth + pickerWidth + fullActionWidth + rowGapsAndPadding;
+  }, [headerContentWidth, inParentShell, parentContextLabel, selectedStudentName]);
+
+  useEffect(() => {
+    if (!inParentShell || !headerContentRef.current || typeof ResizeObserver === "undefined") return;
+    const element = headerContentRef.current;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? element.getBoundingClientRect().width;
+      setHeaderContentWidth(Math.floor(width));
+    });
+    observer.observe(element);
+    setHeaderContentWidth(Math.floor(element.getBoundingClientRect().width));
+    return () => observer.disconnect();
+  }, [inParentShell]);
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -95,6 +135,9 @@ export default function DashboardHeader() {
       }
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setIsNotificationsOpen(false);
+      }
+      if (utilityMenuRef.current && !utilityMenuRef.current.contains(event.target as Node)) {
+        setIsUtilityMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -159,6 +202,7 @@ export default function DashboardHeader() {
 
   async function handleLogout(): Promise<void> {
     setIsProfileOpen(false);
+    setIsUtilityMenuOpen(false);
     await logoutThenLogin(router);
   }
 
@@ -166,14 +210,16 @@ export default function DashboardHeader() {
     <header className="shrink-0 w-full relative z-50 flex flex-col">
       <div className={`${DASHBOARD_MAIN_HEADER_WRAP_CLASS} flex flex-col`}>
       <div className={DASHBOARD_MAIN_HEADER_ROW_CLASS}>
-      <div className={`${DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS} flex flex-[1_0_0] h-full min-w-px items-center justify-between`}>
-        <div className="flex max-w-[min(100%,720px)] flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
-          {inParentShell && !pathname.startsWith("/dashboard/parents/feedback") ? <ParentStudentContextSelector /> : null}
+      <div ref={headerContentRef} className={`${DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS} flex flex-[1_0_0] h-full min-w-px items-center justify-between gap-3`}>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 lg:max-w-[min(100%,720px)]">
+          {inParentShell && !pathname.startsWith("/dashboard/parents/feedback") ? (
+            <ParentStudentContextSelector onSelectedStudentNameChange={setSelectedStudentName} />
+          ) : null}
           {!inParentShell ? (
             <div className="min-w-[1px]" aria-hidden />
           ) : null}
         </div>
-        <div className="content-stretch flex gap-[16px] items-center relative shrink-0">
+        <div className={`content-stretch gap-[16px] items-center relative shrink-0 ${inParentShell && !canShowParentInlineActions ? "hidden" : "flex"}`}>
           {parentUtilityOrder ? (
             <Link
               href={withParentStudentParam("/dashboard/parents/feedback", selectedParentStudentId)}
@@ -360,6 +406,76 @@ export default function DashboardHeader() {
             )}
           </div>
         </div>
+        {inParentShell && !canShowParentInlineActions ? (
+          <div className="relative shrink-0" ref={utilityMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsUtilityMenuOpen((open) => !open);
+                setIsProfileOpen(false);
+                setIsNotificationsOpen(false);
+              }}
+              className="flex size-[36px] items-center justify-center rounded-[10px] border border-[#dfe1e7] bg-white text-[#272932] shadow-[0px_0.75px_1.5px_0px_rgba(13,13,18,0.06)] transition-colors hover:bg-[#f7f9fc] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35"
+              aria-label="More header actions"
+              aria-expanded={isUtilityMenuOpen}
+            >
+              <Ellipsis className="size-5" aria-hidden strokeWidth={1.8} />
+            </button>
+            {isUtilityMenuOpen ? (
+              <div className={`absolute right-0 mt-2 w-64 ${DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS} px-0 py-1`}>
+                <div className="flex items-center gap-3 border-b border-[#f0f0f0] px-4 py-3">
+                  <img
+                    alt=""
+                    className="size-8 rounded-full object-cover"
+                    src={imgAvatarsPeople}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#0d0d12]">
+                      {headerDisplayName}
+                    </p>
+                    <p className="text-xs text-[#818898]">{headerRoleLine}</p>
+                  </div>
+                </div>
+                <Link
+                  href={withParentStudentParam("/dashboard/parents/feedback", selectedParentStudentId)}
+                  onClick={() => setIsUtilityMenuOpen(false)}
+                  className={compactMenuItemClass}
+                >
+                  Feedback
+                </Link>
+                <Link
+                  href="/dashboard/notifications"
+                  onClick={() => setIsUtilityMenuOpen(false)}
+                  className={compactMenuItemClass}
+                >
+                  Notifications
+                </Link>
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setIsUtilityMenuOpen(false)}
+                  className={compactMenuItemClass}
+                >
+                  Account Settings
+                </Link>
+                <Link
+                  href="/dashboard/support"
+                  onClick={() => setIsUtilityMenuOpen(false)}
+                  className={compactMenuItemClass}
+                >
+                  Help & Support
+                </Link>
+                <div className="my-1 border-t border-[#f0f0f0]" role="presentation" />
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  className="block w-full px-4 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
     </div>

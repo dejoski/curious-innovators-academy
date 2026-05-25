@@ -10,8 +10,8 @@ import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 /** Primary demo entry for staff / admin shell */
 export const DEMO_ADMIN_START_ROUTE = "/dashboard";
 
-/** Flow 2 parent student profile area */
-export const DEMO_PARENT_START_ROUTE = "/dashboard/parents/students";
+/** Primary parent dashboard shell */
+export const DEMO_PARENT_START_ROUTE = "/dashboard/parents/home";
 
 const DEMO_ACCOUNT_BY_KIND: Record<"admin" | "parent", DemoAccountId> = {
   admin: "admin-joseph",

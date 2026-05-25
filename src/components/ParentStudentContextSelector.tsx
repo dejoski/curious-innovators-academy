@@ -26,6 +26,10 @@ type StudentsBody = {
   source?: DataSource;
 };
 
+type ParentStudentContextSelectorProps = {
+  onSelectedStudentNameChange?: (name: string) => void;
+};
+
 function readCachedStudents() {
   const body = peekCachedJson<StudentsBody>("/api/data/students");
   return {
@@ -35,7 +39,9 @@ function readCachedStudents() {
   };
 }
 
-export default function ParentStudentContextSelector() {
+export default function ParentStudentContextSelector({
+  onSelectedStudentNameChange,
+}: ParentStudentContextSelectorProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -121,10 +127,6 @@ export default function ParentStudentContextSelector() {
     }
   }, [pathname, pendingStudentId, pendingStudentIsValid, queryStudentId, replaceStudentUrl, storedStudentId, students]);
 
-  if (!pathname.startsWith("/dashboard/parents")) {
-    return null;
-  }
-
   const label = getParentStudentContextLabel(pathname);
   const resolvedStudentId = students.some((s) => s.id === requestedStudentId)
     ? requestedStudentId
@@ -132,6 +134,15 @@ export default function ParentStudentContextSelector() {
   const studentPickerValue = pendingStudentIsValid
     ? pendingStudentId
     : resolvedStudentId;
+  const selectedStudentName = students.find((s) => s.id === studentPickerValue)?.name ?? "";
+
+  useEffect(() => {
+    onSelectedStudentNameChange?.(selectedStudentName);
+  }, [onSelectedStudentNameChange, selectedStudentName]);
+
+  if (!pathname.startsWith("/dashboard/parents")) {
+    return null;
+  }
 
   function setStudentQuery(studentId: string) {
     if (!studentId) return;
@@ -143,7 +154,7 @@ export default function ParentStudentContextSelector() {
   }
 
   return (
-    <div className="flex w-full max-w-full flex-col items-start gap-2 sm:w-[448px] sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex w-full max-w-full flex-col items-start gap-2 sm:min-w-0 sm:flex-row sm:items-center sm:justify-between lg:w-[448px]">
       <span
         className={`font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] leading-[1.4] sm:text-[16px] ${DASHBOARD_TEXT_PRIMARY_CLASS}`}
       >
@@ -152,7 +163,7 @@ export default function ParentStudentContextSelector() {
       <label className="sr-only" htmlFor="parent-student-picker">
         Select student
       </label>
-      <div className="relative h-[44px] w-full overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:w-[260px]">
+      <div className="relative h-[44px] w-full overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:min-w-[220px] sm:flex-1 lg:w-[260px] lg:flex-none">
         <img
           alt=""
           className="pointer-events-none absolute left-[24px] top-1/2 z-10 size-[20px] -translate-y-1/2 object-contain"

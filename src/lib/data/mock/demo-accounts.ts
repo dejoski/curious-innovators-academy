@@ -22,7 +22,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     persona: "parent",
     displayName: "Mary Lee",
     roleLabel: "Parent",
-    defaultRoute: "/dashboard/parents/students",
+    defaultRoute: "/dashboard/parents/home",
     studentId: "1",
   },
   {
