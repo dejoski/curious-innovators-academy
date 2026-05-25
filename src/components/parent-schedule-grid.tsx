@@ -43,6 +43,10 @@ function badgeCaption(badge: StudentScheduleBadge) {
   return "+ Choose class";
 }
 
+function meaningfulBadgeCount(badges: StudentScheduleBadge[]) {
+  return badges.filter((badge) => badge.tone !== "empty").length;
+}
+
 function ScheduleBadgeCard({ badge, tall = false, compact = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean }) {
   return (
     <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)}`}>
@@ -125,6 +129,7 @@ export function ParentScheduleGrid({
   footer?: ReactNode;
 }) {
   const getBadges = (slot: ParentScheduleSlotKey) => badgesBySlot?.[slot] ?? [];
+  const rowNeedsExtraHeight = (slots: readonly ParentScheduleSlotKey[]) => slots.some((slot) => meaningfulBadgeCount(getBadges(slot)) > 1);
 
   return (
     <div className={`min-w-0 rounded-[16px] border border-[#e6e9ef] bg-white p-3 shadow-sm min-[1100px]:p-5 ${className}`}>
@@ -141,24 +146,28 @@ export function ParentScheduleGrid({
             </div>
           ))}
 
-          {PARENT_SCHEDULE_ROWS.map((row, rowIndex) => (
-            <div key={row.label} className="contents">
-              <div className={`flex min-w-0 flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-2 text-[#5d6678] min-[1100px]:px-6 ${row.tall ? "h-[156px] justify-start pt-4 min-[1100px]:pt-6" : "h-[74px] min-[1100px]:h-[76px]"} ${rowIndex === PARENT_SCHEDULE_ROWS.length - 1 ? "border-b-0" : ""}`}>
-                <span className="text-[11px] font-bold leading-none min-[1100px]:text-[13px]">{row.label}</span>
-                <span className="mt-1.5 text-[11px] leading-[1.15] min-[1100px]:mt-2 min-[1100px]:text-[14px]">{row.time}</span>
+          {PARENT_SCHEDULE_ROWS.map((row, rowIndex) => {
+            const tall = rowNeedsExtraHeight(row.slots);
+
+            return (
+              <div key={row.label} className="contents">
+                <div className={`flex min-w-0 flex-col justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] px-2 text-[#5d6678] min-[1100px]:px-6 ${tall ? "h-[156px] justify-start pt-4 min-[1100px]:pt-6" : "h-[74px] min-[1100px]:h-[76px]"} ${rowIndex === PARENT_SCHEDULE_ROWS.length - 1 ? "border-b-0" : ""}`}>
+                  <span className="text-[11px] font-bold leading-none min-[1100px]:text-[13px]">{row.label}</span>
+                  <span className="mt-1.5 text-[11px] leading-[1.15] min-[1100px]:mt-2 min-[1100px]:text-[14px]">{row.time}</span>
+                </div>
+                {row.slots.map((slot, index) => (
+                  <SlotCell
+                    key={`${row.label}-${slot}-${index}`}
+                    slot={slot}
+                    badges={getBadges(slot)}
+                    tall={tall}
+                    onSlotClick={onSlotClick}
+                    onBadgeClick={onBadgeClick}
+                  />
+                ))}
               </div>
-              {row.slots.map((slot, index) => (
-                <SlotCell
-                  key={`${row.label}-${slot}-${index}`}
-                  slot={slot}
-                  badges={getBadges(slot)}
-                  tall={row.tall}
-                  onSlotClick={onSlotClick}
-                  onBadgeClick={onBadgeClick}
-                />
-              ))}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       {footer}

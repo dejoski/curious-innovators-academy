@@ -29,12 +29,11 @@ export const PARENT_SCHEDULE_ROWS: {
   label: string;
   time: string;
   slots: [ParentScheduleSlotKey, ParentScheduleSlotKey, ParentScheduleSlotKey];
-  tall?: boolean;
 }[] = [
   { label: "Block 1", time: "7:00 - 8:30 am", slots: ["b1", "b1", "b1"] },
   { label: "Block 2", time: "8:40 - 10:10 am", slots: ["b2", "b2", "b2"] },
   { label: "Block 3", time: "10:20 - 11:50 am", slots: ["b3Tue", "b3Wed", "b3Thu"] },
-  { label: "Block 4", time: "7:00 - 8:30 am", slots: ["b4Tue", "b4Wed", "b4Thu"], tall: true },
+  { label: "Block 4", time: "7:00 - 8:30 am", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
 
 export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
