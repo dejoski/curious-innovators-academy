@@ -263,9 +263,16 @@ export function parentClassOptionsForCatalogSlot(
     return text.includes(`day ${dayNumber}`);
   };
   const exact = options.filter((option) => matchesBlock(option) && matchesDay(option));
-  if (exact.length) return exact;
   const blockOnly = options.filter(matchesBlock);
-  return blockOnly.length ? blockOnly : options;
+  const dayOnly = options.filter(matchesDay);
+  const ranked = [...exact, ...blockOnly, ...dayOnly, ...options];
+  const seen = new Set<string>();
+  return ranked.filter((option) => {
+    const key = option.id || option.name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function ParentClassSummaryCard({
@@ -337,6 +344,7 @@ function ChoiceDropdown({
           <div className="absolute left-0 right-0 top-[58px] z-20 max-h-[314px] overflow-y-auto rounded-[10px] border border-[#dfe1e6] bg-white px-[20px] py-[12px] shadow-[0px_8px_24px_rgba(13,13,18,0.12)]">
             {classes.map((cls) => {
               const full = isOptionFull(cls);
+              const schedule = scheduleParts(cls);
               return (
                 <button
                   key={cls.id || cls.name}
@@ -348,6 +356,9 @@ function ChoiceDropdown({
                   <span>
                     <span className="block text-[16px] leading-[1.4] text-[#0d0d12]">{cls.name}</span>
                     <span className="mt-[2px] block text-[12px] leading-[1.4] text-[#666d80]">{cls.description}</span>
+                    <span className="mt-[4px] block text-[12px] font-medium leading-[1.4] text-[#4f5665]">
+                      {schedule.day} · {schedule.time}
+                    </span>
                   </span>
                   <span className="mt-[2px] shrink-0 text-[14px] font-medium text-[#666d80]">{full ? "Full" : availabilityLabelForOption(cls)}</span>
                 </button>

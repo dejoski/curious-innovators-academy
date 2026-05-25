@@ -62,8 +62,9 @@ More operational detail is in `DEPLOYMENT.md`; the production checklist is in `P
 and loads help screens for launch/backup/restore/monitor operator scripts
 without requiring secrets.
 
-`npm run check:ci-workflows` fails if the GitHub Actions CI workflow or
-production monitor workflow loses one of the documented production gates.
+`npm run check:ci-workflows` enforces the Vercel-only deploy contract. GitHub
+Actions workflow files should not exist in this repo; push to `main` and Vercel
+builds/deploys the app.
 
 `npm run check:env-contract` fails if `.env.example` is missing, still ignored
 by git, missing an operator/restore/verifier env placeholder, or if any real

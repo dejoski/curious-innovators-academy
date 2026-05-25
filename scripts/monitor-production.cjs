@@ -2,9 +2,9 @@
 /*
  * External production smoke monitor.
  *
- * Intended for GitHub Actions schedule/manual runs. It checks the deployed app
- * from outside Vercel and fails loudly on health, routing, or auth-regression
- * problems without requiring secrets.
+ * Run manually after Vercel deploys. It checks the deployed app from outside
+ * Vercel and fails loudly on health, routing, or auth-regression problems
+ * without requiring secrets.
  */
 
 const DEFAULT_APP_URL = "https://curious-innovators-academy.vercel.app";
