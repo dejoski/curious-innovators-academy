@@ -16,7 +16,6 @@ import {
 import {
   buildParentScheduleBadges,
   ParentScheduleGrid,
-  type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
 import { cachedJson } from "@/lib/client-data-cache";
@@ -26,23 +25,21 @@ import {
 } from "@/lib/parent-student-selection";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
+  catalogScheduleBadgeOverrides,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
-  localReviewKey,
   normalizeParentCatalogRequests,
   readLocalReviewStatuses,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
   writeSubmittedParentCatalogSnapshot,
-  type LocalReviewStatus,
   type LocalReviewStatuses,
   type ParentCatalogIdentity,
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
 import {
-  CATALOG_SLOT_IDS,
   CATALOG_SLOT_META as SLOT_META,
   catalogSlotIdFromScheduleSlot,
   type CatalogSlotId,
@@ -51,7 +48,7 @@ import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromBadges,
 } from "@/lib/parent-schedule-status";
-import type { SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { SchoolClassRow, StudentListItem, StudentScheduleRow } from "@/lib/data/types";
 
 type SlotId = CatalogSlotId;
 
@@ -92,19 +89,6 @@ function StepItem({ n, title, body }: { n: number; title: string; body: string }
       </div>
     </div>
   );
-}
-
-function submittedBadgeTone(status: LocalReviewStatus): StudentScheduleBadge["tone"] {
-  if (status === "Approved") return "approved";
-  if (status === "Waitlisted") return "waitlisted";
-  return "pending";
-}
-
-function submittedBadgeLabel(status: LocalReviewStatus, name: string, prefix: "first" | "second") {
-  const choicePrefix = prefix === "second" ? "2nd: " : "";
-  if (status === "Rejected") return `${prefix === "second" ? "Rejected 2nd" : "Rejected"}: ${name}`;
-  if (status === "Waitlisted") return `${prefix === "second" ? "Waitlisted 2nd" : "Waitlisted"}: ${name}`;
-  return `${choicePrefix}${name}`;
 }
 
 function ParentClassesEnrichmentCatalogContent() {
@@ -249,35 +233,11 @@ function ParentClassesEnrichmentCatalogContent() {
     }
   }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, requests]);
 
-  function draftSlotBadges(slot: SlotRequests, slotId: SlotId): StudentScheduleBadge[] {
-    const badges: StudentScheduleBadge[] = [];
-    const isSubmitted = localRequestState === "submitted";
-    const firstStatus = localReviewStatuses[localReviewKey(slotId, "first")] ?? "Pending";
-    const secondStatus = localReviewStatuses[localReviewKey(slotId, "second")] ?? "Pending";
-    if (slot.firstChoice) {
-      const name = slot.firstChoice.name ?? "Selected class";
-      badges.push({
-        label: isSubmitted ? submittedBadgeLabel(firstStatus, name, "first") : name,
-        tone: isSubmitted ? submittedBadgeTone(firstStatus) : "draft",
-      });
-    }
-    if (slot.secondChoice) {
-      const name = slot.secondChoice.name ?? "Selected class";
-      badges.push({
-        label: isSubmitted ? submittedBadgeLabel(secondStatus, name, "second") : `2nd: ${name}`,
-        tone: isSubmitted ? submittedBadgeTone(secondStatus) : "draft",
-      });
-    }
-    return badges;
-  }
-
-  const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
-    const draftOverrides = CATALOG_SLOT_IDS.reduce<ParentScheduleBadges>((overrides, slotId) => {
-      const badges = draftSlotBadges(requests[slotId], slotId);
-      if (badges.length) overrides[SLOT_META[slotId].scheduleSlot] = badges;
-      return overrides;
-    }, {});
-    return buildParentScheduleBadges(studentSchedule, draftOverrides);
+  const scheduleBadgesBySlot = useMemo(() => {
+    return buildParentScheduleBadges(
+      studentSchedule,
+      catalogScheduleBadgeOverrides(requests as ParentCatalogRequests, localReviewStatuses, localRequestState),
+    );
   }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
   const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
 

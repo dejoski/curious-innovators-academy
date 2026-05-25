@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRemoteApiSession } from "@/lib/api/require-auth";
-import { isSupabaseConfigured } from "@/lib/data/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireCurrentApiUser } from "@/lib/api/require-auth";
 
 const VALID_CATEGORIES = new Set([
   "Classes & enrollment",
@@ -45,37 +43,10 @@ function mapTicket(row: SupportTicketRow) {
   };
 }
 
-async function loadCurrentUser() {
-  if (!isSupabaseConfigured()) {
-    return { supabase: null, user: null, error: "Supabase is not configured." };
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    return { supabase, user: null, error: "Sign in required." };
-  }
-
-  return { supabase, user, error: null };
-}
-
 export async function GET() {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
-
-  const { supabase, user, error } = await loadCurrentUser();
-
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  if (error || !user) {
-    return NextResponse.json({ error: error ?? "Sign in required." }, { status: 401 });
-  }
+  const current = await requireCurrentApiUser();
+  if (!current.ok) return current.response;
+  const { supabase } = current;
 
   const { data, error: ticketsError } = await supabase
     .from("support_tickets")
@@ -94,18 +65,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
-
-  const { supabase, user, error } = await loadCurrentUser();
-
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  if (error || !user) {
-    return NextResponse.json({ error: error ?? "Sign in required." }, { status: 401 });
-  }
+  const current = await requireCurrentApiUser();
+  if (!current.ok) return current.response;
+  const { supabase, user } = current;
 
   const body = (await req.json()) as Record<string, unknown>;
   const category = cleanText(body.category, 80);

@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
+import { readApiError } from "@/lib/client-api-errors";
 import {
   dashboardHomeForPersona,
   dashboardHrefForPersona,
@@ -43,15 +44,6 @@ export default function DashboardNotificationsPage({
     if (filter === "unread") return items.filter((n) => !n.read);
     return items;
   }, [items, filter]);
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const j = (await res.json()) as { error?: string };
-      return j.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   const markAllRead = async () => {
     const previous = items;

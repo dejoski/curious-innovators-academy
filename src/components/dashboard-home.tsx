@@ -1,8 +1,5 @@
-import Frame40901 from "@/components/Frame40901";
-import Frame40902 from "@/components/Frame40902";
-import Frame40903 from "@/components/Frame40903";
-import Frame40904 from "@/components/Frame40904";
 import DailyBlocks from "@/components/DailyBlocks";
+import DashboardStatCard from "@/components/dashboard-stat-card";
 import Link from "next/link";
 import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
 import { resolveDashboardPresentation } from "@/lib/data/repositories/dashboard";
@@ -23,24 +20,23 @@ export async function DashboardHomeResolved() {
     Waitlisted: "bg-[#fff8e6] text-[#7a5b00]",
     Rejected: "bg-[#ffd9d9] text-[#b31313]",
   };
+  const metricCards = [
+    { href: "/dashboard/students", count: m.studentCount, label: "Students", iconSrc: "/images/icon-student.svg" },
+    { href: "/dashboard/teachers", count: m.teacherCount, label: "Teachers", iconSrc: "/images/icon-class-lesson.svg" },
+    { href: "/dashboard/classes", count: m.coreClassCount, label: "Core Class", iconSrc: "/images/icon-notebook-one.svg" },
+    { href: "/dashboard/classes", count: m.enrichmentOfferingCount, label: "Enrichment", iconSrc: "/images/icon-dices.svg" },
+  ];
 
   return (
     <div className="w-full p-4 md:p-[30px]">
       <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-4 md:gap-[24px]">
         <div className="flex flex-col gap-[20px] lg:flex-row">
           <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[729px] lg:grid-cols-4 lg:gap-[20px]">
-          <Link href="/dashboard/students" className="block hover:opacity-90 transition-opacity cursor-pointer">
-            <Frame40901 count={m.studentCount} label="Students" />
-          </Link>
-          <Link href="/dashboard/teachers" className="block hover:opacity-90 transition-opacity cursor-pointer">
-            <Frame40903 count={m.teacherCount} label="Teachers" />
-          </Link>
-          <Link href="/dashboard/classes" className="block hover:opacity-90 transition-opacity cursor-pointer">
-            <Frame40904 count={m.coreClassCount} label="Core Class" />
-          </Link>
-          <Link href="/dashboard/classes" className="block hover:opacity-90 transition-opacity cursor-pointer">
-            <Frame40902 count={m.enrichmentOfferingCount} label="Enrichment" />
-          </Link>
+            {metricCards.map((card) => (
+              <Link key={card.label} href={card.href} className="block cursor-pointer transition-opacity hover:opacity-90">
+                <DashboardStatCard count={card.count} label={card.label} iconSrc={card.iconSrc} />
+              </Link>
+            ))}
           </div>
           <div className="w-full rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:w-[355px]">
             <div className="mb-[14px] flex items-center gap-[8px]">

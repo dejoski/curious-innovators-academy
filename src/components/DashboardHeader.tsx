@@ -9,6 +9,7 @@ import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
+import { readApiError } from "@/lib/client-api-errors";
 import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
 import {
@@ -221,15 +222,6 @@ export default function DashboardHeader() {
       cancelled = true;
     };
   }, [showNotificationDropdown]);
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const body = (await res.json()) as { error?: string };
-      return body.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   async function markAllNotificationsRead(): Promise<void> {
     const previous = notifications;

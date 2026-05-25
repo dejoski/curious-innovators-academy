@@ -1,36 +1,17 @@
-import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { SchoolClassRow, StudentScheduleRow } from "@/lib/data/types";
 import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
 import {
   CATALOG_SLOT_META,
+  PARENT_SCHEDULE_SLOT_DISPLAY_ORDER,
+  SLOT_START_TIME,
   SLOT_TO_WEEKDAY,
   eventTypeFromBadgeTone,
   catalogSlotIdFromScheduleSlot,
+  scheduleBadgeStatusLabel,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
 
 const FEB_2026 = { year: 2026, monthIndex: 1 };
-
-const SLOT_DISPLAY_ORDER: Record<ParentScheduleSlotKey, number> = {
-  b1: 10,
-  b2: 20,
-  b3Tue: 30,
-  b3Wed: 30,
-  b3Thu: 30,
-  b4Tue: 40,
-  b4Wed: 40,
-  b4Thu: 40,
-};
-
-const CALENDAR_SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
-  b1: "7:00 am",
-  b2: "8:30 am",
-  b3Tue: "1:00 pm",
-  b3Wed: "1:00 pm",
-  b3Thu: "1:00 pm",
-  b4Tue: "2:30 pm",
-  b4Wed: "2:30 pm",
-  b4Thu: "2:30 pm",
-};
 
 function dateKey(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -63,15 +44,6 @@ function classMap(classes: SchoolClassRow[] = []) {
   return new Map(classes.map((row) => [normalizedClassName(row.name), row]));
 }
 
-function statusLabelForBadge(badge: StudentScheduleBadge): string {
-  if (badge.tone === "core") return "School assigned";
-  if (badge.tone === "approved") return "Approved";
-  if (badge.tone === "pending") return "Pending approval";
-  if (badge.tone === "waitlisted") return "Waitlisted";
-  if (badge.tone === "draft") return "Draft choice";
-  return "Open";
-}
-
 function slotLabel(slot: ParentScheduleSlotKey): string {
   const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
   return catalogSlot ? CATALOG_SLOT_META[catalogSlot].label : slot;
@@ -93,13 +65,13 @@ export function studentScheduleToMonthEvents(row: StudentScheduleRow | null, cla
         const details = byClassName.get(normalizedClassName(badge.label));
         addEvent(events, dateKey(FEB_2026.year, FEB_2026.monthIndex, day), {
           id: `${row.id}-${slot}-${day}-${index}`,
-          time: CALENDAR_SLOT_START_TIME[slot],
+          time: SLOT_START_TIME[slot],
           title: className || badge.label,
           type: eventTypeFromBadgeTone(badge.tone),
           description: details?.description || `${row.name} · ${slotLabel(slot)}`,
-          sortOrder: SLOT_DISPLAY_ORDER[slot] + index,
+          sortOrder: PARENT_SCHEDULE_SLOT_DISPLAY_ORDER[slot] + index,
           classDetails: details,
-          statusLabel: statusLabelForBadge(badge),
+          statusLabel: scheduleBadgeStatusLabel(badge, "calendar"),
           scheduleSlotLabel: slotLabel(slot),
         });
       }

@@ -73,7 +73,7 @@ export type StudentProfileDetails = {
 
 export type StudentProfileTimelineEvent = {
   id: string;
-  type: "Academic" | "Behavioral" | "General";
+  type: StudentProfileTimelineEventType;
   author: string;
   role: string;
   date: string;
@@ -82,6 +82,14 @@ export type StudentProfileTimelineEvent = {
   title: string;
   content: string;
 };
+
+export const STUDENT_PROFILE_TIMELINE_EVENT_TYPES = ["Academic", "Behavioral", "General"] as const;
+
+export type StudentProfileTimelineEventType = (typeof STUDENT_PROFILE_TIMELINE_EVENT_TYPES)[number];
+
+export function isStudentProfileTimelineEventType(value: unknown): value is StudentProfileTimelineEventType {
+  return STUDENT_PROFILE_TIMELINE_EVENT_TYPES.includes(value as StudentProfileTimelineEventType);
+}
 
 export type StudentClassChip = {
   id: string;

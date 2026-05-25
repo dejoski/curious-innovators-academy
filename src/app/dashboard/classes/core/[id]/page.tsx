@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import { readApiError } from "@/lib/client-api-errors";
 import type {
   ClassRosterStatus,
   ClassRosterStudent,
@@ -315,15 +316,6 @@ export default function ClassDetailsPage() {
       setIsSavingClassMeta(false);
     }
   };
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const body = (await res.json()) as { error?: string };
-      return body.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   const submitAddStudent = async () => {
     const name = addName.trim();

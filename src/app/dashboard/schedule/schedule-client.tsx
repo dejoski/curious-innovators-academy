@@ -13,6 +13,7 @@ import {
   toDateKey,
   typeLabel,
 } from "@/lib/dashboard/schedule-calendar-shared";
+import { readApiError } from "@/lib/client-api-errors";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import {
   ParentClassDetailsContent,
@@ -443,15 +444,6 @@ export default function ScheduleMonth({
     setCreateEventDate(null);
     setCreateError(null);
   };
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const j = (await res.json()) as { error?: string };
-      return j.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

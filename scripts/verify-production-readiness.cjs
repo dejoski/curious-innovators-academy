@@ -6,10 +6,14 @@
  * or restored Supabase env vars loaded. It does not print access tokens or service keys.
  */
 
-const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
+const {
+  env,
+  loadDotenvFiles,
+  projectRefFromUrl,
+} = require("./lib/env.cjs");
 
 const execFileAsync = promisify(execFile);
 let createClient;
@@ -66,46 +70,10 @@ const REQUIRED_ENDPOINTS = [
 const root = path.join(__dirname, "..");
 const results = [];
 
-function loadDotenv(filePath) {
-  if (!fs.existsSync(filePath)) return;
-  const content = fs.readFileSync(filePath, "utf8");
-  for (const line of content.split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#")) continue;
-    const eq = t.indexOf("=");
-    if (eq <= 0) continue;
-    const key = t.slice(0, eq).trim();
-    let val = t.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
-      val = val.slice(1, -1);
-    }
-    if (process.env[key] === undefined) process.env[key] = val;
-  }
-}
-
-function env(name) {
-  const v = process.env[name]?.trim();
-  return v || "";
-}
-
 function normalizeBaseUrl(raw) {
   const v = raw.trim();
   if (!v) return "";
   return /^https?:\/\//i.test(v) ? v.replace(/\/$/, "") : `https://${v.replace(/\/$/, "")}`;
-}
-
-function projectRefFromUrl(rawUrl) {
-  if (!rawUrl) return "";
-  try {
-    const host = new URL(rawUrl).host;
-    const [ref] = host.split(".");
-    return ref || "";
-  } catch {
-    return "";
-  }
 }
 
 function record(status, name, detail = "") {
@@ -164,9 +132,7 @@ async function signInAnon(url, anonKey, email, password) {
 }
 
 async function main() {
-  loadDotenv(path.join(root, ".env.production.local"));
-  loadDotenv(path.join(root, ".env.local"));
-  loadDotenv(path.join(root, ".env"));
+  loadDotenvFiles(root, [".env.production.local", ".env.local", ".env"]);
 
   if (process.argv.includes("--help")) {
     console.log(`Usage:

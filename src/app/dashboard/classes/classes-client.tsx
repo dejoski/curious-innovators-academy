@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { readApiError } from "@/lib/client-api-errors";
 import { downloadCsv } from "@/lib/client-directory-actions";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
@@ -85,15 +86,6 @@ function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
   let top = r.bottom + 4;
   if (top + MENU_H > window.innerHeight - 8) top = Math.max(8, r.top - MENU_H - 4);
   return { top, left };
-}
-
-async function readApiError(res: Response): Promise<string> {
-  try {
-    const j = (await res.json()) as { error?: string };
-    return j.error ?? res.statusText;
-  } catch {
-    return res.statusText;
-  }
 }
 
 export default function ClassesPageClient({

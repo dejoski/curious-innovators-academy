@@ -1,20 +1,13 @@
 "use client";
 
 import type { ProgramTrack } from "@/lib/data/types";
+import { readApiError } from "@/lib/client-api-errors";
+import { ENTITY_FORM_CARD_CLASS } from "@/lib/entity-form-classes";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 type ClassStatus = "Active" | "Full";
-
-async function readApiError(res: Response): Promise<string> {
-  try {
-    const j = (await res.json()) as { error?: string };
-    return j.error ?? res.statusText;
-  } catch {
-    return res.statusText;
-  }
-}
 
 export default function AddClassForm() {
   const router = useRouter();
@@ -127,7 +120,7 @@ export default function AddClassForm() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-[#f0f0f0] bg-white p-6 shadow-sm flex flex-col gap-4">
+        <div className={ENTITY_FORM_CARD_CLASS}>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Class name
             <input

@@ -3,7 +3,12 @@ import {
   PARENT_CATALOG_REVIEW_STATUS_KEY,
   PARENT_CATALOG_SUBMITTED_KEY,
 } from "@/lib/parent-dashboard-storage";
-import { CATALOG_SLOT_IDS, CATALOG_SLOT_META, type CatalogSlotId } from "@/lib/schedule-slots";
+import {
+  CATALOG_SLOT_IDS,
+  CATALOG_SLOT_META,
+  type CatalogSlotId,
+  type ParentScheduleBadges,
+} from "@/lib/schedule-slots";
 import type { EnrichmentRequestRow, StudentScheduleBadge } from "@/lib/data/types";
 
 export type ParentCatalogChoice = {
@@ -271,6 +276,18 @@ export function catalogBadgesForSlot(
             : row.name,
     tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : row.status === "Waitlisted" ? "waitlisted" : "pending",
   }));
+}
+
+export function catalogScheduleBadgeOverrides(
+  requests: ParentCatalogRequests | null,
+  reviewStatuses: LocalReviewStatuses,
+  state: "draft" | "submitted" | null,
+): ParentScheduleBadges {
+  return CATALOG_SLOT_IDS.reduce<ParentScheduleBadges>((overrides, slotId) => {
+    const badges = catalogBadgesForSlot(requests, slotId, reviewStatuses, state);
+    if (badges.length) overrides[CATALOG_SLOT_META[slotId].scheduleSlot] = badges;
+    return overrides;
+  }, {});
 }
 
 export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolean {

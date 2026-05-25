@@ -6,8 +6,8 @@
  * passwords, access tokens, refresh tokens, or the service-role key.
  */
 
-const fs = require("fs");
 const path = require("path");
+const { env, loadDotenvFiles } = require("./lib/env.cjs");
 
 const REQUIRED_USERS = [
   {
@@ -50,31 +50,6 @@ const REQUIRED_USERS = [
 
 const root = path.join(__dirname, "..");
 const args = new Set(process.argv.slice(2));
-
-function loadDotenv(filePath) {
-  if (!fs.existsSync(filePath)) return;
-  const content = fs.readFileSync(filePath, "utf8");
-  for (const line of content.split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#")) continue;
-    const eq = t.indexOf("=");
-    if (eq <= 0) continue;
-    const key = t.slice(0, eq).trim();
-    let val = t.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
-      val = val.slice(1, -1);
-    }
-    if (process.env[key] === undefined) process.env[key] = val;
-  }
-}
-
-function env(name) {
-  const v = process.env[name]?.trim();
-  return v || "";
-}
 
 function usage() {
   console.log(`Usage:
@@ -134,9 +109,7 @@ async function listAllAuthUsers(admin) {
 }
 
 async function main() {
-  loadDotenv(path.join(root, ".env.production.local"));
-  loadDotenv(path.join(root, ".env.local"));
-  loadDotenv(path.join(root, ".env"));
+  loadDotenvFiles(root, [".env.production.local", ".env.local", ".env"]);
 
   if (args.has("--help") || args.has("-h")) {
     usage();

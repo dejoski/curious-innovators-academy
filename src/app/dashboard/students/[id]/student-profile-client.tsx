@@ -1,12 +1,18 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { DataSource } from "@/lib/data/fetch-source";
+import { readApiError } from "@/lib/client-api-errors";
 import type {
   StudentProfileBundle,
   StudentProfileDetails,
   StudentProfileTimelineEvent,
+  StudentProfileTimelineEventType,
+} from "@/lib/data/types";
+import {
+  STUDENT_PROFILE_TIMELINE_EVENT_TYPES,
+  isStudentProfileTimelineEventType,
 } from "@/lib/data/types";
 
 const imgGroup = "/images/icon-settings.svg";
@@ -19,6 +25,18 @@ const imgVuesaxOutlineCalendar = "/images/icon-dashboard.svg";
 
 type StudentDetailsState = StudentProfileDetails;
 type TimelineEvent = StudentProfileTimelineEvent;
+const ALL_HISTORY_FILTER = "All" as const;
+type HistoryFilterType = typeof ALL_HISTORY_FILTER | StudentProfileTimelineEventType;
+
+const HISTORY_TYPE_BADGE_CLASSES: Record<StudentProfileTimelineEventType, string> = {
+  Academic: "bg-blue-100 text-blue-700",
+  Behavioral: "bg-orange-100 text-orange-700",
+  General: "bg-slate-100 text-slate-700",
+};
+
+function historyTypeBadgeClasses(type: StudentProfileTimelineEventType) {
+  return HISTORY_TYPE_BADGE_CLASSES[type];
+}
 
 export type StudentProfileClientProps = {
   studentId: string;
@@ -36,7 +54,7 @@ export default function StudentProfileClient({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
   const [editModalBaseline, setEditModalBaseline] = useState<StudentDetailsState | null>(null);
-  const [filterType, setFilterType] = useState("All");
+  const [filterType, setFilterType] = useState<HistoryFilterType>(ALL_HISTORY_FILTER);
   const [discardPrompt, setDiscardPrompt] = useState<null | "edit" | "note">(null);
   const [profileBanner, setProfileBanner] = useState<null | { tone: "success" | "error"; message: string }>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -46,7 +64,7 @@ export default function StudentProfileClient({
 
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
-  const [newNoteType, setNewNoteType] = useState("Academic");
+  const [newNoteType, setNewNoteType] = useState<StudentProfileTimelineEventType>("Academic");
 
   const [studentDetails, setStudentDetails] = useState<StudentDetailsState>(() =>
     bundle
@@ -59,7 +77,7 @@ export default function StudentProfileClient({
     if (!bundle) return;
     setStudentDetails(bundle.details);
     setEvents(bundle.events);
-    setFilterType("All");
+    setFilterType(ALL_HISTORY_FILTER);
     setIsEditModalOpen(false);
     setIsAddNoteModalOpen(false);
     setEditModalBaseline(null);
@@ -73,6 +91,23 @@ export default function StudentProfileClient({
     setNewNoteContent("");
     setNewNoteType("Academic");
   }, [bundle]);
+
+  const historyFilters = useMemo<HistoryFilterType[]>(() => {
+    const presentTypes = new Set<StudentProfileTimelineEventType>();
+    events.forEach((event) => {
+      if (isStudentProfileTimelineEventType(event.type)) presentTypes.add(event.type);
+    });
+    return [
+      ALL_HISTORY_FILTER,
+      ...STUDENT_PROFILE_TIMELINE_EVENT_TYPES.filter((type) => presentTypes.has(type)),
+    ];
+  }, [events]);
+
+  useEffect(() => {
+    if (filterType !== ALL_HISTORY_FILTER && !historyFilters.includes(filterType)) {
+      setFilterType(ALL_HISTORY_FILTER);
+    }
+  }, [filterType, historyFilters]);
 
   if (!bundle) {
     return (
@@ -90,7 +125,7 @@ export default function StudentProfileClient({
 
   const mock = bundle;
 
-  const filteredEvents = events.filter((e) => filterType === "All" || e.type === filterType);
+  const filteredEvents = events.filter((e) => filterType === ALL_HISTORY_FILTER || e.type === filterType);
   const dataHint =
     dataSource === "fallback"
       ? "Showing sample data because the student detail API is unavailable."
@@ -103,15 +138,6 @@ export default function StudentProfileClient({
     setNewNoteContent("");
     setNewNoteType("Academic");
   };
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const body = (await res.json()) as { error?: string };
-      return body.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -417,7 +443,7 @@ export default function StudentProfileClient({
           <h3 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#05080b] text-[14px]">History</h3>
           <div className="flex gap-4 items-center flex-wrap">
             <div className="flex bg-[#fafafa] rounded-[8px] p-1 border border-gray-200">
-              {["All", "Academic", "Behavioral"].map((type) => (
+              {historyFilters.map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilterType(type)}
@@ -462,9 +488,7 @@ export default function StudentProfileClient({
                       </span>
                     )}
                     <span
-                      className={`px-2 py-0 rounded-[6px] text-[10px] font-['Inter:Medium',sans-serif] ${
-                        event.type === "Academic" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"
-                      }`}
+                      className={`px-2 py-0 rounded-[6px] text-[10px] font-['Inter:Medium',sans-serif] ${historyTypeBadgeClasses(event.type)}`}
                     >
                       {event.type}
                     </span>
@@ -590,11 +614,18 @@ export default function StudentProfileClient({
                 <label className="block text-sm font-medium mb-1">Type</label>
                 <select
                   value={newNoteType}
-                  onChange={(e) => setNewNoteType(e.target.value)}
+                  onChange={(e) => {
+                    if (isStudentProfileTimelineEventType(e.target.value)) {
+                      setNewNoteType(e.target.value);
+                    }
+                  }}
                   className="w-full border rounded-md p-2"
                 >
-                  <option value="Academic">Academic</option>
-                  <option value="Behavioral">Behavioral</option>
+                  {STUDENT_PROFILE_TIMELINE_EVENT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

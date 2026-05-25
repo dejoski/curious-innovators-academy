@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteTeacher,
   serverInsertTeacher,
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     program: body.program === "enrichment" ? "enrichment" : "core",
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ teacher: result.row });
 }
@@ -40,7 +41,7 @@ export async function PATCH(req: Request) {
   const body = (await req.json()) as Record<string, unknown>;
   const id = typeof body.id === "string" ? body.id.trim() : "";
   if (!id) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    return invalidIdResponse();
   }
   const result = await serverUpdateTeacher(id, {
     name: String(body.name ?? ""),
@@ -50,7 +51,7 @@ export async function PATCH(req: Request) {
     program: body.program === "enrichment" ? "enrichment" : "core",
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ teacher: result.row });
 }
@@ -62,11 +63,11 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    return invalidIdResponse();
   }
   const result = await serverDeleteTeacher(id);
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ ok: true });
 }

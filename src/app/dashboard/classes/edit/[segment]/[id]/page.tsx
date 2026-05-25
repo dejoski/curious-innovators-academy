@@ -1,20 +1,12 @@
 "use client";
 
 import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
+import { readApiError } from "@/lib/client-api-errors";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 type ClassStatus = "Active" | "Full";
-
-async function readApiError(res: Response): Promise<string> {
-  try {
-    const j = (await res.json()) as { error?: string };
-    return j.error ?? res.statusText;
-  } catch {
-    return res.statusText;
-  }
-}
 
 export default function EditClassPage() {
   const router = useRouter();

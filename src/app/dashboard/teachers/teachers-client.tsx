@@ -8,6 +8,7 @@ import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
+import { readApiError } from "@/lib/client-api-errors";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
@@ -78,15 +79,6 @@ export default function TeachersTeacherList({
     const t = window.setTimeout(() => setSyncHint(null), 9000);
     return () => window.clearTimeout(t);
   }, [syncHint]);
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const j = (await res.json()) as { error?: string };
-      return j.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

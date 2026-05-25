@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import { readApiError } from "@/lib/client-api-errors";
 import type {
   ClassRosterStudent,
   ClassRosterStatus,
@@ -374,15 +375,6 @@ export default function EnrichmentClassDetail() {
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId]);
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const body = (await res.json()) as { error?: string };
-      return body.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   async function handleSaveAddStudent() {
     const name = addStudentName.trim();

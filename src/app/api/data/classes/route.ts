@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteClass,
   serverInsertClass,
@@ -13,12 +14,6 @@ export async function GET() {
 
   const { items: classes, source } = await fetchClassesResolved();
   return NextResponse.json({ classes, source });
-}
-
-function statusFromMessage(message: string): number {
-  if (/supabase/i.test(message)) return 503;
-  if (/sign/i.test(message)) return 401;
-  return 400;
 }
 
 export async function POST(req: Request) {
@@ -38,7 +33,7 @@ export async function POST(req: Request) {
     block: body.block != null ? String(body.block) : undefined,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: statusFromMessage(result.message) });
+    return apiWriteError(result.message);
   }
   return NextResponse.json({ class: result.row });
 }
@@ -50,7 +45,7 @@ export async function PATCH(req: Request) {
   const body = (await req.json()) as Record<string, unknown>;
   const id = typeof body.id === "string" ? body.id.trim() : "";
   if (!id) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    return invalidIdResponse();
   }
   const result = await serverUpdateClass(id, {
     name: String(body.name ?? ""),
@@ -64,7 +59,7 @@ export async function PATCH(req: Request) {
     block: body.block != null ? String(body.block) : undefined,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: statusFromMessage(result.message) });
+    return apiWriteError(result.message);
   }
   return NextResponse.json({ class: result.row });
 }
@@ -76,11 +71,11 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    return invalidIdResponse();
   }
   const result = await serverDeleteClass(id);
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: statusFromMessage(result.message) });
+    return apiWriteError(result.message);
   }
   return NextResponse.json({ ok: true });
 }

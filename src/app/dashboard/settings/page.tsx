@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useDashboardPersona } from "@/components/dashboard-persona";
+import { readApiError } from "@/lib/client-api-errors";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 type ProvisionRole = "admin" | "parent" | "teacher" | "student";
@@ -76,15 +77,6 @@ export default function DashboardSettingsPage() {
       cancelled = true;
     };
   }, [accountDisplayName]);
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const body = (await res.json()) as { error?: string };
-      return body.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

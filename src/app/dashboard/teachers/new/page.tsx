@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
+import { readApiError } from "@/lib/client-api-errors";
+import {
+  ENTITY_FORM_CANCEL_CLASS,
+  ENTITY_FORM_CARD_CLASS,
+  ENTITY_FORM_INPUT_CLASS,
+  ENTITY_FORM_LABEL_CLASS,
+  ENTITY_FORM_SELECT_CLASS,
+  ENTITY_FORM_SUBMIT_CLASS,
+  ENTITY_FORM_WARNING_CLASS,
+} from "@/lib/entity-form-classes";
 import { teacherCreateFailureExtraHint } from "@/lib/product-copy";
 
 export type ProgramKind = "core" | "enrichment";
-
-async function readApiError(res: Response): Promise<string> {
-  try {
-    const j = (await res.json()) as { error?: string };
-    return j.error ?? res.statusText;
-  } catch {
-    return res.statusText;
-  }
-}
 
 export default function CreateTeacherPage() {
   const router = useRouter();
@@ -71,68 +72,68 @@ export default function CreateTeacherPage() {
           return to Teachers after a successful save.
         </p>
         {hint && (
-          <p className="mb-4 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-xs text-amber-950 leading-snug">
+          <p className={`${ENTITY_FORM_WARNING_CLASS} leading-snug`}>
             {hint}
           </p>
         )}
-        <div className="rounded-2xl border border-[#f0f0f0] bg-white p-6 shadow-sm flex flex-col gap-4">
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+        <div className={ENTITY_FORM_CARD_CLASS}>
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Full name
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
               placeholder="e.g. Jamie Chen"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Subjects
             <input
               value={subjects}
               onChange={(e) => setSubjects(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
               placeholder="e.g. Geometry, Robotics"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Email
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
               placeholder="name@school.edu"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Phone (optional)
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
               placeholder="Optional phone number"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Primary program
             <select
               value={program}
               onChange={(e) => setProgram(e.target.value as ProgramKind)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_SELECT_CLASS}
             >
               <option value="core">Core</option>
               <option value="enrichment">Enrichment</option>
             </select>
           </label>
           <div className="flex justify-end gap-3 pt-2">
-            <Link href="/dashboard/teachers" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">
+            <Link href="/dashboard/teachers" className={ENTITY_FORM_CANCEL_CLASS}>
               Cancel
             </Link>
             <button
               type="button"
               disabled={!name.trim() || !email.trim() || submitting}
               onClick={() => void submit()}
-              className="rounded-lg bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd] disabled:opacity-50"
+              className={ENTITY_FORM_SUBMIT_CLASS}
             >
               {submitting ? "Saving…" : "Save teacher"}
             </button>

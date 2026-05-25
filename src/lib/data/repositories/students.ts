@@ -5,7 +5,7 @@ import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const STUDENT_SELECT = `
+export const STUDENT_SELECT = `
   id,
   display_name,
   guardian_label,

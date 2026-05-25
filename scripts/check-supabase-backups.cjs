@@ -8,10 +8,19 @@
  * real student data is treated as protected by a restore path.
  */
 
-const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
+const {
+  assert,
+  env,
+  loadDotenvFiles,
+  projectRefFromUrl,
+} = require("./lib/env.cjs");
+const {
+  managementFetch,
+  runManagementQuery: runQuery,
+} = require("./lib/supabase-management.cjs");
 
 const execFileAsync = promisify(execFile);
 const root = path.join(__dirname, "..");
@@ -34,69 +43,6 @@ const REQUIRED_TABLES = [
   "support_tickets",
   "audit_events",
 ];
-
-function env(name) {
-  const value = process.env[name]?.trim();
-  return value || "";
-}
-
-function loadDotenv(filePath) {
-  if (!fs.existsSync(filePath)) return;
-  const content = fs.readFileSync(filePath, "utf8");
-  for (const line of content.split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#")) continue;
-    const eq = t.indexOf("=");
-    if (eq <= 0) continue;
-    const key = t.slice(0, eq).trim();
-    let val = t.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
-      val = val.slice(1, -1);
-    }
-    if (process.env[key] === undefined) process.env[key] = val;
-  }
-}
-
-function projectRefFromUrl(rawUrl) {
-  if (!rawUrl) return "";
-  try {
-    const host = new URL(rawUrl).host;
-    const [ref] = host.split(".");
-    return ref || "";
-  } catch {
-    return "";
-  }
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-async function managementFetch(token, path, options = {}) {
-  const response = await fetch(`https://api.supabase.com/v1${path}`, {
-    ...options,
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`${path} returned HTTP ${response.status}: ${text.slice(0, 1000)}`);
-  }
-  return text ? JSON.parse(text) : null;
-}
-
-async function runQuery(token, ref, query) {
-  return managementFetch(token, `/projects/${ref}/database/query`, {
-    method: "POST",
-    body: JSON.stringify({ query }),
-  });
-}
 
 async function supabaseCliJson(args) {
   const { stdout } = await execFileAsync("supabase", [...args, "--output", "json"], {
@@ -184,9 +130,7 @@ async function tableRowsFromManagementApi(token, ref) {
 }
 
 async function main() {
-  loadDotenv(path.join(root, ".env.production.local"));
-  loadDotenv(path.join(root, ".env.local"));
-  loadDotenv(path.join(root, ".env"));
+  loadDotenvFiles(root, [".env.production.local", ".env.local", ".env"]);
 
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`Usage:

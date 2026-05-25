@@ -1,12 +1,14 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
-import type {
-  ProgramTrack,
-  StudentProfileBundle,
-  StudentProfileTimelineEvent,
-  StudentRosterRow,
-  StudentRosterStatus,
-  StudentScheduleBadge,
-  StudentScheduleRow,
+import {
+  isStudentProfileTimelineEventType,
+  type ProgramTrack,
+  type StudentProfileBundle,
+  type StudentProfileTimelineEventType,
+  type StudentProfileTimelineEvent,
+  type StudentRosterRow,
+  type StudentRosterStatus,
+  type StudentScheduleBadge,
+  type StudentScheduleRow,
 } from "@/lib/data/types";
 import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
 import {
@@ -94,7 +96,7 @@ function formatTime(raw: unknown): string {
   });
 }
 
-function eventTypeFromBody(body: string): StudentProfileTimelineEvent["type"] {
+function eventTypeFromBody(body: string): StudentProfileTimelineEventType {
   const s = body.toLowerCase();
   if (s.includes("incident") || s.includes("wellness") || s.includes("behavior")) return "Behavioral";
   if (s.includes("deadline") || s.includes("assessment") || s.includes("enrichment")) return "Academic";
@@ -107,10 +109,9 @@ export function mapStudentRecord(row: Record<string, unknown>): StudentProfileTi
   const body = String(row.body ?? "");
   const profile = firstRel<Record<string, unknown>>(row.profiles);
   const category = String(row.category ?? "");
-  const type: StudentProfileTimelineEvent["type"] =
-    category === "Academic" || category === "Behavioral" || category === "General"
-      ? category
-      : eventTypeFromBody(body);
+  const type = isStudentProfileTimelineEventType(category)
+    ? category
+    : eventTypeFromBody(body);
   const title = String(row.title ?? "").trim();
   return {
     id,

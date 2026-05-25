@@ -18,7 +18,6 @@ import {
 import {
   buildParentScheduleBadges,
   ParentScheduleGrid,
-  type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
 import { cachedJson } from "@/lib/client-data-cache";
@@ -30,8 +29,8 @@ import {
 } from "@/lib/parent-student-selection";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
-  catalogBadgesForSlot,
   catalogChoiceReviews,
+  catalogScheduleBadgeOverrides,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
   readParentCatalogSnapshot,
@@ -44,9 +43,9 @@ import {
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
 import {
-  CATALOG_SLOT_IDS,
   CATALOG_SLOT_META as SLOT_META,
   catalogSlotIdFromScheduleSlot,
+  scheduleBadgeStatusLabel,
   type CatalogSlotId,
 } from "@/lib/schedule-slots";
 import {
@@ -172,15 +171,6 @@ function reviewPillClasses(status: LocalReviewStatus): string {
 
 function reviewPillLabel(status: LocalReviewStatus, state: LocalRequestState): string {
   return state === "draft" ? "Draft" : status;
-}
-
-function scheduleBadgeStatusLabel(badge: StudentScheduleBadge): string {
-  if (badge.tone === "core") return "School assigned";
-  if (badge.tone === "approved") return "Approved";
-  if (badge.tone === "pending") return "Pending";
-  if (badge.tone === "waitlisted") return "Waitlisted";
-  if (badge.tone === "draft") return "Draft choice";
-  return "Available";
 }
 
 function parentClassListHref(option: ParentClassOption): string {
@@ -380,13 +370,11 @@ export default function ParentHomeDashboard() {
     return null;
   }, [schedule]);
 
-  const scheduleBadgesBySlot = useMemo<ParentScheduleBadges>(() => {
-    const draftOverrides = CATALOG_SLOT_IDS.reduce<ParentScheduleBadges>((overrides, slotId) => {
-      const badges = catalogBadgesForSlot(catalogDraft, slotId, localReviewStatuses, localRequestState);
-      if (badges.length) overrides[SLOT_META[slotId].scheduleSlot] = badges;
-      return overrides;
-    }, {});
-    return buildParentScheduleBadges(selectedSchedule, draftOverrides);
+  const scheduleBadgesBySlot = useMemo(() => {
+    return buildParentScheduleBadges(
+      selectedSchedule,
+      catalogScheduleBadgeOverrides(catalogDraft, localReviewStatuses, localRequestState),
+    );
   }, [catalogDraft, localRequestState, localReviewStatuses, selectedSchedule]);
   const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
 
@@ -460,7 +448,7 @@ export default function ParentHomeDashboard() {
     if (catalogSlot) setActiveSlot(catalogSlot);
     setDetailClass({
       option: classOptionForScheduleBadge(badge, classOptions),
-      statusLabel: scheduleBadgeStatusLabel(badge),
+      statusLabel: scheduleBadgeStatusLabel(badge, "compact"),
       catalogSlot,
     });
   }

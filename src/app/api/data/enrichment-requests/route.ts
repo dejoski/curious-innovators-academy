@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { apiError, apiWriteError } from "@/lib/api/responses";
 import { fetchEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
 import {
   serverInsertEnrichmentRequests,
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     choices,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ requests: result.rows });
 }
@@ -45,14 +46,14 @@ export async function PATCH(req: Request) {
   const id = typeof body.id === "string" ? body.id.trim() : "";
   const status = body.status as EnrichmentRequestRow["status"] | undefined;
   if (!id || !status) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    return apiError("Invalid payload");
   }
   if (status !== "Approved" && status !== "Rejected" && status !== "Pending" && status !== "Waitlisted") {
-    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    return apiError("Invalid status");
   }
   const result = await serverPatchEnrichmentRequest(id, status);
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ request: result.row });
 }

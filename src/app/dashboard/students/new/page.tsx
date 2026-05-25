@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
+import { readApiError } from "@/lib/client-api-errors";
+import {
+  ENTITY_FORM_CANCEL_CLASS,
+  ENTITY_FORM_CARD_CLASS,
+  ENTITY_FORM_INPUT_CLASS,
+  ENTITY_FORM_LABEL_CLASS,
+  ENTITY_FORM_SELECT_CLASS,
+  ENTITY_FORM_SUBMIT_CLASS,
+  ENTITY_FORM_WARNING_CLASS,
+} from "@/lib/entity-form-classes";
 import { studentCreatePartialSaveHint } from "@/lib/product-copy";
 
 type ProgramTrack = "core" | "enrichment";
-
-async function readApiError(res: Response): Promise<string> {
-  try {
-    const j = (await res.json()) as { error?: string };
-    return j.error ?? res.statusText;
-  } catch {
-    return res.statusText;
-  }
-}
 
 const GRADE_LEVELS = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"] as const;
 
@@ -66,32 +67,32 @@ export default function AddStudentPage() {
         <h1 className="font-bold text-[#272932] text-[28px] mb-2">Add student</h1>
         <p className="text-[#666d80] text-[16px] mb-6">Create a student record in the directory. You will be taken to their profile after a successful save.</p>
         {hint && (
-          <p className="mb-4 rounded-md border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-xs text-amber-950">{hint}</p>
+          <p className={ENTITY_FORM_WARNING_CLASS}>{hint}</p>
         )}
-        <div className="rounded-2xl border border-[#f0f0f0] bg-white p-6 shadow-sm flex flex-col gap-4">
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+        <div className={ENTITY_FORM_CARD_CLASS}>
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Student name
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
               placeholder="e.g. Alex Johnson"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Parent / guardian
             <input
               value={parent}
               onChange={(e) => setParent(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Grade label
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_SELECT_CLASS}
             >
               {GRADE_LEVELS.map((g) => (
                 <option key={g} value={g}>
@@ -100,34 +101,34 @@ export default function AddStudentPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Program track
             <select
               value={track}
               onChange={(e) => setTrack(e.target.value as ProgramTrack)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_SELECT_CLASS}
             >
               <option value="core">Core</option>
               <option value="enrichment">Enrichment</option>
             </select>
           </label>
-          <label className="flex flex-col gap-2 text-sm text-[#272932] font-semibold">
+          <label className={ENTITY_FORM_LABEL_CLASS}>
             Notes (optional)
             <input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+              className={ENTITY_FORM_INPUT_CLASS}
             />
           </label>
           <div className="flex justify-end gap-3 pt-2">
-            <Link href="/dashboard/students" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">
+            <Link href="/dashboard/students" className={ENTITY_FORM_CANCEL_CLASS}>
               Cancel
             </Link>
             <button
               type="button"
               disabled={!name.trim() || submitting}
               onClick={() => void submit()}
-              className="rounded-lg bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebf] disabled:opacity-50"
+              className={ENTITY_FORM_SUBMIT_CLASS}
             >
               {submitting ? "Saving…" : "Save student"}
             </button>

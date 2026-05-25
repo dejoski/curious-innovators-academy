@@ -6,6 +6,7 @@ import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircl
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import { readApiError } from "@/lib/client-api-errors";
 import {
   localRequestRowsFromCatalogRequests,
   readParentCatalogSnapshot,
@@ -188,15 +189,6 @@ export default function ClassesEnrichmentRequests({
       return next;
     });
   };
-
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const j = (await res.json()) as { error?: string };
-      return j.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
 
   const applyStatus = async (id: string, status: RequestStatus) => {
     const prevRow = requests.find((r) => r.id === id);

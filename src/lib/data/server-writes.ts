@@ -3,7 +3,7 @@ import "server-only";
 import { mapClassRow } from "@/lib/data/repositories/classes";
 import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
-import { mapStudentRow } from "@/lib/data/repositories/students";
+import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
 import {
   canUsePrivilegedDemoData,
@@ -38,6 +38,18 @@ type PlacementClassRow = {
   schedule_summary?: unknown;
 };
 
+function cleanContactEmail(raw: string | null | undefined): string {
+  return String(raw ?? "").trim().toLowerCase();
+}
+
+function isValidContactEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function temporaryAccountPassword(): string {
+  return `Cia-${crypto.randomUUID()}-Aa1!`;
+}
+
 function workflowStatusForRoster(status: ClassRosterStatus) {
   if (status === "Approved") return "approved";
   if (status === "Waitlisted") return "waitlisted";
@@ -58,6 +70,137 @@ function parseStudentsFraction(label: string): { enrolled: number; capacity: num
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
   if (!m) return { enrolled: 0, capacity: 1 };
   return { enrolled: Number(m[1]), capacity: Number(m[2]) };
+}
+
+async function currentUserIsAdmin(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  return data?.role === "admin";
+}
+
+async function mutationClientForParentContactUpdate(): Promise<
+  | {
+      ok: true;
+      client: SupabaseMutationClient;
+      auditClient: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+      actorId?: string;
+    }
+  | WriteFail
+> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (user?.id) {
+    const isAdmin = await currentUserIsAdmin(supabase, user.id);
+    if (isAdmin && isSupabaseAdminConfigured()) {
+      return { ok: true, client: createSupabaseAdminClient(), auditClient: supabase, actorId: user.id };
+    }
+    return { ok: true, client: supabase, auditClient: supabase, actorId: user.id };
+  }
+
+  if (!canUsePrivilegedDemoData() || !isSupabaseAdminConfigured()) {
+    return { ok: false, message: error || !user ? "Not signed in" : "Supabase demo write is not configured" };
+  }
+
+  return { ok: true, client: createSupabaseAdminClient(), auditClient: supabase };
+}
+
+async function authUserIdForEmail(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  email: string,
+): Promise<string | null> {
+  let page = 1;
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return null;
+    const found = data.users?.find((user) => String(user.email ?? "").toLowerCase() === email);
+    if (found?.id) return found.id;
+    if (!data.users || data.users.length < 1000) return null;
+    page += 1;
+  }
+}
+
+async function ensureParentProfileForEmail(
+  client: SupabaseMutationClient,
+  input: { displayName: string; email: string },
+): Promise<{ ok: true; parentId: string; profileId: string } | WriteFail> {
+  const displayName = input.displayName.trim() || "Parent";
+  const email = cleanContactEmail(input.email);
+  if (!isValidContactEmail(email)) return { ok: false, message: "Enter a valid parent email address" };
+
+  const { data: existingProfile, error: profileReadError } = await client
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (profileReadError) return { ok: false, message: profileReadError.message };
+
+  let profileId = String(existingProfile?.id ?? "");
+  if (!profileId) {
+    if (!isSupabaseAdminConfigured()) {
+      return { ok: false, message: "Server-side Supabase admin is required to create a parent account for this email" };
+    }
+    const admin = createSupabaseAdminClient();
+    profileId = (await authUserIdForEmail(admin, email)) ?? "";
+    if (!profileId) {
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        password: temporaryAccountPassword(),
+        email_confirm: true,
+        user_metadata: { full_name: displayName },
+      });
+      if (error || !data.user?.id) {
+        return { ok: false, message: error?.message ?? "Could not create parent account" };
+      }
+      profileId = data.user.id;
+    }
+  }
+
+  const { error: profileWriteError } = await client.from("profiles").upsert(
+    {
+      id: profileId,
+      role: "parent",
+      display_name: displayName,
+      email,
+    },
+    { onConflict: "id" },
+  );
+  if (profileWriteError) return { ok: false, message: profileWriteError.message };
+
+  const { data: parent, error: parentError } = await client
+    .from("parents")
+    .upsert({ profile_id: profileId }, { onConflict: "profile_id" })
+    .select("id")
+    .maybeSingle();
+  if (parentError) return { ok: false, message: parentError.message };
+  if (!parent?.id) return { ok: false, message: "Could not create parent record" };
+
+  return { ok: true, parentId: String(parent.id), profileId };
+}
+
+async function fetchMappedStudent(
+  client: SupabaseMutationClient,
+  studentId: string,
+): Promise<WriteOk<StudentListItem> | WriteFail> {
+  const { data, error } = await client
+    .from("students")
+    .select(STUDENT_SELECT)
+    .eq("id", studentId)
+    .maybeSingle();
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: "Student not found after update" };
+  const mapped = mapStudentRow(data as Record<string, unknown>);
+  if (!mapped) return { ok: false, message: "Could not map updated student" };
+  return { ok: true, row: mapped };
 }
 
 async function writeAuditEvent(
@@ -335,34 +478,90 @@ export async function serverUpdateStudent(
   input: {
     name?: string;
     level?: string;
+    parent?: string;
+    parentEmail?: string;
   },
 ): Promise<WriteOk<StudentListItem> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  const studentId = id.trim();
+  if (!studentId) return { ok: false, message: "Missing student id" };
+
   try {
-    const supabase = await createSupabaseServerClient();
+    const resolved = await mutationClientForParentContactUpdate();
+    if (!resolved.ok) return resolved;
+    const { client, auditClient } = resolved;
     const payload: Record<string, unknown> = {};
     if (input.name != null) payload.display_name = input.name.trim();
     if (input.level != null) payload.level = input.level.trim();
-    if (Object.keys(payload).length === 0) {
+    if (input.parent != null) payload.guardian_label = input.parent.trim() || null;
+
+    const wantsParentEmailUpdate = input.parentEmail !== undefined;
+    const parentEmail = cleanContactEmail(input.parentEmail);
+    if (wantsParentEmailUpdate && !isValidContactEmail(parentEmail)) {
+      return { ok: false, message: "Enter a valid parent email address" };
+    }
+
+    if (Object.keys(payload).length === 0 && !wantsParentEmailUpdate) {
       return { ok: false, message: "No fields to update" };
     }
-    const { data, error } = await supabase
-      .from("students")
-      .update(payload)
-      .eq("id", id)
-      .select("*")
-      .maybeSingle();
-    if (error) return { ok: false, message: error.message };
-    if (!data) return { ok: false, message: "No row updated" };
-    const mapped = mapStudentRow(data as Record<string, unknown>);
-    if (!mapped) return { ok: false, message: "Could not map updated student" };
-    await writeAuditEvent(supabase, {
+
+    let currentGuardian = input.parent?.trim() ?? "";
+    if (wantsParentEmailUpdate && !currentGuardian) {
+      const { data: currentStudent, error: currentError } = await client
+        .from("students")
+        .select("guardian_label, display_name")
+        .eq("id", studentId)
+        .maybeSingle();
+      if (currentError) return { ok: false, message: currentError.message };
+      currentGuardian = String(currentStudent?.guardian_label ?? currentStudent?.display_name ?? "Parent").trim();
+    }
+
+    if (Object.keys(payload).length > 0) {
+      const { data, error } = await client
+        .from("students")
+        .update(payload)
+        .eq("id", studentId)
+        .select("id")
+        .maybeSingle();
+      if (error) return { ok: false, message: error.message };
+      if (!data) return { ok: false, message: "No row updated" };
+    }
+
+    if (wantsParentEmailUpdate) {
+      const parent = await ensureParentProfileForEmail(client, {
+        displayName: currentGuardian || "Parent",
+        email: parentEmail,
+      });
+      if (!parent.ok) return parent;
+
+      const { error: clearError } = await client
+        .from("parent_students")
+        .delete()
+        .eq("student_id", studentId);
+      if (clearError) return { ok: false, message: clearError.message };
+
+      const { error: linkError } = await client.from("parent_students").insert({
+        parent_id: parent.parentId,
+        student_id: studentId,
+      });
+      if (linkError) return { ok: false, message: linkError.message };
+    }
+
+    const mapped = await fetchMappedStudent(client, studentId);
+    if (!mapped.ok) return mapped;
+
+    await writeAuditEvent(auditClient, {
       action: "student.update",
       entityType: "student",
-      entityId: mapped.id,
-      metadata: { fields: Object.keys(payload) },
+      entityId: mapped.row.id,
+      metadata: {
+        fields: [
+          ...Object.keys(payload),
+          ...(wantsParentEmailUpdate ? ["parentEmail"] : []),
+        ],
+      },
     });
-    return { ok: true, row: mapped };
+    return mapped;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };

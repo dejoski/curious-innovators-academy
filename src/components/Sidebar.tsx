@@ -181,6 +181,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const adminTeacherNewActive = pathname.startsWith("/dashboard/teachers/new");
 
   const adminDashboardActive = pathname === "/dashboard";
+  const adminScheduleActive = pathname.startsWith("/dashboard/schedule");
   const adminClassesActive = pathname.startsWith("/dashboard/classes");
   const adminStudentsActive = pathname.startsWith("/dashboard/students");
   const adminParentsActive = pathname.startsWith("/dashboard/parents");
@@ -353,6 +354,14 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   </div>
                   <p className={navLabel(adminDashboardActive)} data-node-id="8:1880">
                     Dashboard
+                  </p>
+                </Link>
+                <Link href="/dashboard/schedule" className={navRow(adminScheduleActive)}>
+                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
+                    {scheduleGlyph(adminScheduleActive)}
+                  </div>
+                  <p className={navLabel(adminScheduleActive)}>
+                    Schedule
                   </p>
                 </Link>
                 <div className="flex flex-col w-full">
@@ -695,6 +704,11 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
                   </div>
                 </Link>
+                <Link href="/dashboard/schedule" title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminScheduleActive)}`}>
+                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
+                    {scheduleGlyph(adminScheduleActive)}
+                  </div>
+                </Link>
                 <Link href="/dashboard/classes" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminClassesActive)}`} data-node-id="10:3185" data-name="Icon menu">
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`} data-node-id="10:3189" data-name="icon-park-outline:notebook-one">
                     <div className="absolute inset-[8.33%_16.67%]" data-node-id="10:3190" data-name="Group">
@@ -810,6 +824,11 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 <Link href="/dashboard" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminDashboardActive)}`} data-node-id="8:2741" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="8:2919" data-name="si:dashboard-line">
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                  </div>
+                </Link>
+                <Link href="/dashboard/schedule" title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminScheduleActive)}`}>
+                  <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
+                    {scheduleGlyph(adminScheduleActive)}
                   </div>
                 </Link>
                 <Link href="/dashboard/classes" title="Classes" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminClassesActive)}`} data-node-id="10:3113" data-name="Icon menu">

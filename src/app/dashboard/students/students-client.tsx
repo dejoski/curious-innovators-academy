@@ -8,6 +8,7 @@ import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
+import { readApiError } from "@/lib/client-api-errors";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
 const imgMaskGroup = "/images/icon-pending-requests.svg";
@@ -200,10 +201,14 @@ export default function StudentsStudentsList({
     "all" | "Completed" | "Incomplete"
   >("all");
   const [messageTarget, setMessageTarget] = useState<{
+    id: string;
     name: string;
     parent: string;
     parentEmail?: string;
   } | null>(null);
+  const [parentEmailDraft, setParentEmailDraft] = useState("");
+  const [messageHint, setMessageHint] = useState<string | null>(null);
+  const [savingParentEmail, setSavingParentEmail] = useState(false);
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [spreadsheetBanner, setSpreadsheetBanner] = useState<string | null>(
     null,
@@ -246,14 +251,11 @@ export default function StudentsStudentsList({
     const t = window.setTimeout(() => setSyncHint(null), 9000);
     return () => window.clearTimeout(t);
   }, [syncHint]);
-  async function readApiError(res: Response): Promise<string> {
-    try {
-      const j = (await res.json()) as { error?: string };
-      return j.error ?? res.statusText;
-    } catch {
-      return res.statusText;
-    }
-  }
+  useEffect(() => {
+    setParentEmailDraft(messageTarget?.parentEmail ?? "");
+    setMessageHint(null);
+    setSavingParentEmail(false);
+  }, [messageTarget?.id]);
   const stats = useMemo(() => {
     const total = students.length;
     const completed = students.filter((student) => student.status === "Completed").length;
@@ -319,6 +321,43 @@ export default function StudentsStudentsList({
     );
     setSpreadsheetBanner(`Downloaded ${selected.length} student row(s) as CSV.`);
   };
+  async function saveParentEmail() {
+    if (!messageTarget || savingParentEmail) return;
+    const email = parentEmailDraft.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMessageHint("Enter a valid parent email address.");
+      return;
+    }
+    setSavingParentEmail(true);
+    setMessageHint(null);
+    try {
+      const res = await fetch(`/api/data/students?id=${encodeURIComponent(messageTarget.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parent: messageTarget.parent,
+          parentEmail: email,
+        }),
+      });
+      if (!res.ok) {
+        setMessageHint(`Could not save parent email: ${await readApiError(res)}`);
+        return;
+      }
+      const body = (await res.json()) as { student: StudentItem };
+      setStudents((prev) =>
+        prev.map((student) => (student.id === body.student.id ? body.student : student)),
+      );
+      setMessageTarget({
+        id: body.student.id,
+        name: body.student.name,
+        parent: body.student.parent,
+        parentEmail: body.student.parentEmail,
+      });
+      setMessageHint("Parent email saved. You can open a mail draft now.");
+    } finally {
+      setSavingParentEmail(false);
+    }
+  }
   const handleSelectStudent = (id: string) => {
     if (selectedStudents.includes(id)) {
       setSelectedStudents(
@@ -674,6 +713,7 @@ export default function StudentsStudentsList({
                     dropdownRef={dropdownRef}
                     onOpenMessage={() =>
                       setMessageTarget({
+                        id: student.id,
                         name: student.name,
                         parent: student.parent,
                         parentEmail: student.parentEmail,
@@ -778,11 +818,27 @@ export default function StudentsStudentsList({
                 <span className="font-semibold">{messageTarget.name}</span>. Nothing is sent until you send it.
               </p>
             ) : (
-              <p className="mt-2 text-sm text-[#8a5a00]">
-                No parent email is linked to <span className="font-semibold">{messageTarget.name}</span>. Add the
-                parent email before messaging.
-              </p>
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-[#8a5a00]">
+                  No parent email is linked to <span className="font-semibold">{messageTarget.name}</span>.
+                </p>
+                <label className="flex flex-col gap-2 text-sm font-semibold text-[#272932]">
+                  Parent email
+                  <input
+                    type="email"
+                    value={parentEmailDraft}
+                    onChange={(event) => setParentEmailDraft(event.target.value)}
+                    placeholder="parent@example.com"
+                    className="rounded-lg border border-gray-200 px-3 py-2 font-normal outline-none focus:border-[#14c1d5]"
+                  />
+                </label>
+              </div>
             )}
+            {messageHint ? (
+              <p className="mt-3 rounded-md border border-[#e8e9ed] bg-[#fafafa] px-3 py-2 text-xs text-[#525a63]">
+                {messageHint}
+              </p>
+            ) : null}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
@@ -805,10 +861,11 @@ export default function StudentsStudentsList({
               ) : (
                 <button
                   type="button"
-                  disabled
-                  className="cursor-not-allowed rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-400"
+                  disabled={savingParentEmail}
+                  onClick={saveParentEmail}
+                  className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                 >
-                  No email on file
+                  {savingParentEmail ? "Saving..." : "Save email"}
                 </button>
               )}
             </div>

@@ -5,15 +5,15 @@ import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types"
 import {
   PARENT_SCHEDULE_DAYS,
   PARENT_SCHEDULE_ROWS,
+  PARENT_SCHEDULE_SLOT_KEYS,
   catalogSlotIdFromScheduleSlot,
   normalizeScheduleBadges,
+  scheduleBadgeStatusLabel,
   type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
 
 export type { ParentScheduleBadges, ParentScheduleSlotKey } from "@/lib/schedule-slots";
-
-const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = ["b1", "b2", "b3Tue", "b3Wed", "b3Thu", "b4Tue", "b4Wed", "b4Thu"];
 
 export type ParentScheduleBadgeClick = (slot: ParentScheduleSlotKey, badge: StudentScheduleBadge, index: number) => void;
 
@@ -35,15 +35,6 @@ function badgeClasses(tone: StudentScheduleBadge["tone"], interactive: boolean) 
   return `border-dashed border-[#dfe3ea] bg-[#fbfcfe] ${interactive ? "hover:border-[#14c1d5] hover:bg-[#f6fcfd]" : ""}`;
 }
 
-function badgeCaption(badge: StudentScheduleBadge) {
-  if (badge.tone === "core") return "School assigned";
-  if (badge.tone === "approved") return "Enric. Approved";
-  if (badge.tone === "pending") return "Enric. Pending";
-  if (badge.tone === "waitlisted") return "Enric. Waitlisted";
-  if (badge.tone === "draft") return "Draft choice";
-  return "+ Choose class";
-}
-
 function meaningfulBadgeCount(badges: StudentScheduleBadge[]) {
   return badges.filter((badge) => badge.tone !== "empty").length;
 }
@@ -52,7 +43,7 @@ function ScheduleBadgeCard({ badge, tall = false, compact = false }: { badge: St
   return (
     <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)}`}>
       <p className={`${tall ? "line-clamp-3" : "line-clamp-2"} text-[11px] leading-[1.16] text-[#111827] min-[1100px]:text-[13px]`}>{badge.label}</p>
-      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"}`}>{badgeCaption(badge)}</p>
+      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"}`}>{scheduleBadgeStatusLabel(badge, "grid")}</p>
     </div>
   );
 }

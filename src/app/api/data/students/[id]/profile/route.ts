@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireRemoteApiSession } from "@/lib/api/require-auth";
-import { isSupabaseConfigured } from "@/lib/data/env";
+import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import { fetchStudentProfileResolved, mapStudentRecord } from "@/lib/data/repositories/student-details";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  isStudentProfileTimelineEventType,
+  type StudentProfileTimelineEventType,
+} from "@/lib/data/types";
 
 type RouteContext = { params: Promise<{ id: string }> };
-type NoteCategory = "Academic" | "Behavioral" | "General";
 
 function cleanText(value: unknown, maxLength: number): string {
   return String(value ?? "").trim().replace(/\r\n/g, "\n").slice(0, maxLength);
@@ -25,28 +26,10 @@ function parseAge(value: unknown): number | null {
   return rounded;
 }
 
-function normalizeCategory(value: unknown): NoteCategory {
+function normalizeCategory(value: unknown): StudentProfileTimelineEventType {
   const raw = String(value ?? "");
-  if (raw === "Academic" || raw === "Behavioral" || raw === "General") return raw;
+  if (isStudentProfileTimelineEventType(raw)) return raw;
   return "General";
-}
-
-async function loadCurrentUser() {
-  if (!isSupabaseConfigured()) {
-    return { supabase: null, user: null, error: "Supabase is not configured." };
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    return { supabase, user: null, error: "Sign in required." };
-  }
-
-  return { supabase, user, error: null };
 }
 
 export async function GET(_req: Request, context: RouteContext) {
@@ -59,20 +42,11 @@ export async function GET(_req: Request, context: RouteContext) {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
-
   const { id } = await context.params;
   const studentId = id.trim();
-  const { supabase, user, error } = await loadCurrentUser();
-
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  if (error || !user) {
-    return NextResponse.json({ error: error ?? "Sign in required." }, { status: 401 });
-  }
+  const current = await requireCurrentApiUser();
+  if (!current.ok) return current.response;
+  const { supabase } = current;
 
   if (!studentId) {
     return NextResponse.json({ error: "Missing student id." }, { status: 400 });
@@ -122,20 +96,11 @@ export async function PATCH(req: Request, context: RouteContext) {
 }
 
 export async function POST(req: Request, context: RouteContext) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
-
   const { id } = await context.params;
   const studentId = id.trim();
-  const { supabase, user, error } = await loadCurrentUser();
-
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  if (error || !user) {
-    return NextResponse.json({ error: error ?? "Sign in required." }, { status: 401 });
-  }
+  const current = await requireCurrentApiUser();
+  if (!current.ok) return current.response;
+  const { supabase, user } = current;
 
   if (!studentId) {
     return NextResponse.json({ error: "Missing student id." }, { status: 400 });

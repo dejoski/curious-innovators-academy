@@ -12,6 +12,8 @@ export type ParentScheduleSlotKey =
 
 export type ParentScheduleBadges = Partial<Record<ParentScheduleSlotKey, StudentScheduleBadge[]>>;
 
+export const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = ["b1", "b2", "b3Tue", "b3Wed", "b3Thu", "b4Tue", "b4Wed", "b4Thu"];
+
 export const CATALOG_SLOT_IDS = [
   "block3_day1",
   "block3_day2",
@@ -56,6 +58,17 @@ export const SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
   b4Tue: "7:00 am",
   b4Wed: "7:00 am",
   b4Thu: "7:00 am",
+};
+
+export const PARENT_SCHEDULE_SLOT_DISPLAY_ORDER: Record<ParentScheduleSlotKey, number> = {
+  b1: 10,
+  b2: 20,
+  b3Tue: 30,
+  b3Wed: 30,
+  b3Thu: 30,
+  b4Tue: 40,
+  b4Wed: 40,
+  b4Thu: 40,
 };
 
 export const CATALOG_SLOT_META: Record<
@@ -163,6 +176,24 @@ export function eventTypeFromBadgeTone(tone: StudentScheduleBadge["tone"]): Cale
   if (tone === "approved") return "enrichment-approved";
   if (tone === "pending") return "enrichment-pending";
   return "event";
+}
+
+export function scheduleBadgeStatusLabel(
+  badge: StudentScheduleBadge,
+  context: "calendar" | "grid" | "compact" = "calendar",
+): string {
+  if (badge.tone === "core") return "School assigned";
+  if (badge.tone === "approved") return context === "grid" ? "Enric. Approved" : "Approved";
+  if (badge.tone === "pending") {
+    if (context === "grid") return "Enric. Pending";
+    if (context === "compact") return "Pending";
+    return "Pending approval";
+  }
+  if (badge.tone === "waitlisted") return context === "grid" ? "Enric. Waitlisted" : "Waitlisted";
+  if (badge.tone === "draft") return "Draft choice";
+  if (context === "grid") return "+ Choose class";
+  if (context === "compact") return "Available";
+  return "Open";
 }
 
 export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): StudentScheduleBadge[] {

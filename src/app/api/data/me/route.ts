@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { requireRemoteApiSession } from "@/lib/api/require-auth";
-import { isRemoteDataRequired, isSupabaseConfigured } from "@/lib/data/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  loadCurrentApiUser,
+  requireCurrentApiUser,
+  requireRemoteApiSession,
+  type SupabaseServerClient,
+} from "@/lib/api/require-auth";
+import { isRemoteDataRequired } from "@/lib/data/env";
 
 type AppRole = "admin" | "parent" | "teacher" | "student";
 
@@ -33,7 +37,7 @@ function mapPreferenceRow(row: Record<string, unknown> | null | undefined): Acco
 }
 
 async function resolveDefaultStudentId(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supabase: SupabaseServerClient,
   userId: string,
   role: AppRole,
 ): Promise<string | null> {
@@ -57,29 +61,11 @@ async function resolveDefaultStudentId(
   return null;
 }
 
-async function loadCurrentUser() {
-  if (!isSupabaseConfigured()) {
-    return { supabase: null, user: null, error: "Supabase is not configured." };
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    return { supabase, user: null, error: "Sign in required." };
-  }
-
-  return { supabase, user, error: null };
-}
-
 export async function GET() {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const { supabase, user, error: userError } = await loadCurrentUser();
+  const { supabase, user, error: userError } = await loadCurrentApiUser();
 
   if (!supabase) {
     if (isRemoteDataRequired()) {
@@ -129,18 +115,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
-
-  const { supabase, user, error: userError } = await loadCurrentUser();
-
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  if (userError || !user) {
-    return NextResponse.json({ error: userError ?? "Sign in required." }, { status: 401 });
-  }
+  const current = await requireCurrentApiUser();
+  if (!current.ok) return current.response;
+  const { supabase, user } = current;
 
   const body = (await req.json()) as Record<string, unknown>;
   const displayName = normalizeDisplayName(body.displayName);

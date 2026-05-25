@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteStudent,
   serverInsertStudent,
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     notes: body.notes != null ? String(body.notes) : undefined,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ student: result.row });
 }
@@ -40,15 +41,17 @@ export async function PATCH(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    return invalidIdResponse();
   }
   const body = (await req.json()) as Record<string, unknown>;
   const result = await serverUpdateStudent(id, {
     name: body.name != null ? String(body.name) : undefined,
     level: body.level != null ? String(body.level) : undefined,
+    parent: body.parent != null ? String(body.parent) : undefined,
+    parentEmail: body.parentEmail != null ? String(body.parentEmail) : undefined,
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ student: result.row });
 }
@@ -60,11 +63,11 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id")?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    return invalidIdResponse();
   }
   const result = await serverDeleteStudent(id);
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 400 });
+    return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ ok: true });
 }
