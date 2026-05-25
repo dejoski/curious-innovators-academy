@@ -20,6 +20,8 @@ import {
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+type StudentReadClient = Pick<Awaited<ReturnType<typeof createSupabaseServerClient>>, "from">;
+
 type StudentProfileResolved = {
   profile: StudentProfileBundle | null;
   source: DataSource;
@@ -162,13 +164,16 @@ function pushBadge(row: StudentScheduleRow, slot: ParentScheduleSlotKey, badge: 
   row[slot] = next;
 }
 
-export async function fetchStudentProfileResolved(studentId: string): Promise<StudentProfileResolved> {
+export async function fetchStudentProfileResolved(
+  studentId: string,
+  client?: StudentReadClient,
+): Promise<StudentProfileResolved> {
   const id = studentId.trim();
   if (!id) return { profile: null, source: "unavailable" };
   if (!isSupabaseConfigured()) return unavailableProfile();
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data: student, error } = await supabase
       .from("students")
       .select(
@@ -243,13 +248,16 @@ export async function fetchStudentProfileResolved(studentId: string): Promise<St
   }
 }
 
-export async function fetchStudentScheduleResolved(studentId: string): Promise<StudentScheduleResolved> {
+export async function fetchStudentScheduleResolved(
+  studentId: string,
+  client?: StudentReadClient,
+): Promise<StudentScheduleResolved> {
   const id = studentId.trim();
   if (!id) return { rows: [], source: "unavailable" };
   if (!isSupabaseConfigured()) return unavailableSchedule();
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data: student, error } = await supabase
       .from("students")
       .select("id, display_name, guardian_label")
@@ -311,13 +319,16 @@ function mapStudentRosterEnrollmentRow(row: Record<string, unknown>): StudentRos
   };
 }
 
-export async function fetchStudentRosterResolved(studentId: string): Promise<ResolvedList<StudentRosterRow>> {
+export async function fetchStudentRosterResolved(
+  studentId: string,
+  client?: StudentReadClient,
+): Promise<ResolvedList<StudentRosterRow>> {
   const id = studentId.trim();
   if (!id) return { items: [], source: "unavailable" };
   if (!isSupabaseConfigured()) return unavailableRoster();
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = client ?? await createSupabaseServerClient();
     const { data: ownEnrollments, error: ownError } = await supabase
       .from("enrollments")
       .select("class_id")

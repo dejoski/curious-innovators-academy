@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localDemoRoleFromRequest } from "@/lib/api/local-demo";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
@@ -6,9 +7,23 @@ import {
   serverInsertStudent,
   serverUpdateStudent,
 } from "@/lib/data/server-writes";
+import {
+  fetchDemoAllStudentsResolved,
+  fetchDemoParentStudentsResolved,
+} from "@/lib/data/repositories/demo-parent";
 import { fetchStudentsResolved } from "@/lib/data/repositories/students";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const demoRole = localDemoRoleFromRequest(request);
+  if (demoRole === "parent") {
+    const { items: students, source } = await fetchDemoParentStudentsResolved();
+    return NextResponse.json({ students, source });
+  }
+  if (demoRole === "admin") {
+    const { items: students, source } = await fetchDemoAllStudentsResolved();
+    return NextResponse.json({ students, source });
+  }
+
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 

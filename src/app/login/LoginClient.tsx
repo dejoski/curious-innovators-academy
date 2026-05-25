@@ -35,6 +35,12 @@ export default function LoginClient() {
     }
   }, []);
 
+  function safeNextPath(): string {
+    const raw = new URLSearchParams(window.location.search).get("next")?.trim();
+    if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+    return raw;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
@@ -46,7 +52,8 @@ export default function LoginClient() {
         setLoginError(result.message);
         return;
       }
-      router.push(demoLoginEnabled ? bootstrapDemoSession("admin") : "/dashboard");
+      router.push(safeNextPath());
+      router.refresh();
     } finally {
       setSubmitting(false);
     }
@@ -162,9 +169,18 @@ export default function LoginClient() {
               className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#a8e7ef]"
             >
               <span className="font-inter-tight text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
-                {submitting ? "Signing in..." : "Start your journey"}
+                {submitting ? "Signing in..." : "Sign in"}
               </span>
             </button>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 text-[13px] leading-[1.4]">
+              <Link href="/signup" className="font-medium text-[#14c1d5] hover:underline">
+                Create an account
+              </Link>
+              <Link href="/forgot-password" className="font-medium text-[#666d80] hover:text-[#14c1d5] hover:underline">
+                Forgot password?
+              </Link>
+            </div>
 
             {demoLoginEnabled && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localDemoRoleFromRequest } from "@/lib/api/local-demo";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
@@ -8,7 +9,12 @@ import {
 } from "@/lib/data/server-writes";
 import { fetchClassesResolved } from "@/lib/data/repositories/classes";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (localDemoRoleFromRequest(request)) {
+    const { items: classes, source } = await fetchClassesResolved();
+    return NextResponse.json({ classes, source });
+  }
+
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 

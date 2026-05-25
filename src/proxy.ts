@@ -7,7 +7,7 @@ import {
 } from "@/lib/data/env";
 import type { DashboardPersona } from "@/lib/demo-accounts";
 import { dashboardRedirectForPersona } from "@/lib/dashboard/role-routes";
-import { DEMO_UI_ROLE_COOKIE_NAME } from "@/lib/demo-login";
+import { DEMO_UI_ROLE_COOKIE_NAME, isLocalDemoHost } from "@/lib/demo-login";
 
 function isDashboardPath(pathname: string): boolean {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
@@ -67,6 +67,11 @@ function roleFromProfile(raw: unknown): DashboardPersona | null {
 
 function demoRoleFromCookie(request: NextRequest): DashboardPersona | null {
   return roleFromProfile(request.cookies.get(DEMO_UI_ROLE_COOKIE_NAME)?.value);
+}
+
+function localDemoRole(request: NextRequest): DashboardPersona | null {
+  if (!isLocalDemoHost(request.nextUrl.hostname)) return null;
+  return demoRoleFromCookie(request);
 }
 
 function dashboardRoleRedirect(
@@ -133,17 +138,28 @@ export async function proxy(request: NextRequest) {
   const anonKey = getRuntimeSupabaseAnonKey();
   const requireRemoteData = isRemoteDataRequired();
   const dashboardPath = isDashboardPath(request.nextUrl.pathname);
+  const demoRole = localDemoRole(request);
   const protectDashboard = requireRemoteData && dashboardPath;
   const protectApi =
     requireRemoteData &&
     isProtectedApiPath(request.nextUrl.pathname) &&
     !isParentClassRequestSubmission(request);
+  const localDemoRead =
+    Boolean(demoRole) &&
+    request.method === "GET" &&
+    request.nextUrl.pathname.startsWith("/api/data/");
 
   if (!url || !anonKey) {
+    if (protectApi && localDemoRead) return NextResponse.next();
     if (protectApi) return apiAuthError(503, "Supabase is not configured.");
+    if (protectDashboard && demoRole) {
+      const redirect = dashboardRoleRedirect(request, demoRole);
+      if (redirect) return redirect;
+      return NextResponse.next();
+    }
     if (protectDashboard) return redirectToLogin(request, "configuration");
     if (dashboardPath) {
-      const redirect = dashboardRoleRedirect(request, demoRoleFromCookie(request) ?? "parent");
+      const redirect = dashboardRoleRedirect(request, demoRole ?? "parent");
       if (redirect) return redirect;
     }
     return NextResponse.next();
@@ -182,7 +198,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (protectApi && !user) {
+    if (localDemoRead) return response;
     return apiAuthError(401, "Sign in required.");
+  }
+
+  if (protectDashboard && !user && demoRole) {
+    const redirect = dashboardRoleRedirect(request, demoRole);
+    if (redirect) return redirect;
+    return response;
   }
 
   if (protectDashboard && !user) {
@@ -203,7 +226,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (dashboardPath && !user && !requireRemoteData) {
-    const redirect = dashboardRoleRedirect(request, demoRoleFromCookie(request) ?? "parent");
+    const redirect = dashboardRoleRedirect(request, demoRole ?? "parent");
     if (redirect) return redirect;
   }
 

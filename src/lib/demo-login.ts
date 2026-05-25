@@ -1,22 +1,29 @@
 /** Server/client importable demo bypass flag logic; storage writes only via client invokes. */
-import { isRemoteDataRequired } from "@/lib/data/env";
 import {
   isDashboardPersona,
   type DashboardPersona,
 } from "@/lib/dashboard/persona";
 
 /**
- * When `NEXT_PUBLIC_ENABLE_DEMO_LOGIN` is unset or empty, bypass UI stays available
- * for local demos. Production remote-data mode always disables the bypass.
+ * Demo entry is available on localhost unless explicitly disabled. Production
+ * can still opt in with NEXT_PUBLIC_ENABLE_DEMO_LOGIN=true, but it stays off
+ * by default away from local hosts.
  */
 export function isDemoLoginUiEnabled(): boolean {
-  if (isRemoteDataRequired()) return false;
-  return process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() !== "false";
+  const flag = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim().toLowerCase();
+  if (flag === "false") return false;
+  if (flag === "true") return true;
+  if (typeof window === "undefined") return process.env.NODE_ENV === "development";
+  return isLocalDemoHost(window.location.hostname);
 }
 
 export const DEMO_UI_BYPASS_STORAGE_KEY = "cia-demo-ui-bypass";
 export const DEMO_UI_ROLE_STORAGE_KEY = "cia-demo-ui-role";
 export const DEMO_UI_ROLE_COOKIE_NAME = "cia-demo-role";
+
+export function isLocalDemoHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
 
 export function markDemoUiBypass(role?: DashboardPersona): void {
   try {

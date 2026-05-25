@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { localDemoRoleFromRequest } from "@/lib/api/local-demo";
 import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
+import { demoParentCanAccessStudent } from "@/lib/data/repositories/demo-parent";
 import { fetchStudentProfileResolved, mapStudentRecord } from "@/lib/data/repositories/student-details";
 import {
   isStudentProfileTimelineEventType,
   type StudentProfileTimelineEventType,
 } from "@/lib/data/types";
+import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,11 +36,20 @@ function normalizeCategory(value: unknown): StudentProfileTimelineEventType {
   return "General";
 }
 
-export async function GET(_req: Request, context: RouteContext) {
+export async function GET(req: Request, context: RouteContext) {
+  const { id } = await context.params;
+  const demoRole = localDemoRoleFromRequest(req);
+  if (demoRole === "admin" || (demoRole === "parent" && await demoParentCanAccessStudent(id))) {
+    if (!isSupabaseAdminConfigured()) {
+      return NextResponse.json({ profile: null, source: "unavailable" });
+    }
+    const { profile, source } = await fetchStudentProfileResolved(id, createSupabaseAdminClient());
+    return NextResponse.json({ profile, source });
+  }
+
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const { id } = await context.params;
   const { profile, source } = await fetchStudentProfileResolved(id);
   return NextResponse.json({ profile, source });
 }

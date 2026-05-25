@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { localDemoRoleFromRequest } from "@/lib/api/local-demo";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiError, apiWriteError } from "@/lib/api/responses";
 import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
@@ -7,7 +8,11 @@ import {
   serverPatchNotificationsReadAll,
 } from "@/lib/data/server-writes";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (localDemoRoleFromRequest(request)) {
+    return NextResponse.json({ notifications: [], source: "remote" });
+  }
+
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 

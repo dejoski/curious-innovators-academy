@@ -41,7 +41,12 @@ export async function signInWithPasswordOrDemo(
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    const message = error.message.toLowerCase().includes("invalid login credentials")
+      ? "Email or password does not match an active account. Create an account, reset the password, or ask an admin to create the user."
+      : error.message;
+    return { ok: false, message };
+  }
 
   clearDemoUiBypass();
 
