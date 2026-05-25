@@ -14,11 +14,6 @@ const imgEllipse2732 = "/images/login-ellipse-2.svg";
 const imgEllipse2733 = "/images/login-ellipse-3.svg";
 const imgGroup = "/images/login-email-icon.svg";
 
-function safeNextPath(raw: string | null): string | null {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
-  return raw;
-}
-
 export default function LoginClient() {
   const router = useRouter();
   const demoLoginEnabled = isDemoLoginUiEnabled();
@@ -27,12 +22,10 @@ export default function LoginClient() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [nextPath, setNextPath] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const auth = params.get("auth");
-    setNextPath(safeNextPath(params.get("next")));
     if (auth === "configuration") {
       setLoginNotice(
         "This deployment requires Supabase auth. Ask an administrator to configure the Supabase URL and anon key.",
@@ -53,7 +46,7 @@ export default function LoginClient() {
         setLoginError(result.message);
         return;
       }
-      router.push(demoLoginEnabled ? bootstrapDemoSession("admin") : nextPath ?? "/dashboard");
+      router.push(demoLoginEnabled ? bootstrapDemoSession("admin") : "/dashboard");
     } finally {
       setSubmitting(false);
     }

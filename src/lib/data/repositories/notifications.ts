@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { DashboardNotification } from "@/lib/data/types";
 import {

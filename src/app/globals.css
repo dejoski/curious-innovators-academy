@@ -9,7 +9,7 @@
   font-family: var(--font-inter-tight), var(--font-inter), sans-serif;
 }
 
-/* Hide Next.js dev UI overlays to keep Figma parity screenshots clean. */
+/* Hide Next.js dev UI overlays in local review screenshots. */
 nextjs-portal,
 #nextjs__container,
 [data-nextjs-toast],

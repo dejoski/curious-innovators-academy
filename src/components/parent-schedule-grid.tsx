@@ -6,6 +6,7 @@ import {
   PARENT_SCHEDULE_DAYS,
   PARENT_SCHEDULE_ROWS,
   catalogSlotIdFromScheduleSlot,
+  normalizeScheduleBadges,
   type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
@@ -20,7 +21,7 @@ export function buildParentScheduleBadges(schedule?: StudentScheduleRow | null, 
   return PARENT_SCHEDULE_SLOT_KEYS.reduce<ParentScheduleBadges>((next, slot) => {
     const override = overrides?.[slot];
     const source = schedule?.[slot];
-    next[slot] = override?.length ? override : source?.length ? source : [];
+    next[slot] = normalizeScheduleBadges(override?.length ? override : source?.length ? source : []);
     return next;
   }, {});
 }

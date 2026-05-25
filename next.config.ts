@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://mcp.figma.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
   "font-src 'self' data:",
   "form-action 'self'",
   "frame-ancestors 'none'",
@@ -17,7 +17,7 @@ const contentSecurityPolicy = [
   "manifest-src 'self'",
   "media-src 'self'",
   "object-src 'none'",
-  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"} https://mcp.figma.com`,
+  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "worker-src 'self' blob:",
   "upgrade-insecure-requests",

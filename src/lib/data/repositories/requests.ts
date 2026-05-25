@@ -2,6 +2,7 @@ import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { REQUESTS_FALLBACK } from "@/lib/data/mock/requests";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function mapStatus(raw: unknown): RequestStatus {
@@ -12,12 +13,6 @@ function mapStatus(raw: unknown): RequestStatus {
   if (lower === "rejected") return "Rejected";
   if (lower === "waitlisted" || lower === "waitlist") return "Waitlisted";
   return "Pending";
-}
-
-function firstRel<T extends Record<string, unknown>>(v: unknown): T | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return (v[0] as T) ?? null;
-  return v as T;
 }
 
 export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRow | null {

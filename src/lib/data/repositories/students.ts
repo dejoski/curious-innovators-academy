@@ -2,7 +2,44 @@ import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
 import { canUseBundledFallbackData, fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const STUDENT_SELECT = `
+  id,
+  display_name,
+  guardian_label,
+  level,
+  track,
+  profile_id,
+  support_notes,
+  parent_students (
+    parents (
+      profiles ( display_name, email )
+    )
+  )
+`;
+
+function parentContactFromStudentRow(row: Record<string, unknown>): { name: string; email: string } {
+  const joins = Array.isArray(row.parent_students) ? row.parent_students : [];
+  for (const join of joins) {
+    if (!join || typeof join !== "object") continue;
+    const parent = firstRel<Record<string, unknown>>(
+      (join as { parents?: unknown }).parents,
+    );
+    const profile = firstRel<Record<string, unknown>>(parent?.profiles);
+    const email = String(profile?.email ?? "").trim();
+    if (!email) continue;
+    return {
+      name: String(profile?.display_name ?? row.guardian_label ?? row.parent_name ?? row.parent ?? ""),
+      email,
+    };
+  }
+  return {
+    name: String(row.parent_name ?? row.guardian_label ?? row.parent ?? ""),
+    email: String(row.parent_email ?? "").trim(),
+  };
+}
 
 export function mapStudentRow(row: Record<string, unknown>): StudentListItem | null {
   if (row.id == null || String(row.id) === "") return null;
@@ -26,11 +63,14 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
     studentsLabel = `${row.enrichment_completed}/${row.enrichment_total}`;
   }
 
+  const parentContact = parentContactFromStudentRow(row);
+
   return {
     id,
     name: String(row.full_name ?? row.display_name ?? row.name ?? ""),
     avatar: String(row.avatar_url ?? row.avatar ?? STUDENTS_FALLBACK[0]?.avatar ?? ""),
-    parent: String(row.parent_name ?? row.guardian_label ?? row.parent ?? ""),
+    parent: parentContact.name,
+    parentEmail: parentContact.email || undefined,
     level: String(row.grade_level ?? row.level ?? ""),
     status,
     enrichment: studentsLabel || "0/4",
@@ -48,7 +88,7 @@ async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label, level, track, profile_id, support_notes")
+      .select(STUDENT_SELECT)
       .order("display_name", { ascending: true });
 
     if (error) {
@@ -102,7 +142,7 @@ export async function fetchStudentByIdResolved(
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label, level, track, profile_id, support_notes")
+      .select(STUDENT_SELECT)
       .eq("id", normalized)
       .maybeSingle();
 

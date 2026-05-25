@@ -78,7 +78,7 @@ export default function SettingsQaTools() {
     [router, setDemoAccount],
   );
 
-  const openAdminFigmaPath = useCallback(
+  const openAdminPath = useCallback(
     (href: string) => {
       if (isTestPersonaSwitcherEnabled()) {
         setDemoAccount(DEFAULT_DEMO_ACCOUNT_ID);
@@ -135,7 +135,7 @@ export default function SettingsQaTools() {
             <span className="font-medium text-[#272932]">More routes:</span>{" "}
             <button
               type="button"
-              onClick={() => openAdminFigmaPath("/dashboard/classes/core")}
+              onClick={() => openAdminPath("/dashboard/classes/core")}
               className="text-[#14c1d5] font-medium hover:underline cursor-pointer bg-transparent border-0 p-0 inline"
             >
               Classes
@@ -143,7 +143,7 @@ export default function SettingsQaTools() {
             {" · "}
             <button
               type="button"
-              onClick={() => openAdminFigmaPath("/dashboard/parents")}
+              onClick={() => openAdminPath("/dashboard/parents")}
               className="text-[#14c1d5] font-medium hover:underline cursor-pointer bg-transparent border-0 p-0 inline"
             >
               Parents directory
@@ -278,16 +278,13 @@ export default function SettingsQaTools() {
                   {QA_FLOW_LAUNCHERS.map((flow) => (
                     <li
                       key={flow.id}
-                      className="px-3 py-3 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.5fr)_minmax(0,1fr)_auto] sm:gap-3 sm:items-center"
+                      className="px-3 py-3 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.5fr)_auto] sm:gap-3 sm:items-center"
                     >
                       <div className="mb-2 sm:mb-0">
                         <p className="font-semibold text-[#272932] text-[12px]">{flow.flowName}</p>
                         <p className="text-[11px] text-[#878c9c] mt-0.5 sm:hidden">{flow.route}</p>
                       </div>
                       <p className="text-[12px] text-[#525a6a] mb-2 sm:mb-0">{PERSONA_LABELS[flow.persona]}</p>
-                      <div className="mb-3 sm:mb-0 font-mono text-[10px] text-[#666d80] leading-snug">
-                        <span title={flow.figmaTitle}>{flow.figmaNodeId}</span>
-                      </div>
                       <div className="flex flex-wrap items-center gap-2 justify-end">
                         <button
                           type="button"

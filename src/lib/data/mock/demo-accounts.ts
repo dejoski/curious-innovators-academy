@@ -38,7 +38,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     persona: "student",
     displayName: "Anna Lee",
     roleLabel: "Student",
-    defaultRoute: "/dashboard/students/1",
+    defaultRoute: "/dashboard/students/1/schedule",
     studentId: "1",
   },
 ];

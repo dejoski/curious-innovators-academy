@@ -27,6 +27,7 @@
 .DS_Store
 .!*
 *.pem
+/.codex-dev/
 
 # debug
 npm-debug.log*
@@ -40,6 +41,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# supabase local linked-project state
+/supabase/.temp/
 
 # typescript
 *.tsbuildinfo

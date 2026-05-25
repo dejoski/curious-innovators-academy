@@ -19,7 +19,7 @@ import {
   DASHBOARD_TEXT_PRIMARY_CLASS,
 } from "@/lib/dashboard-shell-classes";
 
-const imgHugeiconsStudentPicker = "/images/figma-icon-student.svg";
+const imgHugeiconsStudentPicker = "/images/icon-student-picker.svg";
 
 type StudentsBody = {
   students?: StudentListItem[];
@@ -28,6 +28,7 @@ type StudentsBody = {
 
 type ParentStudentContextSelectorProps = {
   onSelectedStudentNameChange?: (name: string) => void;
+  pickerWidthPx?: number;
 };
 
 function readCachedStudents() {
@@ -41,6 +42,7 @@ function readCachedStudents() {
 
 export default function ParentStudentContextSelector({
   onSelectedStudentNameChange,
+  pickerWidthPx,
 }: ParentStudentContextSelectorProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -153,17 +155,26 @@ export default function ParentStudentContextSelector({
     replaceStudentUrl(studentId);
   }
 
+  const pickerStyle = pickerWidthPx
+    ? ({
+        "--parent-student-picker-width": `${Math.round(pickerWidthPx)}px`,
+      } as React.CSSProperties)
+    : undefined;
+
   return (
-    <div className="flex w-full max-w-full flex-col items-start gap-2 sm:min-w-0 sm:flex-row sm:items-center sm:justify-between lg:w-[448px]">
+    <div
+      className="flex w-full max-w-full flex-col items-start gap-2 sm:w-auto sm:min-w-0 sm:flex-row sm:items-center sm:gap-3"
+      style={pickerStyle}
+    >
       <span
-        className={`font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] leading-[1.4] sm:text-[16px] ${DASHBOARD_TEXT_PRIMARY_CLASS}`}
+        className={`shrink-0 font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] leading-[1.4] sm:text-[16px] ${DASHBOARD_TEXT_PRIMARY_CLASS}`}
       >
         {label}
       </span>
       <label className="sr-only" htmlFor="parent-student-picker">
         Select student
       </label>
-      <div className="relative h-[44px] w-full overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:min-w-[220px] sm:flex-1 lg:w-[260px] lg:flex-none">
+      <div className="relative h-[44px] w-full overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:w-[var(--parent-student-picker-width,260px)] sm:min-w-[180px] sm:max-w-[min(420px,calc(100vw-160px))] sm:flex-none">
         <img
           alt=""
           className="pointer-events-none absolute left-[24px] top-1/2 z-10 size-[20px] -translate-y-1/2 object-contain"

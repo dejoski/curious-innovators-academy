@@ -23,6 +23,12 @@ const REQUIRED_USERS = [
     passwordEnvs: ["CIA_RLS_PARENT_PASSWORD", "CIA_PARENT_LEE_PASSWORD"],
   },
   {
+    email: "parent.smith@cia.demo",
+    role: "parent",
+    displayName: "Ms. Smith",
+    passwordEnvs: ["CIA_PARENT_SMITH_PASSWORD"],
+  },
+  {
     email: "parent.collins@cia.demo",
     role: "parent",
     displayName: "Ms. Collins",
@@ -86,6 +92,7 @@ Password env:
 
 Optional password env:
   CIA_PARENT_COLLINS_PASSWORD
+  CIA_PARENT_SMITH_PASSWORD
   CIA_TEACHER_EMILY_PASSWORD
   CIA_DEMO_USER_PASSWORD
 

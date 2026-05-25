@@ -165,6 +165,18 @@ export function eventTypeFromBadgeTone(tone: StudentScheduleBadge["tone"]): Cale
   return "event";
 }
 
+export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): StudentScheduleBadge[] {
+  const real = badges.filter((badge) => badge.tone !== "empty");
+  if (real.length === 0) return [];
+
+  const approved = real.filter((badge) => badge.tone === "approved");
+  if (approved.length > 0) {
+    return [approved[approved.length - 1]];
+  }
+
+  return real;
+}
+
 export function splitScheduleLabel(schedule: string): { day: string; time: string } {
   const parts = schedule.split("·").map((part) => part.trim()).filter(Boolean);
   return {

@@ -54,7 +54,7 @@ export default async function Dashboard() {
 | Function | Fallback | Table name (when ready) |
 | --- | --- | --- |
 | `fetchTeachers` | `TEACHERS_FALLBACK` | `teachers` |
-| `fetchParents` | `PARENTS_FALLBACK` | `parents` |
+| `fetchParents` | derived from `STUDENTS_FALLBACK` guardians | `parents` |
 | `fetchEnrichmentRequests` | `REQUESTS_FALLBACK` | `enrichment_requests` |
 | `fetchStudentNotes` | empty | `student_records` |
 | `fetchFeedbackSubmissions` | empty | `feedback` |

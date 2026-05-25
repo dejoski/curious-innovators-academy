@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type {
   ClassRosterStatus,
@@ -9,6 +11,7 @@ import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { CLASSES_FALLBACK } from "@/lib/data/mock/classes";
 import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -358,12 +361,6 @@ function fallbackRoster(): ResolvedList<ClassRosterStudent> {
       description: student.notes,
     })),
   );
-}
-
-function firstRel<T extends Record<string, unknown>>(v: unknown): T | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return (v[0] as T) ?? null;
-  return v as T;
 }
 
 function mapRosterEnrollmentRow(row: Record<string, unknown>): ClassRosterStudent | null {

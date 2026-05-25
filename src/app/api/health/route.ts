@@ -13,7 +13,6 @@ export async function GET() {
       demoLoginDisabled: env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "false",
       privilegedDemoDataDisabled: !canUsePrivilegedDemoData(),
       testPersonaUiDisabled: !isTestPersonaSwitcherEnabled(),
-      figmaCaptureDisabled: env.NEXT_PUBLIC_ENABLE_FIGMA_CAPTURE?.trim() !== "true",
       mockNotificationHeaderDisabled:
         env.NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER?.trim() !== "true",
       signupInviteConfigured: Boolean(signupInvite && signupInvite !== "CIA-DEMO-2026"),

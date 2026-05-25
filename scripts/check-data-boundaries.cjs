@@ -159,7 +159,16 @@ const studentRepository = fs.readFileSync(path.join(root, "src/lib/data/reposito
 if (!studentRepository.includes("row.support_notes")) {
   violations.push("src/lib/data/repositories/students.ts: student mapper must read persisted support_notes");
 }
-if ((studentRepository.match(/profile_id, support_notes/g) ?? []).length < 2) {
+const studentSelectConstantIncludesSupportNotes =
+  /const\s+STUDENT_SELECT\s*=[\s\S]*support_notes/.test(studentRepository);
+const studentReadsUseSelectConstant =
+  (studentRepository.match(/\.select\(STUDENT_SELECT\)/g) ?? []).length >= 2;
+const studentInlineReadsIncludeSupportNotes =
+  (studentRepository.match(/profile_id, support_notes/g) ?? []).length >= 2;
+if (
+  !studentInlineReadsIncludeSupportNotes &&
+  !(studentSelectConstantIncludesSupportNotes && studentReadsUseSelectConstant)
+) {
   violations.push("src/lib/data/repositories/students.ts: student Supabase selects must include support_notes for list and detail reads");
 }
 

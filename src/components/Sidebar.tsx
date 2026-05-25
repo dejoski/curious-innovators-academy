@@ -37,13 +37,13 @@ const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
 const imgImage1 = "/images/lightbulb-fresh.png";
 const imgSiDashboardLine = "/images/icon-dashboard.svg";
 const imgGroup = "/images/icon-notebook-outline.svg";
-const imgHugeiconsStudent = "/images/figma-icon-student.svg";
+const imgHugeiconsStudent = "/images/icon-student-picker.svg";
 const imgHugeiconsStudentActive = "/images/icon-student-active.svg";
 const imgHugeiconsStudentInactive = "/images/icon-student.svg";
 const imgRiParentLine = "/images/icon-parent.svg";
 const imgGroup1 = "/images/icon-class-lesson-sidebar.svg";
 const imgVuesaxLinearSetting2 = "/images/icon-settings.svg";
-const imgHugeiconsStudent1 = "/images/figma-icon-student.svg";
+const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
 const imgPolygon1 = "/images/mask-group.svg";
 const imgNotebookOneSidebar = "/images/icon-notebook-one-sidebar.svg";
 const imgCalendarLinear = "/images/icon-calendar-linear.svg";
@@ -123,7 +123,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   };
 
   React.useEffect(() => {
-    /* Keep submenu expansion deterministic per-route so visual state matches Figma targets after navigation. */
+    /* Keep submenu expansion deterministic per-route after navigation. */
     setClassesExpanded(pathname.startsWith("/dashboard/classes")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
     setStudentsExpanded(pathname.startsWith("/dashboard/students")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
     setTeachersExpanded(pathname.startsWith("/dashboard/teachers")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
@@ -165,7 +165,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
       : persona === "teacher"
         ? "/dashboard/teachers"
         : persona === "student"
-          ? studentDemoRoot
+          ? `${studentDemoRoot}/schedule`
           : "/dashboard";
 
   function adminAllClassesPath(p: string) {

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { mapClassRow } from "@/lib/data/repositories/classes";
 import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
@@ -8,6 +10,7 @@ import {
   isSupabaseConfigured,
 } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
+import { scheduleSlotForClassFields } from "@/lib/schedule-slots";
 import type {
   ClassRosterStatus,
   ClassRosterStudent,
@@ -28,11 +31,27 @@ type SupabaseMutationClient =
   | Awaited<ReturnType<typeof createSupabaseServerClient>>
   | ReturnType<typeof createSupabaseAdminClient>;
 
+type PlacementClassRow = {
+  id?: unknown;
+  program?: unknown;
+  block?: unknown;
+  schedule_summary?: unknown;
+};
+
 function workflowStatusForRoster(status: ClassRosterStatus) {
   if (status === "Approved") return "approved";
   if (status === "Waitlisted") return "waitlisted";
   if (status === "Rejected") return "rejected";
   return "pending";
+}
+
+function classPlacementSlot(row: PlacementClassRow): string | null {
+  const source = `${String(row.block ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
+  if (!/\b(?:block|b)\s*[1-4]\b/.test(source)) return null;
+  return scheduleSlotForClassFields({
+    block: row.block,
+    scheduleSummary: row.schedule_summary,
+  });
 }
 
 function parseStudentsFraction(label: string): { enrolled: number; capacity: number } {
@@ -369,6 +388,13 @@ export async function serverPatchEnrollmentStatus(input: {
       .eq("class_id", classId)
       .eq("student_id", studentId);
     if (error) return { ok: false, message: error.message };
+    if (dbStatus === "approved") {
+      const cleaned = await clearSameSlotAlternativesAfterApproval(supabase, {
+        studentId,
+        approvedClassId: classId,
+      });
+      if (!cleaned.ok) return cleaned;
+    }
     await writeAuditEvent(supabase, {
       action: "enrollment.status.update",
       entityType: "enrollment",
@@ -459,6 +485,13 @@ export async function serverInsertRosterStudent(input: {
       status: dbStatus,
     });
     if (enrollmentError) return { ok: false, message: enrollmentError.message };
+    if (dbStatus === "approved") {
+      const cleaned = await clearSameSlotAlternativesAfterApproval(supabase, {
+        studentId: String(student.id),
+        approvedClassId: classId,
+      });
+      if (!cleaned.ok) return cleaned;
+    }
 
     const row: ClassRosterStudent = {
       id: String(student.id),
@@ -696,12 +729,14 @@ export async function serverDeleteTeacher(id: string): Promise<{ ok: true } | Wr
 
 const requestSelect = `
   id,
+  student_id,
+  class_id,
   status,
   block,
   level,
   option_label,
   students ( display_name, guardian_label ),
-  classes ( name ),
+  classes ( id, name, program, block, schedule_summary ),
   requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
 `;
 
@@ -913,6 +948,61 @@ async function ensureClassCapacityForChoices(
   return { ok: true };
 }
 
+async function clearSameSlotAlternativesAfterApproval(
+  supabase: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    approvedClassId: string;
+    approvedRequestId?: string;
+  },
+): Promise<WriteFail | { ok: true }> {
+  const { data: approvedClass, error: approvedClassError } = await supabase
+    .from("classes")
+    .select("id, program, block, schedule_summary")
+    .eq("id", input.approvedClassId)
+    .maybeSingle();
+  if (approvedClassError) return { ok: false, message: approvedClassError.message };
+  if (!approvedClass) return { ok: false, message: "Approved class was not found" };
+
+  const approved = approvedClass as PlacementClassRow;
+  if (String(approved.program ?? "").toLowerCase() !== "enrichment") return { ok: true };
+
+  const approvedSlot = classPlacementSlot(approved);
+  const { data: classRows, error: classesError } = await supabase
+    .from("classes")
+    .select("id, program, block, schedule_summary")
+    .eq("program", "enrichment");
+  if (classesError) return { ok: false, message: classesError.message };
+
+  const sameSlotClassIds = ((classRows ?? []) as PlacementClassRow[])
+    .filter((row) => String(row.id ?? "") && classPlacementSlot(row) === approvedSlot)
+    .map((row) => String(row.id));
+  if (sameSlotClassIds.length === 0) return { ok: true };
+
+  const conflictingClassIds = sameSlotClassIds.filter((classId) => classId !== input.approvedClassId);
+  if (conflictingClassIds.length > 0) {
+    const { error: enrollmentDeleteError } = await supabase
+      .from("enrollments")
+      .delete()
+      .eq("student_id", input.studentId)
+      .in("class_id", conflictingClassIds);
+    if (enrollmentDeleteError) return { ok: false, message: enrollmentDeleteError.message };
+  }
+
+  let requestDelete = supabase
+    .from("class_requests")
+    .delete()
+    .eq("student_id", input.studentId)
+    .in("class_id", sameSlotClassIds);
+  if (input.approvedRequestId) {
+    requestDelete = requestDelete.neq("id", input.approvedRequestId);
+  }
+  const { error: requestDeleteError } = await requestDelete;
+  if (requestDeleteError) return { ok: false, message: requestDeleteError.message };
+
+  return { ok: true };
+}
+
 function requestSlotKey(choice: { block: string; level: string }) {
   return `${choice.block}\u0000${choice.level}`;
 }
@@ -1093,6 +1183,31 @@ export async function serverPatchEnrichmentRequest(
       .maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row updated" };
+    if (dbStatus === "approved") {
+      const raw = data as unknown as Record<string, unknown>;
+      const studentId = String(raw.student_id ?? "").trim();
+      const classId = String(raw.class_id ?? "").trim();
+      if (!studentId || !classId) return { ok: false, message: "Approved request is missing student or class id" };
+
+      const { error: enrollmentError } = await supabase
+        .from("enrollments")
+        .upsert(
+          {
+            student_id: studentId,
+            class_id: classId,
+            status: "approved" as const,
+          },
+          { onConflict: "class_id,student_id" },
+        );
+      if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+      const cleaned = await clearSameSlotAlternativesAfterApproval(supabase, {
+        studentId,
+        approvedClassId: classId,
+        approvedRequestId: id,
+      });
+      if (!cleaned.ok) return cleaned;
+    }
     const mapped = mapRequestRow(data as unknown as Record<string, unknown>);
     if (!mapped) return { ok: false, message: "Could not map request" };
     await writeAuditEvent(supabase, {

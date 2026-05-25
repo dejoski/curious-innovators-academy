@@ -11,7 +11,6 @@
     "check:workspace-hygiene": "node scripts/check-workspace-hygiene.cjs",
     "check:operator-scripts": "node scripts/check-operator-scripts.cjs",
     "check:ci-workflows": "node scripts/check-ci-workflows.cjs",
-    "check:production-todo": "node scripts/check-production-todo.cjs",
     "check:env-contract": "node scripts/check-env-contract.cjs",
     "check:data-boundaries": "node scripts/check-data-boundaries.cjs",
     "check:api-auth-guards": "node scripts/check-api-auth-guards.cjs",

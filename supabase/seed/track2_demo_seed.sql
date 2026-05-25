@@ -6,6 +6,7 @@
 --
 --   - name.example@gmail.com     — admin (matches Playwright smoke test email)
 --   - parent.lee@cia.demo        — parent (“Mr. Lee” mocks)
+--   - parent.smith@cia.demo      — parent (“Ms. Smith” mocks)
 --   - parent.collins@cia.demo    — parent (“Ms. Collins” mocks)
 --   - teacher.emily@cia.demo     — teacher (Emily Carter from teachers mock)
 --   - student.anna@cia.demo      — optional student login (Anna Lee)
@@ -22,6 +23,10 @@ WHERE lower(email) = lower('name.example@gmail.com');
 UPDATE public.profiles
 SET role = 'parent'::public.app_role, display_name = 'Mr. Lee'
 WHERE lower(email) = lower('parent.lee@cia.demo');
+
+UPDATE public.profiles
+SET role = 'parent'::public.app_role, display_name = 'Ms. Smith'
+WHERE lower(email) = lower('parent.smith@cia.demo');
 
 UPDATE public.profiles
 SET role = 'parent'::public.app_role, display_name = 'Ms. Collins'
@@ -44,6 +49,7 @@ BEGIN
   FROM (VALUES
     ('name.example@gmail.com'),
     ('parent.lee@cia.demo'),
+    ('parent.smith@cia.demo'),
     ('parent.collins@cia.demo'),
     ('teacher.emily@cia.demo'),
     ('student.anna@cia.demo')
@@ -76,6 +82,9 @@ INSERT INTO public.parents (profile_id)
 SELECT id FROM public.profiles WHERE lower(email) = lower('parent.lee@cia.demo') LIMIT 1;
 
 INSERT INTO public.parents (profile_id)
+SELECT id FROM public.profiles WHERE lower(email) = lower('parent.smith@cia.demo') LIMIT 1;
+
+INSERT INTO public.parents (profile_id)
 SELECT id FROM public.profiles WHERE lower(email) = lower('parent.collins@cia.demo') LIMIT 1;
 
 INSERT INTO public.teachers (profile_id, subjects, phone, program)
@@ -99,6 +108,13 @@ FROM public.parents p
 JOIN public.profiles pr ON pr.id = p.profile_id
 JOIN public.students s ON s.display_name IN ('Anna Lee', 'George Lee', 'Bruna Lee')
 WHERE lower(pr.email) = lower('parent.lee@cia.demo');
+
+INSERT INTO public.parent_students (parent_id, student_id)
+SELECT p.id, s.id
+FROM public.parents p
+JOIN public.profiles pr ON pr.id = p.profile_id
+JOIN public.students s ON s.display_name IN ('James Smith')
+WHERE lower(pr.email) = lower('parent.smith@cia.demo');
 
 INSERT INTO public.parent_students (parent_id, student_id)
 SELECT p.id, s.id
@@ -394,7 +410,7 @@ FROM (VALUES
   ('Anna Lee', 'Digital Storytelling & Animation', 'parent.lee@cia.demo', 'pending', 'B4', '3', '2nd'),
   ('George Lee', 'Journalism & Media Writing', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
   ('Bruna Lee', 'Creative Arts', 'parent.lee@cia.demo', 'pending', 'B4', '3', '1st'),
-  ('James Smith', 'Ocean Explorers', 'parent.lee@cia.demo', 'waitlisted', 'B3', '3', '1st'),
+  ('James Smith', 'Ocean Explorers', 'parent.smith@cia.demo', 'waitlisted', 'B3', '3', '1st'),
   ('Bruce Collins', 'Robotics Lab', 'parent.collins@cia.demo', 'pending', 'B4', '3', '1st'),
   ('Maria Collins', 'Journalism & Media Writing', 'parent.collins@cia.demo', 'approved', 'B4', '3', '1st')
 ) AS v(student_name, class_name, requester_email, status, block, level, option_label)

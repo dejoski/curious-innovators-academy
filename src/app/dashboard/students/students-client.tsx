@@ -1,5 +1,6 @@
 "use client";
 import type { DataSource } from "@/lib/data/fetch-source";
+import type { StudentListItem } from "@/lib/data/types";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -8,10 +9,10 @@ import {
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
-const imgHugeiconsStudent1 = "/images/figma-icon-student.svg";
-const imgMaskGroup = "/images/figma-icon-pending-mask.svg";
-const imgGroup2 = "/images/figma-icon-fully-scheduled.svg";
-const imgGroup3 = "/images/figma-icon-open-blocks.svg";
+const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
+const imgMaskGroup = "/images/icon-pending-requests.svg";
+const imgGroup2 = "/images/icon-fully-scheduled.svg";
+const imgGroup3 = "/images/icon-open-blocks.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
@@ -173,18 +174,7 @@ function TableRow({
     </div>
   );
 }
-type ProgramTrack = "core" | "enrichment";
-type StudentItem = {
-  id: string;
-  name: string;
-  avatar: string;
-  parent: string;
-  level: string;
-  status: "Incomplete" | "Completed";
-  enrichment: string;
-  notes: string;
-  track: ProgramTrack;
-};
+type StudentItem = StudentListItem;
 export type StudentsStudentsListProps = {
   initialStudents: StudentItem[];
   dataSource: DataSource;
@@ -212,6 +202,7 @@ export default function StudentsStudentsList({
   const [messageTarget, setMessageTarget] = useState<{
     name: string;
     parent: string;
+    parentEmail?: string;
   } | null>(null);
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [spreadsheetBanner, setSpreadsheetBanner] = useState<string | null>(
@@ -685,6 +676,7 @@ export default function StudentsStudentsList({
                       setMessageTarget({
                         name: student.name,
                         parent: student.parent,
+                        parentEmail: student.parentEmail,
                       })
                     }
                     onRequestRemove={() => setRemoveTargetId(student.id)}
@@ -777,12 +769,20 @@ export default function StudentsStudentsList({
         >
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#0d0d12]">
-              Message parent
+              Email parent
             </h2>
-            <p className="mt-2 text-sm text-[#666d80]">
-              Open an email draft about <span className="font-semibold">{messageTarget.name}</span>. Add the parent
-              recipient in your mail app before sending.
-            </p>
+            {messageTarget.parentEmail ? (
+              <p className="mt-2 text-sm text-[#666d80]">
+                Open a mail draft to <span className="font-semibold">{messageTarget.parent}</span> at{" "}
+                <span className="font-semibold">{messageTarget.parentEmail}</span> about{" "}
+                <span className="font-semibold">{messageTarget.name}</span>. Nothing is sent until you send it.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-[#8a5a00]">
+                No parent email is linked to <span className="font-semibold">{messageTarget.name}</span>. Add the
+                parent email before messaging.
+              </p>
+            )}
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
@@ -791,15 +791,26 @@ export default function StudentsStudentsList({
               >
                 Close
               </button>
-              <a
-                className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
-                href={mailtoHref({
-                  subject: `Message about ${messageTarget.name}`,
-                  body: `Hi ${messageTarget.parent},\n\nRegarding ${messageTarget.name}:\n\n`,
-                })}
-              >
-                Open email draft
-              </a>
+              {messageTarget.parentEmail ? (
+                <a
+                  className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
+                  href={mailtoHref({
+                    to: messageTarget.parentEmail,
+                    subject: `Message about ${messageTarget.name}`,
+                    body: `Hi ${messageTarget.parent},\n\nRegarding ${messageTarget.name}:\n\n`,
+                  })}
+                >
+                  Open mail draft
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="cursor-not-allowed rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-400"
+                >
+                  No email on file
+                </button>
+              )}
             </div>
           </div>
         </div>

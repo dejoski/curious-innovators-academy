@@ -12,11 +12,11 @@ const os = require("os");
 const path = require("path");
 
 const REQUIRED_TABLES = [
-  ["profiles", 5],
-  ["parents", 2],
+  ["profiles", 6],
+  ["parents", 3],
   ["teachers", 1],
   ["students", 6],
-  ["parent_students", 5],
+  ["parent_students", 6],
   ["classes", 5],
   ["enrollments", 5],
   ["class_requests", 6],
@@ -33,6 +33,7 @@ const REQUIRED_TABLES = [
 const REQUIRED_PROFILES = [
   ["name.example@gmail.com", "admin"],
   ["parent.lee@cia.demo", "parent"],
+  ["parent.smith@cia.demo", "parent"],
   ["parent.collins@cia.demo", "parent"],
   ["teacher.emily@cia.demo", "teacher"],
   ["student.anna@cia.demo", "student"],

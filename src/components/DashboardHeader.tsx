@@ -29,7 +29,6 @@ const imgSolarLogout2OutlineParent = "/images/logout-icon-parent.svg";
 const imgContainer = "/images/icon-notification-bell.svg";
 const imgContainerParent = "/images/icon-notification-bell-parent.svg";
 const imgDivider = "/images/icon-divider.svg";
-/** Figma header feedback icon */
 const imgRiParentLine = "/images/icon-person-feedback.svg";
 
 type NotificationsBody = {
@@ -70,6 +69,7 @@ export default function DashboardHeader() {
   const [notificationSyncHint, setNotificationSyncHint] = useState<string | null>(null);
   const [selectedStudentName, setSelectedStudentName] = useState("");
   const [headerContentWidth, setHeaderContentWidth] = useState(0);
+  const [fontMeasureVersion, setFontMeasureVersion] = useState(0);
   const headerContentRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -103,29 +103,82 @@ export default function DashboardHeader() {
   const compactMenuItemClass =
     "block w-full px-4 py-2 text-left text-sm text-[#272932] transition-colors hover:bg-gray-50";
   const parentContextLabel = inParentShell ? getParentStudentContextLabel(pathname) : "";
-  const canShowParentInlineActions = useMemo(() => {
-    if (!inParentShell) return true;
-    if (headerContentWidth <= 0) return false;
+  const parentHeaderLayout = useMemo(() => {
+    if (!inParentShell) {
+      return {
+        canShowInlineActions: true,
+        canShowProfileText: true,
+        pickerWidth: undefined as number | undefined,
+      };
+    }
+    if (headerContentWidth <= 0) {
+      return { canShowInlineActions: false, canShowProfileText: false, pickerWidth: 260 };
+    }
 
     const labelWidth = measureHeaderText(parentContextLabel, "600 16px Inter, sans-serif");
     const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 16px Inter, sans-serif");
-    const pickerWidth = Math.max(220, Math.ceil(studentNameWidth) + 128);
-    const fullActionWidth = 276;
-    const rowGapsAndPadding = 48;
+    const profileNameWidth = measureHeaderText(headerDisplayName, "600 12px Inter, sans-serif");
+    const profileRoleWidth = measureHeaderText(headerRoleLine, "400 12px Inter, sans-serif");
+    const desiredPickerWidth = Math.min(360, Math.max(220, Math.ceil(studentNameWidth) + 116));
+    const profileTextWidth = Math.ceil(Math.max(profileNameWidth, profileRoleWidth));
+    const compactInlineActionsWidth = 32 + 24 + 32 + 32 + 64;
+    const fullInlineActionsWidth = compactInlineActionsWidth + 8 + profileTextWidth;
+    const compactActionsWidth = 36;
+    const selectorGap = 12;
+    const headerGap = 12;
+    const safetyPadding = 12;
+    const selectedLabelWidth = Math.ceil(labelWidth);
+    const canShowProfileText =
+      headerContentWidth >=
+      selectedLabelWidth + selectorGap + desiredPickerWidth + headerGap + fullInlineActionsWidth + safetyPadding;
+    const canShowInlineActions =
+      canShowProfileText ||
+      headerContentWidth >=
+        selectedLabelWidth + selectorGap + desiredPickerWidth + headerGap + compactInlineActionsWidth + safetyPadding;
+    const reservedActionsWidth = canShowInlineActions
+      ? canShowProfileText
+        ? fullInlineActionsWidth
+        : compactInlineActionsWidth
+      : compactActionsWidth;
+    const availablePickerWidth =
+      headerContentWidth - selectedLabelWidth - selectorGap - headerGap - reservedActionsWidth - safetyPadding;
+    const pickerWidth = Math.max(180, Math.min(desiredPickerWidth, availablePickerWidth));
 
-    return headerContentWidth >= labelWidth + pickerWidth + fullActionWidth + rowGapsAndPadding;
-  }, [headerContentWidth, inParentShell, parentContextLabel, selectedStudentName]);
+    return { canShowInlineActions, canShowProfileText, pickerWidth };
+  }, [fontMeasureVersion, headerContentWidth, headerDisplayName, headerRoleLine, inParentShell, parentContextLabel, selectedStudentName]);
+  const canShowParentInlineActions = parentHeaderLayout.canShowInlineActions;
+  const canShowParentProfileText = parentHeaderLayout.canShowProfileText;
 
   useEffect(() => {
-    if (!inParentShell || !headerContentRef.current || typeof ResizeObserver === "undefined") return;
+    if (!inParentShell || !headerContentRef.current) return;
     const element = headerContentRef.current;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? element.getBoundingClientRect().width;
+    const updateWidth = (width = element.getBoundingClientRect().width) => {
       setHeaderContentWidth(Math.floor(width));
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      const handleResize = () => updateWidth();
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      updateWidth(entries[0]?.contentRect.width);
     });
     observer.observe(element);
-    setHeaderContentWidth(Math.floor(element.getBoundingClientRect().width));
     return () => observer.disconnect();
+  }, [inParentShell]);
+
+  useEffect(() => {
+    if (!inParentShell || typeof document === "undefined" || !("fonts" in document)) return;
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) setFontMeasureVersion((version) => version + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [inParentShell]);
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -211,9 +264,12 @@ export default function DashboardHeader() {
       <div className={`${DASHBOARD_MAIN_HEADER_WRAP_CLASS} flex flex-col`}>
       <div className={DASHBOARD_MAIN_HEADER_ROW_CLASS}>
       <div ref={headerContentRef} className={`${DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS} flex flex-[1_0_0] h-full min-w-px items-center justify-between gap-3`}>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 lg:max-w-[min(100%,720px)]">
+        <div className={inParentShell ? "flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 sm:flex-none" : "flex min-w-0 flex-1 items-center"}>
           {inParentShell && !pathname.startsWith("/dashboard/parents/feedback") ? (
-            <ParentStudentContextSelector onSelectedStudentNameChange={setSelectedStudentName} />
+            <ParentStudentContextSelector
+              onSelectedStudentNameChange={setSelectedStudentName}
+              pickerWidthPx={parentHeaderLayout.pickerWidth}
+            />
           ) : null}
           {!inParentShell ? (
             <div className="min-w-[1px]" aria-hidden />
@@ -363,7 +419,7 @@ export default function DashboardHeader() {
                   />
                 </div>
               </div>
-              <div className="content-stretch flex flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left">
+              <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
                 <p className="font-['Inter',sans-serif] font-semibold relative shrink-0 text-[#0d0d12]">
                   {headerDisplayName}
                 </p>

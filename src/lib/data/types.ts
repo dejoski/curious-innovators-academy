@@ -6,6 +6,7 @@ export type StudentListItem = {
   name: string;
   avatar: string;
   parent: string;
+  parentEmail?: string;
   level: string;
   status: "Incomplete" | "Completed";
   enrichment: string;

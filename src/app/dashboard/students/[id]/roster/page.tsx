@@ -40,6 +40,15 @@ function paginationSlice(totalPages: number, page: number): (number | "ellipsis"
   return [1, "ellipsis", page, "ellipsis", totalPages];
 }
 
+function uniqueSorted(values: string[], numeric = false) {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, undefined, {
+      numeric,
+      sensitivity: "base",
+    }),
+  );
+}
+
 export default function StudentStudentRoster() {
   const params = useParams<{ id: string }>();
   const contextStudentId = params.id ?? "";
@@ -94,16 +103,32 @@ export default function StudentStudentRoster() {
   }, [contextStudentId]);
 
   const classOptions = useMemo(
-    () => Array.from(new Set(students.map((student) => student.classRef).filter(Boolean))),
+    () => uniqueSorted(students.map((student) => student.classRef)),
     [students],
   );
   const blockOptions = useMemo(
-    () => Array.from(new Set(students.map((student) => student.blockRef).filter(Boolean))),
-    [students],
+    () =>
+      uniqueSorted(
+        students
+          .filter((student) => !selectedClass || student.classRef === selectedClass)
+          .map((student) => student.blockRef),
+        true,
+      ),
+    [selectedClass, students],
   );
   const levelOptions = useMemo(
-    () => Array.from(new Set(students.map((student) => student.levelRef).filter(Boolean))),
-    [students],
+    () =>
+      uniqueSorted(
+        students
+          .filter(
+            (student) =>
+              (!selectedClass || student.classRef === selectedClass) &&
+              (!selectedBlock || student.blockRef === selectedBlock),
+          )
+          .map((student) => student.levelRef),
+        true,
+      ),
+    [selectedBlock, selectedClass, students],
   );
 
   useEffect(() => {

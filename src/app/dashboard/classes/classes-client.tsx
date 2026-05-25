@@ -50,7 +50,13 @@ const SORT_LABELS: Record<SortKey, string> = {
   status: "Class status",
 };
 
-type VisibilityFilter = "all" | "active" | "inactive";
+type VisibilityFilter = "all" | "active" | "full";
+
+const VISIBILITY_FILTER_LABELS: Record<VisibilityFilter, string> = {
+  all: "All Classes",
+  active: "Active Classes",
+  full: "Full Classes",
+};
 
 function dash(text: string): string {
   const t = text.trim();
@@ -100,11 +106,12 @@ export default function ClassesPageClient({
   const [classes, setClasses] = useState<SchoolClassRow[]>(initialClasses);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [trackTab, setTrackTab] = useState<ProgramTrack>(initialTrack);
-  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("inactive");
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -114,6 +121,7 @@ export default function ClassesPageClient({
   );
 
   const sortRef = useRef<HTMLDivElement | null>(null);
+  const filterRef = useRef<HTMLDivElement | null>(null);
   const rowMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const rowMenuTriggerRef = useRef<HTMLElement | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
@@ -136,7 +144,7 @@ export default function ClassesPageClient({
 
     if (visibilityFilter === "active") {
       rows = rows.filter((c) => c.status === "Active");
-    } else if (visibilityFilter === "inactive") {
+    } else if (visibilityFilter === "full") {
       rows = rows.filter((c) => c.status === "Full");
     }
 
@@ -190,6 +198,7 @@ export default function ClassesPageClient({
     el.indeterminate = selectedIds.size > 0 && selectedIds.size < n;
   }, [selectedIds, visibleRows.length]);
 
+  useClickOutside(filterRef as React.RefObject<HTMLElement | null>, () => setFilterOpen(false), filterOpen);
   useClickOutside(sortRef as React.RefObject<HTMLElement | null>, () => setSortOpen(false), sortOpen);
 
   useLayoutEffect(() => {
@@ -396,14 +405,41 @@ export default function ClassesPageClient({
             </div>
 
             <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:gap-[16px]">
-              <button
-                type="button"
-                className="flex min-w-0 max-w-full items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
-              >
-                <img src={imgFilterFunnel} alt="" className="size-[14px]" />
-                <span className="truncate">Filter by: {visibilityFilter === "inactive" ? "Inactive Classes" : visibilityFilter === "active" ? "Active Classes" : "All Classes"}</span>
-                <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
-              </button>
+              <div className="relative" ref={filterRef}>
+                <button
+                  type="button"
+                  className="flex min-w-0 max-w-full items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
+                  onClick={() => {
+                    setFilterOpen((open) => !open);
+                    setSortOpen(false);
+                    setRowMenu(null);
+                  }}
+                  aria-expanded={filterOpen}
+                >
+                  <img src={imgFilterFunnel} alt="" className="size-[14px]" />
+                  <span className="truncate">Filter by: {VISIBILITY_FILTER_LABELS[visibilityFilter]}</span>
+                  <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
+                </button>
+                {filterOpen ? (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-[190px] rounded-lg border border-[#ebecef] bg-white py-1 shadow-md">
+                    {(Object.keys(VISIBILITY_FILTER_LABELS) as VisibilityFilter[]).map((key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`w-full px-3 py-2 text-left font-sans text-[13px] hover:bg-[#fafafa] ${
+                          visibilityFilter === key ? "font-semibold text-[#14c1d5]" : "text-[#0d0d12]"
+                        }`}
+                        onClick={() => {
+                          setVisibilityFilter(key);
+                          setFilterOpen(false);
+                        }}
+                      >
+                        {VISIBILITY_FILTER_LABELS[key]}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
               <div className="relative" ref={sortRef}>
                 <button

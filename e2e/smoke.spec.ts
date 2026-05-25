@@ -1,9 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-/** Matches login page validation + email placeholder (`name.example@gmail.com`). */
-const VALID_EMAIL = "name.example@gmail.com";
-const VALID_PASSWORD = "secret12";
-
 test.describe("smoke", () => {
   test("login page loads", async ({ page }) => {
     await page.goto("/login");
@@ -13,13 +9,18 @@ test.describe("smoke", () => {
     await expect(page.getByPlaceholder("name.example@gmail.com")).toBeVisible();
   });
 
-  test("valid credentials navigate to dashboard", async ({ page }) => {
+  test("admin demo login starts at admin dashboard", async ({ page }) => {
     await page.goto("/login");
-    await page.getByPlaceholder("name.example@gmail.com").fill(VALID_EMAIL);
-    await page.getByPlaceholder("Enter your password").fill(VALID_PASSWORD);
-    await page.getByRole("button", { name: /start your journey/i }).click();
-    await expect(page).toHaveURL(/\/dashboard(\/|$)/);
+    await page.getByRole("button", { name: /continue as admin/i }).click();
+    await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
     await expect(page.getByRole("main")).toBeVisible();
+  });
+
+  test("parent demo login starts at parent dashboard, not profile", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: /continue as parent/i }).click();
+    await expect(page).toHaveURL(/\/dashboard\/parents\/home(?:\?|$)/);
+    await expect(page.getByText(/Attendance/i).first()).toBeVisible();
   });
 
   test("GET /dashboard/classes returns 200", async ({ page }) => {

@@ -1,7 +1,4 @@
-/**
- * Concrete demo accounts for QA / Figma flow parity. Used only when
- * `NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI=true`.
- */
+/** Concrete demo accounts used only when `NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI=true`. */
 import {
   DEFAULT_DEMO_ACCOUNT_ID,
   DEMO_ACCOUNTS,
@@ -61,45 +58,6 @@ export function initialsFromDisplayName(name: string): string {
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return `${parts[0]!.charAt(0)}${parts[parts.length - 1]!.charAt(0)}`.toUpperCase();
 }
-
-/**
- * Direct links for common Figma review paths (admin shell). Opening these from
- * Settings switches to an admin demo account so the sidebar matches.
- */
-export type DemoFigmaFlowLink = {
-  id: string;
-  label: string;
-  href: string;
-  /** Copy for QA panel */
-  figmaNote?: string;
-};
-
-export const DEMO_FIGMA_FLOW_LINKS: DemoFigmaFlowLink[] = [
-  {
-    id: "flow-1",
-    label: "Flow 1 — Dashboard",
-    href: "/dashboard",
-    figmaNote: "Dashboard (primary) · node 6:3",
-  },
-  {
-    id: "flow-3",
-    label: "Flow 3 — Schedule",
-    href: "/dashboard/schedule",
-    figmaNote: "Schedule — Month · node 313:2892",
-  },
-  {
-    id: "flow-4",
-    label: "Flow 4 — Students",
-    href: "/dashboard/students",
-    figmaNote: "Students — List · node 250:4247",
-  },
-  {
-    id: "parents-list",
-    label: "Parents list",
-    href: "/dashboard/parents",
-    figmaNote: "Parents — Parent List · node 376:3883",
-  },
-];
 
 type DemoStateV1 = { v: 1; accountId: DemoAccountId };
 

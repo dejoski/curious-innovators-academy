@@ -1,5 +1,5 @@
 /**
- * Shared dashboard shell surfaces (Figma: white panels on #fafafa, Inter, neutral strokes).
+ * Shared dashboard shell surfaces: white panels on #fafafa, Inter, neutral strokes.
  * Compose with layout utilities (padding, flex, gap) per view.
  */
 

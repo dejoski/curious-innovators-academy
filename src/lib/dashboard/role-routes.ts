@@ -32,8 +32,12 @@ function normalizedDashboardHref(rawHref: string | null | undefined): {
   }
 }
 
-function studentHomeHref(studentId: string | null | undefined): string {
+function studentRootHref(studentId: string | null | undefined): string {
   return `/dashboard/students/${encodeURIComponent(studentId || STUDENT_HOME_FALLBACK_ID)}`;
+}
+
+function studentHomeHref(studentId: string | null | undefined): string {
+  return `${studentRootHref(studentId)}/schedule`;
 }
 
 export function dashboardHomeForPersona(
@@ -67,7 +71,7 @@ export function isDashboardPathAllowedForPersona(
   }
 
   if (persona === "student") {
-    return isRouteBranch(pathname, studentHomeHref(studentId));
+    return isRouteBranch(pathname, studentRootHref(studentId));
   }
 
   if (persona === "teacher") {

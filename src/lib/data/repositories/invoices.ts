@@ -2,6 +2,7 @@ import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { InvoiceRow, InvoiceStatus } from "@/lib/data/types";
 import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
 import { INVOICES_FALLBACK } from "@/lib/data/mock/invoices";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const STATUS_LABELS: Record<string, InvoiceStatus> = {
@@ -41,12 +42,6 @@ function formatLineItems(raw: unknown): string {
     return formatLineItems(Object.values(raw));
   }
   return String(raw ?? "").trim();
-}
-
-function firstRel<T extends Record<string, unknown>>(v: unknown): T | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return (v[0] as T) ?? null;
-  return v as T;
 }
 
 export function mapInvoiceRow(row: Record<string, unknown>): InvoiceRow | null {

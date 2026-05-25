@@ -110,14 +110,14 @@ function extractPathsFromSource(text, filePath) {
   lines.forEach((line, idx) => {
     const lineNum = idx + 1;
 
-    // href="/foo" or href='/foo'
+    // href="/example" or href='/example'
     const hrefQuoted = /\bhref\s*=\s*["'](\/[^"'`]*)["']/g;
     let m;
     while ((m = hrefQuoted.exec(line)) !== null) {
       record(m[1], lineNum, "href");
     }
 
-    // href={"/foo"} or href={'/foo'}
+    // href={"/example"} or href={'/example'}
     const hrefBrace = /\bhref\s*=\s*\{\s*["'](\/[^"']*)["']\s*\}/g;
     while ((m = hrefBrace.exec(line)) !== null) {
       record(m[1], lineNum, "href");
@@ -129,7 +129,7 @@ function extractPathsFromSource(text, filePath) {
       record(m[1], lineNum, "href-template");
     }
 
-    // router.push("/foo") or router.push('/foo')
+    // router.push("/example") or router.push('/example')
     const pushQuoted = /\brouter\.push\s*\(\s*["'](\/[^"']*)["']/g;
     while ((m = pushQuoted.exec(line)) !== null) {
       record(m[1], lineNum, "router.push");
@@ -173,7 +173,7 @@ function main() {
 
     const segments = item.path.split("/").filter(Boolean);
 
-    // Template prefix ending mid-segment (e.g. `/foo/bar-$`) — skip noisy cases
+    // Template prefix ending mid-segment (e.g. `/example/bar-$`) — skip noisy cases
     const lastSeg = segments[segments.length - 1];
     if (lastSeg && lastSeg.includes("${")) continue;
 

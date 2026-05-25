@@ -10,12 +10,12 @@ const imgStudent1 = "/images/anna-lee-avatar.png";
 const imgStudent2 = "/images/mary-lee-avatar.png";
 const imgStudent3 = "/images/parent-female-dark-hair.png";
 const imgStudent4 = "/images/parent-female-light-hair.png";
-const imgSchedule1 = "/images/figma-ellipse2735.png";
-const imgSchedule2 = "/images/figma-ellipse2736.png";
-const imgSchedule3 = "/images/figma-ellipse2737.png";
-const imgSchedule4 = "/images/figma-ellipse2738.png";
-const imgSchedule5 = "/images/figma-ellipse2739.png";
-const imgSchedule6 = "/images/figma-ellipse2740.png";
+const imgSchedule1 = "/images/student-detail-avatar-1.png";
+const imgSchedule2 = "/images/student-detail-avatar-2.png";
+const imgSchedule3 = "/images/student-detail-avatar-3.png";
+const imgSchedule4 = "/images/student-detail-avatar-4.png";
+const imgSchedule5 = "/images/student-detail-avatar-5.png";
+const imgSchedule6 = "/images/student-detail-avatar-6.png";
 
 const DEFAULT_EVENTS: StudentProfileTimelineEvent[] = [
   {

@@ -15,7 +15,13 @@ import {
   STUDENT_ROSTER_FALLBACK_ROWS,
   STUDENT_SCHEDULE_FALLBACK_ROWS,
 } from "@/lib/data/mock/student-detail";
-import { emptyScheduleBadgesBySlot, scheduleSlotForClassFields, type ParentScheduleSlotKey } from "@/lib/schedule-slots";
+import {
+  emptyScheduleBadgesBySlot,
+  normalizeScheduleBadges,
+  scheduleSlotForClassFields,
+  type ParentScheduleSlotKey,
+} from "@/lib/schedule-slots";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type StudentProfileResolved = {
@@ -53,12 +59,6 @@ function fallbackRoster(): ResolvedList<StudentRosterRow> {
     items: [...STUDENT_ROSTER_FALLBACK_ROWS],
     source: "fallback",
   };
-}
-
-function firstRel<T extends Record<string, unknown>>(v: unknown): T | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return (v[0] as T) ?? null;
-  return v as T;
 }
 
 function normalizeProgram(raw: unknown): ProgramTrack {
@@ -162,13 +162,14 @@ function scheduleSlotForClass(row: Record<string, unknown>, index: number): Pare
   });
 }
 
-function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge {
+function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge | null {
   const classRow = firstRel<Record<string, unknown>>(row.classes);
   const program = normalizeProgram(classRow?.program);
   const status = String(row.status ?? "").toLowerCase();
+  if (program === "enrichment" && status === "rejected") return null;
   return {
     label: classNameShort(String(classRow?.name ?? "")),
-    tone: program === "core" ? "core" : status === "approved" ? "approved" : "pending",
+    tone: program === "core" ? "core" : status === "approved" ? "approved" : status === "waitlisted" || status === "waitlist" ? "waitlisted" : "pending",
   };
 }
 
@@ -220,12 +221,13 @@ export async function fetchStudentProfileResolved(studentId: string): Promise<St
       const cls = firstRel<Record<string, unknown>>(row.classes);
       return normalizeProgram(cls?.program) === "enrichment";
     });
-    const enrichmentClasses = enrichmentRows
+    const activeEnrichmentRows = enrichmentRows.filter((row) => String(row.status ?? "").toLowerCase() !== "rejected");
+    const enrichmentClasses = activeEnrichmentRows
       .map((row) => firstRel<Record<string, unknown>>(row.classes))
       .filter((row): row is Record<string, unknown> => row !== null)
       .map((row) => ({ id: String(row.id), name: String(row.name ?? "") }));
-    const pending = enrichmentRows.filter((row) => String(row.status ?? "").toLowerCase() !== "approved").length;
-    const approved = enrichmentRows.length - pending;
+    const pending = activeEnrichmentRows.filter((row) => String(row.status ?? "").toLowerCase() !== "approved").length;
+    const approved = activeEnrichmentRows.length - pending;
     const timeline = ((records ?? []) as unknown as Record<string, unknown>[])
       .map(mapStudentRecord)
       .filter((row): row is StudentProfileTimelineEvent => row !== null);
@@ -245,7 +247,7 @@ export async function fetchStudentProfileResolved(studentId: string): Promise<St
         parentName: String(student.guardian_label ?? ""),
         parentHref: "/dashboard/parents",
         coreSummaryLabel: `Core: ${coreClasses.length}`,
-        enrichmentSummaryLabel: `Enrichment: ${approved} / ${enrichmentRows.length}`,
+        enrichmentSummaryLabel: `Enrichment: ${approved} / ${activeEnrichmentRows.length}`,
         pendingLabel: pending > 0 ? `Pending Requests: ${pending}` : "Pending requests: none",
         attendanceLabel: "Attendance: —",
         coreClasses,
@@ -287,8 +289,17 @@ export async function fetchStudentScheduleResolved(studentId: string): Promise<S
       parent: String(student.guardian_label ?? ""),
     });
     ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
-      pushBadge(row, scheduleSlotForClass(enrollment, index), badgeForEnrollment(enrollment));
+      const badge = badgeForEnrollment(enrollment);
+      if (badge) pushBadge(row, scheduleSlotForClass(enrollment, index), badge);
     });
+    row.b1 = normalizeScheduleBadges(row.b1);
+    row.b2 = normalizeScheduleBadges(row.b2);
+    row.b3Tue = normalizeScheduleBadges(row.b3Tue);
+    row.b3Wed = normalizeScheduleBadges(row.b3Wed);
+    row.b3Thu = normalizeScheduleBadges(row.b3Thu);
+    row.b4Tue = normalizeScheduleBadges(row.b4Tue);
+    row.b4Wed = normalizeScheduleBadges(row.b4Wed);
+    row.b4Thu = normalizeScheduleBadges(row.b4Thu);
     return { rows: [row], source: "remote" };
   } catch {
     return fallbackSchedule(id);

@@ -17,7 +17,6 @@ const REQUIRED_GUARDS = [
   "requireRemoteData",
   "demoLoginDisabled",
   "testPersonaUiDisabled",
-  "figmaCaptureDisabled",
   "mockNotificationHeaderDisabled",
   "signupInviteConfigured",
 ];
@@ -104,7 +103,6 @@ Checks:
     NEXT_PUBLIC_REQUIRE_REMOTE_DATA: "true",
     NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "false",
     NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI: "false",
-    NEXT_PUBLIC_ENABLE_FIGMA_CAPTURE: "false",
     NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER: "false",
     NEXT_PUBLIC_SIGNUP_INVITE_CODE: "health-guard-check",
     PORT: port,

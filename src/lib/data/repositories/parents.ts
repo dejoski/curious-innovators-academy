@@ -1,13 +1,35 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
 import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
-import { PARENTS_FALLBACK } from "@/lib/data/mock/parents";
+import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-function firstRel<T extends Record<string, unknown>>(v: unknown): T | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return (v[0] as T) ?? null;
-  return v as T;
+function fallbackParentsFromStudents(): ParentSummary[] {
+  const byEmail = new Map<string, ParentSummary>();
+  for (const student of STUDENTS_FALLBACK) {
+    const parentName = student.parent.trim();
+    const parentEmail = student.parentEmail?.trim();
+    if (!parentName || !parentEmail) continue;
+    const key = parentEmail.toLowerCase();
+    const existing =
+      byEmail.get(key) ??
+      {
+        id: key,
+        name: parentName,
+        email: parentEmail,
+        phone: "",
+        status: "Active",
+        linkedStudents: [],
+      };
+    existing.linkedStudents = [
+      ...(existing.linkedStudents ?? []),
+      { id: student.id, name: student.name },
+    ];
+    existing.studentsLabel = existing.linkedStudents.map((s) => s.name).join(", ");
+    byEmail.set(key, existing);
+  }
+  return Array.from(byEmail.values());
 }
 
 function linkedStudentsFromRow(row: Record<string, unknown>): { id: string; name: string }[] {
@@ -56,8 +78,9 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
 }
 
 async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
+  const fallbackParents = fallbackParentsFromStudents();
   if (!isSupabaseConfigured()) {
-    return fallbackList(PARENTS_FALLBACK);
+    return fallbackList(fallbackParents);
   }
 
   try {
@@ -77,7 +100,7 @@ async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
       .order("created_at", { ascending: true });
 
     if (error) {
-      return fallbackList(PARENTS_FALLBACK);
+      return fallbackList(fallbackParents);
     }
 
     if (!data?.length) {
@@ -89,11 +112,11 @@ async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
       .filter((x): x is ParentSummary => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(PARENTS_FALLBACK);
+      return fallbackList(fallbackParents);
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(PARENTS_FALLBACK);
+    return fallbackList(fallbackParents);
   }
 }
 

@@ -16,6 +16,9 @@ const violations = [];
 
 const requiredServerOnlyFiles = [
   path.join("src", "lib", "data", "server-env.ts"),
+  path.join("src", "lib", "data", "server-writes.ts"),
+  path.join("src", "lib", "data", "repositories", "classes.ts"),
+  path.join("src", "lib", "data", "repositories", "notifications.ts"),
   path.join("src", "lib", "supabase", "admin.ts"),
 ];
 
@@ -55,6 +58,7 @@ for (const file of walk(srcRoot)) {
   const rel = path.relative(root, file);
   const source = fs.readFileSync(file, "utf8");
   const isClient = hasUseClientDirective(source);
+  const isServerOnlyModule = source.includes('import "server-only"') || source.includes("import 'server-only'");
   const isAdminModule = rel === path.join("src", "lib", "supabase", "admin.ts");
   const isServerEnvModule = rel === path.join("src", "lib", "data", "server-env.ts");
 
@@ -68,12 +72,12 @@ for (const file of walk(srcRoot)) {
     violations.push(`${rel}: client component touches server-only Supabase admin helpers`);
   }
 
-  if ((importsAdminClient || callsAdminClient) && !isAdminModule && !isApiRoute(rel)) {
-    violations.push(`${rel}: Supabase admin client is only allowed in API route handlers`);
+  if ((importsAdminClient || callsAdminClient) && !isAdminModule && !isApiRoute(rel) && !isServerOnlyModule) {
+    violations.push(`${rel}: Supabase admin client is only allowed in API route handlers or server-only modules`);
   }
 
-  if (importsServerEnv && !isServerEnvModule && !isApiRoute(rel) && !isAdminModule) {
-    violations.push(`${rel}: server env helpers are only allowed in API route handlers or server-only admin modules`);
+  if (importsServerEnv && !isServerEnvModule && !isApiRoute(rel) && !isAdminModule && !isServerOnlyModule) {
+    violations.push(`${rel}: server env helpers are only allowed in API route handlers or server-only modules`);
   }
 
   const readsServiceRole =

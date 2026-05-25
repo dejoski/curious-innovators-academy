@@ -95,10 +95,6 @@ Optional env:
         "/api/health productionGuards.testPersonaUiDisabled must be true",
       );
       assert(
-        guards.figmaCaptureDisabled === true,
-        "/api/health productionGuards.figmaCaptureDisabled must be true",
-      );
-      assert(
         guards.mockNotificationHeaderDisabled === true,
         "/api/health productionGuards.mockNotificationHeaderDisabled must be true",
       );

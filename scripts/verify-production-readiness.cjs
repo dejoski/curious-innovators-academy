@@ -17,6 +17,7 @@ let createClient;
 const REQUIRED_DEMO_USERS = [
   { email: "name.example@gmail.com", role: "admin" },
   { email: "parent.lee@cia.demo", role: "parent" },
+  { email: "parent.smith@cia.demo", role: "parent" },
   { email: "parent.collins@cia.demo", role: "parent" },
   { email: "teacher.emily@cia.demo", role: "teacher" },
   { email: "student.anna@cia.demo", role: "student" },
@@ -32,11 +33,11 @@ const DEFAULT_RLS_EMAILS = {
 const DEFAULT_PRODUCTION_APP_URL = "https://curious-innovators-academy.vercel.app";
 
 const REQUIRED_TABLE_COUNTS = [
-  ["profiles", 5],
-  ["parents", 2],
+  ["profiles", 6],
+  ["parents", 3],
   ["teachers", 1],
   ["students", 6],
-  ["parent_students", 5],
+  ["parent_students", 6],
   ["classes", 5],
   ["enrollments", 5],
   ["class_requests", 6],
@@ -264,7 +265,6 @@ Optional env:
       for (const name of [
         "NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI",
         "NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER",
-        "NEXT_PUBLIC_ENABLE_FIGMA_CAPTURE",
       ]) {
         if (env(name) === "true") throw new Error(`${name} must not be true in production`);
       }
@@ -374,8 +374,13 @@ Optional env:
         for (const expected of ["Anna Lee", "George Lee", "Bruna Lee"]) {
           if (!names.has(expected)) throw new Error(`missing linked student ${expected}`);
         }
-        if (names.has("Maria Collins") || names.has("Bruce Collins")) {
-          throw new Error("parent.lee@cia.demo can see Collins students");
+        if (names.has("Maria Collins") || names.has("Bruce Collins") || names.has("James Smith")) {
+          throw new Error("parent.lee@cia.demo can see another family's students");
+        }
+      } else if (email.toLowerCase() === "parent.smith@cia.demo") {
+        if (!names.has("James Smith")) throw new Error("missing linked student James Smith");
+        if ((data ?? []).length !== 1) {
+          throw new Error(`parent.smith@cia.demo saw ${data?.length ?? 0} rows, expected 1`);
         }
       } else if ((data ?? []).length < 1) {
         throw new Error("parent credential could not read any linked students");
