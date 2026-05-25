@@ -1,5 +1,4 @@
 -- Applied in order: this file mirrors supabase/migrations/20260429120000_track2_rls_schema.sql
--- Demo data: supabase/seed/track2_demo_seed.sql (run after Auth users exist)
 
 -- Curious Innovators Academy — Track 2: RLS-first schema
 -- Authorization uses public.profiles.role only (never user_metadata in RLS).

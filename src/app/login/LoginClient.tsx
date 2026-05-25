@@ -122,7 +122,7 @@ export default function LoginClient() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name.example@gmail.com"
+                  placeholder="you@example.com"
                   className="min-w-0 flex-1 bg-transparent text-[16px] font-normal leading-[1.5] tracking-[0.32px] text-[#05080b] outline-none placeholder:text-[#818898]"
                 />
               </div>

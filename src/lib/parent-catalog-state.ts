@@ -236,22 +236,30 @@ export function catalogChoiceReviews(
   CATALOG_SLOT_IDS.forEach((slotId) => {
     const slot = normalizedRequests[slotId];
     const meta = CATALOG_SLOT_META[slotId];
-    const add = (kind: "first" | "second", choice: ParentCatalogChoice | null | undefined) => {
-      if (!choice?.name) return;
+    const toReview = (
+      kind: "first" | "second",
+      choice: ParentCatalogChoice | null | undefined,
+    ): LocalCatalogChoiceReview | null => {
+      if (!choice?.name) return null;
       const id = localReviewKey(slotId, kind);
-      rows.push({
+      const review: LocalCatalogChoiceReview = {
         id,
         slotId,
         slot: meta.label,
         choice: kind === "first" ? "1st" : "2nd",
         kind,
         name: choice.name,
-        classId: choice.id,
         status: reviewStatuses[id] ?? "Pending",
-      });
+      };
+      if (choice.id) review.classId = choice.id;
+      return review;
     };
-    add("first", slot?.firstChoice);
-    add("second", slot?.secondChoice);
+    const slotRows = [
+      toReview("first", slot?.firstChoice),
+      toReview("second", slot?.secondChoice),
+    ].filter((row): row is LocalCatalogChoiceReview => row !== null);
+    const approvedRows = slotRows.filter((row) => row.status === "Approved");
+    rows.push(...(approvedRows.length ? approvedRows : slotRows));
   });
   return rows;
 }

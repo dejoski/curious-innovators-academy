@@ -1,6 +1,5 @@
 import type { FeedbackSubmissionRecord } from "@/lib/data/types";
-import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
-import { FEEDBACK_FALLBACK } from "@/lib/data/mock/feedback";
+import { isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function mapFeedbackRow(row: Record<string, unknown>): FeedbackSubmissionRecord | null {
@@ -16,7 +15,7 @@ function mapFeedbackRow(row: Record<string, unknown>): FeedbackSubmissionRecord 
 
 /** Aggregated parent feedback rows from the RLS-scoped feedback table. */
 export async function fetchFeedbackSubmissions(): Promise<FeedbackSubmissionRecord[]> {
-  if (!isSupabaseConfigured()) return canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
+  if (!isSupabaseConfigured()) return [];
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -26,13 +25,13 @@ export async function fetchFeedbackSubmissions(): Promise<FeedbackSubmissionReco
       .order("created_at", { ascending: false })
       .limit(25);
 
-    if (error || !data?.length) return canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
+    if (error || !data?.length) return [];
 
     const mapped = (data as Record<string, unknown>[])
       .map(mapFeedbackRow)
       .filter((x): x is FeedbackSubmissionRecord => x !== null);
-    return mapped.length > 0 ? mapped : canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
+    return mapped;
   } catch {
-    return canUseBundledFallbackData() ? [...FEEDBACK_FALLBACK] : [];
+    return [];
   }
 }

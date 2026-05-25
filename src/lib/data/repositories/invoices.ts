@@ -1,7 +1,6 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { InvoiceRow, InvoiceStatus } from "@/lib/data/types";
-import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
-import { INVOICES_FALLBACK } from "@/lib/data/mock/invoices";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -74,7 +73,7 @@ export function mapInvoiceRow(row: Record<string, unknown>): InvoiceRow | null {
 
 async function loadInvoicesResolved(): Promise<ResolvedList<InvoiceRow>> {
   if (!isSupabaseConfigured()) {
-    return fallbackList(INVOICES_FALLBACK);
+    return unavailableList();
   }
 
   try {
@@ -103,7 +102,7 @@ async function loadInvoicesResolved(): Promise<ResolvedList<InvoiceRow>> {
       .order("due_date", { ascending: false });
 
     if (error) {
-      return fallbackList(INVOICES_FALLBACK);
+      return unavailableList();
     }
 
     if (!data?.length) {
@@ -115,11 +114,11 @@ async function loadInvoicesResolved(): Promise<ResolvedList<InvoiceRow>> {
       .filter((x): x is InvoiceRow => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(INVOICES_FALLBACK);
+      return unavailableList();
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(INVOICES_FALLBACK);
+    return unavailableList();
   }
 }
 

@@ -3,7 +3,6 @@ import type { DashboardPersona } from "@/lib/dashboard/persona";
 export const ADMIN_HOME_HREF = "/dashboard";
 export const PARENT_HOME_HREF = "/dashboard/parents/home";
 export const TEACHER_HOME_HREF = "/dashboard/teachers";
-export const STUDENT_HOME_FALLBACK_ID = "1";
 
 const LOCAL_URL_BASE = "https://cia.local";
 
@@ -33,11 +32,13 @@ function normalizedDashboardHref(rawHref: string | null | undefined): {
 }
 
 function studentRootHref(studentId: string | null | undefined): string {
-  return `/dashboard/students/${encodeURIComponent(studentId || STUDENT_HOME_FALLBACK_ID)}`;
+  const id = studentId?.trim();
+  return id ? `/dashboard/students/${encodeURIComponent(id)}` : "/dashboard/students";
 }
 
 function studentHomeHref(studentId: string | null | undefined): string {
-  return `${studentRootHref(studentId)}/schedule`;
+  const id = studentId?.trim();
+  return id ? `${studentRootHref(id)}/schedule` : "/dashboard/students";
 }
 
 export function dashboardHomeForPersona(

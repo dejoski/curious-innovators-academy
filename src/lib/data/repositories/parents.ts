@@ -1,36 +1,8 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
-import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
-import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-function fallbackParentsFromStudents(): ParentSummary[] {
-  const byEmail = new Map<string, ParentSummary>();
-  for (const student of STUDENTS_FALLBACK) {
-    const parentName = student.parent.trim();
-    const parentEmail = student.parentEmail?.trim();
-    if (!parentName || !parentEmail) continue;
-    const key = parentEmail.toLowerCase();
-    const existing =
-      byEmail.get(key) ??
-      {
-        id: key,
-        name: parentName,
-        email: parentEmail,
-        phone: "",
-        status: "Active",
-        linkedStudents: [],
-      };
-    existing.linkedStudents = [
-      ...(existing.linkedStudents ?? []),
-      { id: student.id, name: student.name },
-    ];
-    existing.studentsLabel = existing.linkedStudents.map((s) => s.name).join(", ");
-    byEmail.set(key, existing);
-  }
-  return Array.from(byEmail.values());
-}
 
 function linkedStudentsFromRow(row: Record<string, unknown>): { id: string; name: string }[] {
   const joins = Array.isArray(row.parent_students) ? row.parent_students : [];
@@ -78,9 +50,8 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
 }
 
 async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
-  const fallbackParents = fallbackParentsFromStudents();
   if (!isSupabaseConfigured()) {
-    return fallbackList(fallbackParents);
+    return unavailableList();
   }
 
   try {
@@ -100,7 +71,7 @@ async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
       .order("created_at", { ascending: true });
 
     if (error) {
-      return fallbackList(fallbackParents);
+      return unavailableList();
     }
 
     if (!data?.length) {
@@ -112,11 +83,11 @@ async function loadParentsResolved(): Promise<ResolvedList<ParentSummary>> {
       .filter((x): x is ParentSummary => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(fallbackParents);
+      return unavailableList();
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(fallbackParents);
+    return unavailableList();
   }
 }
 

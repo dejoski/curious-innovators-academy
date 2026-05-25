@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
                   <input
                     type="email"
                     autoComplete="email"
-                    placeholder="name.example@gmail.com"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={handleEmailChange}
                     onBlur={() => setEmailError(validateEmail(email))}

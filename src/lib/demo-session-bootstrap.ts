@@ -14,8 +14,8 @@ export const DEMO_ADMIN_START_ROUTE = "/dashboard";
 export const DEMO_PARENT_START_ROUTE = "/dashboard/parents/home";
 
 const DEMO_ACCOUNT_BY_KIND: Record<"admin" | "parent", DemoAccountId> = {
-  admin: "admin-joseph",
-  parent: "parent-mary",
+  admin: "admin-primary",
+  parent: "parent-primary",
 };
 
 /**

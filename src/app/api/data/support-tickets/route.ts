@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireCurrentApiUser } from "@/lib/api/require-auth";
+import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 
 const VALID_CATEGORIES = new Set([
   "Classes & enrollment",
@@ -44,6 +44,9 @@ function mapTicket(row: SupportTicketRow) {
 }
 
 export async function GET() {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const current = await requireCurrentApiUser();
   if (!current.ok) return current.response;
   const { supabase } = current;
@@ -65,6 +68,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const current = await requireCurrentApiUser();
   if (!current.ok) return current.response;
   const { supabase, user } = current;

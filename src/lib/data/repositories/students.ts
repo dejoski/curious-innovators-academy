@@ -1,7 +1,6 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
-import { canUseBundledFallbackData, fallbackList, isSupabaseConfigured } from "@/lib/data/env";
-import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -68,7 +67,7 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
   return {
     id,
     name: String(row.full_name ?? row.display_name ?? row.name ?? ""),
-    avatar: String(row.avatar_url ?? row.avatar ?? STUDENTS_FALLBACK[0]?.avatar ?? ""),
+    avatar: String(row.avatar_url ?? row.avatar ?? ""),
     parent: parentContact.name,
     parentEmail: parentContact.email || undefined,
     level: String(row.grade_level ?? row.level ?? ""),
@@ -81,7 +80,7 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
 
 async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
   if (!isSupabaseConfigured()) {
-    return fallbackList(STUDENTS_FALLBACK);
+    return unavailableList();
   }
 
   try {
@@ -92,7 +91,7 @@ async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
       .order("display_name", { ascending: true });
 
     if (error) {
-      return fallbackList(STUDENTS_FALLBACK);
+      return unavailableList();
     }
 
     if (!data?.length) {
@@ -104,15 +103,15 @@ async function loadStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
       .filter((x): x is StudentListItem => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(STUDENTS_FALLBACK);
+      return unavailableList();
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(STUDENTS_FALLBACK);
+    return unavailableList();
   }
 }
 
-/** Loads students for the admin students table; falls back to demo seed when offline or on error. */
+/** Loads students for the admin students table. */
 export async function fetchStudents(): Promise<StudentListItem[]> {
   const { items } = await loadStudentsResolved();
   return items;
@@ -128,14 +127,11 @@ export async function fetchStudentByIdResolved(
 ): Promise<{ student: StudentListItem | null; source: DataSource }> {
   const normalized = String(id).trim();
   if (!normalized) {
-    return { student: null, source: "fallback" };
+    return { student: null, source: "unavailable" };
   }
 
   if (!isSupabaseConfigured()) {
-    const found = STUDENTS_FALLBACK.find((s) => s.id === normalized) ?? null;
-    return canUseBundledFallbackData()
-      ? { student: found, source: "fallback" }
-      : { student: null, source: "unavailable" };
+    return { student: null, source: "unavailable" };
   }
 
   try {
@@ -147,10 +143,7 @@ export async function fetchStudentByIdResolved(
       .maybeSingle();
 
     if (error) {
-      const found = STUDENTS_FALLBACK.find((s) => s.id === normalized) ?? null;
-      return canUseBundledFallbackData()
-        ? { student: found, source: "fallback" }
-        : { student: null, source: "unavailable" };
+      return { student: null, source: "unavailable" };
     }
     if (!data) {
       return { student: null, source: "remote" };
@@ -161,9 +154,6 @@ export async function fetchStudentByIdResolved(
     }
     return { student: mapped, source: "remote" };
   } catch {
-    const found = STUDENTS_FALLBACK.find((s) => s.id === normalized) ?? null;
-    return canUseBundledFallbackData()
-      ? { student: found, source: "fallback" }
-      : { student: null, source: "unavailable" };
+    return { student: null, source: "unavailable" };
   }
 }

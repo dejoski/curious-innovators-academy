@@ -115,6 +115,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const current = await requireCurrentApiUser();
   if (!current.ok) return current.response;
   const { supabase, user } = current;

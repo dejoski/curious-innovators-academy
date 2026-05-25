@@ -52,6 +52,7 @@ const imgCalendarOutline = "/images/icon-calendar-outline.svg";
 const PARENT_CATALOG_HREF = "/dashboard/parents/catalog" as const;
 const PARENT_CLASSES_HREF = "/dashboard/parents/classes" as const;
 const PARENT_CLASSES_CORE_HREF = `${PARENT_CLASSES_HREF}/core` as const;
+const PARENT_STUDENTS_HREF = "/dashboard/parents/students" as const;
 
 function routeBranchActive(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
@@ -87,7 +88,16 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const isWTooltip = internalState === "w/ tooltip";
 
   const { persona, demoStudentId } = useDashboardPersona();
-  const studentDemoRoot = `/dashboard/students/${demoStudentId}`;
+  const studentDashboardRoot = demoStudentId
+    ? `/dashboard/students/${encodeURIComponent(demoStudentId)}`
+    : "/dashboard/students";
+  const studentProfileHref = studentDashboardRoot;
+  const studentScheduleHref = demoStudentId
+    ? `${studentDashboardRoot}/schedule`
+    : studentDashboardRoot;
+  const studentRosterHref = demoStudentId
+    ? `${studentDashboardRoot}/roster`
+    : studentDashboardRoot;
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
@@ -106,7 +116,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     pathname.startsWith("/dashboard/teachers"),
   );
   const [parentStudentsNavExpanded, setParentStudentsNavExpanded] =
-    React.useState(() => pathname.startsWith("/dashboard/parents/students"));
+    React.useState(() => routeBranchActive(pathname, PARENT_STUDENTS_HREF));
   const [parentClassesNavExpanded, setParentClassesNavExpanded] =
     React.useState(
       () =>
@@ -114,9 +124,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
         routeBranchActive(pathname, PARENT_CLASSES_HREF),
     );
 
-  const parentStudentsBranchActive = pathname.startsWith(
-    "/dashboard/parents/students",
-  );
+  const parentStudentsBranchActive = routeBranchActive(pathname, PARENT_STUDENTS_HREF);
 
   const toggleSidebar = () => {
     setInternalState(prev => prev === "open" ? "close" : "open");
@@ -125,13 +133,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   React.useEffect(() => {
     /* Keep submenu expansion deterministic per-route after navigation. */
     setClassesExpanded(pathname.startsWith("/dashboard/classes")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    setStudentsExpanded(pathname.startsWith("/dashboard/students")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    setTeachersExpanded(pathname.startsWith("/dashboard/teachers")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
-    setParentStudentsNavExpanded(pathname.startsWith("/dashboard/parents/students")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+    setStudentsExpanded(pathname.startsWith("/dashboard/students"));
+    setTeachersExpanded(pathname.startsWith("/dashboard/teachers"));
+    setParentStudentsNavExpanded(routeBranchActive(pathname, PARENT_STUDENTS_HREF));
     setParentClassesNavExpanded(
       routeBranchActive(pathname, PARENT_CATALOG_HREF) ||
         routeBranchActive(pathname, PARENT_CLASSES_HREF),
-    ); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
+    );
   }, [pathname]);
 
   function navRow(active: boolean) {
@@ -165,7 +173,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
       : persona === "teacher"
         ? "/dashboard/teachers"
         : persona === "student"
-          ? `${studentDemoRoot}/schedule`
+          ? studentScheduleHref
           : "/dashboard";
 
   function adminAllClassesPath(p: string) {
@@ -197,11 +205,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     parentCatalogActive || parentClassListNavActive;
   const parentClassesBrandActive =
     parentCatalogActive || parentClassListNavActive;
-  const parentClassesHeaderAccent =
-    parentClassesBrandActive || parentClassesNavExpanded;
-  const parentStudentsActive = pathname.startsWith(
-    "/dashboard/parents/students",
-  );
+  const parentClassesHeaderAccent = parentClassesBrandActive;
   const parentInactiveStudentIcon = parentCatalogActive
     ? imgHugeiconsStudentInactive
     : imgHugeiconsStudent;
@@ -216,11 +220,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const adminStudentRosterActive = adminStudentRoute?.section === "roster";
 
   const studentProfileActive =
-    pathname === studentDemoRoot || pathname === `${studentDemoRoot}/`;
-  const studentScheduleActive = pathname.startsWith(
-    `${studentDemoRoot}/schedule`,
-  );
-  const studentRosterActive = pathname.startsWith(`${studentDemoRoot}/roster`);
+    pathname === studentDashboardRoot || pathname === `${studentDashboardRoot}/`;
+  const studentScheduleActive = demoStudentId
+    ? pathname.startsWith(studentScheduleHref)
+    : false;
+  const studentRosterActive = demoStudentId
+    ? pathname.startsWith(studentRosterHref)
+    : false;
 
   const teacherShellActive = pathname.startsWith("/dashboard/teachers");
   const teacherScheduleActive = pathname.startsWith("/dashboard/schedule");
@@ -653,17 +659,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     />
                   </button>
                   {parentStudentsOpen && (
-                    <div className="inline-grid grid-cols-[max-content] grid-rows-[max-content] leading-[0] place-items-start relative">
-                      <div className="bg-[#d2f1f5] col-1 row-1 ml-0 mt-0 content-stretch flex flex-col gap-[8px] items-start rounded-[8px] w-[240px]">
-                        <Link
-                          href={parentRouteHref("/dashboard/parents/students")}
-                          className="content-stretch flex h-[32px] items-center px-[12px] py-[6px] rounded-[8px] w-full"
-                        >
-                          <p className="flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] text-[#14c1d5]">
-                            Student Profile
-                          </p>
-                        </Link>
-                      </div>
+                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
+                      <Link
+                        href={parentRouteHref(PARENT_STUDENTS_HREF)}
+                        className={parentNavSubLinkClass(parentStudentsBranchActive)}
+                      >
+                        Student Profile
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -671,7 +673,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             )}
             {isOpen && persona === "student" && (
               <>
-                <Link href={studentDemoRoot} className={navRow(studentProfileActive)}>
+                <Link href={studentProfileHref} className={navRow(studentProfileActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
                   </div>
@@ -679,7 +681,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     Profile
                   </p>
                 </Link>
-                <Link href={`${studentDemoRoot}/schedule`} className={navRow(studentScheduleActive)}>
+                <Link href={studentScheduleHref} className={navRow(studentScheduleActive)}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(studentScheduleActive)}
                   </div>
@@ -687,7 +689,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     Schedule
                   </p>
                 </Link>
-                <Link href={`${studentDemoRoot}/roster`} className={navRow(studentRosterActive)}>
+                <Link href={studentRosterHref} className={navRow(studentRosterActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
                   </div>
@@ -775,7 +777,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     )}
                   </div>
                 </Link>
-                <Link href={parentRouteHref("/dashboard/parents/students")} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
+                <Link href={parentRouteHref(PARENT_STUDENTS_HREF)} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
@@ -802,17 +804,17 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             )}
             {isClose && persona === "student" && (
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-name="Menu Items Student">
-                <Link href={studentDemoRoot} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
+                <Link href={studentProfileHref} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
                   </div>
                 </Link>
-                <Link href={`${studentDemoRoot}/schedule`} title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentScheduleActive)}`}>
+                <Link href={studentScheduleHref} title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentScheduleActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(studentScheduleActive)}
                   </div>
                 </Link>
-                <Link href={`${studentDemoRoot}/roster`} title="Roster" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentRosterActive)}`}>
+                <Link href={studentRosterHref} title="Roster" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentRosterActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
                   </div>
@@ -897,7 +899,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     )}
                   </div>
                 </Link>
-                <Link href={parentRouteHref("/dashboard/parents/students")} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
+                <Link href={parentRouteHref(PARENT_STUDENTS_HREF)} title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentStudentsBranchActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={parentStudentsBranchActive ? imgHugeiconsStudentActive : parentInactiveStudentIcon} />
                   </div>
@@ -906,17 +908,17 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             )}
             {isWTooltip && persona === "student" && (
               <>
-                <Link href={studentDemoRoot} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
+                <Link href={studentProfileHref} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
                   </div>
                 </Link>
-                <Link href={`${studentDemoRoot}/schedule`} title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentScheduleActive)}`}>
+                <Link href={studentScheduleHref} title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentScheduleActive)}`}>
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} flex items-center justify-center`}>
                     {scheduleGlyph(studentScheduleActive)}
                   </div>
                 </Link>
-                <Link href={`${studentDemoRoot}/roster`} title="Roster" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentRosterActive)}`}>
+                <Link href={studentRosterHref} title="Roster" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentRosterActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                     <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
                   </div>

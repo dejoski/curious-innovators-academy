@@ -31,10 +31,8 @@ import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
 
-/** Routes shared by sidebar/header — use `demoStudentId` from context in QA */
-export const DEMO_STUDENT_FALLBACK_ID = "1";
 /** @deprecated Prefer `useDashboardPersona().demoStudentId` */
-export const DEMO_STUDENT_ID = DEMO_STUDENT_FALLBACK_ID;
+export const DEMO_STUDENT_ID = "";
 
 export const PERSONA_LABELS: Record<DashboardPersona, string> = {
   admin: "Admin",
@@ -55,7 +53,7 @@ const PRODUCTION_ACCOUNT_DEFAULT = {
   displayName: "Signed-in user",
   roleLabel: "User",
   avatarInitials: "U",
-  studentId: DEMO_STUDENT_FALLBACK_ID,
+  studentId: "",
 };
 
 type ProductionAccount = typeof PRODUCTION_ACCOUNT_DEFAULT;
@@ -111,7 +109,7 @@ function productionAccountFromProfile(profile: CurrentAccountProfile): Productio
     displayName,
     roleLabel: roleToLabel(persona),
     avatarInitials: initialsFromDisplayName(displayName),
-    studentId: profile.defaultStudentId || DEMO_STUDENT_FALLBACK_ID,
+    studentId: profile.defaultStudentId?.trim() || "",
   };
 }
 
@@ -122,7 +120,7 @@ function productionAccountFromDemoRole(role: DashboardPersona): ProductionAccoun
     displayName: account.displayName,
     roleLabel: account.roleLabel,
     avatarInitials: initialsFromDisplayName(account.displayName),
-    studentId: account.studentId || DEMO_STUDENT_FALLBACK_ID,
+    studentId: account.studentId,
   };
 }
 
@@ -179,7 +177,7 @@ export function DashboardPersonaProvider({
       );
       if (legacyPersona) {
         const migrated = defaultDemoAccountIdForPersona(legacyPersona);
-        setDemoAccountIdState(migrated); // eslint-disable-line react-hooks/set-state-in-effect -- localStorage rehydration after mount
+        setDemoAccountIdState(migrated);
         window.localStorage.setItem(
           DEMO_STATE_STORAGE_KEY,
           serializeDemoState(migrated),
@@ -203,18 +201,18 @@ export function DashboardPersonaProvider({
         const profile = body.profile;
         if (cancelled) return;
         if (profile) {
-          setProductionAccount(productionAccountFromProfile(profile)); // eslint-disable-line react-hooks/set-state-in-effect -- account chrome is hydrated from the authenticated profile API
+          setProductionAccount(productionAccountFromProfile(profile));
         } else {
           const demoRole = readDemoRoleForCurrentRoute();
-          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT); // eslint-disable-line react-hooks/set-state-in-effect -- demo role is resolved before dashboard route guard renders protected content
+          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT);
         }
       } catch {
         if (!cancelled) {
           const demoRole = readDemoRoleForCurrentRoute();
-          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT); // eslint-disable-line react-hooks/set-state-in-effect -- demo role is resolved before dashboard route guard renders protected content
+          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT);
         }
       } finally {
-        if (!cancelled) setIsAccountResolved(true); // eslint-disable-line react-hooks/set-state-in-effect -- route guard waits for role resolution
+        if (!cancelled) setIsAccountResolved(true);
       }
     }
     void loadCurrentProfile();

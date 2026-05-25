@@ -9,7 +9,6 @@ import {
   peekCachedJson,
   preloadParentStudentData,
 } from "@/lib/client-data-cache";
-import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import {
   readStoredParentStudentId,
   withParentStudentParam,
@@ -129,7 +128,6 @@ export default function ParentStudentContextSelector({
     }
   }, [pathname, pendingStudentId, pendingStudentIsValid, queryStudentId, replaceStudentUrl, storedStudentId, students]);
 
-  const label = getParentStudentContextLabel(pathname);
   const resolvedStudentId = students.some((s) => s.id === requestedStudentId)
     ? requestedStudentId
     : students[0]?.id ?? "";
@@ -163,18 +161,13 @@ export default function ParentStudentContextSelector({
 
   return (
     <div
-      className="flex w-full max-w-full flex-col items-start gap-2 sm:w-auto sm:min-w-0 sm:flex-row sm:items-center sm:gap-3"
+      className="flex min-w-0 flex-1 items-center"
       style={pickerStyle}
     >
-      <span
-        className={`shrink-0 font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] leading-[1.4] sm:text-[16px] ${DASHBOARD_TEXT_PRIMARY_CLASS}`}
-      >
-        {label}
-      </span>
       <label className="sr-only" htmlFor="parent-student-picker">
         Select student
       </label>
-      <div className="relative h-[44px] w-full overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:w-[var(--parent-student-picker-width,260px)] sm:min-w-[180px] sm:max-w-[min(420px,calc(100vw-160px))] sm:flex-none">
+      <div className="relative h-[44px] min-w-[180px] flex-1 overflow-hidden rounded-[10px] bg-white shadow-[0px_0px_0px_1px_#f0f0f0] transition-shadow focus-within:shadow-[0px_0px_0px_2px_rgba(20,193,213,0.45)] hover:shadow-[0px_0px_0px_1px_#dfe1e6] sm:h-[48px] sm:w-[var(--parent-student-picker-width,260px)] sm:max-w-[min(420px,calc(100vw-160px))] sm:flex-none">
         <img
           alt=""
           className="pointer-events-none absolute left-[24px] top-1/2 z-10 size-[20px] -translate-y-1/2 object-contain"

@@ -10,13 +10,7 @@ import {
   type StudentScheduleBadge,
   type StudentScheduleRow,
 } from "@/lib/data/types";
-import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
-import {
-  buildGenericStudentProfileFallback,
-  STUDENT_PROFILE_FALLBACK_BY_ID,
-  STUDENT_ROSTER_FALLBACK_ROWS,
-  STUDENT_SCHEDULE_FALLBACK_ROWS,
-} from "@/lib/data/mock/student-detail";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import {
   emptyScheduleBadgesBySlot,
   normalizeScheduleBadges,
@@ -38,29 +32,16 @@ type StudentScheduleResolved = {
 
 const SCHOOL_TIME_ZONE = "America/New_York";
 
-function fallbackProfile(studentId: string): StudentProfileResolved {
-  if (!canUseBundledFallbackData()) return { profile: null, source: "unavailable" };
-  return {
-    profile: STUDENT_PROFILE_FALLBACK_BY_ID[studentId] ?? buildGenericStudentProfileFallback(studentId),
-    source: "fallback",
-  };
+function unavailableProfile(): StudentProfileResolved {
+  return { profile: null, source: "unavailable" };
 }
 
-function fallbackSchedule(studentId: string): StudentScheduleResolved {
-  if (!canUseBundledFallbackData()) return { rows: [], source: "unavailable" };
-  const exact = STUDENT_SCHEDULE_FALLBACK_ROWS.filter((row) => row.id === studentId);
-  return {
-    rows: exact.length > 0 ? exact : STUDENT_SCHEDULE_FALLBACK_ROWS,
-    source: "fallback",
-  };
+function unavailableSchedule(): StudentScheduleResolved {
+  return { rows: [], source: "unavailable" };
 }
 
-function fallbackRoster(): ResolvedList<StudentRosterRow> {
-  if (!canUseBundledFallbackData()) return { items: [], source: "unavailable" };
-  return {
-    items: [...STUDENT_ROSTER_FALLBACK_ROWS],
-    source: "fallback",
-  };
+function unavailableRoster(): ResolvedList<StudentRosterRow> {
+  return unavailableList();
 }
 
 function normalizeProgram(raw: unknown): ProgramTrack {
@@ -184,7 +165,7 @@ function pushBadge(row: StudentScheduleRow, slot: ParentScheduleSlotKey, badge: 
 export async function fetchStudentProfileResolved(studentId: string): Promise<StudentProfileResolved> {
   const id = studentId.trim();
   if (!id) return { profile: null, source: "unavailable" };
-  if (!isSupabaseConfigured()) return fallbackProfile(id);
+  if (!isSupabaseConfigured()) return unavailableProfile();
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -196,7 +177,7 @@ export async function fetchStudentProfileResolved(studentId: string): Promise<St
       .eq("id", id)
       .maybeSingle();
 
-    if (error) return fallbackProfile(id);
+    if (error) return unavailableProfile();
     if (!student) return { profile: null, source: "remote" };
 
     const { data: enrollments } = await supabase
@@ -258,14 +239,14 @@ export async function fetchStudentProfileResolved(studentId: string): Promise<St
       },
     };
   } catch {
-    return fallbackProfile(id);
+    return unavailableProfile();
   }
 }
 
 export async function fetchStudentScheduleResolved(studentId: string): Promise<StudentScheduleResolved> {
   const id = studentId.trim();
   if (!id) return { rows: [], source: "unavailable" };
-  if (!isSupabaseConfigured()) return fallbackSchedule(id);
+  if (!isSupabaseConfigured()) return unavailableSchedule();
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -274,7 +255,7 @@ export async function fetchStudentScheduleResolved(studentId: string): Promise<S
       .select("id, display_name, guardian_label")
       .eq("id", id)
       .maybeSingle();
-    if (error) return fallbackSchedule(id);
+    if (error) return unavailableSchedule();
     if (!student) return { rows: [], source: "remote" };
 
     const { data: enrollments, error: enrollmentsError } = await supabase
@@ -282,7 +263,7 @@ export async function fetchStudentScheduleResolved(studentId: string): Promise<S
       .select("id, status, classes ( id, name, program, block, schedule_summary )")
       .eq("student_id", id)
       .order("created_at", { ascending: true });
-    if (enrollmentsError) return fallbackSchedule(id);
+    if (enrollmentsError) return unavailableSchedule();
 
     const row = emptyScheduleRow({
       id: String(student.id),
@@ -303,7 +284,7 @@ export async function fetchStudentScheduleResolved(studentId: string): Promise<S
     row.b4Thu = normalizeScheduleBadges(row.b4Thu);
     return { rows: [row], source: "remote" };
   } catch {
-    return fallbackSchedule(id);
+    return unavailableSchedule();
   }
 }
 
@@ -333,7 +314,7 @@ function mapStudentRosterEnrollmentRow(row: Record<string, unknown>): StudentRos
 export async function fetchStudentRosterResolved(studentId: string): Promise<ResolvedList<StudentRosterRow>> {
   const id = studentId.trim();
   if (!id) return { items: [], source: "unavailable" };
-  if (!isSupabaseConfigured()) return fallbackRoster();
+  if (!isSupabaseConfigured()) return unavailableRoster();
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -341,7 +322,7 @@ export async function fetchStudentRosterResolved(studentId: string): Promise<Res
       .from("enrollments")
       .select("class_id")
       .eq("student_id", id);
-    if (ownError) return fallbackRoster();
+    if (ownError) return unavailableRoster();
     const classIds = Array.from(
       new Set(
         ((ownEnrollments ?? []) as { class_id?: string }[])
@@ -372,14 +353,14 @@ export async function fetchStudentRosterResolved(studentId: string): Promise<Res
       )
       .in("class_id", classIds)
       .order("created_at", { ascending: true });
-    if (error) return fallbackRoster();
+    if (error) return unavailableRoster();
 
     const mapped = ((data ?? []) as unknown as Record<string, unknown>[])
       .map(mapStudentRosterEnrollmentRow)
       .filter((row): row is StudentRosterRow => row !== null);
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackRoster();
+    return unavailableRoster();
   }
 }
 

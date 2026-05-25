@@ -5,10 +5,7 @@ import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
-import {
-  canUsePrivilegedDemoData,
-  isSupabaseConfigured,
-} from "@/lib/data/env";
+import { isSupabaseConfigured } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { scheduleSlotForClassFields } from "@/lib/schedule-slots";
 import type {
@@ -96,7 +93,6 @@ async function mutationClientForParentContactUpdate(): Promise<
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
-    error,
   } = await supabase.auth.getUser();
 
   if (user?.id) {
@@ -107,11 +103,7 @@ async function mutationClientForParentContactUpdate(): Promise<
     return { ok: true, client: supabase, auditClient: supabase, actorId: user.id };
   }
 
-  if (!canUsePrivilegedDemoData() || !isSupabaseAdminConfigured()) {
-    return { ok: false, message: error || !user ? "Not signed in" : "Supabase demo write is not configured" };
-  }
-
-  return { ok: true, client: createSupabaseAdminClient(), auditClient: supabase };
+  return { ok: false, message: "Not signed in" };
 }
 
 async function authUserIdForEmail(
@@ -1373,8 +1365,9 @@ export async function serverPatchEnrichmentRequest(
   if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
   try {
     const supabase = await createSupabaseServerClient();
+    const mutationClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
     const dbStatus = status.toLowerCase();
-    const { data, error } = await supabase
+    const { data, error } = await mutationClient
       .from("class_requests")
       .update({ status: dbStatus })
       .eq("id", id)
@@ -1388,7 +1381,7 @@ export async function serverPatchEnrichmentRequest(
       const classId = String(raw.class_id ?? "").trim();
       if (!studentId || !classId) return { ok: false, message: "Approved request is missing student or class id" };
 
-      const { error: enrollmentError } = await supabase
+      const { error: enrollmentError } = await mutationClient
         .from("enrollments")
         .upsert(
           {
@@ -1400,7 +1393,7 @@ export async function serverPatchEnrichmentRequest(
         );
       if (enrollmentError) return { ok: false, message: enrollmentError.message };
 
-      const cleaned = await clearSameSlotAlternativesAfterApproval(supabase, {
+      const cleaned = await clearSameSlotAlternativesAfterApproval(mutationClient, {
         studentId,
         approvedClassId: classId,
         approvedRequestId: id,
@@ -1478,18 +1471,7 @@ export async function serverPatchNotificationsReadAll(ids?: string[]): Promise<W
     } = await supabase.auth.getUser();
 
     if (ue || !user) {
-      if (!canUsePrivilegedDemoData()) return { ok: false, message: "Not signed in" };
-      if (!isSupabaseAdminConfigured()) return { ok: false, message: "Supabase demo write is not configured" };
-      if (notificationIds.length === 0) return { ok: true };
-
-      const admin = createSupabaseAdminClient();
-      const { error } = await admin
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .in("id", notificationIds)
-        .is("read_at", null);
-      if (error) return { ok: false, message: error.message };
-      return { ok: true };
+      return { ok: false, message: "Not signed in" };
     }
 
     let query = supabase
@@ -1522,25 +1504,15 @@ export async function serverPatchNotificationRead(
       error: ue,
     } = await supabase.auth.getUser();
 
-    const client: SupabaseMutationClient | null =
-      ue || !user
-        ? canUsePrivilegedDemoData() && isSupabaseAdminConfigured()
-          ? createSupabaseAdminClient()
-          : null
-        : supabase;
-
-    if (!client) {
-      return { ok: false, message: ue || !user ? "Not signed in" : "Supabase demo write is not configured" };
+    if (ue || !user) {
+      return { ok: false, message: "Not signed in" };
     }
 
-    let query = client
+    const query = supabase
       .from("notifications")
       .update({ read_at: read ? new Date().toISOString() : null })
-      .eq("id", notificationId);
-
-    if (user?.id) {
-      query = query.eq("recipient_profile_id", user.id);
-    }
+      .eq("id", notificationId)
+      .eq("recipient_profile_id", user.id);
 
     const { data, error } = await query.select("id, title, body, href, read_at, created_at").maybeSingle();
     if (error) return { ok: false, message: error.message };

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Creates or repairs the Supabase Auth users required by the demo/launch seed.
+ * Creates or repairs Supabase Auth users required by operator smoke checks.
  *
  * Run only with server-side production env loaded. This script never prints
  * passwords, access tokens, refresh tokens, or the service-role key.
@@ -9,42 +9,34 @@
 const path = require("path");
 const { env, loadDotenvFiles } = require("./lib/env.cjs");
 
-const REQUIRED_USERS = [
+const USER_SPECS = [
   {
-    email: "name.example@gmail.com",
+    emailEnv: "CIA_RLS_ADMIN_EMAIL",
     role: "admin",
-    displayName: "Demo Admin",
+    displayNameEnv: "CIA_RLS_ADMIN_DISPLAY_NAME",
+    defaultDisplayName: "Admin user",
     passwordEnvs: ["CIA_RLS_ADMIN_PASSWORD", "CIA_ADMIN_PASSWORD"],
   },
   {
-    email: "parent.lee@cia.demo",
+    emailEnv: "CIA_RLS_PARENT_EMAIL",
     role: "parent",
-    displayName: "Mr. Lee",
-    passwordEnvs: ["CIA_RLS_PARENT_PASSWORD", "CIA_PARENT_LEE_PASSWORD"],
+    displayNameEnv: "CIA_RLS_PARENT_DISPLAY_NAME",
+    defaultDisplayName: "Parent user",
+    passwordEnvs: ["CIA_RLS_PARENT_PASSWORD"],
   },
   {
-    email: "parent.smith@cia.demo",
-    role: "parent",
-    displayName: "Ms. Smith",
-    passwordEnvs: ["CIA_PARENT_SMITH_PASSWORD"],
-  },
-  {
-    email: "parent.collins@cia.demo",
-    role: "parent",
-    displayName: "Ms. Collins",
-    passwordEnvs: ["CIA_PARENT_COLLINS_PASSWORD"],
-  },
-  {
-    email: "teacher.emily@cia.demo",
+    emailEnv: "CIA_RLS_TEACHER_EMAIL",
     role: "teacher",
-    displayName: "Emily Carter",
-    passwordEnvs: ["CIA_RLS_TEACHER_PASSWORD", "CIA_TEACHER_EMILY_PASSWORD"],
+    displayNameEnv: "CIA_RLS_TEACHER_DISPLAY_NAME",
+    defaultDisplayName: "Teacher user",
+    passwordEnvs: ["CIA_RLS_TEACHER_PASSWORD"],
   },
   {
-    email: "student.anna@cia.demo",
+    emailEnv: "CIA_RLS_STUDENT_EMAIL",
     role: "student",
-    displayName: "Anna Lee",
-    passwordEnvs: ["CIA_RLS_STUDENT_PASSWORD", "CIA_STUDENT_ANNA_PASSWORD"],
+    displayNameEnv: "CIA_RLS_STUDENT_DISPLAY_NAME",
+    defaultDisplayName: "Student user",
+    passwordEnvs: ["CIA_RLS_STUDENT_PASSWORD"],
   },
 ];
 
@@ -60,24 +52,41 @@ Required env:
   SUPABASE_SERVICE_ROLE_KEY
 
 Password env:
+  CIA_RLS_ADMIN_EMAIL
   CIA_RLS_ADMIN_PASSWORD
+  CIA_RLS_PARENT_EMAIL
   CIA_RLS_PARENT_PASSWORD
+  CIA_RLS_TEACHER_EMAIL
   CIA_RLS_TEACHER_PASSWORD
+  CIA_RLS_STUDENT_EMAIL
   CIA_RLS_STUDENT_PASSWORD
 
-Optional password env:
-  CIA_PARENT_COLLINS_PASSWORD
-  CIA_PARENT_SMITH_PASSWORD
-  CIA_TEACHER_EMILY_PASSWORD
-  CIA_DEMO_USER_PASSWORD
+Optional display-name env:
+  CIA_RLS_ADMIN_DISPLAY_NAME
+  CIA_RLS_PARENT_DISPLAY_NAME
+  CIA_RLS_TEACHER_DISPLAY_NAME
+  CIA_RLS_STUDENT_DISPLAY_NAME
 
 Behavior:
   - Missing users are created with a password when one is available.
   - Missing users are invited by email when no password is available.
   - --require-passwords requires the admin/parent/teacher/student RLS verifier passwords.
   - Existing users keep their password unless --reset-passwords is supplied.
-  - Profiles are upserted with the seed-contract role/display name.
+  - Profiles are upserted with the configured role/display name.
 `);
+}
+
+function requiredUsersFromEnv() {
+  return USER_SPECS.map((spec) => {
+    const email = env(spec.emailEnv).toLowerCase();
+    if (!email) throw new Error(`${spec.emailEnv} is missing`);
+    return {
+      email,
+      role: spec.role,
+      displayName: env(spec.displayNameEnv) || spec.defaultDisplayName,
+      passwordEnvs: spec.passwordEnvs,
+    };
+  });
 }
 
 function passwordFor(user) {
@@ -85,7 +94,7 @@ function passwordFor(user) {
     const v = env(name);
     if (v) return v;
   }
-  return env("CIA_DEMO_USER_PASSWORD");
+  return "";
 }
 
 function assertPassword(password, email) {
@@ -139,7 +148,7 @@ async function main() {
 
   const summary = { created: 0, invited: 0, updatedProfiles: 0, resetPasswords: 0 };
 
-  for (const user of REQUIRED_USERS) {
+  for (const user of requiredUsersFromEnv()) {
     const email = user.email.toLowerCase();
     const password = passwordFor(user);
     const isVerifierUser = user.passwordEnvs.some((name) => name.startsWith("CIA_RLS_"));
@@ -201,7 +210,7 @@ async function main() {
   console.log(
     `Supabase user provisioning OK (${summary.created} created, ${summary.invited} invited, ${summary.resetPasswords} password reset(s), ${summary.updatedProfiles} profiles upserted).`,
   );
-  console.log("Next: run supabase/seed/track2_demo_seed.sql, then npm run verify:production.");
+  console.log("Next: run npm run verify:production with the same configured smoke users.");
 }
 
 main().catch((err) => {

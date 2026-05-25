@@ -122,12 +122,12 @@ export default function SettingsQaTools() {
             </button>
             <button
               type="button"
-              onClick={() => applyDemoAccountAndGo("parent-mary")}
+              onClick={() => applyDemoAccountAndGo("parent-primary")}
               className="flex flex-col items-start gap-1 rounded-[8px] border border-[#dfe1e7] bg-[#fafafa] px-4 py-3 text-left text-[#272932] transition-colors hover:bg-[#f3f4f6] cursor-pointer"
             >
               <span className="text-[14px] font-semibold">Parent</span>
               <span className="text-[12px] text-[#666d80]">
-                Opens the parent dashboard ({getDemoAccountById("parent-mary").displayName} preview).
+                Opens the parent dashboard ({getDemoAccountById("parent-primary").displayName} preview).
               </span>
             </button>
           </div>

@@ -1,7 +1,6 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
-import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
-import { REQUESTS_FALLBACK } from "@/lib/data/mock/requests";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -45,7 +44,7 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
 
 async function loadRequestsResolved(): Promise<ResolvedList<EnrichmentRequestRow>> {
   if (!isSupabaseConfigured()) {
-    return fallbackList(REQUESTS_FALLBACK);
+    return unavailableList();
   }
 
   try {
@@ -67,7 +66,7 @@ async function loadRequestsResolved(): Promise<ResolvedList<EnrichmentRequestRow
       .order("created_at", { ascending: true });
 
     if (error) {
-      return fallbackList(REQUESTS_FALLBACK);
+      return unavailableList();
     }
 
     if (!data?.length) {
@@ -79,15 +78,15 @@ async function loadRequestsResolved(): Promise<ResolvedList<EnrichmentRequestRow
       .filter((x): x is EnrichmentRequestRow => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(REQUESTS_FALLBACK);
+      return unavailableList();
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(REQUESTS_FALLBACK);
+    return unavailableList();
   }
 }
 
-/** Enrichment coordinator queue — fallback preserved for demos. */
+/** Enrichment coordinator queue. */
 export async function fetchEnrichmentRequests(): Promise<EnrichmentRequestRow[]> {
   const { items } = await loadRequestsResolved();
   return items;

@@ -1,8 +1,3 @@
-/** Concrete demo accounts used only when `NEXT_PUBLIC_ENABLE_TEST_PERSONA_UI=true`. */
-import {
-  DEFAULT_DEMO_ACCOUNT_ID,
-  DEMO_ACCOUNTS,
-} from "@/lib/data/mock/demo-accounts";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
 export type { DashboardPersona } from "@/lib/dashboard/persona";
@@ -11,11 +6,11 @@ export const DEMO_STATE_STORAGE_KEY = "cia-demo-dashboard-state";
 export const LEGACY_PERSONA_STORAGE_KEY = "cia-dashboard-persona";
 
 export type DemoAccountId =
-  | "admin-joseph"
-  | "admin-dejan"
-  | "parent-mary"
-  | "teacher-emily"
-  | "student-anna";
+  | "admin-primary"
+  | "admin-secondary"
+  | "parent-primary"
+  | "teacher-primary"
+  | "student-primary";
 
 export type DemoAccount = {
   id: DemoAccountId;
@@ -27,7 +22,50 @@ export type DemoAccount = {
   studentId: string;
 };
 
-export { DEFAULT_DEMO_ACCOUNT_ID, DEMO_ACCOUNTS };
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    id: "admin-primary",
+    persona: "admin",
+    displayName: "Admin preview",
+    roleLabel: "Administrator",
+    defaultRoute: "/dashboard",
+    studentId: "",
+  },
+  {
+    id: "admin-secondary",
+    persona: "admin",
+    displayName: "Admin preview 2",
+    roleLabel: "Administrator",
+    defaultRoute: "/dashboard",
+    studentId: "",
+  },
+  {
+    id: "parent-primary",
+    persona: "parent",
+    displayName: "Parent preview",
+    roleLabel: "Parent",
+    defaultRoute: "/dashboard/parents/home",
+    studentId: "",
+  },
+  {
+    id: "teacher-primary",
+    persona: "teacher",
+    displayName: "Teacher preview",
+    roleLabel: "Teacher",
+    defaultRoute: "/dashboard/teachers",
+    studentId: "",
+  },
+  {
+    id: "student-primary",
+    persona: "student",
+    displayName: "Student preview",
+    roleLabel: "Student",
+    defaultRoute: "/dashboard/students",
+    studentId: "",
+  },
+];
+
+export const DEFAULT_DEMO_ACCOUNT_ID: DemoAccountId = "admin-primary";
 
 export function getDemoAccountById(id: string | null | undefined): DemoAccount {
   const found = DEMO_ACCOUNTS.find((a) => a.id === id);
@@ -37,13 +75,13 @@ export function getDemoAccountById(id: string | null | undefined): DemoAccount {
 export function defaultDemoAccountIdForPersona(persona: DashboardPersona): DemoAccountId {
   switch (persona) {
     case "admin":
-      return "admin-joseph";
+      return "admin-primary";
     case "parent":
-      return "parent-mary";
+      return "parent-primary";
     case "teacher":
-      return "teacher-emily";
+      return "teacher-primary";
     case "student":
-      return "student-anna";
+      return "student-primary";
   }
 }
 

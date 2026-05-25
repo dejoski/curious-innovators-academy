@@ -2,33 +2,10 @@ import "server-only";
 
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { DashboardNotification } from "@/lib/data/types";
-import {
-  canUsePrivilegedDemoData,
-  fallbackList,
-  isSupabaseConfigured,
-  unavailableList,
-} from "@/lib/data/env";
-import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
-import { DEMO_UI_ROLE_COOKIE_NAME } from "@/lib/demo-login";
-import {
-  isDashboardPersona,
-  type DashboardPersona,
-} from "@/lib/dashboard/persona";
-import { NOTIFICATIONS_FALLBACK } from "@/lib/data/mock/notifications";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
 
-type NotificationReadClient =
-  | Awaited<ReturnType<typeof createSupabaseServerClient>>
-  | ReturnType<typeof createSupabaseAdminClient>;
-
-const DEMO_NOTIFICATION_EMAIL_BY_ROLE: Record<DashboardPersona, string> = {
-  admin: "name.example@gmail.com",
-  parent: "parent.lee@cia.demo",
-  teacher: "teacher.emily@cia.demo",
-  student: "student.anna@cia.demo",
-};
+type NotificationReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
 export function mapNotificationRow(row: Record<string, unknown>): DashboardNotification | null {
   const id = row.id != null ? String(row.id) : "";
@@ -46,27 +23,6 @@ export function mapNotificationRow(row: Record<string, unknown>): DashboardNotif
   };
 }
 
-function demoRoleFromCookieValue(value: string | undefined): DashboardPersona {
-  return isDashboardPersona(value) ? value : "parent";
-}
-
-async function resolveDemoRecipientProfileId(): Promise<string | null> {
-  if (!isSupabaseAdminConfigured()) return null;
-
-  const cookieStore = await cookies();
-  const role = demoRoleFromCookieValue(cookieStore.get(DEMO_UI_ROLE_COOKIE_NAME)?.value);
-  const email = DEMO_NOTIFICATION_EMAIL_BY_ROLE[role];
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (error || !data?.id) return null;
-  return String(data.id);
-}
-
 async function queryNotificationsForRecipient(
   supabase: NotificationReadClient,
   recipientProfileId: string,
@@ -78,7 +34,7 @@ async function queryNotificationsForRecipient(
     .order("created_at", { ascending: false });
 
   if (error) {
-    return fallbackList(NOTIFICATIONS_FALLBACK);
+    return unavailableList();
   }
 
   if (!data?.length) {
@@ -90,14 +46,14 @@ async function queryNotificationsForRecipient(
     .filter((x): x is DashboardNotification => x !== null);
 
   if (mapped.length === 0) {
-    return fallbackList(NOTIFICATIONS_FALLBACK);
+    return unavailableList();
   }
   return { items: mapped, source: "remote" };
 }
 
 async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotification>> {
   if (!isSupabaseConfigured()) {
-    return fallbackList(NOTIFICATIONS_FALLBACK);
+    return unavailableList();
   }
 
   try {
@@ -110,22 +66,13 @@ async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotifi
       return queryNotificationsForRecipient(supabase, user.id);
     }
 
-    if (!canUsePrivilegedDemoData()) {
-      return unavailableList();
-    }
-
-    const demoRecipientProfileId = await resolveDemoRecipientProfileId();
-    if (!demoRecipientProfileId) {
-      return fallbackList(NOTIFICATIONS_FALLBACK);
-    }
-
-    return queryNotificationsForRecipient(createSupabaseAdminClient(), demoRecipientProfileId);
+    return unavailableList();
   } catch {
-    return fallbackList(NOTIFICATIONS_FALLBACK);
+    return unavailableList();
   }
 }
 
-/** Loads notifications; falls back to demo seed when offline or on error. */
+/** Loads notifications. */
 export async function fetchNotifications(): Promise<DashboardNotification[]> {
   const { items } = await loadNotificationsResolved();
   return items;

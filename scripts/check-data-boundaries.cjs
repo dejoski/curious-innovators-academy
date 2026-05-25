@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
- * Keeps demo/sample rows behind the data layer. App pages and shared UI should
- * call repositories/API routes, not import bundled mock fixtures directly.
+ * Rejects bundled placeholder rows and production-hostile placeholders. App pages and
+ * shared UI should call repositories/API routes backed by Supabase.
  */
 
 const fs = require("fs");
@@ -9,8 +9,6 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 const scanRoots = ["src/app", "src/components", "src/lib"];
-const mockDataPrefix = path.join("src", "lib", "data", "mock") + path.sep;
-const repositoryPrefix = path.join("src", "lib", "data", "repositories") + path.sep;
 const allowedDemoAccountImports = new Set([
   path.join("src", "components", "dashboard-persona.tsx"),
   path.join("src", "components", "settings-qa-tools.tsx"),
@@ -82,11 +80,10 @@ function walk(dir) {
 for (const scanRoot of scanRoots) {
   for (const file of walk(path.join(root, scanRoot))) {
     const rel = path.relative(root, file);
-    if (rel.startsWith(mockDataPrefix)) continue;
     const content = fs.readFileSync(file, "utf8");
     const importsMockData = content.includes("@/lib/data/mock") || content.includes("../lib/data/mock");
-    if (importsMockData && !rel.startsWith(repositoryPrefix) && rel !== path.join("src", "lib", "demo-accounts.ts")) {
-      violations.push(`${rel}: imports bundled mock data outside the repository layer`);
+    if (importsMockData) {
+      violations.push(`${rel}: imports bundled mock data; repositories must return remote or unavailable data`);
     }
     const importsDemoAccounts =
       content.includes("@/lib/demo-accounts") ||
@@ -136,6 +133,10 @@ if (fs.existsSync(path.join(root, "src/lib/parent-student-profile-demo.ts"))) {
 
 if (fs.existsSync(path.join(root, "src/lib/supabase/rest.ts"))) {
   violations.push("src/lib/supabase/rest.ts: anon-key REST helper has been recreated");
+}
+
+if (fs.existsSync(path.join(root, "src/lib/data/mock"))) {
+  violations.push("src/lib/data/mock: bundled placeholder data directory has been recreated");
 }
 
 if (fs.existsSync(path.join(root, "src/app/dashboard/alt/page.tsx"))) {
@@ -225,4 +226,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log("check-data-boundaries: OK (app/components/lib keep sample rows behind repositories or mock-data modules)");
+console.log("check-data-boundaries: OK (no bundled placeholder rows or direct mock-data imports in scanned runtime code)");

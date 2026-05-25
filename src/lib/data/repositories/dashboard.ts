@@ -1,10 +1,9 @@
 import {
-  DASHBOARD_METRICS,
   getDashboardDailyBlocks,
   type DashboardDailyBlockRow,
   type DashboardHeadCounts,
 } from "@/lib/dashboard-metrics";
-import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
+import { isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ResolvedDashboardPresentation = {
@@ -13,15 +12,6 @@ export type ResolvedDashboardPresentation = {
   /** True when counts came from Supabase (all four head counts succeeded). */
   fromRemote: boolean;
 };
-
-function fallbackPresentation(): ResolvedDashboardPresentation {
-  const m = DASHBOARD_METRICS;
-  return {
-    metrics: m,
-    dailyRows: getDashboardDailyBlocks(m),
-    fromRemote: false,
-  };
-}
 
 function unavailablePresentation(): ResolvedDashboardPresentation {
   const metrics = {
@@ -32,13 +22,9 @@ function unavailablePresentation(): ResolvedDashboardPresentation {
   };
   return {
     metrics,
-    dailyRows: getDashboardDailyBlocks(metrics),
+    dailyRows: getDashboardDailyBlocks(),
     fromRemote: false,
   };
-}
-
-function nonRemotePresentation(): ResolvedDashboardPresentation {
-  return canUseBundledFallbackData() ? fallbackPresentation() : unavailablePresentation();
 }
 
 async function countExact(
@@ -60,7 +46,7 @@ async function countExact(
  * Uses authenticated server client (RLS); column is `program` on `classes`.
  */
 export async function resolveDashboardPresentation(): Promise<ResolvedDashboardPresentation> {
-  if (!isSupabaseConfigured()) return nonRemotePresentation();
+  if (!isSupabaseConfigured()) return unavailablePresentation();
 
   try {
     const [studentCount, teacherCount, coreClassCount, enrichmentOfferingCount] =
@@ -77,7 +63,7 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
       coreClassCount === null ||
       enrichmentOfferingCount === null
     ) {
-      return nonRemotePresentation();
+      return unavailablePresentation();
     }
 
     const metrics: DashboardHeadCounts = {
@@ -89,10 +75,10 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
 
     return {
       metrics,
-      dailyRows: getDashboardDailyBlocks(metrics),
+      dailyRows: getDashboardDailyBlocks(),
       fromRemote: true,
     };
   } catch {
-    return nonRemotePresentation();
+    return unavailablePresentation();
   }
 }

@@ -7,10 +7,8 @@ import type {
   ProgramTrack,
   SchoolClassRow,
 } from "@/lib/data/types";
-import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
-import { CLASSES_FALLBACK } from "@/lib/data/mock/classes";
-import { STUDENTS_FALLBACK } from "@/lib/data/mock/students";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -273,7 +271,7 @@ async function loadClassesWithJoinCounts(
     .select(CLASS_SELECT_WITH_HOLDS)
     .order("created_at", { ascending: true });
 
-  if (error) return fallbackList(CLASSES_FALLBACK);
+  if (error) return unavailableList();
   if (!data?.length) return { items: [], source: "remote" };
 
   const mapped = data
@@ -282,13 +280,13 @@ async function loadClassesWithJoinCounts(
     )
     .filter((x): x is SchoolClassRow => x !== null);
 
-  if (mapped.length === 0) return fallbackList(CLASSES_FALLBACK);
+  if (mapped.length === 0) return unavailableList();
   return { items: mapped, source: "remote" };
 }
 
 async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
   if (!isSupabaseConfigured()) {
-    return fallbackList(CLASSES_FALLBACK);
+    return unavailableList();
   }
 
   try {
@@ -306,7 +304,7 @@ async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
     ]);
 
     if (classesResult.error) {
-      return fallbackList(CLASSES_FALLBACK);
+      return unavailableList();
     }
 
     if (availabilityResult.error) {
@@ -331,15 +329,15 @@ async function loadClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
       .filter((x): x is SchoolClassRow => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(CLASSES_FALLBACK);
+      return unavailableList();
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(CLASSES_FALLBACK);
+    return unavailableList();
   }
 }
 
-/** Loads classes for /dashboard/classes; falls back to demo seed when offline or on error. */
+/** Loads classes for /dashboard/classes. */
 export async function fetchClasses(): Promise<SchoolClassRow[]> {
   const { items } = await loadClassesResolved();
   return items;
@@ -349,18 +347,8 @@ export async function fetchClassesResolved(): Promise<ResolvedList<SchoolClassRo
   return loadClassesResolved();
 }
 
-function fallbackRoster(): ResolvedList<ClassRosterStudent> {
-  return fallbackList(
-    STUDENTS_FALLBACK.slice(0, 6).map((student) => ({
-      id: student.id,
-      name: student.name,
-      parent: student.parent,
-      age: Number.parseInt(student.level, 10) || 13,
-      level: student.level,
-      status: student.status === "Completed" ? "Approved" : "Pending",
-      description: student.notes,
-    })),
-  );
+function unavailableRoster(): ResolvedList<ClassRosterStudent> {
+  return unavailableList();
 }
 
 function mapRosterEnrollmentRow(row: Record<string, unknown>): ClassRosterStudent | null {
@@ -391,7 +379,7 @@ export async function fetchClassRosterResolved(
   if (!id) return { items: [], source: "unavailable" };
 
   if (!isSupabaseConfigured()) {
-    return fallbackRoster();
+    return unavailableRoster();
   }
 
   try {
@@ -417,15 +405,15 @@ export async function fetchClassRosterResolved(
       .eq("class_id", id)
       .order("created_at", { ascending: true });
 
-    if (error) return fallbackRoster();
+    if (error) return unavailableRoster();
     if (!data?.length) return { items: [], source: "remote" };
 
     const mapped = data
       .map((row) => mapRosterEnrollmentRow(row as unknown as Record<string, unknown>))
       .filter((x): x is ClassRosterStudent => x !== null);
-    if (mapped.length === 0) return fallbackRoster();
+    if (mapped.length === 0) return unavailableRoster();
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackRoster();
+    return unavailableRoster();
   }
 }

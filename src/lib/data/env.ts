@@ -56,35 +56,13 @@ export function isSupabaseConfigured(): boolean {
 }
 
 /**
- * Production guard: when true, repository functions return empty/unavailable
- * instead of showing bundled sample rows after a missing env or failed query.
+ * Remote data is mandatory. Missing env or failed queries must not render
+ * placeholder rows.
  */
 export function isRemoteDataRequired(): boolean {
-  if (typeof window === "undefined") {
-    return readRuntimeEnv("NEXT_PUBLIC_REQUIRE_REMOTE_DATA") === "true";
-  }
-  return process.env.NEXT_PUBLIC_REQUIRE_REMOTE_DATA?.trim() === "true";
-}
-
-export function canUseBundledFallbackData(): boolean {
-  return !isRemoteDataRequired();
-}
-
-/**
- * Privileged demo writes use the server-only service role to simulate a signed-in
- * seeded account. Keep that strictly local/off-Vercel; production and preview
- * deployments must use real Supabase auth instead.
- */
-export function canUsePrivilegedDemoData(): boolean {
-  return !isRemoteDataRequired() && readRuntimeEnv("VERCEL") !== "1";
+  return true;
 }
 
 export function unavailableList<T>(): import("./fetch-source").ResolvedList<T> {
   return { items: [], source: "unavailable" };
-}
-
-export function fallbackList<T>(items: T[]): import("./fetch-source").ResolvedList<T> {
-  return canUseBundledFallbackData()
-    ? { items: [...items], source: "fallback" }
-    : unavailableList<T>();
 }

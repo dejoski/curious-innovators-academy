@@ -1,7 +1,6 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { TeacherRow } from "@/lib/data/types";
-import { fallbackList, isSupabaseConfigured } from "@/lib/data/env";
-import { TEACHERS_FALLBACK } from "@/lib/data/mock/teachers";
+import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
@@ -35,7 +34,7 @@ export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
 
 async function loadTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
   if (!isSupabaseConfigured()) {
-    return fallbackList(TEACHERS_FALLBACK);
+    return unavailableList();
   }
 
   try {
@@ -46,7 +45,7 @@ async function loadTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
       .order("created_at", { ascending: true });
 
     if (error) {
-      return fallbackList(TEACHERS_FALLBACK);
+      return unavailableList();
     }
 
     if (!data?.length) {
@@ -58,15 +57,15 @@ async function loadTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
       .filter((x): x is TeacherRow => x !== null);
 
     if (mapped.length === 0) {
-      return fallbackList(TEACHERS_FALLBACK);
+      return unavailableList();
     }
     return { items: mapped, source: "remote" };
   } catch {
-    return fallbackList(TEACHERS_FALLBACK);
+    return unavailableList();
   }
 }
 
-/** Teachers directory — fallback preserved for demos without matching tables. */
+/** Teachers directory. */
 export async function fetchTeachers(): Promise<TeacherRow[]> {
   const { items } = await loadTeachersResolved();
   return items;

@@ -42,6 +42,9 @@ export async function GET(_req: Request, context: RouteContext) {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { id } = await context.params;
   const studentId = id.trim();
   const current = await requireCurrentApiUser();
@@ -96,6 +99,9 @@ export async function PATCH(req: Request, context: RouteContext) {
 }
 
 export async function POST(req: Request, context: RouteContext) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const { id } = await context.params;
   const studentId = id.trim();
   const current = await requireCurrentApiUser();

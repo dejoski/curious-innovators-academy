@@ -1,6 +1,5 @@
 import type { StudentNoteRecord } from "@/lib/data/types";
-import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
-import { NOTES_FALLBACK } from "@/lib/data/mock/notes";
+import { isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function mapNoteRow(row: Record<string, unknown>): StudentNoteRecord | null {
@@ -27,7 +26,7 @@ function mapNoteRow(row: Record<string, unknown>): StudentNoteRecord | null {
 /** Timeline notes from the RLS-scoped student_records table. */
 export async function fetchStudentNotes(studentId: string): Promise<StudentNoteRecord[]> {
   if (!studentId) return [];
-  if (!isSupabaseConfigured()) return canUseBundledFallbackData() ? [...NOTES_FALLBACK] : [];
+  if (!isSupabaseConfigured()) return [];
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -37,13 +36,13 @@ export async function fetchStudentNotes(studentId: string): Promise<StudentNoteR
       .eq("student_id", studentId)
       .order("created_at", { ascending: false });
 
-    if (error || !data?.length) return canUseBundledFallbackData() ? [...NOTES_FALLBACK] : [];
+    if (error || !data?.length) return [];
 
     const mapped = (data as Record<string, unknown>[])
       .map(mapNoteRow)
       .filter((x): x is StudentNoteRecord => x !== null);
-    return mapped.length > 0 ? mapped : canUseBundledFallbackData() ? [...NOTES_FALLBACK] : [];
+    return mapped;
   } catch {
-    return canUseBundledFallbackData() ? [...NOTES_FALLBACK] : [];
+    return [];
   }
 }

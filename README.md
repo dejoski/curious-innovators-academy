@@ -29,20 +29,19 @@ npm run build
 
 `SUPABASE_SCHEMA.sql` is the readable database schema reference.
 
-Supabase is the production source of truth. Repository functions under `src/lib/data/repositories/` read from Supabase and only use bundled fallback rows for local/offline development unless `NEXT_PUBLIC_REQUIRE_REMOTE_DATA=true`.
+Supabase is the source of truth. Repository functions under `src/lib/data/repositories/` read from Supabase; missing env or failed remote reads return empty/unavailable data instead of placeholder rows.
 Malformed Supabase URL env is treated as unconfigured, and runtime Supabase Auth
 failures are treated as configuration failures, so production mode fails closed
-instead of trying to create a broken client or serving fallback rows.
+instead of trying to create a broken client or serving placeholder rows.
 
 Production env vars:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` for server-only admin user provisioning
-- `NEXT_PUBLIC_REQUIRE_REMOTE_DATA=true`
 - `NEXT_PUBLIC_ENABLE_DEMO_LOGIN=false`
 - `NEXT_PUBLIC_SIGNUP_INVITE_CODE=<deployment invite code>`
 
 Run migrations in `supabase/migrations/`, including the account-preferences, support-ticket, feedback, and student-profile-write
-contract, then provision the listed Supabase Auth users with
-`npm run provision:supabase-users`, then load `supabase/seed/track2_demo_seed.sql`.
+contract, then provision configured Supabase Auth smoke users with
+`npm run provision:supabase-users`.

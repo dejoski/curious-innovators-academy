@@ -18,21 +18,12 @@ const {
 const execFileAsync = promisify(execFile);
 let createClient;
 
-const REQUIRED_DEMO_USERS = [
-  { email: "name.example@gmail.com", role: "admin" },
-  { email: "parent.lee@cia.demo", role: "parent" },
-  { email: "parent.smith@cia.demo", role: "parent" },
-  { email: "parent.collins@cia.demo", role: "parent" },
-  { email: "teacher.emily@cia.demo", role: "teacher" },
-  { email: "student.anna@cia.demo", role: "student" },
+const REQUIRED_SMOKE_USER_SPECS = [
+  { emailEnv: "CIA_RLS_ADMIN_EMAIL", role: "admin" },
+  { emailEnv: "CIA_RLS_PARENT_EMAIL", role: "parent" },
+  { emailEnv: "CIA_RLS_TEACHER_EMAIL", role: "teacher" },
+  { emailEnv: "CIA_RLS_STUDENT_EMAIL", role: "student" },
 ];
-
-const DEFAULT_RLS_EMAILS = {
-  CIA_RLS_ADMIN_EMAIL: "name.example@gmail.com",
-  CIA_RLS_PARENT_EMAIL: "parent.lee@cia.demo",
-  CIA_RLS_TEACHER_EMAIL: "teacher.emily@cia.demo",
-  CIA_RLS_STUDENT_EMAIL: "student.anna@cia.demo",
-};
 
 const DEFAULT_PRODUCTION_APP_URL = "https://curious-innovators-academy.vercel.app";
 
@@ -98,7 +89,33 @@ function requireEnv(name) {
 }
 
 function smokeEmail(name) {
-  return env(name) || DEFAULT_RLS_EMAILS[name] || requireEnv(name);
+  return requireEnv(name);
+}
+
+function smokeUsersFromEnv() {
+  return REQUIRED_SMOKE_USER_SPECS.map((spec) => ({
+    email: requireEnv(spec.emailEnv).toLowerCase(),
+    role: spec.role,
+  }));
+}
+
+function csvEnv(name) {
+  return env(name)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function assertNamesVisible(actualNames, expectedNames, label) {
+  for (const expected of expectedNames) {
+    if (!actualNames.has(expected)) throw new Error(`${label}: missing ${expected}`);
+  }
+}
+
+function assertNamesHidden(actualNames, hiddenNames, label) {
+  for (const hidden of hiddenNames) {
+    if (actualNames.has(hidden)) throw new Error(`${label}: unexpectedly visible ${hidden}`);
+  }
 }
 
 async function listAllAuthUsers(admin) {
@@ -143,9 +160,13 @@ Required env:
   NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL
   NEXT_PUBLIC_SUPABASE_ANON_KEY or SUPABASE_ANON_KEY
   SUPABASE_SERVICE_ROLE_KEY
+  CIA_RLS_ADMIN_EMAIL
   CIA_RLS_ADMIN_PASSWORD
+  CIA_RLS_PARENT_EMAIL
   CIA_RLS_PARENT_PASSWORD
+  CIA_RLS_TEACHER_EMAIL
   CIA_RLS_TEACHER_PASSWORD
+  CIA_RLS_STUDENT_EMAIL
   CIA_RLS_STUDENT_PASSWORD
 
 Production launch env:
@@ -159,13 +180,15 @@ Restore-target env:
   CIA_PRODUCTION_SUPABASE_PROJECT_REF=<production project ref>
 
 Optional env:
-  CIA_RLS_ADMIN_EMAIL / CIA_RLS_PARENT_EMAIL / CIA_RLS_TEACHER_EMAIL / CIA_RLS_STUDENT_EMAIL
-    Defaults to the seeded smoke users from supabase/seed/track2_demo_seed.sql.
+  CIA_RLS_PARENT_EXPECTED_STUDENTS / CIA_RLS_PARENT_FORBIDDEN_STUDENTS
+  CIA_RLS_TEACHER_EXPECTED_STUDENTS / CIA_RLS_TEACHER_FORBIDDEN_STUDENTS
+    Comma-separated values for stricter RLS visibility checks.
 `);
     return;
   }
 
   ({ createClient } = require("@supabase/supabase-js"));
+  const smokeUsers = smokeUsersFromEnv();
 
   const restoreTargetMode = env("CIA_VERIFY_RESTORE_TARGET") === "true";
   const supabaseUrl = restoreTargetMode
@@ -269,25 +292,25 @@ Optional env:
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  await check("Supabase Auth demo/operator users exist", async () => {
+  await check("Supabase Auth smoke users exist", async () => {
     const users = await listAllAuthUsers(admin);
     const existing = new Set(users.map((u) => String(u.email ?? "").toLowerCase()));
-    const missing = REQUIRED_DEMO_USERS.filter((u) => !existing.has(u.email));
+    const missing = smokeUsers.filter((u) => !existing.has(u.email));
     if (missing.length) {
       throw new Error(`missing auth users: ${missing.map((u) => u.email).join(", ")}`);
     }
-    return `${REQUIRED_DEMO_USERS.length} required users found`;
+    return `${smokeUsers.length} required users found`;
   });
 
-  await check("profile roles match seed contract", async () => {
+  await check("profile roles match smoke-user contract", async () => {
     const { data, error } = await admin
       .from("profiles")
       .select("email, role")
-      .in("email", REQUIRED_DEMO_USERS.map((u) => u.email));
+      .in("email", smokeUsers.map((u) => u.email));
     if (error) throw new Error(error.message);
     const byEmail = new Map((data ?? []).map((row) => [String(row.email).toLowerCase(), row]));
     const mismatches = [];
-    for (const expected of REQUIRED_DEMO_USERS) {
+    for (const expected of smokeUsers) {
       const row = byEmail.get(expected.email);
       if (!row) {
         mismatches.push(`${expected.email}: no profile`);
@@ -296,10 +319,10 @@ Optional env:
       }
     }
     if (mismatches.length) throw new Error(mismatches.join("; "));
-    return `${REQUIRED_DEMO_USERS.length} profile roles verified`;
+    return `${smokeUsers.length} profile roles verified`;
   });
 
-  await check("seeded database tables are populated", async () => {
+  await check("database tables meet minimum row counts", async () => {
     const short = [];
     for (const [table, min] of REQUIRED_TABLE_COUNTS) {
       const count = await countRows(admin, table);
@@ -316,7 +339,7 @@ Optional env:
     try {
       const { data, error } = await client.from("profiles").select("id, role").limit(10);
       if (error) throw new Error(error.message);
-      if (!data || data.length < REQUIRED_DEMO_USERS.length) {
+      if (!data || data.length < smokeUsers.length) {
         throw new Error(`admin read returned ${data?.length ?? 0} profiles`);
       }
       return `${data.length} profiles visible to admin`;
@@ -336,19 +359,11 @@ Optional env:
         .order("display_name", { ascending: true });
       if (error) throw new Error(error.message);
       const names = new Set((data ?? []).map((row) => row.display_name));
-      if (email.toLowerCase() === "parent.lee@cia.demo") {
-        for (const expected of ["Anna Lee", "George Lee", "Bruna Lee"]) {
-          if (!names.has(expected)) throw new Error(`missing linked student ${expected}`);
-        }
-        if (names.has("Maria Collins") || names.has("Bruce Collins") || names.has("James Smith")) {
-          throw new Error("parent.lee@cia.demo can see another family's students");
-        }
-      } else if (email.toLowerCase() === "parent.smith@cia.demo") {
-        if (!names.has("James Smith")) throw new Error("missing linked student James Smith");
-        if ((data ?? []).length !== 1) {
-          throw new Error(`parent.smith@cia.demo saw ${data?.length ?? 0} rows, expected 1`);
-        }
-      } else if ((data ?? []).length < 1) {
+      const expectedNames = csvEnv("CIA_RLS_PARENT_EXPECTED_STUDENTS");
+      const forbiddenNames = csvEnv("CIA_RLS_PARENT_FORBIDDEN_STUDENTS");
+      assertNamesVisible(names, expectedNames, "parent RLS");
+      assertNamesHidden(names, forbiddenNames, "parent RLS");
+      if ((data ?? []).length < 1) {
         throw new Error("parent credential could not read any linked students");
       }
       return `${data?.length ?? 0} student row(s) visible to parent`;
@@ -368,11 +383,10 @@ Optional env:
         .order("display_name", { ascending: true });
       if (error) throw new Error(error.message);
       const names = new Set((data ?? []).map((row) => row.display_name));
-      for (const expected of ["Anna Lee", "George Lee", "Bruna Lee", "James Smith"]) {
-        if (!names.has(expected)) throw new Error(`missing taught student ${expected}`);
-      }
-      if (names.has("Bruce Collins") || names.has("Maria Collins")) {
-        throw new Error("teacher.emily@cia.demo can see untaught Collins students");
+      assertNamesVisible(names, csvEnv("CIA_RLS_TEACHER_EXPECTED_STUDENTS"), "teacher RLS");
+      assertNamesHidden(names, csvEnv("CIA_RLS_TEACHER_FORBIDDEN_STUDENTS"), "teacher RLS");
+      if ((data ?? []).length < 1) {
+        throw new Error("teacher credential could not read any taught students");
       }
       return `${data?.length ?? 0} student row(s) visible to teacher`;
     } finally {

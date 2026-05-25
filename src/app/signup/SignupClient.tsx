@@ -147,7 +147,7 @@ export default function SignupClient() {
                   <input
                     type="email"
                     autoComplete="email"
-                    placeholder="name.example@gmail.com"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(ev) => {
                       setEmail(ev.target.value);

@@ -56,6 +56,26 @@ function getVisiblePages(current: number, total: number): (number | "ellipsis")[
   return [1, "ellipsis", current, "ellipsis", total];
 }
 
+function applyRequestStatusTransition(
+  rows: EnrichmentRequestRow[],
+  id: string,
+  status: RequestStatus,
+) {
+  const target = rows.find((row) => row.id === id);
+  if (!target) return rows;
+
+  const updatedRows = rows.map((row) => (row.id === id ? { ...row, status } : row));
+  if (status !== "Approved") return updatedRows;
+
+  return updatedRows.filter(
+    (row) =>
+      row.id === id ||
+      row.student !== target.student ||
+      row.block !== target.block ||
+      row.level !== target.level,
+  );
+}
+
 export default function ClassesEnrichmentRequests({
   initialRequests,
   dataSource,
@@ -166,8 +186,13 @@ export default function ClassesEnrichmentRequests({
 
   const visiblePages = getVisiblePages(safePage, totalPages);
 
-  const pageIdSet = useMemo(() => new Set(pageRows.map((r) => r.id)), [pageRows]);
-  const allOnPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
+  const processedIdSet = useMemo(() => new Set(processed.map((r) => r.id)), [processed]);
+  const allFilteredSelected = processed.length > 0 && processed.every((r) => selectedIds.has(r.id));
+  const selectedRows = useMemo(
+    () => requests.filter((request) => selectedIds.has(request.id)),
+    [requests, selectedIds],
+  );
+  const selectedCount = selectedRows.length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -178,13 +203,13 @@ export default function ClassesEnrichmentRequests({
     });
   };
 
-  const toggleSelectAllPage = () => {
+  const toggleSelectAllFiltered = () => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (allOnPageSelected) {
-        pageIdSet.forEach((id) => next.delete(id));
+      if (allFilteredSelected) {
+        processedIdSet.forEach((id) => next.delete(id));
       } else {
-        pageIdSet.forEach((id) => next.add(id));
+        processedIdSet.forEach((id) => next.add(id));
       }
       return next;
     });
@@ -192,7 +217,8 @@ export default function ClassesEnrichmentRequests({
 
   const applyStatus = async (id: string, status: RequestStatus) => {
     const prevRow = requests.find((r) => r.id === id);
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    const prevRequests = requests;
+    setRequests((prev) => applyRequestStatusTransition(prev, id, status));
     setConfirmAction(null);
     setRowMenuId(null);
 	    if (id.startsWith("local-")) {
@@ -210,8 +236,67 @@ export default function ClassesEnrichmentRequests({
       body: JSON.stringify({ id, status }),
     });
     if (!res.ok && prevRow) {
-      setRequests((prev) => prev.map((r) => (r.id === id ? prevRow : r)));
+      setRequests(prevRequests);
       setSyncHint(`Could not sync status (${await readApiError(res)}).`);
+    }
+  };
+
+  const applyBulkStatus = async (status: RequestStatus) => {
+    if (selectedRows.length === 0) return;
+    const targetRows = selectedRows;
+    const failedRows = new Map<string, EnrichmentRequestRow>();
+    const failedMessages: string[] = [];
+
+    const previousRequests = requests;
+    setRequests((prev) =>
+      targetRows.reduce(
+        (nextRows, row) => applyRequestStatusTransition(nextRows, row.id, status),
+        prev,
+      ),
+    );
+    setRowMenuId(null);
+    setSyncHint(null);
+
+    for (const row of targetRows.filter((request) => request.id.startsWith("local-"))) {
+      try {
+        writeLocalReviewStatus(row.id, status);
+      } catch {
+        /* Keep the in-memory status even if storage is unavailable. */
+      }
+    }
+
+    await Promise.all(
+      targetRows
+        .filter((request) => !request.id.startsWith("local-"))
+        .map(async (row) => {
+          const res = await fetch("/api/data/enrichment-requests", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: row.id, status }),
+          });
+          if (!res.ok) {
+            failedRows.set(row.id, row);
+            failedMessages.push(await readApiError(res));
+          }
+        }),
+    );
+
+    if (failedRows.size > 0) {
+      setRequests(previousRequests);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const row of targetRows) {
+          if (!failedRows.has(row.id)) next.delete(row.id);
+        }
+        return next;
+      });
+      setSyncHint(`Could not sync ${failedRows.size} selected request(s): ${failedMessages[0] ?? "Unknown error"}.`);
+      return;
+    }
+
+    setSelectedIds(new Set());
+    if (targetRows.some((row) => row.id.startsWith("local-"))) {
+      setSyncHint("Updated selected requests. Browser-local requests were saved locally for this session.");
     }
   };
 
@@ -236,49 +321,49 @@ export default function ClassesEnrichmentRequests({
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
           <div className="bg-[#fff8e6] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
             <ListPlus className="w-5 h-5 text-[#cfa500]" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-[16px] font-semibold text-[#272932]">Waitlisted</span>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <span className="break-words text-[15px] font-semibold text-[#272932]">Waitlisted</span>
             <span className="text-[16px] font-medium text-[#666d80]">{waitlistedCount}</span>
           </div>
         </div>
 
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
           <div className="bg-[#cfa500]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5 text-[#cfa500]" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-[16px] font-semibold text-[#272932]">Pending</span>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <span className="break-words text-[15px] font-semibold text-[#272932]">Pending</span>
             <span className="text-[16px] font-medium text-[#666d80]">{pendingCount}</span>
           </div>
         </div>
 
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
           <div className="bg-[#004d08]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5 text-[#004d08]" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-[16px] font-semibold text-[#272932]">Approved enrollments</span>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <span className="break-words text-[15px] font-semibold text-[#272932]">Approved enrollments</span>
             <span className="text-[16px] font-medium text-[#666d80]">{approvedCount}</span>
           </div>
         </div>
 
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[8px]">
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
           <div className="bg-[#ffd9d9] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
             <XCircle className="w-5 h-5 text-[#d80509]" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-[16px] font-semibold text-[#272932]">Declined</span>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <span className="break-words text-[15px] font-semibold text-[#272932]">Declined</span>
             <span className="text-[16px] font-medium text-[#666d80]">{rejectedCount}</span>
           </div>
         </div>
 
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex flex-col justify-center gap-1">
-          <span className="text-[16px] font-semibold text-[#272932]">Classes in queue</span>
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex flex-col justify-center gap-1 leading-snug">
+          <span className="break-words text-[15px] font-semibold text-[#272932]">Classes in queue</span>
           <span className="text-[16px] font-medium text-[#666d80]">
             {distinctClasses} {distinctClasses === 1 ? "class" : "classes"}
           </span>
@@ -383,17 +468,67 @@ export default function ClassesEnrichmentRequests({
               )}
             </div>
 
-            <button type="button" className="bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]" onClick={toggleSelectAllPage}>
-              {allOnPageSelected ? "Deselect page" : "Select All"}
+            <button
+              type="button"
+              className="bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={toggleSelectAllFiltered}
+              disabled={processed.length === 0}
+            >
+              {allFilteredSelected ? "Deselect all" : `Select all${processed.length ? ` (${processed.length})` : ""}`}
             </button>
           </div>
         </div>
+
+        {selectedCount > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[#dfe1e6] bg-[#fafafa] px-3 py-2">
+            <span className="mr-1 text-[12px] font-semibold text-[#272932]">
+              {selectedCount} selected
+            </span>
+            <button
+              type="button"
+              className="rounded-[8px] bg-[#004d08] px-3 py-1.5 text-[12px] font-semibold text-white"
+              onClick={() => void applyBulkStatus("Approved")}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              className="rounded-[8px] bg-[#fff8e6] px-3 py-1.5 text-[12px] font-semibold text-[#7a5b00]"
+              onClick={() => void applyBulkStatus("Waitlisted")}
+            >
+              Waitlist
+            </button>
+            <button
+              type="button"
+              className="rounded-[8px] bg-[#ffd9d9] px-3 py-1.5 text-[12px] font-semibold text-[#d80509]"
+              onClick={() => void applyBulkStatus("Rejected")}
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              className="rounded-[8px] px-3 py-1.5 text-[12px] font-semibold text-[#666d80] hover:bg-white"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </button>
+          </div>
+        ) : null}
 
         <div className="flex flex-col flex-1 min-h-0 border-t border-[#f0f0f0] pt-4">
           <div className="grid gap-3 md:hidden">
             {pageRows.map((req) => (
               <article key={req.id} className="rounded-[14px] border border-[#f0f0f0] bg-white p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    aria-label={`Select ${req.student} request for ${req.class}`}
+                    aria-pressed={selectedIds.has(req.id)}
+                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] ${
+                      selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
+                    }`}
+                    onClick={() => toggleSelect(req.id)}
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-[14px] font-semibold text-[#272932]">{req.class}</p>
                     <p className="mt-1 text-[12px] text-[#666d80]">
@@ -457,8 +592,17 @@ export default function ClassesEnrichmentRequests({
           </div>
 
           <div className="hidden w-full min-w-0 overflow-x-auto pb-2 md:block">
-            <div className="min-w-[900px]">
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide">
+            <div className="min-w-[960px]">
+          <div className="grid grid-cols-[32px_1fr_1fr_1fr_0.7fr_0.7fr_0.8fr_1fr_40px] gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide">
+            <button
+              type="button"
+              aria-label={allFilteredSelected ? "Deselect all filtered requests" : "Select all filtered requests"}
+              aria-pressed={allFilteredSelected}
+              className={`h-4 w-4 rounded border border-[#14c1d5] ${
+                allFilteredSelected ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
+              }`}
+              onClick={toggleSelectAllFiltered}
+            />
             <div>Student</div>
             <div>Parent</div>
             <div>Class</div>
@@ -472,17 +616,20 @@ export default function ClassesEnrichmentRequests({
             {pageRows.map((req) => (
               <div
                 key={req.id}
-                className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-3 py-2.5 border-b border-[#f0f0f0] items-center text-[13px] text-[#0d0d12] hover:bg-[#fafafa] transition-colors"
+                className="grid grid-cols-[32px_1fr_1fr_1fr_0.7fr_0.7fr_0.8fr_1fr_40px] gap-3 py-2.5 border-b border-[#f0f0f0] items-center text-[13px] text-[#0d0d12] hover:bg-[#fafafa] transition-colors"
               >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center min-w-0">
                 <button
                   type="button"
+                  aria-label={`Select ${req.student} request for ${req.class}`}
                   aria-pressed={selectedIds.has(req.id)}
                   className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 ${
                     selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                   }`}
                   onClick={() => toggleSelect(req.id)}
                 />
+              </div>
+              <div className="min-w-0 truncate">
                 <span className="truncate">{req.student}</span>
               </div>
               <div className="truncate">{req.parent}</div>

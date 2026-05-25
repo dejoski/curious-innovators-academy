@@ -5,10 +5,7 @@ import type { ParentSummary } from "@/lib/data/types";
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  DASHBOARD_PANEL_CLASS,
-  DASHBOARD_TABLE_SCROLL_CLASS,
-} from "@/lib/dashboard-shell-classes";
+import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
@@ -66,7 +63,7 @@ function toDisplayRow(p: ParentSummary): ParentRow {
 }
 
 const PARENTS_TABLE_GRID_TEMPLATE_COLUMNS =
-  "minmax(260px, 1.35fr) minmax(180px, 1.15fr) minmax(200px, 1.05fr) minmax(120px, 0.95fr) minmax(44px, 44px)";
+  "28px minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.6fr) 32px";
 
 const DIRECTORY_PAGE_SIZE = 10;
 
@@ -290,7 +287,7 @@ export function ParentsAdminDirectory({
         </div>
       </div>
 
-      <div className={[DASHBOARD_PANEL_CLASS, "flex flex-col w-full overflow-hidden"].join(" ")}>
+      <div className={[DASHBOARD_PANEL_CLASS, "flex flex-col w-full overflow-visible"].join(" ")}>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-1 px-[18px] pt-[16px] pb-2 w-full flex-wrap">
           <div className="flex gap-[6px] items-center bg-white border border-[#f0f0f0] px-4 py-2 rounded-lg flex-1 w-full max-w-xs focus-within:border-[#14c1d5] focus-within:ring-1 focus-within:ring-[#14c1d5] transition-all">
             <div className="relative shrink-0 size-[14px]">
@@ -370,24 +367,25 @@ export function ParentsAdminDirectory({
           style={{ gridTemplateColumns: PARENTS_TABLE_GRID_TEMPLATE_COLUMNS }}
           className="grid gap-x-2 border-t border-[#f0f0f0] py-[16px] px-[18px] w-full items-center"
         >
-          <div className="flex justify-start min-w-0 text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div aria-hidden className="min-w-0" />
+          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
             Parent
           </div>
-          <div className="flex justify-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
             Students
           </div>
-          <div className="flex justify-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
             Email
           </div>
-          <div className="flex justify-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
             Phone
           </div>
-          <div className="flex justify-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
             Action
           </div>
         </div>
 
-        <div className={`${DASHBOARD_TABLE_SCROLL_CLASS} flex flex-col w-full pb-4`}>
+        <div className="flex min-h-[300px] w-full flex-col overflow-visible pb-4">
           {paginatedData.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-[32px] px-[18px]">
               <span className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] text-center leading-snug max-w-lg">
@@ -407,7 +405,7 @@ export function ParentsAdminDirectory({
                   openActionId === parent.id ? "relative z-50" : ""
                 }`}
               >
-                <div className="flex gap-[12px] items-center min-w-0">
+                <div className="flex min-w-0 items-center justify-start">
                   <button
                     type="button"
                     onClick={() => toggleSelection(parent.id)}
@@ -427,34 +425,35 @@ export function ParentsAdminDirectory({
                       </svg>
                     )}
                   </button>
-                  <div className="flex min-w-0 flex-1 gap-[6px] items-center">
-                    <img alt="" className="size-[32px] shrink-0 rounded-full object-cover" src={parent.avatar} />
-                    <span
-                      className="min-w-0 font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px] leading-snug"
-                      title={parent.name}
-                    >
-                      {parent.name}
-                    </span>
-                  </div>
                 </div>
 
-                <div className="flex min-w-0 items-center justify-center">
-                  <span className="line-clamp-2 min-w-0 text-center font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px]">
+                <div className="flex min-w-0 items-center gap-[8px]">
+                  <img alt="" className="size-[32px] shrink-0 rounded-full object-cover" src={parent.avatar} />
+                  <span
+                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug"
+                    title={parent.name}
+                  >
+                    {parent.name}
+                  </span>
+                </div>
+
+                <div className="flex min-w-0 items-center justify-start">
+                  <span className="line-clamp-2 min-w-0 text-left font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug">
                     {parent.studentsLabel}
                   </span>
                 </div>
 
-                <div className="flex min-w-0 items-center justify-center">
+                <div className="flex min-w-0 items-center justify-start">
                   <span
-                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px]"
+                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px]"
                     title={parent.email}
                   >
                     {parent.email}
                   </span>
                 </div>
 
-                <div className="flex min-w-0 items-center justify-center">
-                  <span className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px]">
+                <div className="flex min-w-0 items-center justify-start">
+                  <span className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px]">
                     {parent.phone}
                   </span>
                 </div>

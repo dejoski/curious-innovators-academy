@@ -2,7 +2,7 @@
 /*
  * Logical backup/restore drill for the Supabase application data contract.
  *
- * This is an operator safety net for demo data while managed Supabase backups
+ * This is an operator safety net for application data while managed Supabase backups
  * are unavailable. It does not replace a real Supabase PITR/daily-backup
  * restore into a separate project before storing production student data.
  */
@@ -39,33 +39,11 @@ const REQUIRED_TABLES = [
   ["audit_events", 0],
 ];
 
-const REQUIRED_PROFILES = [
-  ["name.example@gmail.com", "admin"],
-  ["parent.lee@cia.demo", "parent"],
-  ["parent.smith@cia.demo", "parent"],
-  ["parent.collins@cia.demo", "parent"],
-  ["teacher.emily@cia.demo", "teacher"],
-  ["student.anna@cia.demo", "student"],
-];
-
-const REQUIRED_STUDENTS = [
-  "Anna Lee",
-  "George Lee",
-  "Bruna Lee",
-  "James Smith",
-  "Bruce Collins",
-  "Maria Collins",
-];
-
-const REQUIRED_CLASSES = [
-  "Math",
-  "ELA - Core",
-  "Economics & Financial Literacy",
-  "Force & Motion",
-  "Robotics Lab",
-  "Journalism & Media Writing",
-  "Creative Arts",
-  "Ocean Explorers",
+const PROFILE_CONTRACT_SPECS = [
+  ["CIA_RLS_ADMIN_EMAIL", "admin"],
+  ["CIA_RLS_PARENT_EMAIL", "parent"],
+  ["CIA_RLS_TEACHER_EMAIL", "teacher"],
+  ["CIA_RLS_STUDENT_EMAIL", "student"],
 ];
 
 function quoteIdent(name) {
@@ -161,6 +139,19 @@ function requireValues(rows, fieldName, expectedValues, label) {
   if (missing.length) throw new Error(`${label}: missing ${missing.join(", ")}`);
 }
 
+function csvEnv(name) {
+  return env(name)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function profileContractFromEnv() {
+  return PROFILE_CONTRACT_SPECS
+    .map(([emailEnv, role]) => [env(emailEnv).toLowerCase(), role])
+    .filter(([email]) => Boolean(email));
+}
+
 function validateSnapshot(snapshot) {
   const tableCounts = [];
   for (const [tableName, minRows] of REQUIRED_TABLES) {
@@ -175,17 +166,18 @@ function validateSnapshot(snapshot) {
   const profilesByEmail = new Map(
     snapshot.profiles.map((profile) => [String(profile.email || "").toLowerCase(), profile]),
   );
+  const requiredProfiles = profileContractFromEnv();
   const profileMismatches = [];
-  for (const [email, role] of REQUIRED_PROFILES) {
+  for (const [email, role] of requiredProfiles) {
     const profile = profilesByEmail.get(email);
     if (!profile) profileMismatches.push(`${email}: missing`);
     else if (profile.role !== role) profileMismatches.push(`${email}: expected ${role}, got ${profile.role}`);
   }
   if (profileMismatches.length) throw new Error(`profile contract mismatch: ${profileMismatches.join("; ")}`);
 
-  requireValues(snapshot.students, "display_name", REQUIRED_STUDENTS, "student seed contract");
-  requireValues(snapshot.classes, "name", REQUIRED_CLASSES, "class seed contract");
-  requireValues(snapshot.invoices, "invoice_number", ["CIA-2026-001", "CIA-2026-002", "CIA-2026-003"], "invoice seed contract");
+  requireValues(snapshot.students, "display_name", csvEnv("CIA_RESTORE_REQUIRED_STUDENTS"), "student restore contract");
+  requireValues(snapshot.classes, "name", csvEnv("CIA_RESTORE_REQUIRED_CLASSES"), "class restore contract");
+  requireValues(snapshot.invoices, "invoice_number", csvEnv("CIA_RESTORE_REQUIRED_INVOICES"), "invoice restore contract");
 
   const profileIds = idSet(snapshot.profiles, "profiles");
   const parentIds = idSet(snapshot.parents, "parents");
@@ -243,6 +235,8 @@ Fallback:
 
 Optional:
   CIA_KEEP_BACKUP_ARTIFACT=true leaves the temporary JSON snapshot on disk.
+  CIA_RESTORE_REQUIRED_STUDENTS, CIA_RESTORE_REQUIRED_CLASSES, and
+  CIA_RESTORE_REQUIRED_INVOICES add comma-separated value checks.
 `);
     return;
   }

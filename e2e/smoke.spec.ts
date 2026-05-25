@@ -6,21 +6,13 @@ test.describe("smoke", () => {
     await expect(
       page.getByRole("heading", { name: /log in to the school/i })
     ).toBeVisible();
-    await expect(page.getByPlaceholder("name.example@gmail.com")).toBeVisible();
+    await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
   });
 
-  test("admin demo login starts at admin dashboard", async ({ page }) => {
+  test("demo login shortcuts stay hidden", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /continue as admin/i }).click();
-    await expect(page).toHaveURL(/\/dashboard(?:\?|$)/);
-    await expect(page.getByRole("main")).toBeVisible();
-  });
-
-  test("parent demo login starts at parent dashboard, not profile", async ({ page }) => {
-    await page.goto("/login");
-    await page.getByRole("button", { name: /continue as parent/i }).click();
-    await expect(page).toHaveURL(/\/dashboard\/parents\/home(?:\?|$)/);
-    await expect(page.getByText(/Attendance/i).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /continue as admin/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /continue as parent/i })).toHaveCount(0);
   });
 
   test("GET /dashboard/classes returns 200", async ({ page }) => {

@@ -1,7 +1,6 @@
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { ProgramTrack, ScheduleCalendarEvent } from "@/lib/data/types";
-import { canUseBundledFallbackData, isSupabaseConfigured } from "@/lib/data/env";
-import { SCHEDULE_SEED_BY_WEEKDAY, scheduleEventTypeFromDb } from "@/lib/data/mock/schedule-seed";
+import type { CalendarEventType, ProgramTrack, ScheduleCalendarEvent } from "@/lib/data/types";
+import { isSupabaseConfigured } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const DAY_INDEX: Record<string, number> = {
@@ -65,35 +64,6 @@ function appendEvent(
   acc[dateKey] = list;
 }
 
-function buildFallbackTemplateEvents(): Record<string, ScheduleCalendarEvent[]> {
-  const { start, end } = defaultScheduleWindow();
-  const acc: Record<string, ScheduleCalendarEvent[]> = {};
-  for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
-    const dateKey = toDateKey(d);
-    const dayOfWeek = d.getDay();
-    const isFirstSaturday = dayOfWeek === 6 && d.getDate() <= 7;
-    const templates =
-      SCHEDULE_SEED_BY_WEEKDAY[dayOfWeek] ??
-      (isFirstSaturday
-        ? [
-            {
-              time: "1:00 pm",
-              title: "Parent Meeting",
-              type: "event" as const,
-              description: "All-school parent information session.",
-            },
-          ]
-        : []);
-    templates.forEach((template, index) => {
-      appendEvent(acc, dateKey, {
-        ...template,
-        id: `fallback-${dateKey}-${dayOfWeek}-${index}`,
-      });
-    });
-  }
-  return acc;
-}
-
 function normalizeTimeLabel(raw: string): string {
   const match = raw.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
   if (!match) return raw.trim();
@@ -121,6 +91,22 @@ function parseScheduleSummary(summary: unknown): { dayIndex: number; time: strin
 
 function classEventType(program: unknown): ScheduleCalendarEvent["type"] {
   return program === "core" ? "core" : "enrichment-approved";
+}
+
+const EVENT_TYPES: CalendarEventType[] = [
+  "core",
+  "enrichment-pending",
+  "enrichment-approved",
+  "event",
+];
+
+function isCalendarEventType(value: string): value is CalendarEventType {
+  return (EVENT_TYPES as string[]).includes(value);
+}
+
+function scheduleEventTypeFromDb(value: unknown): CalendarEventType {
+  const s = String(value ?? "");
+  return isCalendarEventType(s) ? s : "event";
 }
 
 function buildClassScheduleEvents(rows: Record<string, unknown>[]): Record<string, ScheduleCalendarEvent[]> {
@@ -218,7 +204,6 @@ function mapScheduleRow(row: Record<string, unknown>): {
 
 export type ScheduleExtrasResolved = {
   extrasByDate: Record<string, ScheduleCalendarEvent[]>;
-  /** `fallback` when Supabase is missing or the query failed (weekday seed still renders). */
   source: DataSource;
 };
 
@@ -236,8 +221,8 @@ export async function fetchScheduleExtrasByDate(): Promise<
 export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResolved> {
   if (!isSupabaseConfigured()) {
     return {
-      extrasByDate: canUseBundledFallbackData() ? buildFallbackTemplateEvents() : {},
-      source: canUseBundledFallbackData() ? "fallback" : "unavailable",
+      extrasByDate: {},
+      source: "unavailable",
     };
   }
 
@@ -250,8 +235,8 @@ export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResol
 
     if (error) {
       return {
-        extrasByDate: canUseBundledFallbackData() ? buildFallbackTemplateEvents() : {},
-        source: canUseBundledFallbackData() ? "fallback" : "unavailable",
+        extrasByDate: {},
+        source: "unavailable",
       };
     }
 
@@ -274,8 +259,8 @@ export async function fetchScheduleExtrasResolved(): Promise<ScheduleExtrasResol
     };
   } catch {
     return {
-      extrasByDate: canUseBundledFallbackData() ? buildFallbackTemplateEvents() : {},
-      source: canUseBundledFallbackData() ? "fallback" : "unavailable",
+      extrasByDate: {},
+      source: "unavailable",
     };
   }
 }

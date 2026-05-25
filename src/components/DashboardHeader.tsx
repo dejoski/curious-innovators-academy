@@ -10,7 +10,6 @@ import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
-import { getParentStudentContextLabel } from "@/lib/parent-student-context-label";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
 import {
   readStoredParentStudentId,
@@ -103,7 +102,6 @@ export default function DashboardHeader() {
   const headerRoleLine = roleLabel;
   const compactMenuItemClass =
     "block w-full px-4 py-2 text-left text-sm text-[#272932] transition-colors hover:bg-gray-50";
-  const parentContextLabel = inParentShell ? getParentStudentContextLabel(pathname) : "";
   const parentHeaderLayout = useMemo(() => {
     if (!inParentShell) {
       return {
@@ -116,37 +114,34 @@ export default function DashboardHeader() {
       return { canShowInlineActions: false, canShowProfileText: false, pickerWidth: 260 };
     }
 
-    const labelWidth = measureHeaderText(parentContextLabel, "600 16px Inter, sans-serif");
     const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 16px Inter, sans-serif");
     const profileNameWidth = measureHeaderText(headerDisplayName, "600 12px Inter, sans-serif");
     const profileRoleWidth = measureHeaderText(headerRoleLine, "400 12px Inter, sans-serif");
-    const desiredPickerWidth = Math.min(360, Math.max(220, Math.ceil(studentNameWidth) + 116));
+    const desiredPickerWidth = Math.min(420, Math.max(220, Math.ceil(studentNameWidth) + 116));
     const profileTextWidth = Math.ceil(Math.max(profileNameWidth, profileRoleWidth));
     const compactInlineActionsWidth = 32 + 24 + 32 + 32 + 64;
     const fullInlineActionsWidth = compactInlineActionsWidth + 8 + profileTextWidth;
     const compactActionsWidth = 36;
-    const selectorGap = 12;
     const headerGap = 12;
     const safetyPadding = 12;
-    const selectedLabelWidth = Math.ceil(labelWidth);
     const canShowProfileText =
       headerContentWidth >=
-      selectedLabelWidth + selectorGap + desiredPickerWidth + headerGap + fullInlineActionsWidth + safetyPadding;
+      desiredPickerWidth + headerGap + fullInlineActionsWidth + safetyPadding;
     const canShowInlineActions =
       canShowProfileText ||
       headerContentWidth >=
-        selectedLabelWidth + selectorGap + desiredPickerWidth + headerGap + compactInlineActionsWidth + safetyPadding;
+        desiredPickerWidth + headerGap + compactInlineActionsWidth + safetyPadding;
     const reservedActionsWidth = canShowInlineActions
       ? canShowProfileText
         ? fullInlineActionsWidth
         : compactInlineActionsWidth
       : compactActionsWidth;
     const availablePickerWidth =
-      headerContentWidth - selectedLabelWidth - selectorGap - headerGap - reservedActionsWidth - safetyPadding;
+      headerContentWidth - headerGap - reservedActionsWidth - safetyPadding;
     const pickerWidth = Math.max(180, Math.min(desiredPickerWidth, availablePickerWidth));
 
     return { canShowInlineActions, canShowProfileText, pickerWidth };
-  }, [fontMeasureVersion, headerContentWidth, headerDisplayName, headerRoleLine, inParentShell, parentContextLabel, selectedStudentName]);
+  }, [fontMeasureVersion, headerContentWidth, headerDisplayName, headerRoleLine, inParentShell, selectedStudentName]);
   const canShowParentInlineActions = parentHeaderLayout.canShowInlineActions;
   const canShowParentProfileText = parentHeaderLayout.canShowProfileText;
 

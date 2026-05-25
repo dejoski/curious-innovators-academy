@@ -3,14 +3,14 @@
 --
 -- Pick one target email and desired role: admin | parent | student | teacher
 
--- Example: demo tester as admin
+-- Example: promote a tester as admin
 -- UPDATE public.profiles
 -- SET role = 'admin'::public.app_role,
 --     updated_at = now()
--- WHERE lower(email) = lower('tester@cia.demo');
+-- WHERE lower(email) = lower('admin@example.com');
 
 -- Example: promote existing user by email
 -- UPDATE public.profiles
 -- SET role = 'parent'::public.app_role,
 --     updated_at = now()
--- WHERE lower(email) = lower('name.example@gmail.com');
+-- WHERE lower(email) = lower('parent@example.com');
