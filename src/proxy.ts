@@ -5,9 +5,8 @@ import {
   getRuntimeSupabaseUrl,
   isRemoteDataRequired,
 } from "@/lib/data/env";
-import type { DashboardPersona } from "@/lib/demo-accounts";
+import type { DashboardPersona } from "@/lib/dashboard/persona";
 import { dashboardRedirectForPersona } from "@/lib/dashboard/role-routes";
-import { DEMO_UI_ROLE_COOKIE_NAME, isLocalDemoHost } from "@/lib/demo-login";
 
 function isDashboardPath(pathname: string): boolean {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
@@ -65,15 +64,6 @@ function roleFromProfile(raw: unknown): DashboardPersona | null {
   return null;
 }
 
-function demoRoleFromCookie(request: NextRequest): DashboardPersona | null {
-  return roleFromProfile(request.cookies.get(DEMO_UI_ROLE_COOKIE_NAME)?.value);
-}
-
-function localDemoRole(request: NextRequest): DashboardPersona | null {
-  if (!isLocalDemoHost(request.nextUrl.hostname)) return null;
-  return demoRoleFromCookie(request);
-}
-
 function dashboardRoleRedirect(
   request: NextRequest,
   role: DashboardPersona,
@@ -129,39 +119,23 @@ function isAuthServiceFailure(error: unknown): boolean {
 }
 
 /**
- * Refreshes the auth session when Supabase is configured (Next.js 16 proxy convention),
- * protects dashboard/data routes when production remote-data mode is enabled, and
- * keeps demo/no-session traffic out of admin routes unless Admin was explicitly chosen.
+ * Refreshes the auth session when Supabase is configured (Next.js 16 proxy convention)
+ * and protects dashboard/data routes when remote-data mode is enabled.
  */
 export async function proxy(request: NextRequest) {
   const url = getRuntimeSupabaseUrl();
   const anonKey = getRuntimeSupabaseAnonKey();
   const requireRemoteData = isRemoteDataRequired();
   const dashboardPath = isDashboardPath(request.nextUrl.pathname);
-  const demoRole = localDemoRole(request);
   const protectDashboard = requireRemoteData && dashboardPath;
   const protectApi =
     requireRemoteData &&
     isProtectedApiPath(request.nextUrl.pathname) &&
     !isParentClassRequestSubmission(request);
-  const localDemoRead =
-    Boolean(demoRole) &&
-    request.method === "GET" &&
-    request.nextUrl.pathname.startsWith("/api/data/");
 
   if (!url || !anonKey) {
-    if (protectApi && localDemoRead) return NextResponse.next();
     if (protectApi) return apiAuthError(503, "Supabase is not configured.");
-    if (protectDashboard && demoRole) {
-      const redirect = dashboardRoleRedirect(request, demoRole);
-      if (redirect) return redirect;
-      return NextResponse.next();
-    }
     if (protectDashboard) return redirectToLogin(request, "configuration");
-    if (dashboardPath) {
-      const redirect = dashboardRoleRedirect(request, demoRole ?? "parent");
-      if (redirect) return redirect;
-    }
     return NextResponse.next();
   }
 
@@ -198,14 +172,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (protectApi && !user) {
-    if (localDemoRead) return response;
     return apiAuthError(401, "Sign in required.");
-  }
-
-  if (protectDashboard && !user && demoRole) {
-    const redirect = dashboardRoleRedirect(request, demoRole);
-    if (redirect) return redirect;
-    return response;
   }
 
   if (protectDashboard && !user) {
@@ -222,11 +189,6 @@ export async function proxy(request: NextRequest) {
     }
 
     const redirect = dashboardRoleRedirect(request, access.role, access.studentId);
-    if (redirect) return redirect;
-  }
-
-  if (dashboardPath && !user && !requireRemoteData) {
-    const redirect = dashboardRoleRedirect(request, demoRole ?? "parent");
     if (redirect) return redirect;
   }
 

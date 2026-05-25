@@ -6,14 +6,7 @@ import {
   requireRemoteApiSession,
   type SupabaseServerClient,
 } from "@/lib/api/require-auth";
-import { localDemoRoleFromRequest } from "@/lib/api/local-demo";
 import { isRemoteDataRequired } from "@/lib/data/env";
-import { fetchDemoParentProfile } from "@/lib/data/repositories/demo-parent";
-import {
-  defaultDemoAccountIdForPersona,
-  getDemoAccountById,
-  initialsFromDisplayName,
-} from "@/lib/demo-accounts";
 
 type AppRole = "admin" | "parent" | "teacher" | "student";
 
@@ -69,37 +62,6 @@ async function resolveDefaultStudentId(
 }
 
 export async function GET(request: Request) {
-  const demoRole = localDemoRoleFromRequest(request);
-  if (demoRole === "parent") {
-    const parent = await fetchDemoParentProfile();
-    return NextResponse.json({
-      profile: {
-        id: "local-demo-parent",
-        displayName: parent.displayName,
-        email: parent.email,
-        role: "parent",
-        defaultStudentId: parent.defaultStudentId,
-        preferences: DEFAULT_PREFERENCES,
-      },
-      source: "remote",
-    });
-  }
-  if (demoRole) {
-    const account = getDemoAccountById(defaultDemoAccountIdForPersona(demoRole));
-    return NextResponse.json({
-      profile: {
-        id: `local-demo-${demoRole}`,
-        displayName: account.displayName,
-        email: "",
-        role: demoRole,
-        defaultStudentId: account.studentId || null,
-        preferences: DEFAULT_PREFERENCES,
-        avatarInitials: initialsFromDisplayName(account.displayName),
-      },
-      source: "remote",
-    });
-  }
-
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 

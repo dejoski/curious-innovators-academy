@@ -28,6 +28,7 @@
     "monitor:production": "node scripts/monitor-production.cjs",
     "check:supabase-backups": "node scripts/check-supabase-backups.cjs",
     "drill:logical-backup-restore": "node scripts/drill-logical-backup-restore.cjs",
+    "repair:demo-parent-links": "node scripts/sync-demo-parent-max-kids.cjs",
     "verify:supabase-login": "node scripts/verify-supabase-login.cjs"
   },
   "dependencies": {

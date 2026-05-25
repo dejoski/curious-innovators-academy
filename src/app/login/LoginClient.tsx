@@ -4,17 +4,19 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
-import { type DashboardPersona } from "@/lib/dashboard/persona";
-import {
-  bootstrapDemoSession,
-  demoSessionStartRoute,
-} from "@/lib/demo-session-bootstrap";
-import { isDemoLoginUiEnabled } from "@/lib/demo-login";
-import {
-  signInWithDemoAccount,
-  signInWithPasswordOrDemo,
-} from "@/lib/supabase/auth-bridge";
+import { invalidateClientDataCache } from "@/lib/client-data-cache";
+import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
+
+const DEMO_CREDENTIALS = {
+  admin: {
+    email: "admin.demo@curiousinnovators.academy",
+    password: "CuriousDemo2026!",
+  },
+  parent: {
+    email: "parent.demo@curiousinnovators.academy",
+    password: "CuriousDemo2026!",
+  },
+} as const;
 
 const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
 const imgImage1 = "/images/login-logo-lightbulb.png";
@@ -23,14 +25,13 @@ const imgEllipse2732 = "/images/login-ellipse-2.svg";
 const imgEllipse2733 = "/images/login-ellipse-3.svg";
 const imgGroup = "/images/login-email-icon.svg";
 
-const DEMO_PERSONA_BY_KIND: Record<"admin" | "parent", DashboardPersona> = {
-  admin: "admin",
-  parent: "parent",
+const DEMO_ROUTE_BY_KIND: Record<"admin" | "parent", string> = {
+  admin: "/dashboard",
+  parent: "/dashboard/parents/home",
 };
 
 export default function LoginClient() {
   const router = useRouter();
-  const demoLoginEnabled = isDemoLoginUiEnabled();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,49 +57,32 @@ export default function LoginClient() {
     return raw;
   }
 
-  function safeNextPathForKind(kind: "admin" | "parent"): string {
-    const requested = new URLSearchParams(window.location.search).get("next")?.trim();
-    if (!requested || !requested.startsWith("/") || requested.startsWith("//")) {
-      return demoSessionStartRoute(kind);
-    }
-    return dashboardHrefForPersona(requested, DEMO_PERSONA_BY_KIND[kind]);
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function signInWithCredentials(emailAddress: string, secret: string, nextPath?: string) {
     if (submitting) return;
     setSubmitting(true);
     setLoginError(null);
     try {
-      const result = await signInWithPasswordOrDemo(email, password);
+      const result = await signInWithEmailPassword(emailAddress, secret);
       if (!result.ok) {
         setLoginError(result.message);
         return;
       }
-      router.push(safeNextPath());
+      invalidateClientDataCache();
+      router.push(nextPath ?? safeNextPath());
       router.refresh();
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    void signInWithCredentials(email, password);
+  }
+
   async function continueAsDemo(kind: "admin" | "parent") {
-    if (submitting) return;
-    setSubmitting(true);
-    setLoginError(null);
-    try {
-      const demoResult = await signInWithDemoAccount(kind);
-      if (!demoResult.ok) {
-        setLoginError(demoResult.message);
-        const fallbackRoute = bootstrapDemoSession(kind);
-        router.push(fallbackRoute);
-        return;
-      }
-      router.push(safeNextPathForKind(kind));
-      router.refresh();
-    } finally {
-      setSubmitting(false);
-    }
+    const { email: demoEmail, password: demoPassword } = DEMO_CREDENTIALS[kind];
+    void signInWithCredentials(demoEmail, demoPassword, DEMO_ROUTE_BY_KIND[kind]);
   }
 
   return (
@@ -228,24 +212,22 @@ export default function LoginClient() {
               </Link>
             </div>
 
-            {demoLoginEnabled && (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => continueAsDemo("admin")}
-                  className="flex h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 text-[14px] font-semibold text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
-                >
-                  Continue as Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => continueAsDemo("parent")}
-                  className="flex h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 text-[14px] font-semibold text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
-                >
-                  Continue as Parent
-                </button>
-              </div>
-            )}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => continueAsDemo("admin")}
+                className="flex h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 text-[14px] font-semibold text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
+              >
+                Continue as Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => continueAsDemo("parent")}
+                className="flex h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 text-[14px] font-semibold text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
+              >
+                Continue as Parent
+              </button>
+            </div>
           </form>
         </div>
       </div>

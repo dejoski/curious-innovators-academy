@@ -1,6 +1,3 @@
-import {
-  clearDemoUiBypass,
-} from "@/lib/demo-login";
 import { isRemoteDataRequired } from "@/lib/data/env";
 import { inviteCodesMatch } from "@/lib/signup-invite";
 import { getBrowserSupabase } from "@/lib/supabase/client";
@@ -20,10 +17,10 @@ const SUPABASE_AUTH_REQUIRED_MSG =
   "This deployment requires Supabase auth. Ask an administrator to configure the Supabase URL and anon key.";
 
 /**
- * Sign in with email/password when Supabase env is set; otherwise no-op success for demo routing.
- * Clears any UI-demo bypass flag once a real session is established (client-only storage).
+ * Sign in with email/password when Supabase env is set; otherwise no-op success
+ * when remote auth is intentionally unavailable.
  */
-export async function signInWithPasswordOrDemo(
+export async function signInWithEmailPassword(
   email: string,
   password: string,
 ): Promise<LoginResult> {
@@ -48,42 +45,11 @@ export async function signInWithPasswordOrDemo(
     return { ok: false, message };
   }
 
-  clearDemoUiBypass();
-
   return { ok: true };
 }
 
-export async function signInWithDemoAccount(kind: "admin" | "parent"): Promise<LoginResult> {
-  try {
-    const response = await fetch("/api/auth/demo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind }),
-    });
-
-    const payload = (await response.json().catch(() => ({}))) as {
-      message?: unknown;
-      error?: unknown;
-    };
-
-    if (!response.ok) {
-      const message = typeof payload.error === "string"
-        ? payload.error
-        : typeof payload.message === "string"
-        ? payload.message
-        : "Demo sign-in is not available right now.";
-      return { ok: false, message };
-    }
-
-    clearDemoUiBypass();
-    return { ok: true };
-  } catch {
-    return { ok: false, message: "Demo sign-in request failed. Please try again." };
-  }
-}
-
 /**
- * Sign out when Supabase env is set; safe no-op when demo mode (no client).
+ * Sign out when Supabase env is set; safe no-op when auth is not configured.
  */
 export async function signOutSupabaseOrDemo(): Promise<void> {
   if (!isSupabaseConfigured()) return;
@@ -133,7 +99,6 @@ export async function signUpWithInviteOrDemo(params: {
   if (error) return { ok: false, message: error.message };
 
   if (data.session) {
-    clearDemoUiBypass();
     return { ok: true, kind: "session" };
   }
 
@@ -193,6 +158,5 @@ export async function updateRecoveredPassword(password: string): Promise<Passwor
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { ok: false, message: error.message };
-  clearDemoUiBypass();
   return { ok: true };
 }

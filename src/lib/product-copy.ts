@@ -1,11 +1,9 @@
-import { isDemoLoginUiEnabled } from "@/lib/demo-login";
-
 /**
- * When demo-oriented features are disabled (`NEXT_PUBLIC_ENABLE_DEMO_LOGIN=false`),
+ * Sample-mode wording is used consistently across the app so local demo fallback
  * user-facing strings avoid the word "demo" (fallback data, login hints, etc.).
  */
 export function isDemoAdjacentWording(): boolean {
-  return isDemoLoginUiEnabled();
+  return false;
 }
 
 export function fallbackDirectoryBannerText(): string {

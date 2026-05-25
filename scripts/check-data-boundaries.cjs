@@ -13,7 +13,6 @@ const allowedDemoAccountImports = new Set([
   path.join("src", "components", "dashboard-persona.tsx"),
   path.join("src", "components", "settings-qa-tools.tsx"),
   path.join("src", "lib", "demo-accounts.ts"),
-  path.join("src", "lib", "demo-session-bootstrap.ts"),
 ]);
 const violations = [];
 const forbiddenInlineSampleLiterals = [

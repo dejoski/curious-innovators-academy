@@ -1,7 +1,6 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
-import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const STUDENT_SELECT = `
@@ -11,29 +10,10 @@ export const STUDENT_SELECT = `
   level,
   track,
   profile_id,
-  support_notes,
-  parent_students (
-    parents (
-      profiles ( display_name, email )
-    )
-  )
+  support_notes
 `;
 
 function parentContactFromStudentRow(row: Record<string, unknown>): { name: string; email: string } {
-  const joins = Array.isArray(row.parent_students) ? row.parent_students : [];
-  for (const join of joins) {
-    if (!join || typeof join !== "object") continue;
-    const parent = firstRel<Record<string, unknown>>(
-      (join as { parents?: unknown }).parents,
-    );
-    const profile = firstRel<Record<string, unknown>>(parent?.profiles);
-    const email = String(profile?.email ?? "").trim();
-    if (!email) continue;
-    return {
-      name: String(profile?.display_name ?? row.guardian_label ?? row.parent_name ?? row.parent ?? ""),
-      email,
-    };
-  }
   return {
     name: String(row.parent_name ?? row.guardian_label ?? row.parent ?? ""),
     email: String(row.parent_email ?? "").trim(),

@@ -8,7 +8,6 @@ import {
   useDashboardPersona,
   type DashboardPersona,
 } from "@/components/dashboard-persona";
-import { isDemoLoginUiEnabled } from "@/lib/demo-login";
 import {
   DEMO_ACCOUNTS,
   DEFAULT_DEMO_ACCOUNT_ID,
@@ -187,26 +186,14 @@ export default function SettingsQaTools() {
 
         <div>
           <h3 className="text-[13px] font-semibold text-[#272932] mb-2">Demo login bypass</h3>
-          {isDemoLoginUiEnabled() ? (
-            <>
-              <p className="text-[#666d80] leading-relaxed">
-                The sign-in screen can show demo entry points unless production sets{" "}
-                <code className="rounded bg-white px-1.5 py-0.5 text-[12px] text-[#272932]">
-                  NEXT_PUBLIC_ENABLE_DEMO_LOGIN=false
-                </code>
-                .
-              </p>
-              <p className="mt-2">
-                <Link href="/login" className="text-[#14c1d5] font-medium hover:underline text-[13px]">
-                  Open login
-                </Link>
-              </p>
-            </>
-          ) : (
-            <p className="text-[#666d80] leading-relaxed">
-              Disabled for this deployment ({`NEXT_PUBLIC_ENABLE_DEMO_LOGIN=false`}).
-            </p>
-          )}
+          <p className="text-[#666d80] leading-relaxed">
+            The login screen exposes public demo entry points for admin and parent.
+          </p>
+          <p className="mt-2">
+            <Link href="/login" className="text-[#14c1d5] font-medium hover:underline text-[13px]">
+              Open login
+            </Link>
+          </p>
         </div>
 
         <details className="rounded-[10px] border border-[#eef0f3] bg-white p-4 shadow-sm">

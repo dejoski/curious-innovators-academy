@@ -22,11 +22,6 @@ import {
   type DemoAccountId,
 } from "@/lib/demo-accounts";
 import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
-import {
-  isDemoUiBypassStored,
-  markDemoUiBypass,
-  readDemoUiBypassRole,
-} from "@/lib/demo-login";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
@@ -113,31 +108,6 @@ function productionAccountFromProfile(profile: CurrentAccountProfile): Productio
   };
 }
 
-function productionAccountFromDemoRole(role: DashboardPersona): ProductionAccount {
-  const account = getDemoAccountById(defaultDemoAccountIdForPersona(role));
-  return {
-    persona: account.persona,
-    displayName: account.displayName,
-    roleLabel: account.roleLabel,
-    avatarInitials: initialsFromDisplayName(account.displayName),
-    studentId: account.studentId,
-  };
-}
-
-function readDemoRoleForCurrentRoute(): DashboardPersona | null {
-  const storedRole = readDemoUiBypassRole();
-  if (storedRole) return storedRole;
-  if (!isDemoUiBypassStored() || typeof window === "undefined") return null;
-
-  const pathname = window.location.pathname;
-  if (pathname.startsWith("/dashboard/parents/")) {
-    markDemoUiBypass("parent");
-    return "parent";
-  }
-
-  return null;
-}
-
 export function DashboardPersonaProvider({
   children,
 }: {
@@ -203,14 +173,10 @@ export function DashboardPersonaProvider({
         if (profile) {
           setProductionAccount(productionAccountFromProfile(profile));
         } else {
-          const demoRole = readDemoRoleForCurrentRoute();
-          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT);
+          setProductionAccount(PRODUCTION_ACCOUNT_DEFAULT);
         }
       } catch {
-        if (!cancelled) {
-          const demoRole = readDemoRoleForCurrentRoute();
-          setProductionAccount(demoRole ? productionAccountFromDemoRole(demoRole) : PRODUCTION_ACCOUNT_DEFAULT);
-        }
+        if (!cancelled) setProductionAccount(PRODUCTION_ACCOUNT_DEFAULT);
       } finally {
         if (!cancelled) setIsAccountResolved(true);
       }
