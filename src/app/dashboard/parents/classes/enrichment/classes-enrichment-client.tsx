@@ -85,7 +85,7 @@ export default function ParentClassesEnrichmentClient() {
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
-  const [localRequestState, setLocalRequestState] = useState<"draft" | null>(null);
+  const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [serverCatalogRequests, setServerCatalogRequests] = useState<ParentCatalogRequests | null>(null);
   const [serverReviewStatuses, setServerReviewStatuses] = useState<LocalReviewStatuses>({});
   const [dataHint, setDataHint] = useState<string | null>(null);
@@ -151,6 +151,7 @@ export default function ParentClassesEnrichmentClient() {
         if (cancelled) return;
         setServerCatalogRequests(dbSnapshot.requests);
         setServerReviewStatuses(dbSnapshot.reviewStatuses);
+        if (!snapshot.requests) setLocalRequestState(dbSnapshot.state);
       } catch {
         /* Draft state remains visible when request rows cannot be loaded. */
       }

@@ -62,10 +62,7 @@ import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentSche
 
 type SlotId = CatalogSlotId;
 
-type SlotRequests = {
-  firstChoice: ParentClassOption | null;
-  secondChoice: ParentClassOption | null;
-};
+type SlotRequests = ParentCatalogRequests[CatalogSlotId];
 
 const initialRequests = INITIAL_PARENT_CATALOG_REQUESTS as Record<SlotId, SlotRequests>;
 
