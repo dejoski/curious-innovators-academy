@@ -1,6 +1,7 @@
 import DailyBlocks from "@/components/DailyBlocks";
 import DashboardStatCard from "@/components/dashboard-stat-card";
 import Link from "next/link";
+import { Bell, BookOpenText, ChevronRight, Dice5, GraduationCap, UserRoundCheck } from "lucide-react";
 import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
 import { resolveDashboardPresentation } from "@/lib/data/repositories/dashboard";
 import { fetchAdminEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
@@ -21,10 +22,10 @@ export async function DashboardHomeResolved() {
     Rejected: "bg-[#ffd9d9] text-[#b31313]",
   };
   const metricCards = [
-    { href: "/dashboard/students", count: m.studentCount, label: "Students", iconSrc: "/images/icon-student.svg" },
-    { href: "/dashboard/teachers", count: m.teacherCount, label: "Teachers", iconSrc: "/images/icon-class-lesson.svg" },
-    { href: "/dashboard/classes", count: m.coreClassCount, label: "Core Class", iconSrc: "/images/icon-notebook-one.svg" },
-    { href: "/dashboard/classes", count: m.enrichmentOfferingCount, label: "Enrichment", iconSrc: "/images/icon-dices.svg" },
+    { href: "/dashboard/students", count: m.studentCount, label: "Students", icon: GraduationCap },
+    { href: "/dashboard/teachers", count: m.teacherCount, label: "Teachers", icon: UserRoundCheck },
+    { href: "/dashboard/classes", count: m.coreClassCount, label: "Core Class", icon: BookOpenText },
+    { href: "/dashboard/classes", count: m.enrichmentOfferingCount, label: "Enrichment", icon: Dice5 },
   ];
 
   return (
@@ -34,14 +35,14 @@ export async function DashboardHomeResolved() {
           <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-[729px] lg:grid-cols-4 lg:gap-[20px]">
             {metricCards.map((card) => (
               <Link key={card.label} href={card.href} className="block cursor-pointer transition-opacity hover:opacity-90">
-                <DashboardStatCard count={card.count} label={card.label} iconSrc={card.iconSrc} />
+                <DashboardStatCard count={card.count} label={card.label} icon={card.icon} />
               </Link>
             ))}
           </div>
           <div className="w-full rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:w-[355px]">
             <div className="mb-[14px] flex items-center gap-[8px]">
               <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
-                <img alt="" className="size-[16px]" src="/images/icon-notification-bell.svg" />
+                <Bell aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
               </div>
               <p className="font-['Inter:Semi_Bold',sans-serif] text-[24px] leading-[1.35] text-[#0d0d12]">System Alerts</p>
             </div>
@@ -58,7 +59,7 @@ export async function DashboardHomeResolved() {
                       <p className="truncate font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">{alert.title}</p>
                       <p className="truncate font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">{alert.detail}</p>
                     </div>
-                    <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+                    <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
                   </Link>
                 ))
               ) : (
@@ -77,7 +78,7 @@ export async function DashboardHomeResolved() {
           <div className="w-full self-start rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:w-[355px]">
             <div className="mb-[14px] flex items-center gap-[8px]">
               <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
-                <img alt="" className="size-[16px]" src="/images/icon-dices.svg" />
+                <Dice5 aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
               </div>
               <p className="font-['Inter:Semi_Bold',sans-serif] text-[24px] leading-[1.35] text-[#0d0d12]">Quick Actions</p>
             </div>
@@ -87,21 +88,21 @@ export async function DashboardHomeResolved() {
                   <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Class</p>
                   <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new class to the school schedule</p>
                 </div>
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+                <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
               <Link href="/dashboard/students/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
                 <div>
                   <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Student</p>
                   <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new student to the school roster</p>
                 </div>
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+                <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
               <Link href="/dashboard/teachers/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
                 <div>
                   <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Teacher</p>
                   <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new teacher to the school staff</p>
                 </div>
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+                <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
             </div>
           </div>
@@ -115,7 +116,7 @@ export async function DashboardHomeResolved() {
             <div className="mb-[14px] flex items-center justify-between">
               <div className="flex items-center gap-[8px]">
                 <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
-                  <img alt="" className="size-[16px]" src="/images/icon-dices.svg" />
+                  <Dice5 aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
                 </div>
                 <div>
                   <p className="font-['Inter:Semi_Bold',sans-serif] text-[16px] leading-[1.3] text-[#0d0d12]">Enrichment Requests</p>
@@ -123,7 +124,7 @@ export async function DashboardHomeResolved() {
                 </div>
               </div>
               <Link href="/dashboard/classes/requests" className="rounded-[8px] bg-[#fafafa] p-[8px] hover:bg-[#f0f0f0]">
-                <img alt="" className="size-[12px] -rotate-90" src="/images/icon-arrow-right-thin.svg" />
+                <ChevronRight aria-hidden="true" className="size-[16px] text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
             </div>
 

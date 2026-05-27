@@ -20,7 +20,12 @@ import {
   ParentScheduleGrid,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
-import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
+import {
+  cachedJson,
+  invalidateClientDataCache,
+  invalidateDashboardData,
+  readDashboardData,
+} from "@/lib/client-data-cache";
 import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
@@ -328,9 +333,7 @@ export default function ParentHomeDashboard() {
     let cancelled = false;
     async function loadDbRequestState() {
       try {
-        const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
-        if (!res.ok) return;
-        const body = (await res.json()) as { requests?: EnrichmentRequestRow[] };
+        const body = await readDashboardData<{ requests?: EnrichmentRequestRow[] }>("/api/data/enrichment-requests");
         const snapshot = catalogSnapshotFromEnrichmentRequests(
           Array.isArray(body.requests) ? body.requests : [],
           studentForRequests.id,
@@ -531,6 +534,7 @@ export default function ParentHomeDashboard() {
         Array.isArray(body?.requests) ? body.requests : [],
         activeStudentId,
       );
+      invalidateDashboardData("/api/data/enrichment-requests");
       clearPendingParentCatalogRequests({ studentId: activeStudentId });
       invalidateClientDataCache("/api/data/classes");
       if (activeStudentId) {

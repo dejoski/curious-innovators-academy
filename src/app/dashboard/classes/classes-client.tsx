@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { useClassesDataCache } from "@/components/classes-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
 import { downloadCsv } from "@/lib/client-directory-actions";
 
@@ -26,6 +27,7 @@ export type ClassesPageClientProps = {
   /** Default tab when opening from `/dashboard/classes/core` or `.../enrichment`. */
   initialTrack?: ProgramTrack;
   initialSelectedIds?: string[];
+  onTrackChange?: (track: ProgramTrack) => void;
 };
 
 type SortKey =
@@ -93,9 +95,13 @@ export default function ClassesPageClient({
   dataSource,
   initialTrack = "core",
   initialSelectedIds = [],
+  onTrackChange,
 }: ClassesPageClientProps) {
   const router = useRouter();
-  const [classes, setClasses] = useState<SchoolClassRow[]>(initialClasses);
+  const classesCache = useClassesDataCache();
+  const [classes, setClasses] = useState<SchoolClassRow[]>(
+    () => classesCache.classes.data ?? initialClasses,
+  );
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [trackTab, setTrackTab] = useState<ProgramTrack>(initialTrack);
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
@@ -119,6 +125,20 @@ export default function ClassesPageClient({
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (initialClasses.length > 0 && !classesCache.classes.data) {
+      classesCache.setClassesData(initialClasses, dataSource);
+    }
+  }, [classesCache, dataSource, initialClasses]);
+
+  useEffect(() => {
+    if (classesCache.classes.data) {
+      setClasses(classesCache.classes.data);
+      return;
+    }
+    void classesCache.loadClasses();
+  }, [classesCache]);
 
   useEffect(() => {
     setTrackTab(initialTrack);
@@ -229,6 +249,7 @@ export default function ClassesPageClient({
   }, [visibleRows, safePage]);
 
   const visiblePages = getVisiblePages(safePage, totalPages);
+  const isInitialClassesLoad = classes.length === 0 && classesCache.classes.loading;
 
   const exportClasses = () => {
     const selected = selectedIds.size
@@ -276,16 +297,22 @@ export default function ClassesPageClient({
 
   const deleteClassById = async (id: string) => {
     const removed = classes.find((c) => c.id === id);
-    setClasses((prev) => prev.filter((c) => c.id !== id));
+    const nextClasses = classes.filter((c) => c.id !== id);
+    setClasses(nextClasses);
+    classesCache.setClassesData(nextClasses);
     setPendingDeleteId(null);
     setRowMenu(null);
     const res = await fetch(`/api/data/classes?id=${encodeURIComponent(String(id))}`, {
       method: "DELETE",
     });
     if (!res.ok && removed) {
-      setClasses((prev) => [...prev, removed].sort((a, b) => String(a.id).localeCompare(String(b.id))));
+      const restored = [...nextClasses, removed].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      setClasses(restored);
+      classesCache.setClassesData(restored);
       setSyncHint(`Could not delete in cloud (${await readApiError(res)}). Row restored here.`);
+      return;
     }
+    void classesCache.loadClasses(true);
   };
 
   const duplicateClassById = async (id: string) => {
@@ -307,7 +334,10 @@ export default function ClassesPageClient({
     setRowMenu(null);
     if (res.ok) {
       const body = (await res.json()) as { class: SchoolClassRow };
-      setClasses((prev) => [...prev, body.class]);
+      const nextClasses = [...classes, body.class];
+      setClasses(nextClasses);
+      classesCache.setClassesData(nextClasses);
+      void classesCache.loadClasses(true);
       return;
     }
     setSyncHint(`Could not duplicate class (${await readApiError(res)}).`);
@@ -337,6 +367,11 @@ export default function ClassesPageClient({
     }
   };
 
+  const changeTrack = (track: ProgramTrack) => {
+    setTrackTab(track);
+    onTrackChange?.(track);
+  };
+
   return (
     <div className="w-full p-[24px] md:p-[32px]">
       <div className="mx-auto flex max-w-[1104px] flex-col gap-[16px]">
@@ -363,7 +398,7 @@ export default function ClassesPageClient({
             className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
               trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
             }`}
-            onClick={() => setTrackTab("core")}
+            onClick={() => changeTrack("core")}
           >
             Core
           </button>
@@ -372,7 +407,7 @@ export default function ClassesPageClient({
             className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
               trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
             }`}
-            onClick={() => setTrackTab("enrichment")}
+            onClick={() => changeTrack("enrichment")}
           >
             Enrichment
           </button>
@@ -619,7 +654,7 @@ export default function ClassesPageClient({
 
           {visibleRows.length === 0 && (
             <div className="py-10 text-center font-sans text-[13px] text-[#666d80]">
-              No classes match your filters.
+              {isInitialClassesLoad ? "Loading classes..." : "No classes match your filters."}
             </div>
           )}
 

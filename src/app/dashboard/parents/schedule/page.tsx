@@ -1,16 +1,5 @@
-import { Suspense } from "react";
-import ParentScheduleClient from "./parent-schedule-client";
+import ParentWorkspacePage from "../parent-workspace-page";
 
 export default function ParentSchedulePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[40vh] w-full items-center justify-center p-8 font-sans text-[#666d80]">
-          Loading schedule...
-        </div>
-      }
-    >
-      <ParentScheduleClient />
-    </Suspense>
-  );
+  return <ParentWorkspacePage initialView="schedule" />;
 }

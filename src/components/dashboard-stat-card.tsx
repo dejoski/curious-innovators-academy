@@ -1,17 +1,17 @@
-import Image from "next/image";
+import type { LucideIcon } from "lucide-react";
 
 export type DashboardStatCardProps = {
   count: number;
   label: string;
-  iconSrc: string;
+  icon: LucideIcon;
 };
 
-export default function DashboardStatCard({ count, label, iconSrc }: DashboardStatCardProps) {
+export default function DashboardStatCard({ count, label, icon: Icon }: DashboardStatCardProps) {
   return (
     <div className="flex size-full items-center rounded-[18px] border border-[#f0f0f0] bg-white p-[20px]">
       <div className="flex w-[112px] shrink-0 flex-col items-start gap-[13px]">
         <div className="flex size-[40px] shrink-0 items-center justify-center rounded-[10px] bg-[#d2f1f5]">
-          <Image alt="" className="size-[20px]" src={iconSrc} width={20} height={20} />
+          <Icon aria-hidden="true" className="size-[20px] text-[#00bad3]" strokeWidth={1.8} />
         </div>
         <div className="flex w-full shrink-0 flex-col items-start gap-[10px]">
           <p className="w-full font-['Inter:Bold',sans-serif] text-[32px] font-bold leading-[1.1] text-[#272932]">

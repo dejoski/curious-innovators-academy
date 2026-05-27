@@ -21,7 +21,7 @@ import {
   serializeDemoState,
   type DemoAccountId,
 } from "@/lib/demo-accounts";
-import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
+import { cachedJson, invalidateClientDataCache, setClientDataCacheScope } from "@/lib/client-data-cache";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
@@ -258,6 +258,15 @@ export function DashboardPersonaProvider({
       demoStudentId,
     };
   }, [qa, demoAccountId, setPersona, setDemoAccount, productionAccount, isAccountResolved]);
+
+  setClientDataCacheScope(
+    [
+      value.persona,
+      value.demoAccountId,
+      value.displayName,
+      value.demoStudentId,
+    ].join(":"),
+  );
 
   return (
     <DashboardPersonaContext.Provider value={value}>

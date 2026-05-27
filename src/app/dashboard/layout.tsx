@@ -1,6 +1,12 @@
 import React, { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import DashboardHeader from "@/components/DashboardHeader";
+import {
+  DashboardNavigationOverlay,
+  DashboardNavigationProgressProvider,
+} from "@/components/dashboard-navigation-progress";
+import { ClassesDataCacheProvider } from "@/components/classes-data-cache";
+import DashboardDataWarmup from "@/components/dashboard-data-warmup";
 import { DashboardPersonaProvider } from "@/components/dashboard-persona";
 import DashboardRouteGuard from "@/components/dashboard-route-guard";
 import ParentDashboardPreloader from "@/components/parent-dashboard-preloader";
@@ -12,29 +18,35 @@ export default function DashboardLayout({
 }) {
   return (
     <DashboardPersonaProvider>
-      <ParentDashboardPreloader />
-      <DashboardRouteGuard>
-        <div className="flex h-dvh w-full overflow-hidden bg-[#fafafa] font-sans">
-          <div className="block shrink-0 md:hidden">
-            <Suspense fallback={<div className="h-screen w-[72px] shrink-0 border-r border-[#f0f0f0] bg-white" />}>
-              <Sidebar type="close" />
-            </Suspense>
-          </div>
-          <div className="hidden shrink-0 md:block">
-            <Suspense fallback={<div className="h-screen w-[272px] shrink-0 border-r border-[#f0f0f0] bg-white" />}>
-              <Sidebar type="open" />
-            </Suspense>
-          </div>
-          <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-            <Suspense fallback={<div className="h-[56px] shrink-0 border-b border-[#f0f0f0] bg-white" />}>
-              <DashboardHeader />
-            </Suspense>
-            <main className="relative w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-              {children}
-            </main>
-          </div>
-        </div>
-      </DashboardRouteGuard>
+      <ClassesDataCacheProvider>
+        <DashboardNavigationProgressProvider>
+          <ParentDashboardPreloader />
+          <DashboardDataWarmup />
+          <DashboardRouteGuard>
+            <div className="flex h-dvh w-full overflow-hidden bg-[#fafafa] font-sans">
+              <div className="block shrink-0 md:hidden">
+                <Suspense fallback={<div className="h-screen w-[72px] shrink-0 border-r border-[#f0f0f0] bg-white" />}>
+                  <Sidebar type="close" />
+                </Suspense>
+              </div>
+              <div className="hidden shrink-0 md:block">
+                <Suspense fallback={<div className="h-screen w-[272px] shrink-0 border-r border-[#f0f0f0] bg-white" />}>
+                  <Sidebar type="open" />
+                </Suspense>
+              </div>
+              <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+                <Suspense fallback={<div className="h-[56px] shrink-0 border-b border-[#f0f0f0] bg-white" />}>
+                  <DashboardHeader />
+                </Suspense>
+                <main className="relative w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+                  {children}
+                  <DashboardNavigationOverlay />
+                </main>
+              </div>
+            </div>
+          </DashboardRouteGuard>
+        </DashboardNavigationProgressProvider>
+      </ClassesDataCacheProvider>
     </DashboardPersonaProvider>
   );
 }

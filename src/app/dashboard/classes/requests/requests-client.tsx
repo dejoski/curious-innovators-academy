@@ -6,6 +6,7 @@ import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircl
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import { useClassesDataCache } from "@/components/classes-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
@@ -48,9 +49,14 @@ export default function ClassesEnrichmentRequests({
 }: ClassesEnrichmentRequestsProps) {
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
+  const classesCache = useClassesDataCache();
 
-  const [requests, setRequests] = useState<EnrichmentRequestRow[]>(() => [...initialRequests]);
-  const [decisionSummary, setDecisionSummary] = useState<EnrichmentDecisionSummary>(() => initialDecisionSummary);
+  const [requests, setRequests] = useState<EnrichmentRequestRow[]>(
+    () => classesCache.requests.data?.requests ?? [...initialRequests],
+  );
+  const [decisionSummary, setDecisionSummary] = useState<EnrichmentDecisionSummary>(
+    () => classesCache.requests.data?.decisionSummary ?? initialDecisionSummary,
+  );
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("All");
@@ -85,6 +91,22 @@ export default function ClassesEnrichmentRequests({
       if (request) setDetailRequest(request);
     }
   }, [detailIdFromUrl, requests]);
+
+  useEffect(() => {
+    if (initialRequests.length > 0 && !classesCache.requests.data) {
+      classesCache.setRequestsData(initialRequests, initialDecisionSummary, dataSource);
+    }
+  }, [classesCache, dataSource, initialDecisionSummary, initialRequests]);
+
+  useEffect(() => {
+    const payload = classesCache.requests.data;
+    if (payload) {
+      setRequests(payload.requests);
+      setDecisionSummary(payload.decisionSummary);
+      return;
+    }
+    void classesCache.loadRequests();
+  }, [classesCache]);
 
   const pendingCount = useMemo(() => requests.filter((r) => r.status === "Pending").length, [requests]);
   const approvedCount = decisionSummary.approved;
@@ -121,6 +143,7 @@ export default function ClassesEnrichmentRequests({
   }, [processed, safePage]);
 
   const visiblePages = getVisiblePages(safePage, totalPages);
+  const isInitialRequestsLoad = requests.length === 0 && classesCache.requests.loading;
 
   const processedIdSet = useMemo(() => new Set(processed.map((r) => r.id)), [processed]);
   const allFilteredSelected = processed.length > 0 && processed.every((r) => selectedIds.has(r.id));
@@ -152,17 +175,11 @@ export default function ClassesEnrichmentRequests({
   };
 
   const refreshRequestsFromRemote = async () => {
-    const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
-    if (!res.ok) {
-      setSyncHint(`Could not refresh requests (${await readApiError(res)}).`);
-      return false;
-    }
-    const body = (await res.json()) as {
-      requests?: EnrichmentRequestRow[];
-      decisionSummary?: EnrichmentDecisionSummary;
-    };
-    setRequests(Array.isArray(body.requests) ? body.requests : []);
-    if (body.decisionSummary) setDecisionSummary(body.decisionSummary);
+    const payload = await classesCache.loadRequests(true);
+    setRequests(payload.requests);
+    setDecisionSummary(payload.decisionSummary);
+    void classesCache.loadClasses(true);
+    void classesCache.loadApprovals(true);
     return true;
   };
 
@@ -220,9 +237,9 @@ export default function ClassesEnrichmentRequests({
         <p className="text-[16px] text-[#666d80]">
           Review enrichment class requests, approve or reject enrollments, and track demand by class.
         </p>
-        {(dataSource === "fallback" || syncHint) && (
+        {((classesCache.requests.source === "fallback" || dataSource === "fallback") || syncHint) && (
           <div className="flex flex-col gap-2 max-w-3xl">
-            {dataSource === "fallback" && (
+            {(classesCache.requests.source === "fallback" || dataSource === "fallback") && (
               <p className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
                 {fallbackQueueBannerText()}
               </p>
@@ -619,7 +636,9 @@ export default function ClassesEnrichmentRequests({
           </div>
 
           {pageRows.length === 0 && (
-            <div className="py-8 text-center text-[14px] text-[#666d80]">No requests match your filters.</div>
+            <div className="py-8 text-center text-[14px] text-[#666d80]">
+              {isInitialRequestsLoad ? "Loading requests..." : "No requests match your filters."}
+            </div>
           )}
         </div>
 

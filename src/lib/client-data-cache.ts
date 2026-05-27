@@ -7,9 +7,14 @@ const VERSION = "cia-client-data-v2";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
+let cacheScope = "default";
 
 function cacheKey(url: string) {
-  return `${VERSION}:${url}`;
+  return `${VERSION}:${cacheScope}:${url}`;
+}
+
+function scopedKey(url: string) {
+  return `${cacheScope}:${url}`;
 }
 
 function now() {
@@ -23,7 +28,7 @@ function readStorage<T>(url: string): CacheEntry<T> | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CacheEntry<T>;
     if (!parsed || parsed.expiresAt <= now()) return null;
-    memoryCache.set(url, parsed as CacheEntry<unknown>);
+    memoryCache.set(scopedKey(url), parsed as CacheEntry<unknown>);
     return parsed;
   } catch {
     return null;
@@ -32,7 +37,7 @@ function readStorage<T>(url: string): CacheEntry<T> | null {
 
 function writeCache<T>(url: string, data: T, ttlMs: number) {
   const entry: CacheEntry<T> = { data, expiresAt: now() + ttlMs };
-  memoryCache.set(url, entry as CacheEntry<unknown>);
+  memoryCache.set(scopedKey(url), entry as CacheEntry<unknown>);
   if (typeof window !== "undefined") {
     try {
       window.sessionStorage.setItem(cacheKey(url), JSON.stringify(entry));
@@ -44,7 +49,8 @@ function writeCache<T>(url: string, data: T, ttlMs: number) {
 }
 
 export function peekCachedJson<T>(url: string): T | null {
-  const mem = memoryCache.get(url) as CacheEntry<T> | undefined;
+  const key = scopedKey(url);
+  const mem = memoryCache.get(key) as CacheEntry<T> | undefined;
   if (mem && mem.expiresAt > now()) return mem.data;
   return readStorage<T>(url)?.data ?? null;
 }
@@ -53,7 +59,8 @@ export async function cachedJson<T>(url: string, ttlMs = DEFAULT_TTL_MS): Promis
   const cached = peekCachedJson<T>(url);
   if (cached) return cached;
 
-  const existing = inFlight.get(url) as Promise<T> | undefined;
+  const key = scopedKey(url);
+  const existing = inFlight.get(key) as Promise<T> | undefined;
   if (existing) return existing;
 
   const request = fetch(url, { credentials: "same-origin" })
@@ -62,9 +69,9 @@ export async function cachedJson<T>(url: string, ttlMs = DEFAULT_TTL_MS): Promis
       return (await res.json()) as T;
     })
     .then((data) => writeCache(url, data, ttlMs))
-    .finally(() => inFlight.delete(url));
+    .finally(() => inFlight.delete(key));
 
-  inFlight.set(url, request as Promise<unknown>);
+  inFlight.set(key, request as Promise<unknown>);
   return request;
 }
 
@@ -111,8 +118,9 @@ export async function preloadParentDashboardData(): Promise<{ ok: boolean; stude
 
 export function invalidateClientDataCache(url?: string) {
   if (url) {
-    memoryCache.delete(url);
-    inFlight.delete(url);
+    const key = scopedKey(url);
+    memoryCache.delete(key);
+    inFlight.delete(key);
     if (typeof window !== "undefined") window.sessionStorage.removeItem(cacheKey(url));
     return;
   }
@@ -123,4 +131,68 @@ export function invalidateClientDataCache(url?: string) {
       if (key.startsWith(`${VERSION}:`)) window.sessionStorage.removeItem(key);
     }
   }
+}
+
+export type DashboardCacheOptions = {
+  ttlMs?: number;
+  force?: boolean;
+};
+
+export function setClientDataCacheScope(scope: string) {
+  const nextScope = scope.trim() || "default";
+  if (nextScope === cacheScope) return;
+  cacheScope = nextScope;
+}
+
+export function peekDashboardData<T>(key: string): T | null {
+  return peekCachedJson<T>(key);
+}
+
+export async function readDashboardData<T>(
+  key: string,
+  loader?: () => Promise<T>,
+  options: DashboardCacheOptions = {},
+): Promise<T> {
+  if (options.force) invalidateClientDataCache(key);
+  if (!loader) return cachedJson<T>(key, options.ttlMs);
+
+  const cached = peekCachedJson<T>(key);
+  if (cached && !options.force) return cached;
+
+  const existing = inFlight.get(scopedKey(key)) as Promise<T> | undefined;
+  if (existing) return existing;
+
+  const request = loader()
+    .then((data) => writeCache(key, data, options.ttlMs ?? DEFAULT_TTL_MS))
+    .finally(() => inFlight.delete(scopedKey(key)));
+  inFlight.set(scopedKey(key), request as Promise<unknown>);
+  return request;
+}
+
+export function preloadDashboardData<T>(
+  key: string,
+  loader?: () => Promise<T>,
+  options: DashboardCacheOptions = {},
+) {
+  void readDashboardData<T>(key, loader, options).catch(() => {
+    /* Preload should never break the page. */
+  });
+}
+
+export function invalidateDashboardData(key?: string | string[]) {
+  if (Array.isArray(key)) {
+    for (const item of key) invalidateClientDataCache(item);
+    return;
+  }
+  invalidateClientDataCache(key);
+}
+
+export function mutateDashboardData<T>(
+  key: string,
+  updater: (current: T | null) => T,
+  ttlMs = DEFAULT_TTL_MS,
+) {
+  const next = updater(peekCachedJson<T>(key));
+  writeCache(key, next, ttlMs);
+  return next;
 }

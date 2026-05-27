@@ -1,7 +1,5 @@
-import { fetchAdminClassesResolved } from "@/lib/data/repositories/classes";
-import ClassesPageClient from "../classes-client";
+import ClassesWorkspace from "../classes-workspace";
 
-export default async function CoreClassesListPage() {
-  const { items, source } = await fetchAdminClassesResolved();
-  return <ClassesPageClient initialClasses={items} dataSource={source} initialTrack="core" />;
+export default function CoreClassesListPage() {
+  return <ClassesWorkspace initialView="core" />;
 }

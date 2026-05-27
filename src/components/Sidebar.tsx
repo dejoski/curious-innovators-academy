@@ -10,6 +10,14 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { useDashboardPersona } from "@/components/dashboard-persona";
+import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
+import {
+  DASHBOARD_WORKSPACE_EVENT,
+  dashboardWorkspaceRouteFromPath,
+  dispatchDashboardWorkspaceView,
+  pathAndSearchFromHref,
+  sameDashboardWorkspace,
+} from "@/lib/dashboard/workspace";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
   readStoredParentStudentId,
@@ -82,12 +90,14 @@ type SidebarProps = {
 
 export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const [internalState, setInternalState] = React.useState(type);
+  const [clientVisualPath, setClientVisualPath] = React.useState<string | null>(null);
   const isClose = internalState === "close";
   const isCloseOrWTooltip = ["close", "w/ tooltip"].includes(internalState);
   const isOpen = internalState === "open";
   const isWTooltip = internalState === "w/ tooltip";
 
   const { persona, demoStudentId } = useDashboardPersona();
+  const { pendingPath, startNavigation } = useDashboardNavigationProgress();
   const studentDashboardRoot = demoStudentId
     ? `/dashboard/students/${encodeURIComponent(demoStudentId)}`
     : "/dashboard/students";
@@ -105,6 +115,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const adminStudentDetailRoot = adminStudentRoute?.studentId
     ? `/dashboard/students/${encodeURIComponent(adminStudentRoute.studentId)}`
     : null;
+  const visualPathname = clientVisualPath ?? pendingPath ?? pathname;
 
   const [classesExpanded, setClassesExpanded] = React.useState(() =>
     pathname.startsWith("/dashboard/classes"),
@@ -124,7 +135,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
         routeBranchActive(pathname, PARENT_CLASSES_HREF),
     );
 
-  const parentStudentsBranchActive = routeBranchActive(pathname, PARENT_STUDENTS_HREF);
+  const parentStudentsBranchActive = routeBranchActive(visualPathname, PARENT_STUDENTS_HREF);
 
   const toggleSidebar = () => {
     setInternalState(prev => prev === "open" ? "close" : "open");
@@ -132,6 +143,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
 
   React.useEffect(() => {
     /* Keep submenu expansion deterministic per-route after navigation. */
+    setClientVisualPath((current) => (current === pathname ? null : current));
     setClassesExpanded(pathname.startsWith("/dashboard/classes")); // eslint-disable-line react-hooks/set-state-in-effect -- sync open state to route
     setStudentsExpanded(pathname.startsWith("/dashboard/students"));
     setTeachersExpanded(pathname.startsWith("/dashboard/teachers"));
@@ -141,6 +153,65 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
         routeBranchActive(pathname, PARENT_CLASSES_HREF),
     );
   }, [pathname]);
+
+  React.useEffect(() => {
+    function syncClientVisualPath() {
+      setClientVisualPath(window.location.pathname);
+    }
+
+    function syncWorkspacePath(event: Event) {
+      const detail = (event as CustomEvent<{ path?: string }>).detail;
+      if (!detail?.path) return;
+      setClientVisualPath(detail.path);
+      setClassesExpanded(detail.path.startsWith("/dashboard/classes"));
+      setStudentsExpanded(detail.path.startsWith("/dashboard/students"));
+      setTeachersExpanded(detail.path.startsWith("/dashboard/teachers"));
+      setParentStudentsNavExpanded(routeBranchActive(detail.path, PARENT_STUDENTS_HREF));
+      setParentClassesNavExpanded(
+        routeBranchActive(detail.path, PARENT_CATALOG_HREF) ||
+          routeBranchActive(detail.path, PARENT_CLASSES_HREF),
+      );
+    }
+
+    window.addEventListener("popstate", syncClientVisualPath);
+    window.addEventListener(DASHBOARD_WORKSPACE_EVENT, syncWorkspacePath);
+    window.addEventListener("cia-classes-workspace-view", syncWorkspacePath);
+    return () => {
+      window.removeEventListener("popstate", syncClientVisualPath);
+      window.removeEventListener(DASHBOARD_WORKSPACE_EVENT, syncWorkspacePath);
+      window.removeEventListener("cia-classes-workspace-view", syncWorkspacePath);
+    };
+  }, []);
+
+  function handleNavIntent(event: React.MouseEvent<HTMLDivElement>) {
+    const anchor = (event.target as HTMLElement).closest("a[href]");
+    const nextTarget = pathAndSearchFromHref(anchor?.getAttribute("href") ?? null);
+    const nextPath = nextTarget?.path ?? null;
+    if (!nextPath || nextPath === (clientVisualPath ?? pathname)) return;
+    if (
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      sameDashboardWorkspace(pathname, nextPath)
+    ) {
+      const nextRoute = dashboardWorkspaceRouteFromPath(nextPath);
+      if (!nextRoute || !nextTarget) return;
+      event.preventDefault();
+      event.stopPropagation();
+      window.history.pushState(null, "", nextTarget.href);
+      setClientVisualPath(nextRoute.path);
+      dispatchDashboardWorkspaceView({ ...nextRoute, href: nextTarget.href });
+      return;
+    }
+    startNavigation(nextPath);
+  }
+
+  function routeFeelsActive(route: string) {
+    const visualPath = clientVisualPath ?? pendingPath ?? pathname;
+    return routeBranchActive(visualPath, route);
+  }
 
   function navRow(active: boolean) {
     return `${DASHBOARD_SIDEBAR_NAV_ROW_BASE_CLASS} ${
@@ -188,19 +259,19 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     pathname === "/dashboard/teachers" || pathname === "/dashboard/teachers/";
   const adminTeacherNewActive = pathname.startsWith("/dashboard/teachers/new");
 
-  const adminDashboardActive = pathname === "/dashboard";
-  const adminScheduleActive = pathname.startsWith("/dashboard/schedule");
-  const adminClassesActive = pathname.startsWith("/dashboard/classes");
-  const adminStudentsActive = pathname.startsWith("/dashboard/students");
-  const adminParentsActive = pathname.startsWith("/dashboard/parents");
-  const adminTeachersActive = pathname.startsWith("/dashboard/teachers");
-  const adminSettingsActive = pathname.startsWith("/dashboard/settings");
+  const adminDashboardActive = visualPathname === "/dashboard";
+  const adminScheduleActive = visualPathname.startsWith("/dashboard/schedule");
+  const adminClassesActive = visualPathname.startsWith("/dashboard/classes");
+  const adminStudentsActive = visualPathname.startsWith("/dashboard/students");
+  const adminParentsActive = visualPathname.startsWith("/dashboard/parents");
+  const adminTeachersActive = visualPathname.startsWith("/dashboard/teachers");
+  const adminSettingsActive = visualPathname.startsWith("/dashboard/settings");
 
   const parentOverviewActive =
-    pathname.startsWith("/dashboard/parents/home") ||
-    pathname === "/dashboard/parents";
-  const parentCatalogActive = routeBranchActive(pathname, PARENT_CATALOG_HREF);
-  const parentClassListNavActive = routeBranchActive(pathname, PARENT_CLASSES_HREF);
+    visualPathname.startsWith("/dashboard/parents/home") ||
+    visualPathname === "/dashboard/parents";
+  const parentCatalogActive = routeFeelsActive(PARENT_CATALOG_HREF);
+  const parentClassListNavActive = routeFeelsActive(PARENT_CLASSES_HREF);
   const parentClassesNavActive =
     parentCatalogActive || parentClassListNavActive;
   const parentClassesBrandActive =
@@ -209,8 +280,8 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentInactiveStudentIcon = parentCatalogActive
     ? imgHugeiconsStudentInactive
     : imgHugeiconsStudent;
-  const parentScheduleActive = pathname.startsWith(PARENT_SCHEDULE_HREF);
-  const parentBillingActive = pathname.startsWith("/dashboard/parents/billing");
+  const parentScheduleActive = visualPathname.startsWith(PARENT_SCHEDULE_HREF);
+  const parentBillingActive = visualPathname.startsWith("/dashboard/parents/billing");
   const parentStudentsOpen = parentStudentsNavExpanded;
   const parentStudentsVisualActive = parentStudentsBranchActive;
 
@@ -228,8 +299,8 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
     ? pathname.startsWith(studentRosterHref)
     : false;
 
-  const teacherShellActive = pathname.startsWith("/dashboard/teachers");
-  const teacherScheduleActive = pathname.startsWith("/dashboard/schedule");
+  const teacherShellActive = visualPathname.startsWith("/dashboard/teachers");
+  const teacherScheduleActive = visualPathname.startsWith("/dashboard/schedule");
 
   function parentNavSubLinkClass(on: boolean) {
     return `${DASHBOARD_SIDEBAR_SUB_LINK_BASE_CLASS} ${
@@ -251,7 +322,8 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   }
 
   return (
-    <div className={className || `${DASHBOARD_SIDEBAR_SURFACE_CLASS} content-stretch flex flex-col h-screen items-start relative ${isCloseOrWTooltip ? "w-[72px]" : "w-[272px]"}`} id={isWTooltip ? "node-8_1122" : isClose ? "node-8_1087" : "node-8_1041"}>
+    <div className={className || `${DASHBOARD_SIDEBAR_SURFACE_CLASS} content-stretch flex flex-col h-screen items-start relative ${isCloseOrWTooltip ? "w-[72px]" : "w-[272px]"}`} id={isWTooltip ? "node-8_1122" : isClose ? "node-8_1087" : "node-8_1041"} aria-busy={pendingPath ? "true" : undefined}>
+      {pendingPath ? <div className="absolute left-0 top-0 z-10 h-[2px] w-full animate-pulse bg-[#14c1d5]" /> : null}
       <div className={`${DASHBOARD_SIDEBAR_HEADER_BORDER_CLASS} content-stretch flex flex-col h-[88px] items-start justify-center p-[8px] relative shrink-0 w-full`} id={isWTooltip ? "node-8_1123" : isClose ? "node-8_1088" : "node-8_1042"} data-name="Header">
         <div className={`content-stretch flex items-center p-[12px] relative shrink-0 w-full ${isCloseOrWTooltip ? "flex-col gap-[8px]" : ""}`} id={isWTooltip ? "node-8_1124" : isClose ? "node-8_1089" : "node-8_1043"} data-name="Header Content">
           {isCloseOrWTooltip && (
@@ -343,7 +415,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
           )}
         </div>
       </div>
-      <div className={`content-stretch flex flex-[1_0_0] flex-col gap-[16px] min-h-px relative w-full ${isCloseOrWTooltip ? "items-center justify-center p-[20px]" : "items-start px-[16px] py-[20px]"}`} id={isWTooltip ? "node-8_1131" : isClose ? "node-8_1096" : "node-8_1067"} data-name="Menu Sections">
+      <div onClickCapture={handleNavIntent} className={`content-stretch flex flex-[1_0_0] flex-col gap-[16px] min-h-px relative w-full ${isCloseOrWTooltip ? "items-center justify-center p-[20px]" : "items-start px-[16px] py-[20px]"}`} id={isWTooltip ? "node-8_1131" : isClose ? "node-8_1096" : "node-8_1067"} data-name="Menu Sections">
         <div className={`content-stretch flex flex-col items-start relative shrink-0 ${isCloseOrWTooltip ? "gap-[4px]" : "w-full"}`} id={isWTooltip ? "node-8_1132" : isClose ? "node-8_1097" : "node-8_1068"} data-name="Menu Section">
           {isCloseOrWTooltip && <div className="content-stretch flex h-[25px] items-center justify-center px-[12px] py-[4px] shrink-0 w-full" id={isWTooltip ? "node-8_1133" : "node-8_1098"} data-name="Menu Section Header" />}
           <div className={`content-stretch flex flex-col items-start relative shrink-0 ${isWTooltip ? "gap-[6px]" : isClose ? "" : "gap-[12px] w-full"}`} id={isWTooltip ? "node-8_1135" : isClose ? "node-8_1100" : "node-8_1071"} data-name="Menu Items">
@@ -402,13 +474,13 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   </button>
                   {classesExpanded && (
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link href="/dashboard/classes/core" className={subNavClass(adminAllClassesPath(pathname) || pathname.startsWith("/dashboard/classes/core") || pathname.startsWith("/dashboard/classes/enrichment"))}>
+                      <Link href="/dashboard/classes/core" className={subNavClass(adminAllClassesPath(visualPathname) || visualPathname.startsWith("/dashboard/classes/core") || visualPathname.startsWith("/dashboard/classes/enrichment"))}>
                         Classes List
                       </Link>
-                      <Link href="/dashboard/classes/requests" className={subNavClass(pathname.startsWith("/dashboard/classes/requests"))}>
+                      <Link href="/dashboard/classes/requests" className={subNavClass(visualPathname.startsWith("/dashboard/classes/requests"))}>
                         Enrichment Requests
                       </Link>
-                      <Link href="/dashboard/classes/approvals" className={subNavClass(pathname.startsWith("/dashboard/classes/approvals"))}>
+                      <Link href="/dashboard/classes/approvals" className={subNavClass(visualPathname.startsWith("/dashboard/classes/approvals"))}>
                         Approval History
                       </Link>
                     </div>
@@ -442,7 +514,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   </button>
                   {studentsExpanded && (
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link href="/dashboard/students" className={subNavClass(adminStudentListActive)}>
+                      <Link href="/dashboard/students" className={subNavClass(adminStudentListActive || visualPathname === "/dashboard/students")}>
                         Student List
                       </Link>
                       {adminStudentDetailRoot ? (
@@ -497,10 +569,10 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   </button>
                   {teachersExpanded && (
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link href="/dashboard/teachers" className={subNavClass(adminTeacherListActive)}>
+                      <Link href="/dashboard/teachers" className={subNavClass(adminTeacherListActive || visualPathname === "/dashboard/teachers")}>
                         Teacher list
                       </Link>
-                      <Link href="/dashboard/teachers/new" className={subNavClass(adminTeacherNewActive)}>
+                      <Link href="/dashboard/teachers/new" className={subNavClass(adminTeacherNewActive || visualPathname.startsWith("/dashboard/teachers/new"))}>
                         Add teacher
                       </Link>
                     </div>
