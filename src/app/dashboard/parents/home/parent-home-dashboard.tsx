@@ -38,10 +38,12 @@ import {
   INITIAL_PARENT_CATALOG_REQUESTS,
   catalogSnapshotFromEnrichmentRequests,
   catalogChoiceReviews,
-  catalogScheduleBadgeOverrides,
+  changedParentCatalogRequests,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
+  mergedParentCatalogScheduleBadgeOverrides,
+  mergeParentCatalogRequests,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
@@ -233,7 +235,7 @@ export default function ParentHomeDashboard() {
   const [serverLocalReviewStatuses, setServerLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [editingCatalogDraft, setEditingCatalogDraft] = useState<HomeCatalogRequests | null>(null);
   const [localRequestState, setLocalRequestState] = useState<LocalRequestState>(null);
-  const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
+  const [, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [classOptions, setClassOptions] = useState<ParentClassOption[]>([]);
   const [isStudentDataLoading, setIsStudentDataLoading] = useState(true);
   const [activeSlot, setActiveSlot] = useState<CatalogSlotId>("block4_day3");
@@ -313,13 +315,17 @@ export default function ParentHomeDashboard() {
   useEffect(() => {
     if (!student?.id) {
       setCatalogDraft(null);
+      setServerCatalogDraft(null);
+      setServerLocalRequestState(null);
+      setServerLocalReviewStatuses({});
       setLocalRequestState(null);
       setLocalReviewStatuses({});
       return;
     }
     const activeStudent = student;
+    let cancelled = false;
 
-    function readCatalogDraft() {
+    async function syncCatalogRequestState() {
       const snapshot = readParentCatalogSnapshot({
         studentId: activeStudent.id,
         studentName: activeStudent.name,
@@ -328,42 +334,18 @@ export default function ParentHomeDashboard() {
         setCatalogDraft(snapshot.requests);
         setLocalRequestState("draft");
         setLocalReviewStatuses({});
-      } else {
-        setCatalogDraft(serverCatalogDraft);
-        setLocalRequestState(serverLocalRequestState);
-        setLocalReviewStatuses(serverLocalReviewStatuses);
       }
-    }
-
-    readCatalogDraft();
-    window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
-    window.addEventListener("storage", readCatalogDraft);
-    return () => {
-      window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
-      window.removeEventListener("storage", readCatalogDraft);
-    };
-  }, [serverCatalogDraft, serverLocalRequestState, serverLocalReviewStatuses, student?.id, student?.name]);
-
-  useEffect(() => {
-    if (!student?.id) return;
-    const studentForRequests = student;
-    let cancelled = false;
-    async function loadDbRequestState() {
       try {
         const body = await readDashboardData<{ requests?: EnrichmentRequestRow[] }>("/api/data/enrichment-requests");
         const snapshot = catalogSnapshotFromEnrichmentRequests(
           Array.isArray(body.requests) ? body.requests : [],
-          studentForRequests.id,
+          activeStudent.id,
         );
         if (cancelled) return;
         setServerCatalogDraft(snapshot.requests);
         setServerLocalRequestState(snapshot.state);
         setServerLocalReviewStatuses(snapshot.reviewStatuses);
-        const localSnapshot = readParentCatalogSnapshot({
-          studentId: studentForRequests.id,
-          studentName: studentForRequests.name,
-        });
-        if (!localSnapshot.requests) {
+        if (!readParentCatalogSnapshot({ studentId: activeStudent.id, studentName: activeStudent.name }).requests) {
           setCatalogDraft(snapshot.requests);
           setLocalRequestState(snapshot.state);
           setLocalReviewStatuses(snapshot.reviewStatuses);
@@ -372,11 +354,16 @@ export default function ParentHomeDashboard() {
         /* Local draft state remains visible when request rows cannot be loaded. */
       }
     }
-    void loadDbRequestState();
+
+    void syncCatalogRequestState();
+    window.addEventListener("cia-parent-catalog-updated", syncCatalogRequestState);
+    window.addEventListener("storage", syncCatalogRequestState);
     return () => {
       cancelled = true;
+      window.removeEventListener("cia-parent-catalog-updated", syncCatalogRequestState);
+      window.removeEventListener("storage", syncCatalogRequestState);
     };
-  }, [student?.id]);
+  }, [student?.id, student?.name]);
 
   useEffect(() => {
     if (!selectionDrawerOpen) return;
@@ -387,9 +374,15 @@ export default function ParentHomeDashboard() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectionDrawerOpen]);
 
+  const draftOnlyCatalogRequests = useMemo(() => {
+    if (localRequestState !== "draft") return null;
+    return changedParentCatalogRequests(catalogDraft, serverCatalogDraft);
+  }, [catalogDraft, localRequestState, serverCatalogDraft]);
+
   const localChoiceReviews = useMemo(() => {
-    return catalogChoiceReviews(catalogDraft, localReviewStatuses);
-  }, [catalogDraft, localReviewStatuses]);
+    if (localRequestState === "draft") return catalogChoiceReviews(draftOnlyCatalogRequests, {});
+    return catalogChoiceReviews(serverCatalogDraft, serverLocalReviewStatuses);
+  }, [draftOnlyCatalogRequests, localRequestState, serverCatalogDraft, serverLocalReviewStatuses]);
 
   const localPendingChoices = localChoiceReviews.filter((choice) => choice.status === "Pending").length;
 
@@ -408,9 +401,14 @@ export default function ParentHomeDashboard() {
   const scheduleBadgesBySlot = useMemo(() => {
     return buildParentScheduleBadges(
       selectedSchedule,
-      catalogScheduleBadgeOverrides(catalogDraft, localReviewStatuses, localRequestState),
+      mergedParentCatalogScheduleBadgeOverrides(
+        serverCatalogDraft,
+        serverLocalReviewStatuses,
+        serverLocalRequestState,
+        draftOnlyCatalogRequests,
+      ),
     );
-  }, [catalogDraft, localRequestState, localReviewStatuses, selectedSchedule]);
+  }, [draftOnlyCatalogRequests, selectedSchedule, serverCatalogDraft, serverLocalRequestState, serverLocalReviewStatuses]);
   const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
 
   const catalogIdentity = useMemo<ParentCatalogIdentity>(
@@ -423,8 +421,8 @@ export default function ParentHomeDashboard() {
   );
 
   const homeCatalogRequests = useMemo(
-    () => normalizedHomeCatalogRequests(catalogDraft),
-    [catalogDraft],
+    () => normalizedHomeCatalogRequests(mergeParentCatalogRequests(serverCatalogDraft, draftOnlyCatalogRequests)),
+    [draftOnlyCatalogRequests, serverCatalogDraft],
   );
   const drawerCatalogRequests = editingCatalogDraft ?? homeCatalogRequests;
 
@@ -457,26 +455,32 @@ export default function ParentHomeDashboard() {
   const firstChoiceOptions = overlayClasses.filter((option) => option.id !== secondChoice?.id);
   const secondChoiceOptions = overlayClasses.filter((option) => option.id !== firstChoice?.id);
   const activeSlotHasChoices = Boolean(firstChoice || secondChoice);
-  const hasCatalogChoices = hasParentCatalogChoices(homeCatalogRequests as ParentCatalogRequests);
+  const hasCatalogChoices =
+    localRequestState === "draft"
+      ? hasParentCatalogChoices(draftOnlyCatalogRequests as ParentCatalogRequests)
+      : hasParentCatalogChoices(homeCatalogRequests as ParentCatalogRequests);
   const drawerHasCatalogChoices = hasParentCatalogChoices(drawerCatalogRequests as ParentCatalogRequests);
   const activeStudentId = student?.id;
 
-  function persistHomeDraft(next: HomeCatalogRequests) {
-    setCatalogDraft(next as ParentCatalogRequests);
+  function persistHomeDraft(next: ParentCatalogRequests) {
+    const changedDraft = changedParentCatalogRequests(next, serverCatalogDraft);
+    if (!changedDraft) return false;
+    setCatalogDraft(changedDraft);
     setLocalRequestState("draft");
     setLocalReviewStatuses({});
     try {
       clearSubmittedParentCatalogSnapshot({ studentId: student?.id });
-      writePendingParentCatalogRequests(next as ParentCatalogRequests, catalogIdentity);
+      writePendingParentCatalogRequests(changedDraft, catalogIdentity);
     } catch {
       /* Browser storage can be unavailable in privacy modes. */
     }
+    return true;
   }
 
   function saveHomeDraft() {
     const draft = editingCatalogDraft ?? homeCatalogRequests;
     if (!hasParentCatalogChoices(draft as ParentCatalogRequests)) return;
-    persistHomeDraft(draft);
+    if (!persistHomeDraft(draft)) return;
     setSelectionDrawerOpen(false);
     setOpenChoice(null);
     setEditingCatalogDraft(null);
@@ -552,8 +556,12 @@ export default function ParentHomeDashboard() {
   }
 
   async function submitHomeSelections() {
-    const submissionRequests = editingCatalogDraft ?? homeCatalogRequests;
-    if (!hasParentCatalogChoices(submissionRequests as ParentCatalogRequests) || submitting) return;
+    const rawSubmissionRequests = editingCatalogDraft ?? homeCatalogRequests;
+    const submissionRequests = changedParentCatalogRequests(
+      rawSubmissionRequests as ParentCatalogRequests,
+      serverCatalogDraft,
+    );
+    if (!submissionRequests || !hasParentCatalogChoices(submissionRequests as ParentCatalogRequests) || submitting) return;
     const choices = selectedChoicesForSubmit(submissionRequests as ParentCatalogRequests);
     if (!choices.length) return;
 

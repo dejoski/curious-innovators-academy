@@ -12,7 +12,7 @@ import { splitScheduleLabel } from "@/lib/schedule-slots";
 import {
   catalogSnapshotFromEnrichmentRequests,
   catalogChoiceReviews,
-  clearPendingParentCatalogRequests,
+  changedParentCatalogRequests,
   readParentCatalogSnapshot,
   type LocalReviewStatuses,
   type ParentCatalogChoice,
@@ -42,6 +42,8 @@ type ParentEnrichmentRow = {
 
 type DraftChoiceWithLocalId = ParentCatalogChoice & {
   localId: string;
+  displayStatus: string;
+  current: boolean;
 };
 
 function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
@@ -83,8 +85,9 @@ export default function ParentClassesEnrichmentClient() {
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
-  const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
-  const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
+  const [localRequestState, setLocalRequestState] = useState<"draft" | null>(null);
+  const [serverCatalogRequests, setServerCatalogRequests] = useState<ParentCatalogRequests | null>(null);
+  const [serverReviewStatuses, setServerReviewStatuses] = useState<LocalReviewStatuses>({});
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("All");
@@ -132,66 +135,70 @@ export default function ParentClassesEnrichmentClient() {
   }, []);
 
   useEffect(() => {
-    function readCatalogDraft() {
+    let cancelled = false;
+    async function syncCatalogRequestState() {
       const snapshot = selectedParentStudentId
         ? readParentCatalogSnapshot({ studentId: selectedParentStudentId })
         : readParentCatalogSnapshot();
       setCatalogDraft(snapshot.requests);
-      setLocalRequestState(snapshot.state);
-      setLocalReviewStatuses({});
-    }
-
-    readCatalogDraft();
-    window.addEventListener("cia-parent-catalog-updated", readCatalogDraft);
-    window.addEventListener("storage", readCatalogDraft);
-    return () => {
-      window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
-      window.removeEventListener("storage", readCatalogDraft);
-    };
-  }, [selectedParentStudentId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadDbRequestState() {
+      setLocalRequestState(snapshot.requests ? "draft" : null);
       try {
         const body = await readDashboardData<{ requests?: EnrichmentRequestRow[] }>("/api/data/enrichment-requests");
-        const snapshot = catalogSnapshotFromEnrichmentRequests(
+        const dbSnapshot = catalogSnapshotFromEnrichmentRequests(
           Array.isArray(body.requests) ? body.requests : [],
           selectedParentStudentId || undefined,
         );
-        if (cancelled || !snapshot.requests) return;
-        if (selectedParentStudentId) clearPendingParentCatalogRequests({ studentId: selectedParentStudentId });
-        setCatalogDraft(snapshot.requests);
-        setLocalRequestState(snapshot.state);
-        setLocalReviewStatuses(snapshot.reviewStatuses);
+        if (cancelled) return;
+        setServerCatalogRequests(dbSnapshot.requests);
+        setServerReviewStatuses(dbSnapshot.reviewStatuses);
       } catch {
         /* Draft state remains visible when request rows cannot be loaded. */
       }
     }
-    void loadDbRequestState();
+
+    void syncCatalogRequestState();
+    window.addEventListener("cia-parent-catalog-updated", syncCatalogRequestState);
+    window.addEventListener("storage", syncCatalogRequestState);
     return () => {
       cancelled = true;
+      window.removeEventListener("cia-parent-catalog-updated", syncCatalogRequestState);
+      window.removeEventListener("storage", syncCatalogRequestState);
     };
   }, [selectedParentStudentId]);
 
+  const draftOnlyCatalogRequests = useMemo(() => {
+    if (localRequestState !== "draft") return null;
+    return changedParentCatalogRequests(catalogDraft, serverCatalogRequests);
+  }, [catalogDraft, localRequestState, serverCatalogRequests]);
+
   const filteredAndSortedClasses = useMemo(() => {
-    const draftChoices: DraftChoiceWithLocalId[] = catalogChoiceReviews(catalogDraft, localReviewStatuses).map((choice) => ({
-      id: choice.classId,
-      name: choice.name,
-      localId: choice.id,
-    }));
-    const draftIds = new Set(draftChoices.map((choice) => choice.id).filter(Boolean));
-    const draftNames = new Set(draftChoices.map((choice) => choice.name).filter(Boolean));
+    const requestChoices: DraftChoiceWithLocalId[] = [
+      ...catalogChoiceReviews(serverCatalogRequests, serverReviewStatuses).map((choice) => ({
+        id: choice.classId,
+        name: choice.name,
+        localId: choice.id,
+        displayStatus: choice.status,
+        current: choice.status === "Approved",
+      })),
+      ...catalogChoiceReviews(draftOnlyCatalogRequests, {}).map((choice) => ({
+        id: choice.classId,
+        name: choice.name,
+        localId: choice.id,
+        displayStatus: "Draft",
+        current: false,
+      })),
+    ];
+    const requestIds = new Set(requestChoices.map((choice) => choice.id).filter(Boolean));
+    const requestNames = new Set(requestChoices.map((choice) => choice.name).filter(Boolean));
 
     let result = classes.map((cls) => {
-      const isDraftRequest = draftIds.has(cls.id) || draftNames.has(cls.name);
-      const matchedDraft = draftChoices.find((choice) => choice.id === cls.id || choice.name === cls.name);
-      const reviewedStatus = matchedDraft ? localReviewStatuses[matchedDraft.localId] : undefined;
-      return isDraftRequest
+      const isRequested = requestIds.has(cls.id) || requestNames.has(cls.name);
+      const matchedRequest = requestChoices.find((choice) => choice.id === cls.id || choice.name === cls.name);
+      return isRequested && matchedRequest
         ? {
             ...cls,
-            status: localRequestState === "submitted" ? (reviewedStatus ?? "Pending") : "Draft",
-            current: reviewedStatus === "Approved",
+            status: matchedRequest.displayStatus,
+            current: matchedRequest.current,
             requestSource: "catalog-request" as const,
           }
         : cls;
@@ -225,7 +232,7 @@ export default function ParentClassesEnrichmentClient() {
     });
 
     return result;
-  }, [catalogDraft, classes, localRequestState, localReviewStatuses, searchQuery, filterStatus, sortBy]);
+  }, [classes, draftOnlyCatalogRequests, searchQuery, filterStatus, sortBy, serverCatalogRequests, serverReviewStatuses]);
 
   useEffect(() => {
     if (!toolbarBanner) return;

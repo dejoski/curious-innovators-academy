@@ -34,10 +34,12 @@ import {
   INITIAL_PARENT_CATALOG_REQUESTS,
   catalogChoiceReviews,
   catalogSnapshotFromEnrichmentRequests,
-  catalogScheduleBadgeOverrides,
+  changedParentCatalogRequests,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
+  mergedParentCatalogScheduleBadgeOverrides,
+  mergeParentCatalogRequests,
   normalizeParentCatalogRequests,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
@@ -122,7 +124,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const [serverReviewStatuses, setServerReviewStatuses] = useState<LocalReviewStatuses>({});
   const [serverRequestState, setServerRequestState] = useState<"submitted" | null>(null);
   const [editingRequests, setEditingRequests] = useState<Record<SlotId, SlotRequests> | null>(null);
-  const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
+  const [, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
@@ -216,7 +218,16 @@ function ParentClassesEnrichmentCatalogContent() {
   }, []);
 
   useEffect(() => {
-    if (!activeStudent?.id) return;
+    if (!activeStudent?.id) {
+      setRequests(normalizedCatalogRequests());
+      setServerRequests(normalizedCatalogRequests());
+      setServerRequestState(null);
+      setServerReviewStatuses({});
+      setLocalRequestState(null);
+      setLocalReviewStatuses({});
+      setRestoredDraft(false);
+      return;
+    }
     const studentForRequests = activeStudent;
     let cancelled = false;
     async function loadRequestState() {
@@ -254,8 +265,12 @@ function ParentClassesEnrichmentCatalogContent() {
       }
     }
     void loadRequestState();
+    window.addEventListener("cia-parent-catalog-updated", loadRequestState);
+    window.addEventListener("storage", loadRequestState);
     return () => {
       cancelled = true;
+      window.removeEventListener("cia-parent-catalog-updated", loadRequestState);
+      window.removeEventListener("storage", loadRequestState);
     };
   }, [activeStudent?.id, activeStudent?.name]);
 
@@ -277,22 +292,36 @@ function ParentClassesEnrichmentCatalogContent() {
     [activeStudent],
   );
 
+  const draftOnlyRequests = useMemo(() => {
+    if (localRequestState !== "draft") return null;
+    return changedParentCatalogRequests(requests as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
+  }, [localRequestState, requests, serverRequests]);
+  const renderedRequests = useMemo(
+    () => mergeParentCatalogRequests(serverRequests as ParentCatalogRequests, draftOnlyRequests),
+    [draftOnlyRequests, serverRequests],
+  );
   const scheduleBadgesBySlot = useMemo(() => {
     return buildParentScheduleBadges(
       studentSchedule,
-      catalogScheduleBadgeOverrides(requests as ParentCatalogRequests, localReviewStatuses, localRequestState),
+      mergedParentCatalogScheduleBadgeOverrides(
+        serverRequests as ParentCatalogRequests,
+        serverReviewStatuses,
+        serverRequestState,
+        draftOnlyRequests,
+      ),
     );
-  }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
+  }, [draftOnlyRequests, serverRequestState, serverRequests, serverReviewStatuses, studentSchedule]);
   const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
   const localChoiceReviews = useMemo(() => {
-    return catalogChoiceReviews(requests as ParentCatalogRequests, localReviewStatuses);
-  }, [localReviewStatuses, requests]);
+    if (localRequestState === "draft") return catalogChoiceReviews(draftOnlyRequests, {});
+    return catalogChoiceReviews(serverRequests as ParentCatalogRequests, serverReviewStatuses);
+  }, [draftOnlyRequests, localRequestState, serverRequests, serverReviewStatuses]);
 
   const selectedChoices = useMemo(
-    () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
-    [requests],
+    () => selectedChoicesForSubmit((localRequestState === "draft" ? draftOnlyRequests : requests) as ParentCatalogRequests),
+    [draftOnlyRequests, localRequestState, requests],
   );
-  const drawerRequests = editingRequests ?? requests;
+  const drawerRequests = editingRequests ?? renderedRequests;
   const drawerSelectedChoices = useMemo(
     () => selectedChoicesForSubmit(drawerRequests as ParentCatalogRequests),
     [drawerRequests],
@@ -329,7 +358,7 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function openSlot(slotId: SlotId) {
     setActiveSlot(slotId);
-    setEditingRequests(requests);
+    setEditingRequests(renderedRequests as Record<SlotId, SlotRequests>);
     setOverlayOpen(true);
     setOpenChoice(null);
   }
@@ -347,7 +376,7 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
     setEditingRequests((prev) => {
-      const current = prev ?? requests;
+      const current = prev ?? (renderedRequests as Record<SlotId, SlotRequests>);
       const active = current[activeSlot];
       const targetKind: ParentClassChoiceKind = kind === "secondChoice" && !active.firstChoice ? "firstChoice" : kind;
       const otherKind: ParentClassChoiceKind = targetKind === "firstChoice" ? "secondChoice" : "firstChoice";
@@ -365,9 +394,10 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function saveDraftSelections() {
-    const draft = editingRequests ?? requests;
+    const rawDraft = editingRequests ?? (renderedRequests as Record<SlotId, SlotRequests>);
+    const draft = changedParentCatalogRequests(rawDraft as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
     if (!selectedChoicesForSubmit(draft as ParentCatalogRequests).length) return;
-    setRequests(draft);
+    setRequests(draft as Record<SlotId, SlotRequests>);
     setLocalRequestState("draft");
     setLocalReviewStatuses({});
     setRestoredDraft(true);
@@ -397,22 +427,28 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function saveFailedSubmitAsDraft(draft: Record<SlotId, SlotRequests>) {
-    setRequests(draft);
+    const changedDraft = changedParentCatalogRequests(draft as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
+    if (!changedDraft) return;
+    setRequests(changedDraft as Record<SlotId, SlotRequests>);
     setLocalRequestState("draft");
     setLocalReviewStatuses({});
     setRestoredDraft(true);
     try {
       clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
-      writePendingParentCatalogRequests(draft as ParentCatalogRequests, catalogIdentity);
+      writePendingParentCatalogRequests(changedDraft, catalogIdentity);
     } catch {
       /* Browser storage can be unavailable in privacy modes. */
     }
   }
 
   async function submitSelections() {
-    const submissionRequests = editingRequests ?? requests;
+    const rawSubmissionRequests = editingRequests ?? (localRequestState === "draft" ? renderedRequests : requests);
+    const submissionRequests = changedParentCatalogRequests(
+      rawSubmissionRequests as ParentCatalogRequests,
+      serverRequests as ParentCatalogRequests,
+    );
     const choices = selectedChoicesForSubmit(submissionRequests as ParentCatalogRequests);
-    if (!choices.length || submitting) return;
+    if (!submissionRequests || !choices.length || submitting) return;
     setSubmitting(true);
     setSubmitBanner(null);
     try {
@@ -423,7 +459,7 @@ function ParentClassesEnrichmentCatalogContent() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        saveFailedSubmitAsDraft(submissionRequests);
+        saveFailedSubmitAsDraft(submissionRequests as Record<SlotId, SlotRequests>);
         setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${body?.error ?? res.statusText}. Your draft is still saved.` });
         closeSelectionDrawer();
         return;
@@ -451,7 +487,7 @@ function ParentClassesEnrichmentCatalogContent() {
       setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
       closeSelectionDrawer();
     } catch (error) {
-      saveFailedSubmitAsDraft(submissionRequests);
+      saveFailedSubmitAsDraft(submissionRequests as Record<SlotId, SlotRequests>);
       setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.` });
       closeSelectionDrawer();
     } finally {

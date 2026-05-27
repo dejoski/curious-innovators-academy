@@ -86,8 +86,67 @@ function normalizeRequests(raw: unknown): ParentCatalogRequests {
   }, {} as ParentCatalogRequests);
 }
 
+function hasSlotChoice(slot: ParentCatalogSlotRequest | null | undefined): boolean {
+  return Boolean(slot?.firstChoice?.id || slot?.firstChoice?.name || slot?.secondChoice?.id || slot?.secondChoice?.name);
+}
+
+function sameCatalogChoice(
+  leftChoice: ParentCatalogChoice | null | undefined,
+  rightChoice: ParentCatalogChoice | null | undefined,
+): boolean {
+  const left = normalizeChoice(leftChoice);
+  const right = normalizeChoice(rightChoice);
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  if (left.id && right.id) return left.id === right.id;
+  const leftName = left.name?.trim().toLowerCase() ?? "";
+  const rightName = right.name?.trim().toLowerCase() ?? "";
+  if (leftName && rightName) return leftName === rightName;
+  return (left.id ?? "") === (right.id ?? "");
+}
+
+function sameSlotRequest(
+  leftSlot: ParentCatalogSlotRequest | null | undefined,
+  rightSlot: ParentCatalogSlotRequest | null | undefined,
+): boolean {
+  const left = normalizeSlotRequest(leftSlot);
+  const right = normalizeSlotRequest(rightSlot);
+  return sameCatalogChoice(left.firstChoice, right.firstChoice) && sameCatalogChoice(left.secondChoice, right.secondChoice);
+}
+
 export function normalizeParentCatalogRequests(requests: ParentCatalogRequests | null | undefined): ParentCatalogRequests {
   return normalizeRequests(requests);
+}
+
+export function changedParentCatalogRequests(
+  draftRequests: ParentCatalogRequests | null | undefined,
+  baseRequests: ParentCatalogRequests | null | undefined,
+): ParentCatalogRequests | null {
+  const draft = normalizeRequests(draftRequests);
+  const base = normalizeRequests(baseRequests);
+  const changed = normalizeRequests(null);
+  let changedCount = 0;
+
+  CATALOG_SLOT_IDS.forEach((slotId) => {
+    if (hasSlotChoice(draft[slotId]) && !sameSlotRequest(draft[slotId], base[slotId])) {
+      changed[slotId] = draft[slotId];
+      changedCount += 1;
+    }
+  });
+
+  return changedCount ? changed : null;
+}
+
+export function mergeParentCatalogRequests(
+  baseRequests: ParentCatalogRequests | null | undefined,
+  overlayRequests: ParentCatalogRequests | null | undefined,
+): ParentCatalogRequests {
+  const base = normalizeRequests(baseRequests);
+  const overlay = normalizeRequests(overlayRequests);
+  return CATALOG_SLOT_IDS.reduce((next, slotId) => {
+    next[slotId] = hasSlotChoice(overlay[slotId]) ? overlay[slotId] : base[slotId];
+    return next;
+  }, {} as ParentCatalogRequests);
 }
 
 export function readParentCatalogSnapshot(): {
@@ -302,6 +361,18 @@ export function catalogScheduleBadgeOverrides(
     if (badges.length) overrides[CATALOG_SLOT_META[slotId].scheduleSlot] = badges;
     return overrides;
   }, {});
+}
+
+export function mergedParentCatalogScheduleBadgeOverrides(
+  baseRequests: ParentCatalogRequests | null,
+  baseReviewStatuses: LocalReviewStatuses,
+  baseState: "submitted" | null,
+  draftRequests: ParentCatalogRequests | null,
+): ParentScheduleBadges {
+  return {
+    ...catalogScheduleBadgeOverrides(baseRequests, baseReviewStatuses, baseState),
+    ...catalogScheduleBadgeOverrides(draftRequests, {}, draftRequests ? "draft" : null),
+  };
 }
 
 export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolean {
