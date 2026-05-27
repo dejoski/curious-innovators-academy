@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useRef, useState, useEffect } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ListPlus, X, XCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
@@ -10,9 +10,6 @@ const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgMaskGroup = "/images/mask-group.svg";
-const imgMaskGroup1 = "/images/mask-group.svg";
-const imgMaskGroup2 = "/images/mask-group.svg";
 
 type ApprovalStatus = "Approved" | "Waitlisted" | "Rejected";
 
@@ -232,43 +229,43 @@ function ClassesApprovalHistory() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
-          <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-            <img alt="Total" className="size-[20px]" src={imgMaskGroup} />
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px] shadow-sm">
+          <div className="bg-[#fff8e6] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <Clock className="w-5 h-5 text-[#cfa500]" aria-hidden strokeWidth={2} />
           </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Total decisions</p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.total}</p>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <p className="break-words text-[15px] font-semibold text-[#272932]">Total decisions</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{stats.total}</p>
           </div>
         </div>
         
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
-          <div className="bg-[rgba(0,77,8,0.2)] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-            <img alt="Approved" className="size-[20px]" src={imgMaskGroup1} />
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px] shadow-sm">
+          <div className="bg-[#d9e7d8] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-[#004d08]" aria-hidden strokeWidth={2} />
           </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Approved</p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.approved}</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
-          <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-            <img alt="Waitlisted" className="size-[20px]" src={imgMaskGroup} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Waitlisted</p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.waitlisted}</p>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <p className="break-words text-[15px] font-semibold text-[#272932]">Approved</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{stats.approved}</p>
           </div>
         </div>
 
-        <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex items-center gap-3 shadow-sm">
-          <div className="bg-[#ffd9d9] rounded-[10px] size-[40px] flex items-center justify-center shrink-0">
-            <img alt="Rejected" className="size-[20px]" src={imgMaskGroup2} />
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px] shadow-sm">
+          <div className="bg-[#fff8e6] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <ListPlus className="w-5 h-5 text-[#cfa500]" aria-hidden strokeWidth={2} />
           </div>
-          <div className="flex flex-col gap-1">
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] leading-[1.4]">Rejected</p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px] leading-[1.4]">{stats.rejected}</p>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <p className="break-words text-[15px] font-semibold text-[#272932]">Waitlisted</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{stats.waitlisted}</p>
+          </div>
+        </div>
+
+        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px] shadow-sm">
+          <div className="bg-[#ffd9d9] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+            <XCircle className="w-5 h-5 text-[#d80509]" aria-hidden strokeWidth={2} />
+          </div>
+          <div className="flex min-w-0 flex-col leading-snug">
+            <p className="break-words text-[15px] font-semibold text-[#272932]">Rejected</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{stats.rejected}</p>
           </div>
         </div>
       </div>
