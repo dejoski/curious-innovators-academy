@@ -19,6 +19,7 @@ import {
   ParentClassDetailsContent,
   parentClassOptionFromRow,
 } from "@/components/parent-class-drawers";
+import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
 
@@ -367,12 +368,10 @@ export default function ScheduleMonth({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/data/schedule-extras", {
-          cache: "no-store",
-          headers: { accept: "application/json" },
-        });
-        if (cancelled || !res.ok) return;
-        const body = (await res.json()) as { extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource };
+        const body = await readDashboardData<{
+          extrasByDate?: Record<string, CalendarEvent[]>;
+          source?: DataSource;
+        }>("/api/data/schedule-extras");
         if (cancelled) return;
         setExtrasByDateKey(cloneExtras(body.extrasByDate ?? {}));
         setActiveDataSource(body.source ?? "unavailable");
@@ -481,6 +480,7 @@ export default function ScheduleMonth({
         ...prev,
         [key]: [...(prev[key] ?? []), newEvent],
       }));
+      invalidateDashboardData("/api/data/schedule-extras");
       setIsCreateModalOpen(false);
       resetCreateForm();
       setSyncHint("Event saved.");

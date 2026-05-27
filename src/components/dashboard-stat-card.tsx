@@ -1,12 +1,14 @@
 import type { LucideIcon } from "lucide-react";
+import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 
 export type DashboardStatCardProps = {
   count: number;
   label: string;
   icon: LucideIcon;
+  loading?: boolean;
 };
 
-export default function DashboardStatCard({ count, label, icon: Icon }: DashboardStatCardProps) {
+export default function DashboardStatCard({ count, label, icon: Icon, loading = false }: DashboardStatCardProps) {
   return (
     <div className="flex size-full items-center rounded-[18px] border border-[#f0f0f0] bg-white p-[20px]">
       <div className="flex w-[112px] shrink-0 flex-col items-start gap-[13px]">
@@ -15,7 +17,7 @@ export default function DashboardStatCard({ count, label, icon: Icon }: Dashboar
         </div>
         <div className="flex w-full shrink-0 flex-col items-start gap-[10px]">
           <p className="w-full font-['Inter:Bold',sans-serif] text-[32px] font-bold leading-[1.1] text-[#272932]">
-            {count}
+            {loading ? <DashboardValueSkeleton className="h-8 w-12" /> : count}
           </p>
           <p className="w-full font-['Inter:Medium',sans-serif] text-[16px] font-medium leading-[1.4] text-[#666d80]">
             {label}

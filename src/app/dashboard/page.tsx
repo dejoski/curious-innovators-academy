@@ -1,5 +1,5 @@
-import { DashboardHomeResolved } from "@/components/dashboard-home";
+import AdminWorkspacePage from "./admin-workspace-page";
 
-export default async function Dashboard() {
-  return <DashboardHomeResolved />;
+export default function Dashboard() {
+  return <AdminWorkspacePage initialView="home" />;
 }

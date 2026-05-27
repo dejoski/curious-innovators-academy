@@ -9,6 +9,7 @@ import {
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
 const imgMaskGroup = "/images/icon-pending-requests.svg";
@@ -218,6 +219,9 @@ export default function StudentsStudentsList({
   const coreFilterRef = useRef<HTMLDivElement>(null);
   const statusFilterRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    setStudents([...initialStudents]);
+  }, [initialStudents]);
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
@@ -353,6 +357,7 @@ export default function StudentsStudentsList({
         parent: body.student.parent,
         parentEmail: body.student.parentEmail,
       });
+      invalidateDashboardData(["/api/data/students", "/api/dashboard-presentation"]);
       setMessageHint("Parent email saved. You can open a mail draft now.");
     } finally {
       setSavingParentEmail(false);
@@ -919,6 +924,8 @@ export default function StudentsStudentsList({
                     setSyncHint(
                       `Could not remove in cloud (${await readApiError(res)}).`,
                     );
+                  } else {
+                    invalidateDashboardData(["/api/data/students", "/api/dashboard-presentation"]);
                   }
                 }}
               >

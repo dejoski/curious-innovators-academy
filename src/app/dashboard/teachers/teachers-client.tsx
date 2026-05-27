@@ -9,6 +9,7 @@ import {
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
@@ -61,6 +62,10 @@ export default function TeachersTeacherList({
   const itemsPerPage = 10;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTeachers([...initialTeachers]);
+  }, [initialTeachers]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -187,6 +192,7 @@ export default function TeachersTeacherList({
     if (res.ok) {
       const body = (await res.json()) as { teacher: TeacherRow };
       setTeachers((prev) => prev.map((row) => (row.id === body.teacher.id ? body.teacher : row)));
+      invalidateDashboardData(["/api/data/teachers", "/api/dashboard-presentation"]);
       setToastMessage("Teacher updated.");
       return;
     }
@@ -744,6 +750,7 @@ export default function TeachersTeacherList({
                     setSyncHint(`Could not delete in cloud (${await readApiError(res)}).`);
                     return;
                   }
+                  invalidateDashboardData(["/api/data/teachers", "/api/dashboard-presentation"]);
                   setToastMessage("Teacher removed.");
                 }}
               >

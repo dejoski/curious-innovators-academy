@@ -9,10 +9,19 @@ export type ParentView =
   | "classes-core"
   | "classes-enrichment"
   | "students";
+export type AdminView =
+  | "home"
+  | "schedule"
+  | "classes"
+  | "students"
+  | "parents"
+  | "teachers"
+  | "notifications";
 
-export type DashboardWorkspaceId = "classes" | "parent";
+export type DashboardWorkspaceId = "admin" | "classes" | "parent";
 
 export type DashboardWorkspaceRoute =
+  | { workspace: "admin"; view: AdminView; path: string }
   | { workspace: "classes"; view: ClassesView; path: string }
   | { workspace: "parent"; view: ParentView; path: string };
 
@@ -35,6 +44,16 @@ export const PARENT_VIEW_PATHS: Record<ParentView, string> = {
   "classes-core": "/dashboard/parents/classes/core",
   "classes-enrichment": "/dashboard/parents/classes/enrichment",
   students: "/dashboard/parents/students",
+};
+
+export const ADMIN_VIEW_PATHS: Record<AdminView, string> = {
+  home: "/dashboard",
+  schedule: "/dashboard/schedule",
+  classes: "/dashboard/classes/core",
+  students: "/dashboard/students",
+  parents: "/dashboard/parents",
+  teachers: "/dashboard/teachers",
+  notifications: "/dashboard/notifications",
 };
 
 export function classesViewFromPath(pathname: string): ClassesView | null {
@@ -60,15 +79,35 @@ export function parentViewFromPath(pathname: string): ParentView | null {
   return null;
 }
 
-export function dashboardWorkspaceRouteFromPath(pathname: string): DashboardWorkspaceRoute | null {
-  const classesView = classesViewFromPath(pathname);
-  if (classesView) {
-    return { workspace: "classes", view: classesView, path: CLASSES_VIEW_PATHS[classesView] };
-  }
+export function adminViewFromPath(pathname: string): AdminView | null {
+  if (pathname === "/dashboard" || pathname === "/dashboard/") return "home";
+  if (pathname === "/dashboard/schedule") return "schedule";
+  if (classesViewFromPath(pathname)) return "classes";
+  if (pathname === "/dashboard/students") return "students";
+  if (pathname === "/dashboard/parents") return "parents";
+  if (pathname === "/dashboard/teachers") return "teachers";
+  if (pathname === "/dashboard/notifications") return "notifications";
+  return null;
+}
 
+export function dashboardWorkspaceRouteFromPath(pathname: string): DashboardWorkspaceRoute | null {
   const parentView = parentViewFromPath(pathname);
   if (parentView) {
     return { workspace: "parent", view: parentView, path: PARENT_VIEW_PATHS[parentView] };
+  }
+
+  const adminView = adminViewFromPath(pathname);
+  if (adminView) {
+    return {
+      workspace: "admin",
+      view: adminView,
+      path: adminView === "classes" && classesViewFromPath(pathname) ? pathname : ADMIN_VIEW_PATHS[adminView],
+    };
+  }
+
+  const classesView = classesViewFromPath(pathname);
+  if (classesView) {
+    return { workspace: "classes", view: classesView, path: CLASSES_VIEW_PATHS[classesView] };
   }
 
   return null;
@@ -82,6 +121,10 @@ export function isParentWorkspacePath(pathname: string) {
   return parentViewFromPath(pathname) !== null;
 }
 
+export function isAdminWorkspacePath(pathname: string) {
+  return adminViewFromPath(pathname) !== null;
+}
+
 export function sameDashboardWorkspace(currentPath: string, nextPath: string) {
   const current = dashboardWorkspaceRouteFromPath(currentPath);
   const next = dashboardWorkspaceRouteFromPath(nextPath);
@@ -90,8 +133,13 @@ export function sameDashboardWorkspace(currentPath: string, nextPath: string) {
 
 export function dispatchDashboardWorkspaceView(detail: DashboardWorkspaceViewChangeDetail) {
   window.dispatchEvent(new CustomEvent(DASHBOARD_WORKSPACE_EVENT, { detail }));
-  if (detail.workspace === "classes") {
-    window.dispatchEvent(new CustomEvent("cia-classes-workspace-view", { detail }));
+  const classesView = classesViewFromPath(detail.path);
+  if (classesView) {
+    window.dispatchEvent(
+      new CustomEvent("cia-classes-workspace-view", {
+        detail: { ...detail, workspace: "classes", view: classesView },
+      }),
+    );
   }
 }
 

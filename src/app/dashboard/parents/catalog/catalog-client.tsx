@@ -100,6 +100,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [availableClasses, setAvailableClasses] = useState<ParentClassOption[]>([]);
   const [catalogHint, setCatalogHint] = useState<string | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [activeSlot, setActiveSlot] = useState<SlotId>("block4_day3");
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
@@ -110,12 +111,14 @@ function ParentClassesEnrichmentCatalogContent() {
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
+  const [studentScheduleLoading, setStudentScheduleLoading] = useState(true);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [catalogStorageReadyFor, setCatalogStorageReadyFor] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
+      setCatalogLoading(true);
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = Array.isArray(body.classes) ? body.classes : [];
@@ -134,6 +137,8 @@ function ParentClassesEnrichmentCatalogContent() {
           setAvailableClasses([]);
           setCatalogHint(`Could not load enrichment offerings: ${error instanceof Error ? error.message : String(error)}.`);
         }
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
       }
     }
     void loadClasses();
@@ -145,6 +150,7 @@ function ParentClassesEnrichmentCatalogContent() {
   useEffect(() => {
     let cancelled = false;
     async function loadActiveStudentSchedule() {
+      setStudentScheduleLoading(true);
       try {
         const studentsBody = await cachedJson<{ students?: StudentListItem[] }>("/api/data/students");
         const students = Array.isArray(studentsBody.students) ? studentsBody.students : [];
@@ -169,6 +175,8 @@ function ParentClassesEnrichmentCatalogContent() {
           setActiveStudent(null);
           setStudentSchedule(null);
         }
+      } finally {
+        if (!cancelled) setStudentScheduleLoading(false);
       }
     }
     void loadActiveStudentSchedule();
@@ -422,12 +430,20 @@ function ParentClassesEnrichmentCatalogContent() {
 
       <div className="mt-6 grid gap-6">
         <div className="grid gap-3">
-          <div className={`flex flex-col gap-1 rounded-[10px] border px-4 py-3 text-sm min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between ${parentScheduleFinalityClasses(scheduleFinality.state)}`}>
-            <span className="font-semibold">{scheduleFinality.label}</span>
-            <span>{scheduleFinality.description}</span>
+          {catalogLoading || studentScheduleLoading ? (
+            <div className="rounded-[10px] border border-[#d9eef1] bg-white px-4 py-3 text-sm text-[#666d80]" role="status">
+              Loading class selection data...
+            </div>
+          ) : (
+            <>
+              <div className={`flex flex-col gap-1 rounded-[10px] border px-4 py-3 text-sm min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between ${parentScheduleFinalityClasses(scheduleFinality.state)}`}>
+                <span className="font-semibold">{scheduleFinality.label}</span>
+                <span>{scheduleFinality.description}</span>
+              </div>
+              <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full" />
+            </>
+          )}
           </div>
-          <ParentScheduleGrid badgesBySlot={scheduleBadgesBySlot} onSlotClick={openScheduleSlot} className="w-full" />
-        </div>
 
         <section className="w-full rounded-[16px] border border-[#e6e9ef] bg-white px-6 py-5 shadow-sm">
           <h2 className="text-[16px] font-semibold leading-[1.4] text-[#0d0d12]">How it works</h2>

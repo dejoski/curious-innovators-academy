@@ -71,6 +71,29 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
   };
 }
 
+function mapEnrollmentDecisionRequestRow(row: Record<string, unknown>): EnrichmentRequestRow | null {
+  if (row.id == null || String(row.id) === "") return null;
+  if (!isEnrichmentClass(row)) return null;
+
+  const status = mapStatus(row.status);
+  if (status === "Pending") return null;
+
+  const student = firstRel<Record<string, unknown>>(row.students);
+  const cls = firstRel<Record<string, unknown>>(row.classes);
+  return {
+    id: `enrollment:${String(row.id)}`,
+    studentId: row.student_id == null ? undefined : String(row.student_id),
+    classId: row.class_id == null ? undefined : String(row.class_id),
+    student: String(student?.display_name ?? student?.student_name ?? ""),
+    parent: String(student?.guardian_label ?? ""),
+    class: String(cls?.name ?? cls?.class_name ?? ""),
+    block: String(cls?.block ?? ""),
+    level: String(cls?.level ?? ""),
+    option: "Final placement",
+    status,
+  };
+}
+
 async function loadRequestsResolved(client?: RequestReadClient): Promise<ResolvedList<EnrichmentRequestRow>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
@@ -78,7 +101,8 @@ async function loadRequestsResolved(client?: RequestReadClient): Promise<Resolve
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
-    const { data, error } = await supabase
+    const [requestsResult, enrollmentsResult] = await Promise.all([
+      supabase
       .from("class_requests")
       .select(
         `
@@ -94,24 +118,35 @@ async function loadRequestsResolved(client?: RequestReadClient): Promise<Resolve
         requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
       `,
       )
-      .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("enrollments")
+        .select(
+          `
+          id,
+          student_id,
+          class_id,
+          status,
+          created_at,
+          students ( display_name, guardian_label ),
+          classes ( name, program, block, level )
+        `,
+        )
+        .order("created_at", { ascending: false }),
+    ]);
 
-    if (error) {
+    if (requestsResult.error || enrollmentsResult.error) {
       return unavailableList();
     }
 
-    if (!data?.length) {
-      return { items: [], source: "remote" };
-    }
-
-    const mapped = data
+    const pendingRows = (requestsResult.data ?? [])
       .map((row) => mapRequestRow(row as unknown as Record<string, unknown>))
       .filter((x): x is EnrichmentRequestRow => x !== null);
+    const decisionRows = (enrollmentsResult.data ?? [])
+      .map((row) => mapEnrollmentDecisionRequestRow(row as unknown as Record<string, unknown>))
+      .filter((x): x is EnrichmentRequestRow => x !== null);
 
-    if (mapped.length === 0) {
-      return unavailableList();
-    }
-    return { items: mapped, source: "remote" };
+    return { items: [...pendingRows, ...decisionRows], source: "remote" };
   } catch {
     return unavailableList();
   }

@@ -9,6 +9,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react"
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useClassesDataCache } from "@/components/classes-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
@@ -249,7 +250,8 @@ export default function ClassesPageClient({
   }, [visibleRows, safePage]);
 
   const visiblePages = getVisiblePages(safePage, totalPages);
-  const isInitialClassesLoad = classes.length === 0 && classesCache.classes.loading;
+  const hasResolvedClasses = Boolean(classesCache.classes.loadedAt) || initialClasses.length > 0;
+  const isInitialClassesLoad = !hasResolvedClasses && (classesCache.classes.loading || classes.length === 0);
 
   const exportClasses = () => {
     const selected = selectedIds.size
@@ -312,6 +314,7 @@ export default function ClassesPageClient({
       setSyncHint(`Could not delete in cloud (${await readApiError(res)}). Row restored here.`);
       return;
     }
+    invalidateDashboardData("/api/dashboard-presentation");
     void classesCache.loadClasses(true);
   };
 
@@ -337,6 +340,7 @@ export default function ClassesPageClient({
       const nextClasses = [...classes, body.class];
       setClasses(nextClasses);
       classesCache.setClassesData(nextClasses);
+      invalidateDashboardData("/api/dashboard-presentation");
       void classesCache.loadClasses(true);
       return;
     }

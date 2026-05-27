@@ -4,6 +4,7 @@ import { Suspense, useMemo, useRef, useState, useEffect } from "react";
 import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ListPlus, X, XCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClassesDataCache } from "@/components/classes-data-cache";
+import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import type { ApprovalHistoryRow } from "@/lib/data/repositories/requests";
@@ -151,7 +152,10 @@ export function ClassesApprovalHistory() {
   }, [processed, safePage]);
 
   const visiblePages = getVisiblePages(safePage, totalPages);
-  const isInitialApprovalsLoad = rows.length === 0 && classesCache.approvals.loading;
+  const hasResolvedApprovals = Boolean(classesCache.approvals.loadedAt);
+  const isInitialApprovalsLoad = !hasResolvedApprovals && (classesCache.approvals.loading || rows.length === 0);
+  const statValue = (value: number) =>
+    isInitialApprovalsLoad ? <DashboardValueSkeleton className="h-5 w-10" /> : value;
   const pageIdSet = useMemo(() => new Set(pageRows.map((r) => r.id)), [pageRows]);
   const allOnPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
 
@@ -221,7 +225,7 @@ export function ClassesApprovalHistory() {
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <p className="break-words text-[15px] font-semibold text-[#272932]">Total decisions</p>
-            <p className="text-[16px] font-medium text-[#666d80]">{stats.total}</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{statValue(stats.total)}</p>
           </div>
         </div>
         
@@ -231,7 +235,7 @@ export function ClassesApprovalHistory() {
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <p className="break-words text-[15px] font-semibold text-[#272932]">Approved</p>
-            <p className="text-[16px] font-medium text-[#666d80]">{stats.approved}</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{statValue(stats.approved)}</p>
           </div>
         </div>
 
@@ -241,7 +245,7 @@ export function ClassesApprovalHistory() {
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <p className="break-words text-[15px] font-semibold text-[#272932]">Waitlisted</p>
-            <p className="text-[16px] font-medium text-[#666d80]">{stats.waitlisted}</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{statValue(stats.waitlisted)}</p>
           </div>
         </div>
 
@@ -251,7 +255,7 @@ export function ClassesApprovalHistory() {
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <p className="break-words text-[15px] font-semibold text-[#272932]">Rejected</p>
-            <p className="text-[16px] font-medium text-[#666d80]">{stats.rejected}</p>
+            <p className="text-[16px] font-medium text-[#666d80]">{statValue(stats.rejected)}</p>
           </div>
         </div>
       </div>

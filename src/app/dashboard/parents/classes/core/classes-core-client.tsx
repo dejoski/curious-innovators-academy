@@ -323,7 +323,11 @@ export default function ParentClassesCoreClient() {
             <div className="flex flex-col w-full">
               {filteredAndSortedClasses.length === 0 ? (
                 <div className="py-[32px] text-center text-gray-500 font-sans">
-                  No classes found matching the criteria.
+                  {isLoading
+                    ? "Loading classes..."
+                    : dataHint?.startsWith("Could not load")
+                      ? "Class data is unavailable."
+                      : "No classes found matching the criteria."}
                 </div>
               ) : (
                 filteredAndSortedClasses.map((cls) => (

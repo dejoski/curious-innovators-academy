@@ -1,5 +1,5 @@
-import ClassesWorkspace from "../classes-workspace";
+import AdminWorkspacePage from "../../admin-workspace-page";
 
 export default function CoreClassesListPage() {
-  return <ClassesWorkspace initialView="core" />;
+  return <AdminWorkspacePage initialView="classes" />;
 }

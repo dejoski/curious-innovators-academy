@@ -121,6 +121,8 @@ export default function ParentClassesEnrichmentClient() {
             `Could not load classes: ${error instanceof Error ? error.message : String(error)}.`,
           );
         }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     }
     loadClasses();
@@ -435,7 +437,11 @@ export default function ParentClassesEnrichmentClient() {
               {filteredAndSortedClasses.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-gray-500 font-sans">
-                    No classes found matching the criteria.
+                    {isLoading
+                      ? "Loading classes..."
+                      : dataHint?.startsWith("Could not load")
+                        ? "Class data is unavailable."
+                        : "No classes found matching the criteria."}
                   </td>
                 </tr>
               ) : (

@@ -681,7 +681,9 @@ export default function ParentHomeDashboard() {
               </p>
             </div>
             <div className="flex flex-col gap-6">
-              {notifications.length ? (
+              {isStudentDataLoading ? (
+                <p className="text-sm text-[#666d80]">Loading alerts...</p>
+              ) : notifications.length ? (
                 notifications.map((item) => <AlertRow key={item.id} item={item} studentId={activeStudentId} />)
               ) : (
                 <p className="text-sm text-[#666d80]">No system alerts right now.</p>

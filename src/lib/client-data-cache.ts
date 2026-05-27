@@ -3,7 +3,7 @@ type CacheEntry<T> = {
   data: T;
 };
 
-const VERSION = "cia-client-data-v2";
+const VERSION = "cia-client-data-v3";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
@@ -137,6 +137,24 @@ export type DashboardCacheOptions = {
   ttlMs?: number;
   force?: boolean;
 };
+
+export type DashboardLoadStatus = "loading" | "ready" | "error";
+
+export type DashboardLoadable<T> = {
+  status: DashboardLoadStatus;
+  data: T | null;
+  error: string | null;
+  loadedAt: number | null;
+};
+
+export function dashboardLoadableFromCache<T>(data: T | null): DashboardLoadable<T> {
+  return {
+    status: data === null ? "loading" : "ready",
+    data,
+    error: null,
+    loadedAt: data === null ? null : Date.now(),
+  };
+}
 
 export function setClientDataCacheScope(scope: string) {
   const nextScope = scope.trim() || "default";

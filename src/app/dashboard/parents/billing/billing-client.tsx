@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { InvoiceRow, InvoiceStatus } from "@/lib/data/types";
 import { peekDashboardData, readDashboardData } from "@/lib/client-data-cache";
+import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 
 const STATUS_ORDER: InvoiceStatus[] = ["Open", "Past due", "Paid", "Draft", "Void"];
 
@@ -93,9 +94,10 @@ export default function ParentBillingClient() {
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "All">("All");
   const [loading, setLoading] = useState(() => !cachedBilling);
   const [error, setError] = useState<string | null>(null);
+  const [hasResolved, setHasResolved] = useState(() => Boolean(cachedBilling));
 
   const loadInvoices = React.useCallback(async (options: { force?: boolean } = {}) => {
-    if (!invoices.length || options.force) setLoading(true);
+    if (!hasResolved || options.force) setLoading(true);
     setError(null);
     try {
       const body = await readDashboardData<{
@@ -104,16 +106,18 @@ export default function ParentBillingClient() {
       }>("/api/data/invoices", undefined, { force: options.force });
       setInvoices(Array.isArray(body.invoices) ? body.invoices : []);
       setSource(body.source ?? null);
+      setHasResolved(true);
     } catch (err) {
       setInvoices([]);
       setSource(null);
+      setHasResolved(false);
       setError(
         `Could not load billing data: ${err instanceof Error ? err.message : String(err)}.`,
       );
     } finally {
       setLoading(false);
     }
-  }, [invoices.length]);
+  }, [hasResolved]);
 
   useEffect(() => {
     void loadInvoices();
@@ -139,6 +143,8 @@ export default function ParentBillingClient() {
 
   const hint = sourceHint(source, error);
   const currency = invoices[0]?.currency ?? "USD";
+  const showUnknownBilling = loading && !hasResolved;
+  const canShowBillingFacts = hasResolved && !error;
 
   return (
     <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-6 px-4 pb-10 pt-8 font-['Inter',sans-serif] sm:px-0">
@@ -165,7 +171,7 @@ export default function ParentBillingClient() {
             type="button"
             onClick={() => exportCsv(filteredInvoices)}
             className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#14c1d5] px-3 text-sm font-medium text-white transition-colors hover:bg-[#11aabd] disabled:cursor-not-allowed disabled:bg-[#a8e7ef]"
-            disabled={filteredInvoices.length === 0}
+            disabled={!canShowBillingFacts || filteredInvoices.length === 0}
           >
             <Download aria-hidden className="size-4" />
             Export
@@ -183,19 +189,19 @@ export default function ParentBillingClient() {
         <section className="rounded-[8px] border border-[#dfe1e7] bg-white p-4">
           <p className="text-sm font-medium text-[#666d80]">Open balance</p>
           <p className="mt-2 text-[26px] font-bold leading-tight text-[#272932]">
-            {formatMoney(totals.open, currency)}
+            {showUnknownBilling ? <DashboardValueSkeleton className="h-7 w-24" /> : canShowBillingFacts ? formatMoney(totals.open, currency) : "Unavailable"}
           </p>
         </section>
         <section className="rounded-[8px] border border-[#dfe1e7] bg-white p-4">
           <p className="text-sm font-medium text-[#666d80]">Paid this period</p>
           <p className="mt-2 text-[26px] font-bold leading-tight text-[#272932]">
-            {formatMoney(totals.paid, currency)}
+            {showUnknownBilling ? <DashboardValueSkeleton className="h-7 w-24" /> : canShowBillingFacts ? formatMoney(totals.paid, currency) : "Unavailable"}
           </p>
         </section>
         <section className="rounded-[8px] border border-[#dfe1e7] bg-white p-4">
           <p className="text-sm font-medium text-[#666d80]">Invoices</p>
           <p className="mt-2 text-[26px] font-bold leading-tight text-[#272932]">
-            {invoices.length}
+            {showUnknownBilling ? <DashboardValueSkeleton className="h-7 w-12" /> : canShowBillingFacts ? invoices.length : "Unavailable"}
           </p>
         </section>
       </div>
@@ -227,8 +233,10 @@ export default function ParentBillingClient() {
           <h2 className="text-base font-semibold text-[#272932]">Invoices</h2>
         </div>
 
-        {loading ? (
+        {showUnknownBilling ? (
           <div className="px-4 py-10 text-sm text-[#666d80]">Loading invoices...</div>
+        ) : error ? (
+          <div className="px-4 py-10 text-sm text-[#a00408]">Billing data is unavailable.</div>
         ) : filteredInvoices.length === 0 ? (
           <div className="px-4 py-10 text-sm text-[#666d80]">
             No invoices match the current filter.

@@ -95,7 +95,7 @@ export default function ClassesWorkspace({ initialView = "core" }: ClassesWorksp
       </div>
 
       <div className={classNameForView(activeView === "requests")} aria-hidden={activeView !== "requests"}>
-        <Suspense fallback={<div className="p-8 text-center text-[#666d80]">Loading requests...</div>}>
+        <Suspense fallback={null}>
           <ClassesEnrichmentRequests
             initialRequests={[]}
             dataSource="unavailable"
@@ -105,7 +105,7 @@ export default function ClassesWorkspace({ initialView = "core" }: ClassesWorksp
       </div>
 
       <div className={classNameForView(activeView === "approvals")} aria-hidden={activeView !== "approvals"}>
-        <Suspense fallback={<div className="p-8 text-center text-[#666d80]">Loading approvals...</div>}>
+        <Suspense fallback={null}>
           <ClassesApprovalHistory />
         </Suspense>
       </div>

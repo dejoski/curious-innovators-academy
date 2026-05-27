@@ -1,7 +1,5 @@
-import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
-import DashboardNotificationsPage from "./notifications-client";
+import AdminWorkspacePage from "../admin-workspace-page";
 
-export default async function NotificationsPage() {
-  const { items, source } = await fetchNotificationsResolved();
-  return <DashboardNotificationsPage initialNotifications={items} dataSource={source} />;
+export default function NotificationsPage() {
+  return <AdminWorkspacePage initialView="notifications" />;
 }

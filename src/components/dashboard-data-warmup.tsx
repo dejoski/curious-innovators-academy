@@ -7,12 +7,14 @@ import { useDashboardPersona } from "@/components/dashboard-persona";
 type DashboardWarmupProfile = "admin" | "parent" | "teacher" | "student";
 
 const ADMIN_WARMUP = [
+  "/api/dashboard-presentation",
   "/api/data/notifications",
   "/api/data/classes",
   "/api/data/enrichment-requests",
   "/api/data/approval-history",
   "/api/data/students",
   "/api/data/teachers",
+  "/api/data/parents",
   "/api/data/schedule-extras",
 ];
 

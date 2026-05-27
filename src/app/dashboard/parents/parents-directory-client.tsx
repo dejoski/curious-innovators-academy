@@ -96,6 +96,10 @@ export function ParentsAdminDirectory({
   const filterRef = React.useRef<HTMLDivElement>(null);
   const actionRef = React.useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setParents([...initialParents]);
+  }, [initialParents]);
+
   const displayRows = useMemo(() => parents.map(toDisplayRow), [parents]);
 
   React.useEffect(() => {

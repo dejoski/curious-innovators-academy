@@ -184,7 +184,9 @@ export default function ParentStudentContextSelector({
           aria-busy={false}
         >
           {students.length === 0 ? (
-            <option value="">{isLoading ? "Loading students..." : "No students"}</option>
+            <option value="">
+              {isLoading ? "Loading students..." : source === "unavailable" ? "Students unavailable" : "No students"}
+            </option>
           ) : (
             students.map((s) => (
               <option key={s.id} value={s.id}>

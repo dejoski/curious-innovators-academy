@@ -1,7 +1,5 @@
-import { fetchAdminTeachersResolved } from "@/lib/data/repositories/teachers";
-import TeachersTeacherList from "./teachers-client";
+import AdminWorkspacePage from "../admin-workspace-page";
 
-export default async function TeachersPage() {
-  const { items, source } = await fetchAdminTeachersResolved();
-  return <TeachersTeacherList initialTeachers={items} dataSource={source} />;
+export default function TeachersPage() {
+  return <AdminWorkspacePage initialView="teachers" />;
 }

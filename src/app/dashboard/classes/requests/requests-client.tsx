@@ -8,9 +8,11 @@ import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { useClassesDataCache } from "@/components/classes-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
+import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 
 export type ClassesEnrichmentRequestsProps = {
   initialRequests: EnrichmentRequestRow[];
@@ -21,6 +23,16 @@ export type ClassesEnrichmentRequestsProps = {
 const PAGE_SIZE = 10;
 type SortKey = "student" | "parent" | "class" | "block" | "level" | "option" | "status";
 type FilterValue = "All" | RequestStatus;
+
+const STATUS_PRIORITY: Record<RequestStatus, number> = {
+  Pending: 0,
+  Waitlisted: 1,
+  Rejected: 2,
+  Approved: 3,
+};
+
+const REQUESTS_GRID_COLUMNS =
+  "32px minmax(104px,0.65fr) minmax(130px,1fr) minmax(130px,1fr) minmax(170px,1.25fr) minmax(112px,0.8fr) minmax(86px,0.65fr) minmax(126px,0.85fr) 40px";
 
 function statusBadgeClass(status: RequestStatus) {
   if (status === "Pending") return "bg-[#cfa500]/20 text-[#8a6d00] border-[#cfa500]/50";
@@ -127,6 +139,11 @@ export default function ClassesEnrichmentRequests({
       return hay.includes(q);
     });
     rows = [...rows].sort((a, b) => {
+      const statusCmp = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+      if (statusCmp !== 0) return statusCmp;
+      if (sortKey === "status") {
+        return a.student.localeCompare(b.student, undefined, { sensitivity: "base" });
+      }
       const av = a[sortKey];
       const bv = b[sortKey];
       const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
@@ -143,17 +160,22 @@ export default function ClassesEnrichmentRequests({
   }, [processed, safePage]);
 
   const visiblePages = getVisiblePages(safePage, totalPages);
-  const isInitialRequestsLoad = requests.length === 0 && classesCache.requests.loading;
+  const hasResolvedRequests = Boolean(classesCache.requests.loadedAt) || initialRequests.length > 0;
+  const isInitialRequestsLoad = !hasResolvedRequests && (classesCache.requests.loading || requests.length === 0);
+  const metricValue = (value: React.ReactNode) =>
+    isInitialRequestsLoad ? <DashboardValueSkeleton className="h-5 w-10" /> : value;
 
-  const processedIdSet = useMemo(() => new Set(processed.map((r) => r.id)), [processed]);
-  const allFilteredSelected = processed.length > 0 && processed.every((r) => selectedIds.has(r.id));
+  const selectableProcessed = useMemo(() => processed.filter((r) => r.status === "Pending"), [processed]);
+  const processedIdSet = useMemo(() => new Set(selectableProcessed.map((r) => r.id)), [selectableProcessed]);
+  const allFilteredSelected = selectableProcessed.length > 0 && selectableProcessed.every((r) => selectedIds.has(r.id));
   const selectedRows = useMemo(
-    () => requests.filter((request) => selectedIds.has(request.id)),
+    () => requests.filter((request) => request.status === "Pending" && selectedIds.has(request.id)),
     [requests, selectedIds],
   );
   const selectedCount = selectedRows.length;
 
   const toggleSelect = (id: string) => {
+    if (requests.find((request) => request.id === id)?.status !== "Pending") return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -175,6 +197,7 @@ export default function ClassesEnrichmentRequests({
   };
 
   const refreshRequestsFromRemote = async () => {
+    invalidateDashboardData("/api/dashboard-presentation");
     const payload = await classesCache.loadRequests(true);
     setRequests(payload.requests);
     setDecisionSummary(payload.decisionSummary);
@@ -258,7 +281,7 @@ export default function ClassesEnrichmentRequests({
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <span className="break-words text-[15px] font-semibold text-[#272932]">Waitlisted</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{waitlistedCount}</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(waitlistedCount)}</span>
           </div>
         </div>
 
@@ -268,7 +291,7 @@ export default function ClassesEnrichmentRequests({
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <span className="break-words text-[15px] font-semibold text-[#272932]">Pending</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{pendingCount}</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(pendingCount)}</span>
           </div>
         </div>
 
@@ -278,7 +301,7 @@ export default function ClassesEnrichmentRequests({
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <span className="break-words text-[15px] font-semibold text-[#272932]">Approved enrollments</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{approvedCount}</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(approvedCount)}</span>
           </div>
         </div>
 
@@ -288,22 +311,24 @@ export default function ClassesEnrichmentRequests({
           </div>
           <div className="flex min-w-0 flex-col leading-snug">
             <span className="break-words text-[15px] font-semibold text-[#272932]">Declined</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{rejectedCount}</span>
+            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(rejectedCount)}</span>
           </div>
         </div>
 
         <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex flex-col justify-center gap-1 leading-snug">
           <span className="break-words text-[15px] font-semibold text-[#272932]">Classes in queue</span>
           <span className="text-[16px] font-medium text-[#666d80]">
-            {distinctClasses} {distinctClasses === 1 ? "class" : "classes"}
+            {isInitialRequestsLoad ? <DashboardValueSkeleton className="h-5 w-20" /> : `${distinctClasses} ${distinctClasses === 1 ? "class" : "classes"}`}
           </span>
-          <span className="text-[12px] text-[#8b919f]">{totalRequests} total requests</span>
+          <span className="text-[12px] text-[#8b919f]">
+            {isInitialRequestsLoad ? <DashboardValueSkeleton className="h-4 w-24" /> : `${totalRequests} total requests`}
+          </span>
         </div>
       </div>
 
       <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex flex-col gap-4 flex-1">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-h-9 items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 text-[#0d0d12] md:bg-transparent md:px-0">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
+          <div className="flex min-h-9 w-full items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 text-[#0d0d12] lg:bg-transparent lg:px-0">
             <Search className="w-4 h-4 text-gray-500 shrink-0" />
             <input
               type="text"
@@ -316,7 +341,16 @@ export default function ClassesEnrichmentRequests({
               className="w-full min-w-[120px] bg-transparent text-[12px] outline-none placeholder:text-[#0d0d12]"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2 md:gap-4">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            {selectableProcessed.length > 0 ? (
+              <button
+                type="button"
+                className="bg-[#fafafa] px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-[#272932] hover:bg-[#f0f0f0]"
+                onClick={toggleSelectAllFiltered}
+              >
+                {allFilteredSelected ? "Deselect pending" : `Select pending (${selectableProcessed.length})`}
+              </button>
+            ) : null}
             <div className="relative" ref={filterRef}>
               <button
                 type="button"
@@ -373,7 +407,7 @@ export default function ClassesEnrichmentRequests({
                       ["block", "Block"],
                       ["level", "Level"],
                       ["option", "Option"],
-                      ["status", "Status"],
+                      ["status", "Status priority"],
                     ] as const
                   ).map(([key, label]) => (
                     <button
@@ -398,14 +432,6 @@ export default function ClassesEnrichmentRequests({
               )}
             </div>
 
-            <button
-              type="button"
-              className="bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={toggleSelectAllFiltered}
-              disabled={processed.length === 0}
-            >
-              {allFilteredSelected ? "Deselect all" : `Select all${processed.length ? ` (${processed.length})` : ""}`}
-            </button>
           </div>
         </div>
 
@@ -454,20 +480,21 @@ export default function ClassesEnrichmentRequests({
                     type="button"
                     aria-label={`Select ${req.student} request for ${req.class}`}
                     aria-pressed={selectedIds.has(req.id)}
-                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] ${
+                    disabled={req.status !== "Pending"}
+                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
                       selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                     }`}
                     onClick={() => toggleSelect(req.id)}
                   />
-                  <div className="min-w-0">
+                  <span className={`shrink-0 rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(req.status)}`}>
+                    {req.status}
+                  </span>
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-semibold text-[#272932]">{req.class}</p>
                     <p className="mt-1 text-[12px] text-[#666d80]">
                       {req.student} · {req.parent}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(req.status)}`}>
-                    {req.status}
-                  </span>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
                   <div className="rounded-[8px] bg-[#fafafa] p-2">
@@ -522,42 +549,52 @@ export default function ClassesEnrichmentRequests({
           </div>
 
           <div className="hidden w-full min-w-0 overflow-x-auto pb-2 md:block">
-            <div className="min-w-[960px]">
-          <div className="grid grid-cols-[32px_1fr_1fr_1fr_0.7fr_0.7fr_0.8fr_1fr_40px] gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide">
+            <div className="min-w-[1040px]">
+          <div className="grid gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide" style={{ gridTemplateColumns: REQUESTS_GRID_COLUMNS }}>
             <button
               type="button"
-              aria-label={allFilteredSelected ? "Deselect all filtered requests" : "Select all filtered requests"}
+              aria-label={allFilteredSelected ? "Deselect all pending requests" : "Select all pending requests"}
               aria-pressed={allFilteredSelected}
+              disabled={selectableProcessed.length === 0}
               className={`h-4 w-4 rounded border border-[#14c1d5] ${
                 allFilteredSelected ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
-              }`}
+              } disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa]`}
               onClick={toggleSelectAllFiltered}
             />
+            <div>Status</div>
             <div>Student</div>
             <div>Parent</div>
             <div>Class</div>
             <div className="text-center">Block</div>
             <div className="text-center">Level</div>
             <div>Option</div>
-            <div>Status</div>
             <div className="text-center"> </div>
           </div>
 
             {pageRows.map((req) => (
               <div
                 key={req.id}
-                className="grid grid-cols-[32px_1fr_1fr_1fr_0.7fr_0.7fr_0.8fr_1fr_40px] gap-3 py-2.5 border-b border-[#f0f0f0] items-center text-[13px] text-[#0d0d12] hover:bg-[#fafafa] transition-colors"
+                className="grid gap-3 py-2.5 border-b border-[#f0f0f0] items-center text-[13px] text-[#0d0d12] hover:bg-[#fafafa] transition-colors"
+                style={{ gridTemplateColumns: REQUESTS_GRID_COLUMNS }}
               >
               <div className="flex items-center min-w-0">
                 <button
                   type="button"
                   aria-label={`Select ${req.student} request for ${req.class}`}
                   aria-pressed={selectedIds.has(req.id)}
-                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 ${
+                  disabled={req.status !== "Pending"}
+                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
                     selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                   }`}
                   onClick={() => toggleSelect(req.id)}
                 />
+              </div>
+              <div>
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-[6px] text-[10px] border ${statusBadgeClass(req.status)}`}
+                >
+                  {req.status}
+                </span>
               </div>
               <div className="min-w-0 truncate">
                 <span className="truncate">{req.student}</span>
@@ -567,13 +604,6 @@ export default function ClassesEnrichmentRequests({
               <div className="text-center">{req.block}</div>
               <div className="text-center">{req.level}</div>
               <div>{req.option}</div>
-              <div>
-                <span
-                  className={`inline-flex items-center px-2 py-1 rounded-[6px] text-[10px] border ${statusBadgeClass(req.status)}`}
-                >
-                  {req.status}
-                </span>
-              </div>
               <div className="flex justify-center relative" ref={rowMenuId === req.id ? rowMenuRef : null}>
                 <button
                   type="button"

@@ -1,0 +1,216 @@
+"use client";
+
+import React from "react";
+import DashboardHomeClient from "@/components/dashboard-home-client";
+import { DashboardPanelError, DashboardPanelLoading } from "@/components/dashboard-loading-state";
+import {
+  peekDashboardData,
+  readDashboardData,
+} from "@/lib/client-data-cache";
+import type { DataSource } from "@/lib/data/fetch-source";
+import type { ParentSummary, StudentListItem } from "@/lib/data/types";
+import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
+import ScheduleMonth from "./schedule/schedule-client";
+import StudentsStudentsList from "./students/students-client";
+import TeachersTeacherList from "./teachers/teachers-client";
+import ParentsIndexClientGate from "./parents/parents-index-client";
+import DashboardNotificationsPage from "./notifications/notifications-client";
+import type { DashboardNotification } from "@/lib/data/types";
+
+type TeacherRows = React.ComponentProps<typeof TeachersTeacherList>["initialTeachers"];
+
+const SCHEDULE_URL = "/api/data/schedule-extras";
+const STUDENTS_URL = "/api/data/students";
+const TEACHERS_URL = "/api/data/teachers";
+const PARENTS_URL = "/api/data/parents";
+const NOTIFICATIONS_URL = "/api/data/notifications";
+
+function sourceOrUnavailable(source: DataSource | undefined): DataSource {
+  return source ?? "unavailable";
+}
+
+type PanelStatus = "loading" | "ready" | "error";
+
+export function AdminHomePanel() {
+  return <DashboardHomeClient />;
+}
+
+export function AdminSchedulePanel() {
+  const cached = peekDashboardData<{
+    extrasByDate?: Record<string, CalendarEvent[]>;
+    source?: DataSource;
+  }>(SCHEDULE_URL);
+  const [extrasByDate, setExtrasByDate] = React.useState<Record<string, CalendarEvent[]>>(
+    () => cached?.extrasByDate ?? {},
+  );
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource }>(SCHEDULE_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setExtrasByDate(body.extrasByDate ?? {});
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSource("unavailable");
+          setError(`Could not load schedule: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading schedule..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load schedule."} />;
+  return <ScheduleMonth initialExtrasByDate={extrasByDate} dataSource={source} />;
+}
+
+export function AdminStudentsPanel() {
+  const cached = peekDashboardData<{ students?: StudentListItem[]; source?: DataSource }>(STUDENTS_URL);
+  const [students, setStudents] = React.useState<StudentListItem[]>(() => cached?.students ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ students?: StudentListItem[]; source?: DataSource }>(STUDENTS_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setStudents(body.students ?? []);
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSource("unavailable");
+          setError(`Could not load students: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading students..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load students."} />;
+  return <StudentsStudentsList initialStudents={students} dataSource={source} />;
+}
+
+export function AdminTeachersPanel() {
+  const cached = peekDashboardData<{ teachers?: TeacherRows; source?: DataSource }>(TEACHERS_URL);
+  const [teachers, setTeachers] = React.useState<TeacherRows>(() => cached?.teachers ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ teachers?: TeacherRows; source?: DataSource }>(TEACHERS_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setTeachers(body.teachers ?? []);
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSource("unavailable");
+          setError(`Could not load teachers: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading teachers..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load teachers."} />;
+  return <TeachersTeacherList initialTeachers={teachers} dataSource={source} />;
+}
+
+export function AdminParentsPanel() {
+  const cached = peekDashboardData<{ parents?: ParentSummary[]; source?: DataSource }>(PARENTS_URL);
+  const [parents, setParents] = React.useState<ParentSummary[]>(() => cached?.parents ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ parents?: ParentSummary[]; source?: DataSource }>(PARENTS_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setParents(body.parents ?? []);
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSource("unavailable");
+          setError(`Could not load parents: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading parents..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load parents."} />;
+  return <ParentsIndexClientGate initialParents={parents} dataSource={source} />;
+}
+
+export function AdminNotificationsPanel() {
+  const cached = peekDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL);
+  const [notifications, setNotifications] = React.useState<DashboardNotification[]>(() => cached?.notifications ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setNotifications(body.notifications ?? []);
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSource("unavailable");
+          setError(`Could not load notifications: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading notifications..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load notifications."} />;
+  return <DashboardNotificationsPage initialNotifications={notifications} dataSource={source} />;
+}

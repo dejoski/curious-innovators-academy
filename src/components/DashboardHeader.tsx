@@ -38,7 +38,10 @@ type NotificationsBody = {
 
 function readCachedNotifications() {
   const body = peekCachedJson<NotificationsBody>("/api/data/notifications");
-  return Array.isArray(body?.notifications) ? body.notifications : [];
+  return {
+    body,
+    notifications: Array.isArray(body?.notifications) ? body.notifications : [],
+  };
 }
 
 let textMeasureCanvas: HTMLCanvasElement | null = null;
@@ -66,6 +69,7 @@ export default function DashboardHeader() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUtilityMenuOpen, setIsUtilityMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsSource, setNotificationsSource] = useState<string | null>(null);
   const [notificationSyncHint, setNotificationSyncHint] = useState<string | null>(null);
   const [selectedStudentName, setSelectedStudentName] = useState("");
@@ -202,7 +206,12 @@ export default function DashboardHeader() {
     let cancelled = false;
     async function loadNotifications() {
       const cached = readCachedNotifications();
-      if (cached.length) setNotifications(cached);
+      if (cached.body) {
+        setNotifications(cached.notifications);
+        setNotificationsLoading(false);
+      } else {
+        setNotificationsLoading(true);
+      }
       try {
         const body = await cachedJson<NotificationsBody>("/api/data/notifications");
         if (!cancelled) {
@@ -214,6 +223,9 @@ export default function DashboardHeader() {
           setNotifications([]);
           setNotificationSyncHint(`Could not load notifications: ${err instanceof Error ? err.message : String(err)}.`);
         }
+      }
+      finally {
+        if (!cancelled) setNotificationsLoading(false);
       }
     }
     void loadNotifications();
@@ -334,7 +346,11 @@ export default function DashboardHeader() {
                   )}
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
-                  {previewNotifications.length ? (
+                  {notificationsLoading ? (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                      Loading notifications...
+                    </div>
+                  ) : previewNotifications.length ? (
                     previewNotifications.map((item, index) => (
                       <Link
                         key={item.id}

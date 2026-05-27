@@ -1,5 +1,5 @@
-import ClassesWorkspace from "../classes-workspace";
+import AdminWorkspacePage from "../../admin-workspace-page";
 
 export default function EnrichmentClassesListPage() {
-  return <ClassesWorkspace initialView="enrichment" />;
+  return <AdminWorkspacePage initialView="classes" />;
 }
