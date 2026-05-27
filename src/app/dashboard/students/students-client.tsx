@@ -922,7 +922,7 @@ export default function StudentsStudentsList({
                       ),
                     );
                     setSyncHint(
-                      `Could not remove in cloud (${await readApiError(res)}).`,
+                      `Could not remove (${await readApiError(res)}).`,
                     );
                   } else {
                     invalidateDashboardData(["/api/data/students", "/api/dashboard-presentation"]);

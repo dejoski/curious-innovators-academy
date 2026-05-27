@@ -237,7 +237,7 @@ export default function ParentFeedback() {
 
       {studentSource === "fallback" ? (
         <div className="mb-[16px] rounded-[10px] border border-[#e6e8ee] bg-[#fafafa] px-[16px] py-[12px] text-[13px] text-[#666d80]">
-          Showing sample students because cloud data is unavailable. Feedback submissions require live school data.
+          Showing starter students while school records finish loading. Feedback can be submitted once student records are ready.
         </div>
       ) : null}
 

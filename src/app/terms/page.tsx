@@ -44,7 +44,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-[#272932]">Availability</h2>
             <p className="mt-2">
-              Operators should monitor uptime, database health, backups, and login flows before relying on this system
+              Operators should monitor uptime, record health, backups, and login flows before relying on this system
               for daily school operations.
             </p>
           </section>

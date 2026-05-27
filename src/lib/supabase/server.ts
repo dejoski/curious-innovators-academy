@@ -12,7 +12,7 @@ import {
 export async function createSupabaseServerClient() {
   if (!isSupabaseConfigured()) {
     throw new Error(
-      "Supabase env missing: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "Account service setup is missing.",
     );
   }
   const cookieStore = await cookies();

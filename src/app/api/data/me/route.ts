@@ -69,7 +69,7 @@ export async function GET(request: Request) {
 
   if (!supabase) {
     if (isRemoteDataRequired()) {
-      return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
+      return NextResponse.json({ error: "Account setup is temporarily unavailable." }, { status: 503 });
     }
     return NextResponse.json({ profile: null, source: "unavailable" });
   }

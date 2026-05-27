@@ -73,8 +73,8 @@ function badgeChipClasses(tone: StudentScheduleBadge["tone"]): string {
 }
 
 function sourceHint(source: DataSource): string | null {
-  if (source === "fallback") return "Showing sample schedule data because cloud student schedule data is unavailable.";
-  if (source === "unavailable") return "Student schedule data is unavailable.";
+  if (source === "fallback") return "Showing a starter schedule while student records finish loading.";
+  if (source === "unavailable") return "Student schedule is temporarily unavailable.";
   return null;
 }
 

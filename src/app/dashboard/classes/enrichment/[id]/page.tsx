@@ -163,9 +163,9 @@ export default function EnrichmentClassDetail() {
             : "remote";
         setDataHint(
           source === "fallback"
-            ? "Showing sample roster because cloud class data is unavailable."
+            ? "Showing a starter roster while class records finish loading."
             : source === "unavailable"
-              ? "Cloud class data is unavailable. Ask an administrator to configure Supabase."
+              ? "Class records are temporarily unavailable."
               : null,
         );
       } catch (error) {

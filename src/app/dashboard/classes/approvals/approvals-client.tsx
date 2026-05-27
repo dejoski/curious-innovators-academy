@@ -94,9 +94,9 @@ export function ClassesApprovalHistory() {
         classesCache.approvals.error
           ? `Could not load approval history: ${classesCache.approvals.error}.`
           : classesCache.approvals.source === "fallback"
-            ? "Showing sample decisions because cloud data is unavailable."
+            ? "Showing starter decisions while approval records finish loading."
             : classesCache.approvals.source === "unavailable"
-              ? "Cloud decisions are unavailable. Ask an administrator to configure Supabase."
+              ? "Approval history is temporarily unavailable."
               : null,
       );
     }

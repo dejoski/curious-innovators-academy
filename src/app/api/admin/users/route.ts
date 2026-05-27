@@ -19,7 +19,7 @@ function cleanEmail(raw: unknown): string {
 
 async function requireAdmin() {
   if (!isSupabaseConfigured()) {
-    return { ok: false as const, status: 503, message: "Supabase is not configured." };
+    return { ok: false as const, status: 503, message: "Account setup is temporarily unavailable." };
   }
   const supabase = await createSupabaseServerClient();
   const {
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Server-side Supabase admin is not configured. Set SUPABASE_SERVICE_ROLE_KEY on the server to create or invite users.",
+          "Account setup is temporarily unavailable.",
       },
       { status: 503 },
     );
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
 
   if (userResult.error || !userResult.data.user) {
     return NextResponse.json(
-      { error: userResult.error?.message ?? "Supabase did not return a user." },
+      { error: userResult.error?.message ?? "Account setup could not be completed." },
       { status: 400 },
     );
   }

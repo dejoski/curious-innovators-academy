@@ -38,9 +38,9 @@ function statusClass(status: InvoiceStatus) {
 
 function sourceHint(source: DataSource | null, error: string | null) {
   if (error) return error;
-  if (source === "fallback") return "Showing sample billing rows because cloud data is unavailable.";
+  if (source === "fallback") return "Showing starter billing rows while invoices finish loading.";
   if (source === "unavailable") {
-    return "Billing data is unavailable. Ask an administrator to configure Supabase.";
+    return "Billing is temporarily unavailable.";
   }
   return null;
 }

@@ -52,8 +52,8 @@ function ageLabel(age: string): string {
 
 function sourceHint(source: DataSource | null, error: string | null): string | null {
   if (error) return error;
-  if (source === "fallback") return "Showing sample student data because cloud data is unavailable.";
-  if (source === "unavailable") return "Student data is unavailable. Ask an administrator to configure Supabase.";
+  if (source === "fallback") return "Showing starter student data while school records finish loading.";
+  if (source === "unavailable") return "Student records are temporarily unavailable.";
   return null;
 }
 

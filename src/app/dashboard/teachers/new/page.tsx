@@ -32,7 +32,7 @@ export default function CreateTeacherPage() {
     const e = email.trim();
     if (!n || submitting) return;
     if (!e) {
-      setHint("Teacher email is required so the record can be tied to a Supabase Auth profile.");
+      setHint("Teacher email is required so the record can be tied to a staff account.");
       return;
     }
     setSubmitting(true);

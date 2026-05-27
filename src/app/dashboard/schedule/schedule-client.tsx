@@ -303,7 +303,7 @@ export default function ScheduleMonth({
   dataSource,
   scheduleRouteBase = "/dashboard/schedule",
   viewClassesHref = "/dashboard/classes",
-  heroSubtitle = "Organization-wide class and event calendar — add extras that sync when Supabase is connected.",
+  heroSubtitle = "Organization-wide class and event calendar. Add extras and they will sync automatically.",
   titleByView,
   subtitleByView,
   showDataSourceBanner = true,
@@ -762,7 +762,7 @@ export default function ScheduleMonth({
           <div className="mt-2 flex flex-col gap-2 max-w-3xl">
             {activeDataSource === "fallback" && (
               <p className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
-                Sample schedule template active — cloud schedule data unavailable or query failed.
+                Showing a starter schedule while saved calendar items finish loading.
               </p>
             )}
             {syncHint && (

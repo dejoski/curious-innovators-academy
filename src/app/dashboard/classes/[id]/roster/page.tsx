@@ -270,9 +270,9 @@ export default function StudentClassRoster() {
 
   const dataHint =
     source === "fallback"
-      ? "Showing sample roster because cloud class roster data is unavailable."
+      ? "Showing a starter roster while class records finish loading."
       : source === "unavailable"
-        ? "Remote class roster data is required, but no rows are available."
+        ? "Class roster records are temporarily unavailable."
         : "";
 
   const exportSpreadsheet = async () => {

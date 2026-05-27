@@ -13,7 +13,7 @@ import {
  */
 export function createSupabaseAdminClient() {
   if (!isSupabaseAdminConfigured()) {
-    throw new Error("Supabase admin env missing: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error("Account service setup is missing.");
   }
   return createClient(getRuntimeSupabaseUrl()!, getSupabaseServiceRoleKey()!, {
     auth: {

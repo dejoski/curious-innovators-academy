@@ -197,7 +197,7 @@ export default function ParentStudentContextSelector({
         </select>
         {source === "fallback" ? (
           <span id="parent-student-picker-source" className="sr-only">
-            Showing sample students because cloud data is unavailable.
+            Showing starter students while school records finish loading.
           </span>
         ) : null}
         <ChevronDown className="pointer-events-none absolute right-[16px] top-1/2 z-10 size-4 -translate-y-1/2 text-[#666d80]" aria-hidden strokeWidth={1.8} />

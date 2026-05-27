@@ -14,7 +14,7 @@ export type SignupResult =
 export type PasswordResetResult = { ok: true } | { ok: false; message: string };
 
 const SUPABASE_AUTH_REQUIRED_MSG =
-  "This deployment requires Supabase auth. Ask an administrator to configure the Supabase URL and anon key.";
+  "Sign-in is not ready yet. Ask an administrator to finish account setup.";
 
 /**
  * Sign in with email/password when Supabase env is set; otherwise no-op success
@@ -121,7 +121,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
-      message: "Password reset requires Supabase to be configured for this deployment.",
+      message: "Password reset is not ready yet. Ask an administrator to finish account setup.",
     };
   }
 
@@ -129,7 +129,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   if (!supabase) {
     return {
       ok: false,
-      message: "Password reset is unavailable because the Supabase client could not be created.",
+      message: "Password reset is temporarily unavailable.",
     };
   }
 
@@ -144,7 +144,7 @@ export async function updateRecoveredPassword(password: string): Promise<Passwor
   if (!isSupabaseConfigured()) {
     return {
       ok: false,
-      message: "Password update requires Supabase to be configured for this deployment.",
+      message: "Password update is not ready yet. Ask an administrator to finish account setup.",
     };
   }
 
@@ -152,7 +152,7 @@ export async function updateRecoveredPassword(password: string): Promise<Passwor
   if (!supabase) {
     return {
       ok: false,
-      message: "Password update is unavailable because the Supabase client could not be created.",
+      message: "Password update is temporarily unavailable.",
     };
   }
 

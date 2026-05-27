@@ -43,9 +43,7 @@ export default function LoginClient() {
     const params = new URLSearchParams(window.location.search);
     const auth = params.get("auth");
     if (auth === "configuration") {
-      setLoginNotice(
-        "This deployment requires Supabase auth. Ask an administrator to configure the Supabase URL and anon key.",
-      );
+      setLoginNotice("Sign-in is not ready yet. Ask an administrator to finish account setup.");
     } else if (auth === "required") {
       setLoginNotice("Sign in to continue.");
     }

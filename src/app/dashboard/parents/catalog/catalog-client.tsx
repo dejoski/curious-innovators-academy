@@ -145,9 +145,9 @@ function ParentClassesEnrichmentCatalogContent() {
         setAvailableClasses(enrichment);
         setCatalogHint(
           body.source === "fallback"
-            ? "Showing sample offerings because cloud data is unavailable."
+            ? "Showing starter offerings while class options finish loading."
             : body.source === "unavailable"
-              ? "Cloud offerings are unavailable. Ask an administrator to configure Supabase."
+              ? "Class options are temporarily unavailable."
               : null,
         );
       } catch (error) {
@@ -423,7 +423,7 @@ function ParentClassesEnrichmentCatalogContent() {
     setLocalReviewStatuses(serverReviewStatuses);
     setRestoredDraft(false);
     setEditingRequests(null);
-    setSubmitBanner({ tone: "success", message: "Draft discarded. Showing the database-backed schedule again." });
+    setSubmitBanner({ tone: "success", message: "Draft discarded. Showing the approved schedule again." });
   }
 
   function saveFailedSubmitAsDraft(draft: Record<SlotId, SlotRequests>) {

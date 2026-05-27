@@ -45,13 +45,11 @@ const imgChatGptImage23012026141937Photoroom1 = "/images/chatgpt-fresh.png";
 const imgImage1 = "/images/lightbulb-fresh.png";
 const imgSiDashboardLine = "/images/icon-dashboard.svg";
 const imgGroup = "/images/icon-notebook-outline.svg";
-const imgHugeiconsStudent = "/images/icon-student-picker.svg";
 const imgHugeiconsStudentActive = "/images/icon-student-active.svg";
 const imgHugeiconsStudentInactive = "/images/icon-student.svg";
 const imgRiParentLine = "/images/icon-parent.svg";
 const imgGroup1 = "/images/icon-class-lesson-sidebar.svg";
 const imgVuesaxLinearSetting2 = "/images/icon-settings.svg";
-const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
 const imgPolygon1 = "/images/mask-group.svg";
 const imgNotebookOneSidebar = "/images/icon-notebook-one-sidebar.svg";
 const imgCalendarLinear = "/images/icon-calendar-linear.svg";
@@ -277,9 +275,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const parentClassesBrandActive =
     parentCatalogActive || parentClassListNavActive;
   const parentClassesHeaderAccent = parentClassesBrandActive;
-  const parentInactiveStudentIcon = parentCatalogActive
-    ? imgHugeiconsStudentInactive
-    : imgHugeiconsStudent;
+  const parentInactiveStudentIcon = imgHugeiconsStudentInactive;
   const parentScheduleActive = visualPathname.startsWith(PARENT_SCHEDULE_HREF);
   const parentBillingActive = visualPathname.startsWith("/dashboard/parents/billing");
   const parentStudentsOpen = parentStudentsNavExpanded;
@@ -498,7 +494,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       <img
                         alt=""
                         className="absolute block inset-0 max-w-none size-full"
-                        src={adminStudentsActive ? imgHugeiconsStudentActive : imgHugeiconsStudent}
+                        src={adminStudentsActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive}
                       />
                     </div>
                     <p className={`flex-[1_0_0] text-left ${navLabel(adminStudentsActive)}`} data-node-id="8:2803">
@@ -747,7 +743,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <>
                 <Link href={studentProfileHref} className={navRow(studentProfileActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={studentProfileActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                   <p className={navLabel(studentProfileActive)}>
                     Profile
@@ -763,7 +759,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href={studentRosterHref} className={navRow(studentRosterActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={studentRosterActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                   <p className={navLabel(studentRosterActive)}>
                     Roster
@@ -794,7 +790,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href="/dashboard/students" title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminStudentsActive)}`} data-node-id="10:3193" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3197" data-name="hugeicons:student">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={adminStudentsActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                 </Link>
                 <Link href="/dashboard/parents" title="Parents" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminParentsActive)}`} data-node-id="10:3199" data-name="Icon menu">
@@ -878,7 +874,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-name="Menu Items Student">
                 <Link href={studentProfileHref} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={studentProfileActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                 </Link>
                 <Link href={studentScheduleHref} title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentScheduleActive)}`}>
@@ -888,7 +884,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href={studentRosterHref} title="Roster" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentRosterActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={studentRosterActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                 </Link>
               </div>
@@ -916,7 +912,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href="/dashboard/students" title="Students" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminStudentsActive)}`} data-node-id="8:1138" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3139" data-name="hugeicons:student">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={adminStudentsActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                 </Link>
                 <Link href="/dashboard/parents" title="Parents" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminParentsActive)}`} data-node-id="10:3142" data-name="Icon menu">
@@ -982,7 +978,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <>
                 <Link href={studentProfileHref} title="Profile" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentProfileActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={studentProfileActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                 </Link>
                 <Link href={studentScheduleHref} title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentScheduleActive)}`}>
@@ -992,7 +988,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href={studentRosterHref} title="Roster" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(studentRosterActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgHugeiconsStudent1} />
+                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={studentRosterActive ? imgHugeiconsStudentActive : imgHugeiconsStudentInactive} />
                   </div>
                 </Link>
               </>

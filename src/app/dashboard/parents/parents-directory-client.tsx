@@ -4,7 +4,14 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Link2,
+  UserCheck,
+  UserX,
+} from "lucide-react";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
@@ -252,7 +259,9 @@ export function ParentsAdminDirectory({
         </div>
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
-            <div className="bg-[rgba(0,77,8,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]" />
+            <div className="bg-[rgba(0,77,8,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
+              <UserCheck aria-hidden className="size-5 text-[#004d08]" strokeWidth={1.75} />
+            </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
                 Active
@@ -265,7 +274,9 @@ export function ParentsAdminDirectory({
         </div>
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
-            <div className="bg-[rgba(207,165,0,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]" />
+            <div className="bg-[rgba(207,165,0,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
+              <UserX aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
+            </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
                 Inactive
@@ -278,7 +289,9 @@ export function ParentsAdminDirectory({
         </div>
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
-            <div className="bg-[#e6f7f9] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]" />
+            <div className="bg-[#e6f7f9] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
+              <Link2 aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
+            </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
                 Student links
@@ -394,7 +407,7 @@ export function ParentsAdminDirectory({
             <div className="flex-1 flex items-center justify-center py-[32px] px-[18px]">
               <span className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] text-center leading-snug max-w-lg">
                 {parents.length === 0 && dataSource === "remote"
-                  ? "No parent contacts yet. Add guardians in your database or connect the parents roster."
+                  ? "No parent contacts yet. Add guardians to the parents roster."
                   : searchQuery.trim()
                     ? `No parents found matching “${searchQuery}”.`
                     : "No parents match the current filters."}

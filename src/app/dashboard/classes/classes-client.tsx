@@ -5,7 +5,7 @@ import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search, Upload, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useClassesDataCache } from "@/components/classes-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
@@ -62,6 +62,18 @@ const VISIBILITY_FILTER_LABELS: Record<VisibilityFilter, string> = {
   full: "Full Classes",
 };
 
+type ClassImportDraft = {
+  name: string;
+  teacher: string;
+  students: string;
+  schedule: string;
+  status: ClassStatus;
+  track: ProgramTrack;
+  description?: string;
+  level?: string;
+  block?: string;
+};
+
 function dash(text: string): string {
   const t = text.trim();
   return t.length > 0 ? t : "—";
@@ -91,6 +103,85 @@ function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
   return { top, left };
 }
 
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (quoted) {
+      if (ch === "\"" && next === "\"") {
+        cell += "\"";
+        i += 1;
+      } else if (ch === "\"") {
+        quoted = false;
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+    if (ch === "\"") {
+      quoted = true;
+    } else if (ch === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (ch !== "\r") {
+      cell += ch;
+    }
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows.filter((r) => r.some((v) => v.trim().length > 0));
+}
+
+function headerKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function firstCsvValue(row: string[], headers: Map<string, number>, names: string[]): string {
+  for (const name of names) {
+    const idx = headers.get(headerKey(name));
+    if (idx != null) return String(row[idx] ?? "").trim();
+  }
+  return "";
+}
+
+function normalizeImportStatus(value: string): ClassStatus {
+  return value.trim().toLowerCase() === "full" ? "Full" : "Active";
+}
+
+function normalizeImportTrack(value: string, fallback: ProgramTrack): ProgramTrack {
+  return value.trim().toLowerCase() === "enrichment" ? "enrichment" : value.trim().toLowerCase() === "core" ? "core" : fallback;
+}
+
+function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassImportDraft[] {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+  const headers = new Map<string, number>();
+  rows[0].forEach((header, idx) => headers.set(headerKey(header), idx));
+  return rows.slice(1).map((row) => {
+    const name = firstCsvValue(row, headers, ["Class", "Class Name", "Name"]);
+    const teacher = firstCsvValue(row, headers, ["Teacher", "Teacher Name"]);
+    const students =
+      firstCsvValue(row, headers, ["Seats", "Students", "Enrollment", "Enrolled/Capacity"]) || "0/30";
+    const schedule = firstCsvValue(row, headers, ["Schedule", "Schedule Summary"]);
+    const status = normalizeImportStatus(firstCsvValue(row, headers, ["Status", "Class Status"]));
+    const track = normalizeImportTrack(firstCsvValue(row, headers, ["Track", "Program"]), fallbackTrack);
+    const description = firstCsvValue(row, headers, ["Description"]);
+    const level = firstCsvValue(row, headers, ["Level"]);
+    const block = firstCsvValue(row, headers, ["Block"]);
+    return { name, teacher, students, schedule, status, track, description, level, block };
+  }).filter((row) => row.name || row.teacher || row.schedule || row.level || row.block);
+}
+
 export default function ClassesPageClient({
   initialClasses,
   dataSource,
@@ -115,6 +206,7 @@ export default function ClassesPageClient({
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(initialSelectedIds),
   );
@@ -124,6 +216,7 @@ export default function ClassesPageClient({
   const rowMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const rowMenuTriggerRef = useRef<HTMLElement | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -276,6 +369,84 @@ export default function ClassesPageClient({
     setSyncHint(`Downloaded ${selected.length} class row(s) as CSV.`);
   };
 
+  const importClasses = async (file: File) => {
+    if (importing) return;
+    setImporting(true);
+    setSyncHint(null);
+    try {
+      const drafts = parseClassImportCsv(await file.text(), trackTab);
+      if (drafts.length === 0) {
+        setSyncHint("No class rows found. Use a CSV with Class, Teacher, Seats, Schedule, Status, and Track columns.");
+        return;
+      }
+
+      const seatsPattern = /^\d+\s*\/\s*\d+$/;
+      const validDrafts: ClassImportDraft[] = [];
+      const validationErrors: string[] = [];
+      drafts.forEach((draft, idx) => {
+        const rowLabel = `Row ${idx + 2}`;
+        if (!draft.name.trim()) validationErrors.push(`${rowLabel}: class name is required`);
+        else if (!draft.teacher.trim()) validationErrors.push(`${rowLabel}: teacher is required`);
+        else if (!seatsPattern.test(draft.students.trim())) validationErrors.push(`${rowLabel}: seats must look like 0/30`);
+        else validDrafts.push(draft);
+      });
+
+      if (validDrafts.length === 0) {
+        setSyncHint(validationErrors.slice(0, 3).join("; "));
+        return;
+      }
+
+      const created: SchoolClassRow[] = [];
+      const writeErrors: string[] = [];
+      for (const draft of validDrafts) {
+        const res = await fetch("/api/data/classes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: draft.name.trim(),
+            teacher: draft.teacher.trim(),
+            students: draft.students.trim(),
+            schedule: draft.schedule.trim(),
+            status: draft.status,
+            track: draft.track,
+            description: draft.description?.trim(),
+            level: draft.level?.trim(),
+            block: draft.block?.trim(),
+          }),
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { class?: SchoolClassRow };
+          if (body.class) created.push(body.class);
+        } else {
+          writeErrors.push(`${draft.name}: ${await readApiError(res)}`);
+        }
+      }
+
+      if (created.length > 0) {
+        setClasses((prev) => {
+          const next = [...prev, ...created];
+          classesCache.setClassesData(next);
+          return next;
+        });
+        invalidateDashboardData("/api/dashboard-presentation");
+        void classesCache.loadClasses(true);
+      }
+
+      const skipped = validationErrors.length + writeErrors.length;
+      if (created.length === 0) {
+        setSyncHint(writeErrors[0] ?? validationErrors[0] ?? "No classes were uploaded.");
+      } else if (skipped > 0) {
+        const sample = [...validationErrors, ...writeErrors].slice(0, 2).join("; ");
+        setSyncHint(`Uploaded ${created.length} class row(s). ${skipped} row(s) need attention. ${sample}`);
+      } else {
+        setSyncHint(`Uploaded ${created.length} class row(s).`);
+      }
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  };
+
   useEffect(() => {
     setPage(1);
   }, [search, sortKey, sortDir, trackTab, visibilityFilter]);
@@ -311,7 +482,7 @@ export default function ClassesPageClient({
       const restored = [...nextClasses, removed].sort((a, b) => String(a.id).localeCompare(String(b.id)));
       setClasses(restored);
       classesCache.setClassesData(restored);
-      setSyncHint(`Could not delete in cloud (${await readApiError(res)}). Row restored here.`);
+      setSyncHint(`Could not delete (${await readApiError(res)}). Row restored here.`);
       return;
     }
     invalidateDashboardData("/api/dashboard-presentation");
@@ -417,7 +588,7 @@ export default function ClassesPageClient({
           </button>
         </div>
 
-        <div className="relative -mt-[6px] h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] sm:px-[18px]">
+        <div className="relative -mt-[6px] min-h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] shadow-sm sm:px-[18px]">
           <div className="mb-[16px] flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
             <div className="flex w-full min-w-0 items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 py-2 md:w-auto md:bg-transparent md:px-0 md:py-0">
               <div className="relative size-[14px]">
@@ -529,7 +700,7 @@ export default function ClassesPageClient({
             </div>
           </div>
 
-          <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+          <div className="w-full overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]">
             <table className="min-w-[980px] table-fixed border-collapse text-left">
               <colgroup>
                 <col className="w-[11.111%]" />
@@ -708,7 +879,26 @@ export default function ClassesPageClient({
             </div>
           )}
 
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex flex-wrap justify-end gap-3">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                if (file) void importClasses(file);
+              }}
+            />
+            <button
+              type="button"
+              disabled={importing}
+              className="inline-flex items-center gap-2 rounded-[6px] bg-[#fafafa] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#0d0d12] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] hover:bg-[#f0f0f0] disabled:opacity-50"
+              onClick={() => importInputRef.current?.click()}
+            >
+              <Upload aria-hidden className="size-4" strokeWidth={1.8} />
+              {importing ? "Uploading..." : "Bulk Upload CSV"}
+            </button>
             <button
               type="button"
               className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"

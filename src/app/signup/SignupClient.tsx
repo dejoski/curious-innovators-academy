@@ -108,8 +108,8 @@ export default function SignupClient() {
             <div className="mb-6 text-center lg:text-left">
               <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px] mb-2">Create your account</h1>
               <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
-                Enter your details and invite code. {!supabaseConfigured && !remoteDataRequired && "Demo mode: no Supabase env — signup only navigates locally."}
-                {!supabaseConfigured && remoteDataRequired && "Account creation requires the Supabase project to be configured."}
+                Enter your details and invite code. {!supabaseConfigured && !remoteDataRequired && "Account setup will continue locally for now."}
+                {!supabaseConfigured && remoteDataRequired && "Account creation is not ready yet. Ask an administrator to finish setup."}
               </p>
             </div>
 

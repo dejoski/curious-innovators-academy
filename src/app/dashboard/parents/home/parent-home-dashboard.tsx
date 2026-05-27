@@ -180,7 +180,7 @@ function metricValue(label: string, fallback: string): string {
 }
 
 function sourceHint(source: DataSource | null): string | null {
-  if (source === "fallback") return "Showing sample parent dashboard data because cloud data is unavailable.";
+  if (source === "fallback") return "Showing starter dashboard data while school records finish loading.";
   if (source === "unavailable") return null;
   return null;
 }

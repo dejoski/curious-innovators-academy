@@ -46,8 +46,8 @@ function toParentClassRow(row: SchoolClassRow): ParentClassRow {
 }
 
 function dataHintFromSource(source?: string) {
-  if (source === "fallback") return "Showing sample classes because cloud data is unavailable.";
-  if (source === "unavailable") return "Cloud classes are unavailable. Ask an administrator to configure Supabase.";
+  if (source === "fallback") return "Showing starter classes while class records finish loading.";
+  if (source === "unavailable") return "Classes are temporarily unavailable.";
   return null;
 }
 

@@ -3,7 +3,15 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  BookOpenCheck,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  GraduationCap,
+  Mail,
+  Sparkles,
+} from "lucide-react";
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
@@ -18,7 +26,6 @@ const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
-const imgHugeiconsTeacher = "/images/icon-group.svg";
 
 type ProgramKind = "core" | "enrichment";
 
@@ -239,7 +246,7 @@ export default function TeachersTeacherList({
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center">
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
-              <img alt="" className="size-[20px]" src={imgHugeiconsTeacher} />
+              <GraduationCap aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Total Teachers</p>
@@ -249,7 +256,9 @@ export default function TeachersTeacherList({
         </div>
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
-            <div className="bg-[rgba(0,77,8,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]" />
+            <div className="bg-[rgba(0,77,8,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
+              <BookOpenCheck aria-hidden className="size-5 text-[#004d08]" strokeWidth={1.75} />
+            </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Core program</p>
               <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.core}</p>
@@ -258,7 +267,9 @@ export default function TeachersTeacherList({
         </div>
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
-            <div className="bg-[rgba(207,165,0,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]" />
+            <div className="bg-[rgba(207,165,0,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
+              <Sparkles aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
+            </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Enrichment program</p>
               <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.enrichment}</p>
@@ -267,7 +278,9 @@ export default function TeachersTeacherList({
         </div>
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
-            <div className="bg-[#e6f7f9] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]" />
+            <div className="bg-[#e6f7f9] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
+              <Mail aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
+            </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">With email on file</p>
               <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.withEmail}</p>
@@ -747,7 +760,7 @@ export default function TeachersTeacherList({
                     setTeachers((prev) =>
                       [...prev, removed].sort((a, b) => String(a.id).localeCompare(String(b.id))),
                     );
-                    setSyncHint(`Could not delete in cloud (${await readApiError(res)}).`);
+                    setSyncHint(`Could not delete (${await readApiError(res)}).`);
                     return;
                   }
                   invalidateDashboardData(["/api/data/teachers", "/api/dashboard-presentation"]);

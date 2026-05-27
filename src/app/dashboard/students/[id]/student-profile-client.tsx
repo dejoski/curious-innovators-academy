@@ -128,9 +128,9 @@ export default function StudentProfileClient({
   const filteredEvents = events.filter((e) => filterType === ALL_HISTORY_FILTER || e.type === filterType);
   const dataHint =
     dataSource === "fallback"
-      ? "Showing sample data because the student detail API is unavailable."
+      ? "Showing starter student details while records finish loading."
       : dataSource === "unavailable"
-        ? "Remote student data is required, but no row is available."
+        ? "Student details are temporarily unavailable."
         : "";
 
   const resetAddNoteForm = () => {
@@ -315,7 +315,7 @@ export default function StudentProfileClient({
         ) : null}
         {mock.directoryDataOnly ? (
           <p className="text-xs text-[#6b7280] max-w-2xl leading-relaxed">
-            Directory data is live; class chips and history will appear as enrollments and notes are linked in Supabase.
+            Directory details are ready; class chips and history will appear as enrollments and notes are linked.
           </p>
         ) : null}
         {dataHint ? <p className="text-xs text-[#6b7280] max-w-2xl leading-relaxed">{dataHint}</p> : null}

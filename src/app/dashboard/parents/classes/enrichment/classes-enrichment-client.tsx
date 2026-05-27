@@ -64,8 +64,8 @@ function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
 }
 
 function dataHintFromSource(source?: string) {
-  if (source === "fallback") return "Showing sample classes because cloud data is unavailable.";
-  if (source === "unavailable") return "Cloud classes are unavailable. Ask an administrator to configure Supabase.";
+  if (source === "fallback") return "Showing starter classes while class records finish loading.";
+  if (source === "unavailable") return "Classes are temporarily unavailable.";
   return null;
 }
 
@@ -339,7 +339,7 @@ export default function ParentClassesEnrichmentClient() {
 
       {filteredAndSortedClasses.some((cls) => cls.requestSource === "catalog-request") && (
         <div className="rounded-[12px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66] font-medium">
-          {localRequestState === "submitted" ? "Showing pending class requests from the school database." : "Showing unsubmitted class-selection draft choices."}
+          {localRequestState === "submitted" ? "Showing pending class requests from school review." : "Showing unsubmitted class-selection draft choices."}
         </div>
       )}
 

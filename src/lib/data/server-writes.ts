@@ -139,7 +139,7 @@ async function ensureParentProfileForEmail(
   let profileId = String(existingProfile?.id ?? "");
   if (!profileId) {
     if (!isSupabaseAdminConfigured()) {
-      return { ok: false, message: "Server-side Supabase admin is required to create a parent account for this email" };
+      return { ok: false, message: "Parent account setup is temporarily unavailable." };
     }
     const admin = createSupabaseAdminClient();
     profileId = (await authUserIdForEmail(admin, email)) ?? "";
@@ -247,7 +247,7 @@ export async function serverInsertClass(input: {
   level?: string;
   block?: string;
 }): Promise<WriteOk<SchoolClassRow> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const { capacity } = parseStudentsFraction(input.students);
   try {
     const supabase = await createSupabaseServerClient();
@@ -256,7 +256,7 @@ export async function serverInsertClass(input: {
       return {
         ok: false,
         message:
-          "Could not match teacher name to a profile. Add the teacher in Supabase or use an exact display name from the roster.",
+          "Could not match teacher name to a staff profile. Add the teacher first or use an exact display name from the roster.",
       };
     }
     const payload: Record<string, unknown> = {
@@ -350,7 +350,7 @@ export async function serverUpdateClass(
     block?: string;
   },
 ): Promise<WriteOk<SchoolClassRow> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const { capacity } = parseStudentsFraction(input.students);
   try {
     const supabase = await createSupabaseServerClient();
@@ -395,7 +395,7 @@ export async function serverUpdateClass(
 }
 
 export async function serverDeleteClass(id: string): Promise<{ ok: true } | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("classes").delete().eq("id", id);
@@ -419,7 +419,7 @@ export async function serverInsertStudent(input: {
   track: "core" | "enrichment";
   notes?: string;
 }): Promise<WriteOk<StudentListItem> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const payload = {
@@ -448,7 +448,7 @@ export async function serverInsertStudent(input: {
 }
 
 export async function serverDeleteStudent(id: string): Promise<{ ok: true } | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("students").delete().eq("id", id);
@@ -474,7 +474,7 @@ export async function serverUpdateStudent(
     parentEmail?: string;
   },
 ): Promise<WriteOk<StudentListItem> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const studentId = id.trim();
   if (!studentId) return { ok: false, message: "Missing student id" };
 
@@ -565,7 +565,7 @@ export async function serverPatchEnrollmentStatus(input: {
   studentId: string;
   status: ClassRosterStatus;
 }): Promise<{ ok: true } | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const classId = input.classId.trim();
   const studentId = input.studentId.trim();
   if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
@@ -606,7 +606,7 @@ export async function serverDeleteEnrollment(input: {
   classId: string;
   studentId: string;
 }): Promise<{ ok: true } | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const classId = input.classId.trim();
   const studentId = input.studentId.trim();
   if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
@@ -641,7 +641,7 @@ export async function serverInsertRosterStudent(input: {
   status: ClassRosterStatus;
   description?: string;
 }): Promise<WriteOk<ClassRosterStudent> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const classId = input.classId.trim();
   const name = input.name.trim().replace(/\s+/g, " ");
   if (!classId || !name) return { ok: false, message: "Missing class or student name" };
@@ -722,7 +722,7 @@ export async function serverUpdateRosterStudent(input: {
   status?: ClassRosterStatus;
   description?: string;
 }): Promise<WriteOk<ClassRosterStudent> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const classId = input.classId.trim();
   const studentId = input.studentId.trim();
   if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
@@ -807,7 +807,7 @@ export async function serverInsertTeacher(input: {
   phone?: string;
   program: "core" | "enrichment";
 }): Promise<WriteOk<TeacherRow> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const email = input.email.trim();
   if (!email) return { ok: false, message: "Teacher email is required" };
   try {
@@ -869,7 +869,7 @@ export async function serverUpdateTeacher(
     program: "core" | "enrichment";
   },
 ): Promise<WriteOk<TeacherRow> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const payload = {
@@ -910,7 +910,7 @@ export async function serverUpdateTeacher(
 }
 
 export async function serverDeleteTeacher(id: string): Promise<{ ok: true } | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.from("teachers").delete().eq("id", id);
@@ -1261,7 +1261,7 @@ export async function serverInsertEnrichmentRequests(input: {
     option: string;
   }[];
 }): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const choices = normalizeEnrichmentRequestChoices(input.choices
     .map((choice) => ({
       classId: choice.classId.trim(),
@@ -1282,7 +1282,7 @@ export async function serverInsertEnrichmentRequests(input: {
       const studentId = input.studentId?.trim();
       if (!studentId) return { ok: false, message: "Choose a student before submitting class selections" };
       if (!isSupabaseAdminConfigured()) {
-        return { ok: false, message: "Supabase server write is not configured" };
+        return { ok: false, message: "School records are temporarily unavailable." };
       }
 
       const admin = createSupabaseAdminClient();
@@ -1346,7 +1346,7 @@ export async function serverPatchEnrichmentRequest(
   id: string,
   status: EnrichmentRequestRow["status"],
 ): Promise<WriteOk<EnrichmentRequestRow> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const mutationClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
@@ -1431,7 +1431,7 @@ export async function serverInsertScheduleEvent(input: {
   eventType: ScheduleCalendarEvent["type"];
   description?: string;
 }): Promise<WriteOk<{ id: string }> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
     const { starts_at, ends_at } = scheduleBounds(input.eventDate, input.timeLabel);
@@ -1460,7 +1460,7 @@ export async function serverInsertScheduleEvent(input: {
 }
 
 export async function serverPatchNotificationsReadAll(ids?: string[]): Promise<WriteFail | { ok: true }> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const notificationIds = (ids ?? []).map((id) => id.trim()).filter(Boolean);
   try {
     const supabase = await createSupabaseServerClient();
@@ -1493,7 +1493,7 @@ export async function serverPatchNotificationRead(
   id: string,
   read: boolean,
 ): Promise<WriteOk<DashboardNotification> | WriteFail> {
-  if (!isSupabaseConfigured()) return { ok: false, message: "Supabase not configured" };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const notificationId = id.trim();
   if (!notificationId) return { ok: false, message: "Missing notification id" };
   try {

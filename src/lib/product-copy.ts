@@ -7,33 +7,23 @@ export function isDemoAdjacentWording(): boolean {
 }
 
 export function fallbackDirectoryBannerText(): string {
-  return isDemoAdjacentWording()
-    ? "Showing demo directory — cloud data unavailable or empty."
-    : "Showing sample directory — live data is unavailable or empty.";
+  return "Showing a starter directory while school records finish loading.";
 }
 
 export function fallbackQueueBannerText(): string {
-  return isDemoAdjacentWording()
-    ? "Showing demo queue — cloud data unavailable or empty."
-    : "Showing sample queue — live data is unavailable or empty.";
+  return "Showing a starter queue while school requests finish loading.";
 }
 
 export function fallbackInboxBannerText(): string {
-  return isDemoAdjacentWording()
-    ? "Showing demo inbox — cloud data unavailable or empty."
-    : "Showing sample inbox — live data is unavailable or empty.";
+  return "Showing starter messages while notifications finish loading.";
 }
 
 export function fallbackClassesStripText(): string {
-  return isDemoAdjacentWording()
-    ? "Demo directory preview — connect Supabase for live school data."
-    : "Sample directory — connect Supabase for live school data.";
+  return "Showing a starter class list while school records finish loading.";
 }
 
 export function bundledMetricsBannerText(): string {
-  return isDemoAdjacentWording()
-    ? "Showing bundled demo metrics — connect Supabase tables (`students`, `teachers`, `classes` with `track`) for live counts."
-    : "Showing sample metrics — connect Supabase tables (`students`, `teachers`, `classes` with `track`) for live counts.";
+  return "Showing starter metrics while school records finish loading.";
 }
 
 export function messagingDialogDisclaimer(): string {
@@ -60,9 +50,7 @@ export function teacherCreateFailureExtraHint(): string {
 
 /** Placeholder narrative for Learning profile when no LMS data was loaded. */
 export function studentProfileLearningSample(): string {
-  return isDemoAdjacentWording()
-    ? "Sample learning strengths and growth areas appear here once connected to roster or LMS data."
-    : "Learning highlights will appear once connected to roster or LMS data.";
+  return "Learning highlights will appear once student records are available.";
 }
 
 /** Placeholder for student support notes when none exist. */

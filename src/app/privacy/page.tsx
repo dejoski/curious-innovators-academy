@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-[#272932]">Access Controls</h2>
             <p className="mt-2">
-              Production deployments must use Supabase Auth and Row Level Security so administrators, teachers, parents,
+              Production deployments must use role-based access controls so administrators, teachers, parents,
               and students can only access records allowed by their role and relationships.
             </p>
           </section>

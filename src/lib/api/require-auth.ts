@@ -50,7 +50,7 @@ export async function requireRemoteApiSession(): Promise<NextResponse | null> {
 
 export async function loadCurrentApiUser(): Promise<CurrentApiUserContext> {
   if (!isSupabaseConfigured()) {
-    return { supabase: null, user: null, error: "Supabase is not configured.", status: 503 };
+    return { supabase: null, user: null, error: "Account setup is temporarily unavailable.", status: 503 };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -63,7 +63,7 @@ export async function loadCurrentApiUser(): Promise<CurrentApiUserContext> {
   }));
 
   if (isAuthServiceFailure(error)) {
-    return { supabase, user: null, error: "Supabase session check failed.", status: 503 };
+    return { supabase, user: null, error: "Session check failed.", status: 503 };
   }
 
   if (error || !user) {

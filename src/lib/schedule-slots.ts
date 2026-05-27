@@ -216,6 +216,55 @@ export function splitScheduleLabel(schedule: string): { day: string; time: strin
   };
 }
 
+function blockNumberFromText(value: unknown): number | null {
+  const text = String(value ?? "").toLowerCase();
+  const parsed = Number(text.match(/\bblock\s*([1-4])\b/)?.[1] ?? text.match(/\bb([1-4])\b/)?.[1]);
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null;
+}
+
+function dayNumberFromText(value: unknown): number | null {
+  const text = String(value ?? "").toLowerCase();
+  const parsed = Number(text.match(/\bday\s*([1-3])\b/)?.[1] ?? text.match(/^\s*([1-3])\s*$/)?.[1]);
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 3 ? parsed : null;
+}
+
+export function catalogSlotMetaFromBlockLevel(block: unknown, level: unknown): (typeof CATALOG_SLOT_META)[CatalogSlotId] | null {
+  const blockNumber = blockNumberFromText(block);
+  const dayNumber = dayNumberFromText(level) ?? dayNumberFromText(block);
+  if (!blockNumber || !dayNumber) return null;
+  return CATALOG_SLOT_META[`block${blockNumber}_day${dayNumber}` as CatalogSlotId] ?? null;
+}
+
+export function formatBlockDayLabel(block: unknown, levelOrDay?: unknown, scheduleSummary?: unknown): string {
+  const catalogMeta = catalogSlotMetaFromBlockLevel(block, levelOrDay);
+  if (catalogMeta) return catalogMeta.title;
+
+  const source = [block, scheduleSummary].filter(Boolean).join(" ");
+  const blockNumber = blockNumberFromText(source);
+  const dayNumber = dayNumberFromText(source);
+  if (blockNumber && dayNumber) return `Block ${blockNumber} Day ${dayNumber}`;
+  if (blockNumber) return `Block ${blockNumber}`;
+
+  return String(block ?? "").trim();
+}
+
+export function formatClassLevelLabel(level: unknown): string {
+  const text = String(level ?? "").trim();
+  if (!text) return "";
+  if (/^level\b/i.test(text)) return text.replace(/^level\s*/i, "Level ");
+  if (/^\d+$/.test(text)) return `Level ${text}`;
+  return text;
+}
+
+export function formatRequestOptionLabel(option: unknown): string {
+  const text = String(option ?? "").trim();
+  const lower = text.toLowerCase();
+  if (!text) return "";
+  if (lower === "1" || lower === "1st" || lower === "first") return "1st choice";
+  if (lower === "2" || lower === "2nd" || lower === "second") return "2nd choice";
+  return text;
+}
+
 export function scheduleSlotForClassFields(input: {
   block?: unknown;
   scheduleSummary?: unknown;
