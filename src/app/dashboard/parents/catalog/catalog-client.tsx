@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Info, Lightbulb } from "lucide-react";
 
+import { ParentCatalogStatusBanner } from "@/components/parent-catalog-status-banner";
 import {
   ParentClassSelectionDrawer,
   fallbackParentClassOption,
@@ -12,6 +13,7 @@ import {
   parentClassOptionFromRow,
   type ParentClassChoiceKind,
   type ParentClassOption,
+  type ParentClassSlotContext,
 } from "@/components/parent-class-drawers";
 import {
   buildParentScheduleBadges,
@@ -30,6 +32,7 @@ import {
 } from "@/lib/parent-student-selection";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
+  catalogChoiceReviews,
   catalogSnapshotFromEnrichmentRequests,
   catalogScheduleBadgeOverrides,
   clearPendingParentCatalogRequests,
@@ -46,13 +49,14 @@ import {
 import {
   CATALOG_SLOT_META as SLOT_META,
   catalogSlotIdFromScheduleSlot,
+  normalizeScheduleBadges,
   type CatalogSlotId,
 } from "@/lib/schedule-slots";
 import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromBadges,
 } from "@/lib/parent-schedule-status";
-import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentScheduleRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
 type SlotId = CatalogSlotId;
 
@@ -62,6 +66,15 @@ type SlotRequests = {
 };
 
 const initialRequests = INITIAL_PARENT_CATALOG_REQUESTS as Record<SlotId, SlotRequests>;
+
+function normalizedCatalogRequests(requests?: ParentCatalogRequests | null): Record<SlotId, SlotRequests> {
+  return normalizeParentCatalogRequests(requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>;
+}
+
+function slotContextFromBadges(badges: StudentScheduleBadge[] | undefined): ParentClassSlotContext {
+  const current = normalizeScheduleBadges(badges ?? [])[0];
+  return current ? { kind: "change", label: current.label } : { kind: "empty" };
+}
 
 type CatalogLegendKind = "core" | "approved" | "pending" | "waitlisted" | "draft" | "empty";
 
@@ -105,6 +118,10 @@ function ParentClassesEnrichmentCatalogContent() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
   const [requests, setRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
+  const [serverRequests, setServerRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
+  const [serverReviewStatuses, setServerReviewStatuses] = useState<LocalReviewStatuses>({});
+  const [serverRequestState, setServerRequestState] = useState<"submitted" | null>(null);
+  const [editingRequests, setEditingRequests] = useState<Record<SlotId, SlotRequests> | null>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -113,7 +130,6 @@ function ParentClassesEnrichmentCatalogContent() {
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
   const [studentScheduleLoading, setStudentScheduleLoading] = useState(true);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
-  const [catalogStorageReadyFor, setCatalogStorageReadyFor] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -208,12 +224,12 @@ function ParentClassesEnrichmentCatalogContent() {
         studentId: studentForRequests.id,
         studentName: studentForRequests.name,
       });
+      const draftRequests = draftSnapshot.requests ? normalizedCatalogRequests(draftSnapshot.requests) : null;
       if (!cancelled) {
-        setRequests(normalizeParentCatalogRequests(draftSnapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
-        setLocalRequestState(draftSnapshot.state);
+        setRequests(draftRequests ?? normalizedCatalogRequests());
+        setLocalRequestState(draftRequests ? "draft" : null);
         setLocalReviewStatuses({});
-        setRestoredDraft(Boolean(draftSnapshot.requests));
-        setCatalogStorageReadyFor(studentForRequests.id);
+        setRestoredDraft(Boolean(draftRequests));
       }
 
       try {
@@ -222,12 +238,17 @@ function ParentClassesEnrichmentCatalogContent() {
           Array.isArray(body.requests) ? body.requests : [],
           studentForRequests.id,
         );
-        if (cancelled || !dbSnapshot.requests) return;
-        clearPendingParentCatalogRequests({ studentId: studentForRequests.id });
-        setRequests(normalizeParentCatalogRequests(dbSnapshot.requests) as Record<SlotId, SlotRequests>);
-        setLocalRequestState(dbSnapshot.state);
-        setLocalReviewStatuses(dbSnapshot.reviewStatuses);
-        setRestoredDraft(false);
+        if (cancelled) return;
+        const dbRequests = normalizedCatalogRequests(dbSnapshot.requests);
+        setServerRequests(dbRequests);
+        setServerRequestState(dbSnapshot.state);
+        setServerReviewStatuses(dbSnapshot.reviewStatuses);
+        if (!draftRequests) {
+          setRequests(dbRequests);
+          setLocalRequestState(dbSnapshot.state);
+          setLocalReviewStatuses(dbSnapshot.reviewStatuses);
+          setRestoredDraft(false);
+        }
       } catch {
         /* Draft state remains available if the request endpoint is unavailable. */
       }
@@ -241,7 +262,7 @@ function ParentClassesEnrichmentCatalogContent() {
   useEffect(() => {
     if (!overlayOpen) return;
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOverlayOpen(false);
+      if (event.key === "Escape") closeSelectionDrawer();
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -256,21 +277,6 @@ function ParentClassesEnrichmentCatalogContent() {
     [activeStudent],
   );
 
-  useEffect(() => {
-    if (!activeStudent?.id || catalogStorageReadyFor !== activeStudent.id) return;
-    try {
-      if (localRequestState === "submitted") {
-        clearPendingParentCatalogRequests({ studentId: activeStudent.id });
-      } else if (hasParentCatalogChoices(requests as ParentCatalogRequests)) {
-        writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
-      } else {
-        clearPendingParentCatalogRequests({ studentId: activeStudent.id });
-      }
-    } catch {
-      /* Browser storage can be unavailable in privacy modes. */
-    }
-  }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, localRequestState, requests]);
-
   const scheduleBadgesBySlot = useMemo(() => {
     return buildParentScheduleBadges(
       studentSchedule,
@@ -278,15 +284,25 @@ function ParentClassesEnrichmentCatalogContent() {
     );
   }, [localRequestState, localReviewStatuses, requests, studentSchedule]);
   const scheduleFinality = useMemo(() => parentScheduleFinalityFromBadges(scheduleBadgesBySlot), [scheduleBadgesBySlot]);
+  const localChoiceReviews = useMemo(() => {
+    return catalogChoiceReviews(requests as ParentCatalogRequests, localReviewStatuses);
+  }, [localReviewStatuses, requests]);
 
   const selectedChoices = useMemo(
     () => selectedChoicesForSubmit(requests as ParentCatalogRequests),
     [requests],
   );
+  const drawerRequests = editingRequests ?? requests;
+  const drawerSelectedChoices = useMemo(
+    () => selectedChoicesForSubmit(drawerRequests as ParentCatalogRequests),
+    [drawerRequests],
+  );
 
   const hasChoices = selectedChoices.length > 0;
+  const drawerHasChoices = drawerSelectedChoices.length > 0;
   const activeMeta = SLOT_META[activeSlot];
-  const activeRequests = requests[activeSlot];
+  const activeRequests = drawerRequests[activeSlot];
+  const slotContext = slotContextFromBadges(studentSchedule?.[activeMeta.scheduleSlot]);
 
   function resolveStoredChoice(choice: SlotRequests["firstChoice"] | null | undefined): ParentClassOption | null {
     if (!choice?.name && !choice?.id) return null;
@@ -300,41 +316,43 @@ function ParentClassesEnrichmentCatalogContent() {
     return parentClassOptionsForCatalogSlot(availableClasses, activeMeta);
   }, [activeMeta, availableClasses]);
 
-  const overlayClasses = recommendedClasses.length ? recommendedClasses : availableClasses;
-  const firstChoice = resolveStoredChoice(activeRequests.firstChoice);
-  const secondChoice = resolveStoredChoice(activeRequests.secondChoice);
+  const overlayClasses = recommendedClasses;
+  const choiceMatchesActiveSlot = (choice: ParentClassOption | null) =>
+    Boolean(choice && overlayClasses.some((option) => (option.id || option.name) === (choice.id || choice.name)));
+  const storedFirstChoice = resolveStoredChoice(activeRequests.firstChoice);
+  const storedSecondChoice = resolveStoredChoice(activeRequests.secondChoice);
+  const firstChoice = choiceMatchesActiveSlot(storedFirstChoice) ? storedFirstChoice : null;
+  const secondChoice = choiceMatchesActiveSlot(storedSecondChoice) ? storedSecondChoice : null;
   const firstChoiceOptions = overlayClasses.filter((cls) => cls.id !== secondChoice?.id);
   const secondChoiceOptions = overlayClasses.filter((cls) => cls.id !== firstChoice?.id);
   const activeSlotHasChoices = Boolean(firstChoice || secondChoice);
 
   function openSlot(slotId: SlotId) {
     setActiveSlot(slotId);
+    setEditingRequests(requests);
     setOverlayOpen(true);
     setOpenChoice(null);
   }
 
-    function openScheduleSlot(slot: ParentScheduleSlotKey) {
-      const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
-      if (catalogSlot) openSlot(catalogSlot);
-    }
+  function closeSelectionDrawer() {
+    setOverlayOpen(false);
+    setEditingRequests(null);
+    setOpenChoice(null);
+  }
 
-    function clearSubmittedSnapshot() {
-      try {
-        clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
-      } catch {
-        /* ignore storage failures */
-      }
-    setLocalRequestState("draft");
-    setLocalReviewStatuses({});
+  function openScheduleSlot(slot: ParentScheduleSlotKey) {
+    const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
+    if (catalogSlot) openSlot(catalogSlot);
   }
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
-    setRequests((prev) => {
-      const active = prev[activeSlot];
+    setEditingRequests((prev) => {
+      const current = prev ?? requests;
+      const active = current[activeSlot];
       const targetKind: ParentClassChoiceKind = kind === "secondChoice" && !active.firstChoice ? "firstChoice" : kind;
       const otherKind: ParentClassChoiceKind = targetKind === "firstChoice" ? "secondChoice" : "firstChoice";
       return {
-        ...prev,
+        ...current,
         [activeSlot]: {
           ...active,
           [targetKind]: cls,
@@ -344,24 +362,70 @@ function ParentClassesEnrichmentCatalogContent() {
     });
     setSubmitBanner(null);
     setOpenChoice(null);
-    clearSubmittedSnapshot();
+  }
+
+  function saveDraftSelections() {
+    const draft = editingRequests ?? requests;
+    if (!selectedChoicesForSubmit(draft as ParentCatalogRequests).length) return;
+    setRequests(draft);
+    setLocalRequestState("draft");
+    setLocalReviewStatuses({});
+    setRestoredDraft(true);
+    try {
+      clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
+      writePendingParentCatalogRequests(draft as ParentCatalogRequests, catalogIdentity);
+    } catch {
+      /* Browser storage can be unavailable in privacy modes. */
+    }
+    setSubmitBanner({ tone: "success", message: "Draft saved. You can discard it to restore the approved schedule." });
+    closeSelectionDrawer();
+  }
+
+  function discardDraft() {
+    try {
+      clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
+      clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
+    } catch {
+      /* Browser storage can be unavailable in privacy modes. */
+    }
+    setRequests(serverRequests);
+    setLocalRequestState(serverRequestState);
+    setLocalReviewStatuses(serverReviewStatuses);
+    setRestoredDraft(false);
+    setEditingRequests(null);
+    setSubmitBanner({ tone: "success", message: "Draft discarded. Showing the database-backed schedule again." });
+  }
+
+  function saveFailedSubmitAsDraft(draft: Record<SlotId, SlotRequests>) {
+    setRequests(draft);
+    setLocalRequestState("draft");
+    setLocalReviewStatuses({});
+    setRestoredDraft(true);
+    try {
+      clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
+      writePendingParentCatalogRequests(draft as ParentCatalogRequests, catalogIdentity);
+    } catch {
+      /* Browser storage can be unavailable in privacy modes. */
+    }
   }
 
   async function submitSelections() {
-    if (!hasChoices || submitting) return;
+    const submissionRequests = editingRequests ?? requests;
+    const choices = selectedChoicesForSubmit(submissionRequests as ParentCatalogRequests);
+    if (!choices.length || submitting) return;
     setSubmitting(true);
     setSubmitBanner(null);
     try {
       const res = await fetch("/api/data/enrichment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: activeStudent?.id, choices: selectedChoices }),
+        body: JSON.stringify({ studentId: activeStudent?.id, choices }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setLocalRequestState("draft");
+        saveFailedSubmitAsDraft(submissionRequests);
         setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${body?.error ?? res.statusText}. Your draft is still saved.` });
-        setOverlayOpen(false);
+        closeSelectionDrawer();
         return;
       }
       const body = (await res.json().catch(() => null)) as { requests?: EnrichmentRequestRow[] } | null;
@@ -369,6 +433,7 @@ function ParentClassesEnrichmentCatalogContent() {
         Array.isArray(body?.requests) ? body.requests : [],
         activeStudent?.id,
       );
+      const nextRequests = normalizedCatalogRequests(dbSnapshot.requests);
       invalidateDashboardData("/api/data/enrichment-requests");
       clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
       invalidateClientDataCache("/api/data/classes");
@@ -376,21 +441,19 @@ function ParentClassesEnrichmentCatalogContent() {
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`);
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`);
       }
-      if (dbSnapshot.requests) {
-        setRequests(normalizeParentCatalogRequests(dbSnapshot.requests) as Record<SlotId, SlotRequests>);
-        setLocalRequestState(dbSnapshot.state);
-        setLocalReviewStatuses(dbSnapshot.reviewStatuses);
-      } else {
-        setLocalRequestState("submitted");
-        setLocalReviewStatuses({});
-      }
+      setServerRequests(nextRequests);
+      setServerRequestState(dbSnapshot.state);
+      setServerReviewStatuses(dbSnapshot.reviewStatuses);
+      setRequests(nextRequests);
+      setLocalRequestState(dbSnapshot.state);
+      setLocalReviewStatuses(dbSnapshot.reviewStatuses);
       setRestoredDraft(false);
       setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
-      setOverlayOpen(false);
+      closeSelectionDrawer();
     } catch (error) {
-      setLocalRequestState("draft");
+      saveFailedSubmitAsDraft(submissionRequests);
       setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.` });
-      setOverlayOpen(false);
+      closeSelectionDrawer();
     } finally {
       setSubmitting(false);
     }
@@ -412,21 +475,46 @@ function ParentClassesEnrichmentCatalogContent() {
         <LegendItem kind="empty" label="Empty" />
       </div>
 
-      {(catalogHint || submitBanner || restoredDraft) && (
+      {(catalogHint || submitBanner) && (
         <div className="mt-4 flex flex-col gap-2">
           {catalogHint ? <p className="rounded-[8px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">{catalogHint}</p> : null}
-          {restoredDraft && !submitBanner ? (
-            <p className="rounded-[8px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-2 text-sm text-[#155e66]">
-              Restored your saved class-selection draft.
-            </p>
-          ) : null}
           {submitBanner ? (
-            <p role="status" className={`rounded-[8px] border px-4 py-2 text-sm ${submitBanner.tone === "success" ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]" : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"}`}>
-              {submitBanner.message}
-            </p>
+            <div role="status" className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]" : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"}`}>
+              <span>{submitBanner.message}</span>
+            </div>
           ) : null}
         </div>
       )}
+
+      <ParentCatalogStatusBanner
+        state={localRequestState}
+        choices={localChoiceReviews}
+        className="mt-4"
+        message={restoredDraft && localRequestState === "draft" ? "You have a saved class-selection draft ready to review." : undefined}
+        actions={
+          <>
+            {localRequestState === "draft" && hasChoices ? (
+              <button
+                type="button"
+                onClick={submitSelections}
+                disabled={submitting}
+                className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+              >
+                {submitting ? "Submitting..." : "Submit Draft"}
+              </button>
+            ) : null}
+            {localRequestState === "draft" && hasChoices ? (
+              <button
+                type="button"
+                onClick={discardDraft}
+                className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
+              >
+                Discard draft
+              </button>
+            ) : null}
+          </>
+        }
+      />
 
       <div className="mt-6 grid gap-6">
         <div className="grid gap-3">
@@ -490,6 +578,7 @@ function ParentClassesEnrichmentCatalogContent() {
         <ParentClassSelectionDrawer
           title={activeMeta.title}
           time={activeMeta.overlayTime}
+          slotContext={slotContext}
           firstChoice={firstChoice}
           secondChoice={secondChoice}
           firstChoiceOptions={firstChoiceOptions}
@@ -500,11 +589,14 @@ function ParentClassesEnrichmentCatalogContent() {
             setOpenChoice((open) => (open === kind ? null : kind));
           }}
           onSelectChoice={selectChoice}
-          onClose={() => setOverlayOpen(false)}
+          onClose={closeSelectionDrawer}
+          onSaveDraft={saveDraftSelections}
           onSubmit={submitSelections}
+          saveDraftDisabled={!drawerHasChoices}
           submitDisabled={!activeSlotHasChoices}
           submitting={submitting}
           secondChoiceDisabled={!firstChoice}
+          optionsLoading={catalogLoading}
         />
       ) : null}
     </div>

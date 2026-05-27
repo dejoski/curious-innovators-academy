@@ -27,6 +27,9 @@ export type ParentClassOption = {
 };
 
 export type ParentClassChoiceKind = "firstChoice" | "secondChoice";
+export type ParentClassSlotContext =
+  | { kind: "change"; label: string }
+  | { kind: "empty" };
 
 export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption {
   const fallbackDescription =
@@ -120,7 +123,9 @@ function detailsProgramLabel(option: ParentClassOption): string {
   return option.program === "core" ? "Core Class" : "Enrichment Class";
 }
 
-function scheduleParts(option: ParentClassOption): { day: string; time: string } {
+type ScheduleDisplayParts = { day: string; time: string };
+
+function scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
   const parts = (option.schedule ?? "").split("·").map((part) => part.trim()).filter(Boolean);
   return {
     day: parts[0] || option.block || "Schedule not set",
@@ -229,6 +234,8 @@ export function ParentClassDetailsContent({
 
 export function classNameFromScheduleBadge(label: string): string {
   return label
+    .replace(/^Draft change:\s*/i, "")
+    .replace(/^Draft choice:\s*/i, "")
     .replace(/^Rejected 2nd:\s*/i, "")
     .replace(/^Rejected:\s*/i, "")
     .replace(/^2nd:\s*/i, "")
@@ -253,7 +260,7 @@ export function parentClassOptionsForCatalogSlot(
 ): ParentClassOption[] {
   const blockNumber = slot.block.match(/\d+/)?.[0] ?? "";
   const dayNumber = slot.level.match(/\d+/)?.[0] ?? "";
-  const textFor = (option: ParentClassOption) => `${option.block} ${option.schedule ?? ""}`.toLowerCase();
+  const textFor = (option: ParentClassOption) => `${option.block} ${option.level} ${option.schedule ?? ""}`.toLowerCase();
   const matchesBlock = (option: ParentClassOption) => {
     const text = textFor(option);
     return text.includes(`block ${blockNumber}`) || text.includes(`b${blockNumber}`);
@@ -263,11 +270,8 @@ export function parentClassOptionsForCatalogSlot(
     return text.includes(`day ${dayNumber}`);
   };
   const exact = options.filter((option) => matchesBlock(option) && matchesDay(option));
-  const blockOnly = options.filter(matchesBlock);
-  const dayOnly = options.filter(matchesDay);
-  const ranked = [...exact, ...blockOnly, ...dayOnly, ...options];
   const seen = new Set<string>();
-  return ranked.filter((option) => {
+  return exact.filter((option) => {
     const key = option.id || option.name;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -278,12 +282,14 @@ export function parentClassOptionsForCatalogSlot(
 export function ParentClassSummaryCard({
   option,
   statusLabel,
+  scheduleDisplay,
 }: {
   option: ParentClassOption | null;
   statusLabel?: string;
+  scheduleDisplay?: ScheduleDisplayParts;
 }) {
   if (!option) return null;
-  const scheduleLabel = option.block || option.schedule || "Selected block";
+  const scheduleLabel = scheduleDisplay ? `${scheduleDisplay.day} · ${scheduleDisplay.time}` : option.block || option.schedule || "Selected block";
   const status = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
   const availabilityLabel = availabilityLabelForOption(option);
   const pendingHolds = Math.max(0, Math.floor(option.pendingCount ?? 0));
@@ -312,20 +318,24 @@ function ChoiceDropdown({
   label,
   value,
   classes,
+  scheduleDisplay,
   open,
   onToggle,
   onSelect,
   disabled = false,
   helperText,
+  loading = false,
 }: {
   label: string;
   value: ParentClassOption | null;
   classes: ParentClassOption[];
+  scheduleDisplay?: ScheduleDisplayParts;
   open: boolean;
   onToggle: () => void;
   onSelect: (cls: ParentClassOption) => void;
   disabled?: boolean;
   helperText?: string;
+  loading?: boolean;
 }) {
   return (
     <div>
@@ -342,9 +352,17 @@ function ChoiceDropdown({
         </button>
         {open ? (
           <div className="absolute left-0 right-0 top-[58px] z-20 max-h-[314px] overflow-y-auto rounded-[10px] border border-[#dfe1e6] bg-white px-[20px] py-[12px] shadow-[0px_8px_24px_rgba(13,13,18,0.12)]">
-            {classes.map((cls) => {
+            {loading ? (
+              <div className="py-[12px] text-[14px] leading-[1.4] text-[#666d80]">
+                Loading classes for this block and day...
+              </div>
+            ) : classes.length === 0 ? (
+              <div className="py-[12px] text-[14px] leading-[1.4] text-[#666d80]">
+                No classes are available for this block and day.
+              </div>
+            ) : classes.map((cls) => {
               const full = isOptionFull(cls);
-              const schedule = scheduleParts(cls);
+              const schedule = scheduleDisplay ?? scheduleParts(cls);
               return (
                 <button
                   key={cls.id || cls.name}
@@ -376,20 +394,24 @@ function ChoiceSelector({
   label,
   value,
   classes,
+  scheduleDisplay,
   open,
   onToggle,
   onSelect,
   disabled = false,
   helperText,
+  loading = false,
 }: {
   label: string;
   value: ParentClassOption | null;
   classes: ParentClassOption[];
+  scheduleDisplay?: ScheduleDisplayParts;
   open: boolean;
   onToggle: () => void;
   onSelect: (cls: ParentClassOption) => void;
   disabled?: boolean;
   helperText?: string;
+  loading?: boolean;
 }) {
   return (
     <div>
@@ -397,14 +419,16 @@ function ChoiceSelector({
         label={label}
         value={value}
         classes={classes}
+        scheduleDisplay={scheduleDisplay}
         open={open}
         onToggle={onToggle}
         onSelect={onSelect}
         disabled={disabled}
         helperText={helperText}
+        loading={loading}
       />
       <div className="mt-[12px]">
-        <ParentClassSummaryCard option={value} />
+        <ParentClassSummaryCard option={value} scheduleDisplay={scheduleDisplay} />
       </div>
     </div>
   );
@@ -413,6 +437,7 @@ function ChoiceSelector({
 export function ParentClassSelectionDrawer({
   title,
   time,
+  slotContext,
   firstChoice,
   secondChoice,
   firstChoiceOptions,
@@ -421,13 +446,17 @@ export function ParentClassSelectionDrawer({
   onToggleChoice,
   onSelectChoice,
   onClose,
+  onSaveDraft,
   onSubmit,
+  saveDraftDisabled,
   submitDisabled,
   submitting,
   secondChoiceDisabled = false,
+  optionsLoading = false,
 }: {
   title: string;
   time: string;
+  slotContext?: ParentClassSlotContext;
   firstChoice: ParentClassOption | null;
   secondChoice: ParentClassOption | null;
   firstChoiceOptions: ParentClassOption[];
@@ -436,11 +465,19 @@ export function ParentClassSelectionDrawer({
   onToggleChoice: (kind: ParentClassChoiceKind) => void;
   onSelectChoice: (cls: ParentClassOption, kind: ParentClassChoiceKind) => void;
   onClose: () => void;
+  onSaveDraft?: () => void;
   onSubmit: () => void;
+  saveDraftDisabled?: boolean;
   submitDisabled: boolean;
   submitting: boolean;
   secondChoiceDisabled?: boolean;
+  optionsLoading?: boolean;
 }) {
+  const selectedSlotSchedule = {
+    day: title.match(/Day\s+\d+/i)?.[0] ?? title,
+    time,
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/20"
@@ -467,32 +504,59 @@ export function ParentClassSelectionDrawer({
           {title} - {time}
         </div>
 
-        <div className="mt-[26px] flex-1 space-y-[30px] overflow-y-auto pr-1">
+        <div className={`mt-[18px] rounded-[10px] border px-4 py-3 text-[13px] leading-[1.4] ${slotContext?.kind === "change" ? "border-[#84adff]/45 bg-[#eef4ff] text-[#3451a4]" : "border-[#d9eef1] bg-[#f6fcfd] text-[#155e66]"}`}>
+          {slotContext?.kind === "change"
+            ? `You are requesting a change from ${slotContext.label}.`
+            : "You are choosing a class for an empty slot."}
+        </div>
+
+        <div className="mt-[18px] flex-1 space-y-[30px] overflow-y-auto pr-1">
           <ChoiceSelector
             label="Choose the first option"
             value={firstChoice}
             classes={firstChoiceOptions}
+            scheduleDisplay={selectedSlotSchedule}
             open={openChoice === "firstChoice"}
             onToggle={() => onToggleChoice("firstChoice")}
             onSelect={(cls) => onSelectChoice(cls, "firstChoice")}
+            helperText={
+              optionsLoading
+                ? "Loading enrichment classes for this block and day."
+                : firstChoiceOptions.length === 0
+                  ? "No enrichment classes are available for this block and day."
+                  : undefined
+            }
+            loading={optionsLoading}
           />
 
           <ChoiceSelector
             label="Choose the second option"
             value={secondChoice}
             classes={secondChoiceOptions}
+            scheduleDisplay={selectedSlotSchedule}
             open={!secondChoiceDisabled && openChoice === "secondChoice"}
             onToggle={() => onToggleChoice("secondChoice")}
             onSelect={(cls) => onSelectChoice(cls, "secondChoice")}
             disabled={secondChoiceDisabled}
             helperText={secondChoiceDisabled ? "Choose a first option before adding a backup choice." : undefined}
+            loading={optionsLoading}
           />
         </div>
 
-        <div className="mt-[30px] flex gap-[24px] border-t border-[#f0f0f0] pt-[24px]">
+        <div className="mt-[30px] flex flex-col gap-3 border-t border-[#f0f0f0] pt-[24px] sm:flex-row">
           <button type="button" onClick={onClose} className="h-[42px] flex-1 rounded-[6px] bg-[#d2f1f5] text-[14px] font-semibold text-[#14c1d5]">
             Back
           </button>
+          {onSaveDraft ? (
+            <button
+              type="button"
+              disabled={saveDraftDisabled || submitting}
+              onClick={onSaveDraft}
+              className="h-[42px] flex-1 rounded-[6px] border border-[#14c1d5] bg-white px-4 text-[14px] font-semibold text-[#14c1d5] hover:bg-[#ecfdff] disabled:cursor-not-allowed disabled:border-[#dfe1e6] disabled:text-[#818898]"
+            >
+              Save Draft
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={submitDisabled || submitting}

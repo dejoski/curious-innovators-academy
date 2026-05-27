@@ -117,6 +117,11 @@ export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "waitli
 export type StudentScheduleBadge = {
   label: string;
   tone: StudentScheduleBadgeTone;
+  draftKind?: "choice" | "change";
+  draftOf?: {
+    label: string;
+    tone: StudentScheduleBadgeTone;
+  };
 };
 
 export type StudentScheduleRow = {

@@ -35,7 +35,7 @@ export const PARENT_SCHEDULE_ROWS: {
   { label: "Block 1", time: "7:00 - 8:30 am", slots: ["b1", "b1", "b1"] },
   { label: "Block 2", time: "8:40 - 10:10 am", slots: ["b2", "b2", "b2"] },
   { label: "Block 3", time: "10:20 - 11:50 am", slots: ["b3Tue", "b3Wed", "b3Thu"] },
-  { label: "Block 4", time: "7:00 - 8:30 am", slots: ["b4Tue", "b4Wed", "b4Thu"] },
+  { label: "Block 4", time: "12:00 - 1:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
 
 export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
@@ -55,9 +55,9 @@ export const SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
   b3Tue: "10:20 am",
   b3Wed: "10:20 am",
   b3Thu: "10:20 am",
-  b4Tue: "7:00 am",
-  b4Wed: "7:00 am",
-  b4Thu: "7:00 am",
+  b4Tue: "12:00 pm",
+  b4Wed: "12:00 pm",
+  b4Thu: "12:00 pm",
 };
 
 export const PARENT_SCHEDULE_SLOT_DISPLAY_ORDER: Record<ParentScheduleSlotKey, number> = {
@@ -114,8 +114,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 4 Day 1",
     block: "B4",
     level: "1",
-    time: "7:00 - 8:30 am",
-    overlayTime: "7:00 AM - 8:30 AM",
+    time: "12:00 - 1:30 pm",
+    overlayTime: "12:00 PM - 1:30 PM",
     scheduleSlot: "b4Tue",
     label: "Block 4 / Day 1",
   },
@@ -123,8 +123,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 4 Day 2",
     block: "B4",
     level: "2",
-    time: "7:00 - 8:30 am",
-    overlayTime: "7:00 AM - 8:30 AM",
+    time: "12:00 - 1:30 pm",
+    overlayTime: "12:00 PM - 1:30 PM",
     scheduleSlot: "b4Wed",
     label: "Block 4 / Day 2",
   },
@@ -132,8 +132,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 4 Day 3",
     block: "B4",
     level: "3",
-    time: "7:00 - 8:30 am",
-    overlayTime: "7:00 AM - 8:30 AM",
+    time: "12:00 - 1:30 pm",
+    overlayTime: "12:00 PM - 1:30 PM",
     scheduleSlot: "b4Thu",
     label: "Block 4 / Day 3",
   },
@@ -190,7 +190,7 @@ export function scheduleBadgeStatusLabel(
     return "Pending approval";
   }
   if (badge.tone === "waitlisted") return context === "grid" ? "Enric. Waitlisted" : "Waitlisted";
-  if (badge.tone === "draft") return "Draft choice";
+  if (badge.tone === "draft") return badge.draftKind === "change" ? "Draft change" : "Draft choice";
   if (context === "grid") return "+ Choose class";
   if (context === "compact") return "Available";
   return "Open";

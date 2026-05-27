@@ -36,9 +36,9 @@ const SLOT_DETAILS: SlotDetail[] = [
   { slot: "b3Tue", day: "Day 1", block: "Block 3", time: "10:20 - 11:50 am" },
   { slot: "b3Wed", day: "Day 2", block: "Block 3", time: "10:20 - 11:50 am" },
   { slot: "b3Thu", day: "Day 3", block: "Block 3", time: "10:20 - 11:50 am" },
-  { slot: "b4Tue", day: "Day 1", block: "Block 4", time: "7:00 - 8:30 am" },
-  { slot: "b4Wed", day: "Day 2", block: "Block 4", time: "7:00 - 8:30 am" },
-  { slot: "b4Thu", day: "Day 3", block: "Block 4", time: "7:00 - 8:30 am" },
+  { slot: "b4Tue", day: "Day 1", block: "Block 4", time: "12:00 - 1:30 pm" },
+  { slot: "b4Wed", day: "Day 2", block: "Block 4", time: "12:00 - 1:30 pm" },
+  { slot: "b4Thu", day: "Day 3", block: "Block 4", time: "12:00 - 1:30 pm" },
 ];
 
 const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = [

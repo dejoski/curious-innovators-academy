@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Bell, CalendarDays, ChevronRight } from "lucide-react";
 
+import { ParentCatalogStatusBanner } from "@/components/parent-catalog-status-banner";
 import {
   ParentClassDetailsDrawer,
   ParentClassSelectionDrawer,
@@ -14,6 +15,7 @@ import {
   parentClassOptionFromRow,
   type ParentClassChoiceKind,
   type ParentClassOption,
+  type ParentClassSlotContext,
 } from "@/components/parent-class-drawers";
 import {
   buildParentScheduleBadges,
@@ -43,7 +45,6 @@ import {
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
-  type LocalReviewStatus,
   type LocalReviewStatuses,
   type ParentCatalogIdentity,
   type ParentCatalogRequests,
@@ -51,6 +52,7 @@ import {
 import {
   CATALOG_SLOT_META as SLOT_META,
   catalogSlotIdFromScheduleSlot,
+  normalizeScheduleBadges,
   scheduleBadgeStatusLabel,
   type CatalogSlotId,
 } from "@/lib/schedule-slots";
@@ -77,6 +79,18 @@ type HomeCatalogRequests = Record<CatalogSlotId, {
   firstChoice: ParentClassOption | null;
   secondChoice: ParentClassOption | null;
 }>;
+
+function normalizedHomeCatalogRequests(requests?: ParentCatalogRequests | null): HomeCatalogRequests {
+  return {
+    ...INITIAL_PARENT_CATALOG_REQUESTS,
+    ...(requests ?? {}),
+  } as HomeCatalogRequests;
+}
+
+function slotContextFromBadges(badges: StudentScheduleBadge[] | undefined): ParentClassSlotContext {
+  const current = normalizeScheduleBadges(badges ?? [])[0];
+  return current ? { kind: "change", label: current.label } : { kind: "empty" };
+}
 
 function RowArrow() {
   return (
@@ -169,17 +183,6 @@ function sourceHint(source: DataSource | null): string | null {
   return null;
 }
 
-function reviewPillClasses(status: LocalReviewStatus): string {
-  if (status === "Approved") return "border-[#004d08]/35 bg-[#004d08]/15 text-[#004d08]";
-  if (status === "Waitlisted") return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
-  if (status === "Rejected") return "border-[#d80509]/35 bg-[#ffd9d9] text-[#d80509]";
-  return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
-}
-
-function reviewPillLabel(status: LocalReviewStatus, state: LocalRequestState): string {
-  return state === "draft" ? "Draft" : status;
-}
-
 function parentClassListHref(option: ParentClassOption): string {
   return option.program === "core" ? "/dashboard/parents/classes/core" : "/dashboard/parents/classes/enrichment";
 }
@@ -225,6 +228,10 @@ export default function ParentHomeDashboard() {
   const [dataSource, setDataSource] = useState<DataSource | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
+  const [serverCatalogDraft, setServerCatalogDraft] = useState<ParentCatalogRequests | null>(null);
+  const [serverLocalRequestState, setServerLocalRequestState] = useState<Exclude<LocalRequestState, "draft">>(null);
+  const [serverLocalReviewStatuses, setServerLocalReviewStatuses] = useState<LocalReviewStatuses>({});
+  const [editingCatalogDraft, setEditingCatalogDraft] = useState<HomeCatalogRequests | null>(null);
   const [localRequestState, setLocalRequestState] = useState<LocalRequestState>(null);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [classOptions, setClassOptions] = useState<ParentClassOption[]>([]);
@@ -259,6 +266,10 @@ export default function ParentHomeDashboard() {
           setProfile(null);
           setSchedule(null);
           setCatalogDraft(null);
+          setServerCatalogDraft(null);
+          setServerLocalRequestState(null);
+          setServerLocalReviewStatuses({});
+          setEditingCatalogDraft(null);
           setLocalRequestState(null);
           setLocalReviewStatuses({});
           setNotifications(Array.isArray(notificationsBody.notifications) ? notificationsBody.notifications.slice(0, 3) : []);
@@ -313,9 +324,15 @@ export default function ParentHomeDashboard() {
         studentId: activeStudent.id,
         studentName: activeStudent.name,
       });
-      setCatalogDraft(snapshot.requests);
-      setLocalRequestState(snapshot.state);
-      setLocalReviewStatuses({});
+      if (snapshot.requests) {
+        setCatalogDraft(snapshot.requests);
+        setLocalRequestState("draft");
+        setLocalReviewStatuses({});
+      } else {
+        setCatalogDraft(serverCatalogDraft);
+        setLocalRequestState(serverLocalRequestState);
+        setLocalReviewStatuses(serverLocalReviewStatuses);
+      }
     }
 
     readCatalogDraft();
@@ -325,7 +342,7 @@ export default function ParentHomeDashboard() {
       window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
       window.removeEventListener("storage", readCatalogDraft);
     };
-  }, [student?.id, student?.name]);
+  }, [serverCatalogDraft, serverLocalRequestState, serverLocalReviewStatuses, student?.id, student?.name]);
 
   useEffect(() => {
     if (!student?.id) return;
@@ -338,11 +355,19 @@ export default function ParentHomeDashboard() {
           Array.isArray(body.requests) ? body.requests : [],
           studentForRequests.id,
         );
-        if (cancelled || !snapshot.requests) return;
-        clearPendingParentCatalogRequests({ studentId: studentForRequests.id });
-        setCatalogDraft(snapshot.requests);
-        setLocalRequestState(snapshot.state);
-        setLocalReviewStatuses(snapshot.reviewStatuses);
+        if (cancelled) return;
+        setServerCatalogDraft(snapshot.requests);
+        setServerLocalRequestState(snapshot.state);
+        setServerLocalReviewStatuses(snapshot.reviewStatuses);
+        const localSnapshot = readParentCatalogSnapshot({
+          studentId: studentForRequests.id,
+          studentName: studentForRequests.name,
+        });
+        if (!localSnapshot.requests) {
+          setCatalogDraft(snapshot.requests);
+          setLocalRequestState(snapshot.state);
+          setLocalReviewStatuses(snapshot.reviewStatuses);
+        }
       } catch {
         /* Local draft state remains visible when request rows cannot be loaded. */
       }
@@ -353,46 +378,23 @@ export default function ParentHomeDashboard() {
     };
   }, [student?.id]);
 
+  useEffect(() => {
+    if (!selectionDrawerOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") closeSelectionDrawer();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectionDrawerOpen]);
+
   const localChoiceReviews = useMemo(() => {
     return catalogChoiceReviews(catalogDraft, localReviewStatuses);
   }, [catalogDraft, localReviewStatuses]);
 
   const localPendingChoices = localChoiceReviews.filter((choice) => choice.status === "Pending").length;
-  const localApprovedChoices = localChoiceReviews.filter((choice) => choice.status === "Approved").length;
-  const localWaitlistedChoices = localChoiceReviews.filter((choice) => choice.status === "Waitlisted").length;
-  const localRejectedChoices = localChoiceReviews.filter((choice) => choice.status === "Rejected").length;
-  const localBannerTone =
-    localRequestState === "draft"
-      ? "draft"
-      : localRejectedChoices && !localPendingChoices && !localApprovedChoices && !localWaitlistedChoices
-        ? "rejected"
-        : localApprovedChoices && !localPendingChoices && !localRejectedChoices && !localWaitlistedChoices
-          ? "approved"
-          : localApprovedChoices || localRejectedChoices || localWaitlistedChoices
-            ? "mixed"
-            : "pending";
-  const localBannerClass =
-    localBannerTone === "approved"
-      ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]"
-      : localBannerTone === "rejected"
-        ? "border-[#d80509]/30 bg-[#fff5f5] text-[#a00408]"
-        : localBannerTone === "mixed"
-          ? "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"
-          : "border-[#14c1d5]/30 bg-[#ecfdff] text-[#155e66]";
-  const localBannerMessage =
-    localRequestState === "draft"
-      ? "You have a saved class-selection draft ready to review."
-      : localBannerTone === "approved"
-        ? "Your enrichment request has been approved. Approved classes are reflected in the schedule."
-        : localBannerTone === "rejected"
-          ? "Your enrichment request was not approved. Review the class selection page to choose another option."
-          : localBannerTone === "mixed"
-            ? "Your enrichment request has review updates, including waitlist decisions. Check each class status below."
-            : "Your enrichment request is saved and pending school review.";
 
   const attendance = isStudentDataLoading ? "--" : profile ? metricValue(profile.attendanceLabel, "--") : "--";
   const basePendingRequests = Number(!isStudentDataLoading && profile ? firstNumber(profile.pendingLabel, "0") : "0");
-  const localChoiceCount = localChoiceReviews.length;
   const pendingRequests = isStudentDataLoading
     ? "--"
     : String(basePendingRequests || (localRequestState === "submitted" ? localPendingChoices : 0)).padStart(2, "0");
@@ -421,15 +423,14 @@ export default function ParentHomeDashboard() {
   );
 
   const homeCatalogRequests = useMemo(
-    () => ({
-      ...INITIAL_PARENT_CATALOG_REQUESTS,
-      ...(catalogDraft ?? {}),
-    }) as HomeCatalogRequests,
+    () => normalizedHomeCatalogRequests(catalogDraft),
     [catalogDraft],
   );
+  const drawerCatalogRequests = editingCatalogDraft ?? homeCatalogRequests;
 
   const activeMeta = SLOT_META[activeSlot];
-  const activeRequests = homeCatalogRequests[activeSlot];
+  const activeRequests = drawerCatalogRequests[activeSlot];
+  const slotContext = slotContextFromBadges(schedule?.[activeMeta.scheduleSlot]);
   const enrichmentOptions = useMemo(
     () => classOptions.filter((option) => option.program === "enrichment"),
     [classOptions],
@@ -443,16 +444,21 @@ export default function ParentHomeDashboard() {
     );
   }
 
-  const firstChoice = resolveStoredChoice(activeRequests.firstChoice);
-  const secondChoice = resolveStoredChoice(activeRequests.secondChoice);
   const recommendedClasses = useMemo(() => {
     return parentClassOptionsForCatalogSlot(enrichmentOptions, activeMeta);
   }, [activeMeta, enrichmentOptions]);
-  const overlayClasses = recommendedClasses.length ? recommendedClasses : enrichmentOptions;
+  const overlayClasses = recommendedClasses;
+  const choiceMatchesActiveSlot = (choice: ParentClassOption | null) =>
+    Boolean(choice && overlayClasses.some((option) => (option.id || option.name) === (choice.id || choice.name)));
+  const storedFirstChoice = resolveStoredChoice(activeRequests.firstChoice);
+  const storedSecondChoice = resolveStoredChoice(activeRequests.secondChoice);
+  const firstChoice = choiceMatchesActiveSlot(storedFirstChoice) ? storedFirstChoice : null;
+  const secondChoice = choiceMatchesActiveSlot(storedSecondChoice) ? storedSecondChoice : null;
   const firstChoiceOptions = overlayClasses.filter((option) => option.id !== secondChoice?.id);
   const secondChoiceOptions = overlayClasses.filter((option) => option.id !== firstChoice?.id);
   const activeSlotHasChoices = Boolean(firstChoice || secondChoice);
   const hasCatalogChoices = hasParentCatalogChoices(homeCatalogRequests as ParentCatalogRequests);
+  const drawerHasCatalogChoices = hasParentCatalogChoices(drawerCatalogRequests as ParentCatalogRequests);
   const activeStudentId = student?.id;
 
   function persistHomeDraft(next: HomeCatalogRequests) {
@@ -467,11 +473,43 @@ export default function ParentHomeDashboard() {
     }
   }
 
+  function saveHomeDraft() {
+    const draft = editingCatalogDraft ?? homeCatalogRequests;
+    if (!hasParentCatalogChoices(draft as ParentCatalogRequests)) return;
+    persistHomeDraft(draft);
+    setSelectionDrawerOpen(false);
+    setOpenChoice(null);
+    setEditingCatalogDraft(null);
+    setLoadError(null);
+  }
+
+  function discardHomeDraft() {
+    try {
+      clearPendingParentCatalogRequests({ studentId: activeStudentId });
+      clearSubmittedParentCatalogSnapshot({ studentId: activeStudentId });
+    } catch {
+      /* Browser storage can be unavailable in privacy modes. */
+    }
+    setCatalogDraft(serverCatalogDraft);
+    setLocalRequestState(serverLocalRequestState);
+    setLocalReviewStatuses(serverLocalReviewStatuses);
+    setEditingCatalogDraft(null);
+    setDetailClass(null);
+    setLoadError(null);
+  }
+
   function openSelectionForSlot(slot: ParentScheduleSlotKey) {
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
     if (!catalogSlot) return;
     setActiveSlot(catalogSlot);
+    setEditingCatalogDraft(homeCatalogRequests);
     setSelectionDrawerOpen(true);
+    setOpenChoice(null);
+  }
+
+  function closeSelectionDrawer() {
+    setSelectionDrawerOpen(false);
+    setEditingCatalogDraft(null);
     setOpenChoice(null);
   }
 
@@ -489,29 +527,34 @@ export default function ParentHomeDashboard() {
   function editDetailSelection() {
     if (!detailClass?.catalogSlot) return;
     setActiveSlot(detailClass.catalogSlot);
+    setEditingCatalogDraft(homeCatalogRequests);
     setDetailClass(null);
     setSelectionDrawerOpen(true);
     setOpenChoice(null);
   }
 
   function selectHomeChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
-    const active = homeCatalogRequests[activeSlot];
-    const targetKind: ParentClassChoiceKind = kind === "secondChoice" && !active.firstChoice ? "firstChoice" : kind;
-    const otherKind: ParentClassChoiceKind = targetKind === "firstChoice" ? "secondChoice" : "firstChoice";
-    persistHomeDraft({
-      ...homeCatalogRequests,
-      [activeSlot]: {
-        ...active,
-        [targetKind]: cls,
-        [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
-      },
+    setEditingCatalogDraft((prev) => {
+      const current = prev ?? homeCatalogRequests;
+      const active = current[activeSlot];
+      const targetKind: ParentClassChoiceKind = kind === "secondChoice" && !active.firstChoice ? "firstChoice" : kind;
+      const otherKind: ParentClassChoiceKind = targetKind === "firstChoice" ? "secondChoice" : "firstChoice";
+      return {
+        ...current,
+        [activeSlot]: {
+          ...active,
+          [targetKind]: cls,
+          [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
+        },
+      };
     });
     setOpenChoice(null);
   }
 
   async function submitHomeSelections() {
-    if (!hasCatalogChoices || submitting) return;
-    const choices = selectedChoicesForSubmit(homeCatalogRequests as ParentCatalogRequests);
+    const submissionRequests = editingCatalogDraft ?? homeCatalogRequests;
+    if (!hasParentCatalogChoices(submissionRequests as ParentCatalogRequests) || submitting) return;
+    const choices = selectedChoicesForSubmit(submissionRequests as ParentCatalogRequests);
     if (!choices.length) return;
 
     setSubmitting(true);
@@ -523,9 +566,9 @@ export default function ParentHomeDashboard() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setLocalRequestState("draft");
+        persistHomeDraft(submissionRequests);
         setLoadError(`Cloud submission failed: ${body?.error ?? res.statusText}. Your draft is still saved.`);
-        setSelectionDrawerOpen(false);
+        closeSelectionDrawer();
         setDetailClass(null);
         return;
       }
@@ -541,21 +584,19 @@ export default function ParentHomeDashboard() {
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/profile`);
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/schedule`);
       }
-      if (snapshot.requests) {
-        setCatalogDraft(snapshot.requests);
-        setLocalRequestState(snapshot.state);
-        setLocalReviewStatuses(snapshot.reviewStatuses);
-      } else {
-        setLocalRequestState("submitted");
-        setLocalReviewStatuses({});
-      }
-      setSelectionDrawerOpen(false);
+      setServerCatalogDraft(snapshot.requests);
+      setServerLocalRequestState(snapshot.state);
+      setServerLocalReviewStatuses(snapshot.reviewStatuses);
+      setCatalogDraft(snapshot.requests);
+      setLocalRequestState(snapshot.state);
+      setLocalReviewStatuses(snapshot.reviewStatuses);
+      closeSelectionDrawer();
       setDetailClass(null);
       setLoadError(null);
     } catch (error) {
-      setLocalRequestState("draft");
+      persistHomeDraft(submissionRequests);
       setLoadError(`Cloud submission failed: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.`);
-      setSelectionDrawerOpen(false);
+      closeSelectionDrawer();
       setDetailClass(null);
     } finally {
       setSubmitting(false);
@@ -570,44 +611,39 @@ export default function ParentHomeDashboard() {
         </div>
       ) : null}
 
-      {localRequestState && localChoiceCount > 0 ? (
-        <div className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm ${localBannerClass}`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="font-medium">{localBannerMessage}</span>
-            <div className="flex flex-wrap gap-2">
-              {localRequestState === "draft" && hasCatalogChoices ? (
-                <button
-                  type="button"
-                  onClick={submitHomeSelections}
-                  disabled={submitting}
-                  className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
-                >
-                  {submitting ? "Submitting..." : "Submit Draft"}
-                </button>
-              ) : null}
-              <Link
-                href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)}
+      <ParentCatalogStatusBanner
+        state={localRequestState}
+        choices={localChoiceReviews}
+        actions={
+          <>
+            {localRequestState === "draft" && hasCatalogChoices ? (
+              <button
+                type="button"
+                onClick={submitHomeSelections}
+                disabled={submitting}
+                className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+              >
+                {submitting ? "Submitting..." : "Submit Draft"}
+              </button>
+            ) : null}
+            {localRequestState === "draft" && hasCatalogChoices ? (
+              <button
+                type="button"
+                onClick={discardHomeDraft}
                 className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
               >
-                Review Class Selection
-              </Link>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {localChoiceReviews.map((choice) => (
-              <span
-                key={choice.id}
-                className={`inline-flex max-w-full items-center gap-1 rounded-[999px] border px-2.5 py-1 text-[11px] font-semibold ${reviewPillClasses(choice.status)}`}
-                title={`${choice.slot} ${choice.choice}: ${choice.name}`}
-              >
-                <span>{reviewPillLabel(choice.status, localRequestState)}</span>
-                <span className="text-current/70">·</span>
-                <span className="truncate">{choice.choice}: {choice.name}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
+                Discard draft
+              </button>
+            ) : null}
+            <Link
+              href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)}
+              className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
+            >
+              Review Class Selection
+            </Link>
+          </>
+        }
+      />
 
       <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
         <div className="flex-1 min-w-[200px] bg-white border border-[#f0f0f0] rounded-[18px] p-5 flex items-center shadow-sm">
@@ -713,6 +749,7 @@ export default function ParentHomeDashboard() {
         <ParentClassSelectionDrawer
           title={activeMeta.title}
           time={activeMeta.overlayTime}
+          slotContext={slotContext}
           firstChoice={firstChoice}
           secondChoice={secondChoice}
           firstChoiceOptions={firstChoiceOptions}
@@ -723,11 +760,14 @@ export default function ParentHomeDashboard() {
             setOpenChoice((open) => (open === kind ? null : kind));
           }}
           onSelectChoice={selectHomeChoice}
-          onClose={() => setSelectionDrawerOpen(false)}
+          onClose={closeSelectionDrawer}
+          onSaveDraft={saveHomeDraft}
           onSubmit={submitHomeSelections}
+          saveDraftDisabled={!drawerHasCatalogChoices}
           submitDisabled={!activeSlotHasChoices}
           submitting={submitting}
           secondChoiceDisabled={!firstChoice}
+          optionsLoading={isStudentDataLoading}
         />
       ) : null}
       {detailClass ? (
@@ -735,9 +775,9 @@ export default function ParentHomeDashboard() {
           option={detailClass.option}
           statusLabel={detailClass.statusLabel}
           classListHref={parentClassListHref(detailClass.option)}
-          canSubmitDraft={detailClass.statusLabel === "Draft choice" && localRequestState === "draft" && hasCatalogChoices}
+          canSubmitDraft={detailClass.statusLabel.startsWith("Draft") && localRequestState === "draft" && hasCatalogChoices}
           submitting={submitting}
-          onEditSelection={detailClass.statusLabel === "Draft choice" && detailClass.catalogSlot ? editDetailSelection : undefined}
+          onEditSelection={detailClass.statusLabel.startsWith("Draft") && detailClass.catalogSlot ? editDetailSelection : undefined}
           onSubmitDraft={submitHomeSelections}
           onClose={() => setDetailClass(null)}
         />

@@ -17,11 +17,34 @@ export type { ParentScheduleBadges, ParentScheduleSlotKey } from "@/lib/schedule
 
 export type ParentScheduleBadgeClick = (slot: ParentScheduleSlotKey, badge: StudentScheduleBadge, index: number) => void;
 
+function firstRealBadge(badges: StudentScheduleBadge[] | undefined): StudentScheduleBadge {
+  return (badges ?? []).find((badge) => badge.tone !== "empty" && badge.label !== "--") ?? { label: "Available slot", tone: "empty" };
+}
+
+function draftBadgeWithUnderlying(badge: StudentScheduleBadge, source: StudentScheduleBadge[] | undefined): StudentScheduleBadge {
+  if (badge.tone !== "draft") return badge;
+  const draftOf = firstRealBadge(source);
+  const isChange = draftOf.tone !== "empty";
+  return {
+    ...badge,
+    label: isChange ? `Draft change: ${badge.label}` : badge.label,
+    draftKind: isChange ? "change" : "choice",
+    draftOf: {
+      label: draftOf.label,
+      tone: draftOf.tone,
+    },
+  };
+}
+
 export function buildParentScheduleBadges(schedule?: StudentScheduleRow | null, overrides?: ParentScheduleBadges): ParentScheduleBadges {
   return PARENT_SCHEDULE_SLOT_KEYS.reduce<ParentScheduleBadges>((next, slot) => {
     const override = overrides?.[slot];
     const source = schedule?.[slot];
-    next[slot] = normalizeScheduleBadges(override?.length ? override : source?.length ? source : []);
+    const sourceBadges = normalizeScheduleBadges(source?.length ? source : []);
+    const overrideBadges = normalizeScheduleBadges(override?.length ? override : []);
+    next[slot] = overrideBadges.length
+      ? overrideBadges.map((badge) => draftBadgeWithUnderlying(badge, sourceBadges))
+      : sourceBadges;
     return next;
   }, {});
 }
@@ -39,11 +62,28 @@ function meaningfulBadgeCount(badges: StudentScheduleBadge[]) {
   return badges.filter((badge) => badge.tone !== "empty").length;
 }
 
-function ScheduleBadgeCard({ badge, tall = false, compact = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean }) {
+function ScheduleBadgeFace({ badge, tall = false, compact = false, muted = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean; muted?: boolean }) {
   return (
-    <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)}`}>
+    <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)} ${muted ? "opacity-85" : ""}`}>
       <p className={`${tall ? "line-clamp-3" : "line-clamp-2"} text-[11px] leading-[1.16] text-[#111827] min-[1100px]:text-[13px]`}>{badge.label}</p>
       <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"}`}>{scheduleBadgeStatusLabel(badge, "grid")}</p>
+    </div>
+  );
+}
+
+function ScheduleBadgeCard({ badge, tall = false, compact = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean }) {
+  if (badge.tone !== "draft" || !badge.draftOf) {
+    return <ScheduleBadgeFace badge={badge} tall={tall} compact={compact} />;
+  }
+
+  return (
+    <div className="group/draft relative h-full min-h-0 overflow-visible">
+      <div className="absolute inset-0 translate-x-1 translate-y-1">
+        <ScheduleBadgeFace badge={badge.draftOf} tall={tall} compact={compact} muted />
+      </div>
+      <div className="relative h-full shadow-sm transition-transform duration-200 ease-out motion-safe:group-hover/draft:-translate-y-2 motion-safe:group-hover/draft:translate-x-2 motion-safe:group-hover/draft:-rotate-2 motion-safe:group-focus-within/draft:-translate-y-2 motion-safe:group-focus-within/draft:translate-x-2 motion-safe:group-focus-within/draft:-rotate-2 motion-reduce:-translate-y-1 motion-reduce:translate-x-1">
+        <ScheduleBadgeFace badge={badge} tall={tall} compact={compact} />
+      </div>
     </div>
   );
 }
