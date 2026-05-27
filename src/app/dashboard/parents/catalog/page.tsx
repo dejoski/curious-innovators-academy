@@ -18,23 +18,22 @@ import {
   ParentScheduleGrid,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
-import { cachedJson } from "@/lib/client-data-cache";
+import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
 import {
   selectedParentStudentIdFromSearchParams,
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
+  catalogSnapshotFromEnrichmentRequests,
   catalogScheduleBadgeOverrides,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
   normalizeParentCatalogRequests,
-  readLocalReviewStatuses,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
-  writeSubmittedParentCatalogSnapshot,
   type LocalReviewStatuses,
   type ParentCatalogIdentity,
   type ParentCatalogRequests,
@@ -48,7 +47,7 @@ import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromBadges,
 } from "@/lib/parent-schedule-status";
-import type { SchoolClassRow, StudentListItem, StudentScheduleRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentScheduleRow } from "@/lib/data/types";
 
 type SlotId = CatalogSlotId;
 
@@ -102,7 +101,6 @@ function ParentClassesEnrichmentCatalogContent() {
   const [requests, setRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
   const [localReviewStatuses, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [restoredDraft, setRestoredDraft] = useState(false);
-  const [localSubmittedAt, setLocalSubmittedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
@@ -175,31 +173,58 @@ function ParentClassesEnrichmentCatalogContent() {
   }, [requestedStudentId]);
 
   useEffect(() => {
-    function readReviewStatuses() {
-      setLocalReviewStatuses(readLocalReviewStatuses());
+    function clearLegacyStatuses() {
+      setLocalReviewStatuses({});
     }
 
-    readReviewStatuses();
-    window.addEventListener("storage", readReviewStatuses);
-    window.addEventListener("cia-parent-catalog-updated", readReviewStatuses);
+    clearLegacyStatuses();
+    window.addEventListener("storage", clearLegacyStatuses);
+    window.addEventListener("cia-parent-catalog-updated", clearLegacyStatuses);
     return () => {
-      window.removeEventListener("storage", readReviewStatuses);
-      window.removeEventListener("cia-parent-catalog-updated", readReviewStatuses);
+      window.removeEventListener("storage", clearLegacyStatuses);
+      window.removeEventListener("cia-parent-catalog-updated", clearLegacyStatuses);
     };
   }, []);
 
   useEffect(() => {
     if (!activeStudent?.id) return;
-    const snapshot = readParentCatalogSnapshot({
-      studentId: activeStudent.id,
-      studentName: activeStudent.name,
-    });
-    setRequests(normalizeParentCatalogRequests(snapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
-    setLocalSubmittedAt(snapshot.submittedAt);
-    setLocalRequestState(snapshot.state);
-    setLocalReviewStatuses(snapshot.reviewStatuses);
-    setRestoredDraft(Boolean(snapshot.requests));
-    setCatalogStorageReadyFor(activeStudent.id);
+    const studentForRequests = activeStudent;
+    let cancelled = false;
+    async function loadRequestState() {
+      const draftSnapshot = readParentCatalogSnapshot({
+        studentId: studentForRequests.id,
+        studentName: studentForRequests.name,
+      });
+      if (!cancelled) {
+        setRequests(normalizeParentCatalogRequests(draftSnapshot.requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>);
+        setLocalRequestState(draftSnapshot.state);
+        setLocalReviewStatuses({});
+        setRestoredDraft(Boolean(draftSnapshot.requests));
+        setCatalogStorageReadyFor(studentForRequests.id);
+      }
+
+      try {
+        const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { requests?: EnrichmentRequestRow[] };
+        const dbSnapshot = catalogSnapshotFromEnrichmentRequests(
+          Array.isArray(body.requests) ? body.requests : [],
+          studentForRequests.id,
+        );
+        if (cancelled || !dbSnapshot.requests) return;
+        clearPendingParentCatalogRequests({ studentId: studentForRequests.id });
+        setRequests(normalizeParentCatalogRequests(dbSnapshot.requests) as Record<SlotId, SlotRequests>);
+        setLocalRequestState(dbSnapshot.state);
+        setLocalReviewStatuses(dbSnapshot.reviewStatuses);
+        setRestoredDraft(false);
+      } catch {
+        /* Draft state remains available if the request endpoint is unavailable. */
+      }
+    }
+    void loadRequestState();
+    return () => {
+      cancelled = true;
+    };
   }, [activeStudent?.id, activeStudent?.name]);
 
   useEffect(() => {
@@ -223,7 +248,9 @@ function ParentClassesEnrichmentCatalogContent() {
   useEffect(() => {
     if (!activeStudent?.id || catalogStorageReadyFor !== activeStudent.id) return;
     try {
-      if (hasParentCatalogChoices(requests as ParentCatalogRequests)) {
+      if (localRequestState === "submitted") {
+        clearPendingParentCatalogRequests({ studentId: activeStudent.id });
+      } else if (hasParentCatalogChoices(requests as ParentCatalogRequests)) {
         writePendingParentCatalogRequests(requests as ParentCatalogRequests, catalogIdentity);
       } else {
         clearPendingParentCatalogRequests({ studentId: activeStudent.id });
@@ -231,7 +258,7 @@ function ParentClassesEnrichmentCatalogContent() {
     } catch {
       /* Browser storage can be unavailable in privacy modes. */
     }
-  }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, requests]);
+  }, [activeStudent?.id, catalogIdentity, catalogStorageReadyFor, localRequestState, requests]);
 
   const scheduleBadgesBySlot = useMemo(() => {
     return buildParentScheduleBadges(
@@ -286,7 +313,6 @@ function ParentClassesEnrichmentCatalogContent() {
       } catch {
         /* ignore storage failures */
       }
-    setLocalSubmittedAt(null);
     setLocalRequestState("draft");
     setLocalReviewStatuses({});
   }
@@ -310,18 +336,6 @@ function ParentClassesEnrichmentCatalogContent() {
     clearSubmittedSnapshot();
   }
 
-    function persistSubmittedSnapshot() {
-      let submittedAt: string | null = null;
-      try {
-        submittedAt = writeSubmittedParentCatalogSnapshot(requests as ParentCatalogRequests, catalogIdentity);
-      } catch {
-        /* Saved draft still exists under PARENT_CATALOG_PENDING_KEY. */
-      }
-    setLocalSubmittedAt(submittedAt);
-    setLocalRequestState("submitted");
-    setLocalReviewStatuses({});
-  }
-
   async function submitSelections() {
     if (!hasChoices || submitting) return;
     setSubmitting(true);
@@ -339,7 +353,26 @@ function ParentClassesEnrichmentCatalogContent() {
         setOverlayOpen(false);
         return;
       }
-      persistSubmittedSnapshot();
+      const body = (await res.json().catch(() => null)) as { requests?: EnrichmentRequestRow[] } | null;
+      const dbSnapshot = catalogSnapshotFromEnrichmentRequests(
+        Array.isArray(body?.requests) ? body.requests : [],
+        activeStudent?.id,
+      );
+      clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
+      invalidateClientDataCache("/api/data/classes");
+      if (activeStudent?.id) {
+        invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`);
+        invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`);
+      }
+      if (dbSnapshot.requests) {
+        setRequests(normalizeParentCatalogRequests(dbSnapshot.requests) as Record<SlotId, SlotRequests>);
+        setLocalRequestState(dbSnapshot.state);
+        setLocalReviewStatuses(dbSnapshot.reviewStatuses);
+      } else {
+        setLocalRequestState("submitted");
+        setLocalReviewStatuses({});
+      }
+      setRestoredDraft(false);
       setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
       setOverlayOpen(false);
     } catch (error) {
@@ -372,7 +405,7 @@ function ParentClassesEnrichmentCatalogContent() {
           {catalogHint ? <p className="rounded-[8px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">{catalogHint}</p> : null}
           {restoredDraft && !submitBanner ? (
             <p className="rounded-[8px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-2 text-sm text-[#155e66]">
-              {localSubmittedAt ? "Restored your submitted class request." : "Restored your saved class-selection draft."}
+              Restored your saved class-selection draft.
             </p>
           ) : null}
           {submitBanner ? (

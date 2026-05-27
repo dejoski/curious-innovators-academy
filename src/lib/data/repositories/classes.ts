@@ -40,78 +40,6 @@ function formatAvailabilityLabel(seatsRemaining: number, capacity: number): stri
   return `${seatsRemaining} seats left`;
 }
 
-function activeStatus(raw: unknown): boolean {
-  const status = String(raw ?? "approved").toLowerCase();
-  return status === "approved" || status === "pending";
-}
-
-function pendingStatus(raw: unknown): boolean {
-  return String(raw ?? "").toLowerCase() === "pending";
-}
-
-function waitlistedStatus(raw: unknown): boolean {
-  const status = String(raw ?? "").toLowerCase();
-  return status === "waitlisted" || status === "waitlist";
-}
-
-function studentKey(raw: Record<string, unknown>, fallbackPrefix: string, index: number): string {
-  return String(raw.student_id ?? raw.id ?? `${fallbackPrefix}-${index}`);
-}
-
-function splitSeatCounts(input: {
-  capacity: number;
-  enrollments: unknown;
-  classRequests: unknown;
-}): {
-  enrolledCount: number;
-  pendingCount: number;
-  waitlistCount: number;
-  reservedCount: number;
-  seatsRemaining: number;
-} {
-  const approvedEnrolled = new Set<string>();
-  const pendingHolds = new Set<string>();
-  const waitlisted = new Set<string>();
-  const reserved = new Set<string>();
-
-  const enrollments = Array.isArray(input.enrollments) ? input.enrollments : [];
-  enrollments.forEach((raw, index) => {
-    if (raw && typeof raw === "object" && "status" in raw) {
-      const row = raw as Record<string, unknown>;
-      const key = studentKey(row, "enrollment", index);
-      if (activeStatus(row.status)) reserved.add(key);
-      if (pendingStatus(row.status)) pendingHolds.add(key);
-      if (waitlistedStatus(row.status)) waitlisted.add(key);
-      if (String(row.status ?? "approved").toLowerCase() === "approved") approvedEnrolled.add(key);
-      return;
-    }
-    if (raw && typeof raw === "object") {
-      const key = studentKey(raw as Record<string, unknown>, "enrollment", index);
-      reserved.add(key);
-      approvedEnrolled.add(key);
-    }
-  });
-
-  const classRequests = Array.isArray(input.classRequests) ? input.classRequests : [];
-  classRequests.forEach((raw, index) => {
-    if (!raw || typeof raw !== "object") return;
-    const row = raw as Record<string, unknown>;
-    const key = studentKey(row, "request", index);
-    if (activeStatus(row.status)) reserved.add(key);
-    if (pendingStatus(row.status)) pendingHolds.add(key);
-    if (waitlistedStatus(row.status)) waitlisted.add(key);
-  });
-
-  const reservedCount = Math.max(0, reserved.size);
-  return {
-    enrolledCount: Math.max(0, approvedEnrolled.size),
-    pendingCount: Math.max(0, pendingHolds.size),
-    waitlistCount: Math.max(0, waitlisted.size),
-    reservedCount,
-    seatsRemaining: Math.max(0, input.capacity - reservedCount),
-  };
-}
-
 const CLASS_SELECT = `
   id,
   name,
@@ -129,12 +57,6 @@ const CLASS_SELECT = `
       display_name
     )
   )
-`;
-
-const CLASS_SELECT_WITH_HOLDS = `
-  ${CLASS_SELECT},
-  enrollments ( id, student_id, status ),
-  class_requests ( id, student_id, status )
 `;
 
 function normalizeProgram(raw: unknown): ProgramTrack {
@@ -240,51 +162,6 @@ function availabilityByClassId(rows: Record<string, unknown>[] | null | undefine
   return byClassId;
 }
 
-function flattenClassJoinRow(row: Record<string, unknown>): Record<string, unknown> {
-  const base = flattenClassBaseRow(row);
-  const enrollments = row.enrollments as unknown[] | null;
-  const classRequests = row.class_requests as unknown[] | null;
-  const capacity = numberField(row, "capacity") ?? 1;
-  const seatCounts = splitSeatCounts({ capacity, enrollments, classRequests });
-
-  return {
-    ...base,
-    enrolled_count: seatCounts.enrolledCount,
-    pending_count: seatCounts.pendingCount,
-    waitlist_count: seatCounts.waitlistCount,
-    reserved_count: seatCounts.reservedCount,
-    seats_remaining: seatCounts.seatsRemaining,
-    availability_label: formatAvailabilityLabel(seatCounts.seatsRemaining, capacity),
-    level: row.level,
-    block: row.block,
-    location: row.location,
-    description: row.description,
-    prerequisites: row.prerequisites,
-    schedule_summary: row.schedule_summary,
-  };
-}
-
-async function loadClassesWithJoinCounts(
-  supabase: ClassReadClient,
-): Promise<ResolvedList<SchoolClassRow>> {
-  const { data, error } = await supabase
-    .from("classes")
-    .select(CLASS_SELECT_WITH_HOLDS)
-    .order("created_at", { ascending: true });
-
-  if (error) return unavailableList();
-  if (!data?.length) return { items: [], source: "remote" };
-
-  const mapped = data
-    .map((row) =>
-      mapClassRow(flattenClassJoinRow(row as unknown as Record<string, unknown>)),
-    )
-    .filter((x): x is SchoolClassRow => x !== null);
-
-  if (mapped.length === 0) return unavailableList();
-  return { items: mapped, source: "remote" };
-}
-
 async function loadClassesResolved(client?: ClassReadClient): Promise<ResolvedList<SchoolClassRow>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
@@ -307,7 +184,7 @@ async function loadClassesResolved(client?: ClassReadClient): Promise<ResolvedLi
     }
 
     if (availabilityResult.error) {
-      return loadClassesWithJoinCounts(supabase);
+      return unavailableList();
     }
 
     const data = classesResult.data;
@@ -316,6 +193,9 @@ async function loadClassesResolved(client?: ClassReadClient): Promise<ResolvedLi
     }
 
     const countsByClassId = availabilityByClassId(availabilityResult.data as unknown as Record<string, unknown>[]);
+    if (data.some((row) => !countsByClassId.has(String((row as Record<string, unknown>).id ?? "")))) {
+      return unavailableList();
+    }
     const mapped = data
       .map((row) => {
         const classRow = row as unknown as Record<string, unknown>;

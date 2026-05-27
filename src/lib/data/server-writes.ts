@@ -569,6 +569,9 @@ export async function serverPatchEnrollmentStatus(input: {
   const classId = input.classId.trim();
   const studentId = input.studentId.trim();
   if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
+  if (input.status === "Pending") {
+    return { ok: false, message: "Pending class workflow must be created as a class request, not an enrollment" };
+  }
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -642,6 +645,9 @@ export async function serverInsertRosterStudent(input: {
   const classId = input.classId.trim();
   const name = input.name.trim().replace(/\s+/g, " ");
   if (!classId || !name) return { ok: false, message: "Missing class or student name" };
+  if (input.status === "Pending") {
+    return { ok: false, message: "Pending class workflow must be created as a class request, not an enrollment" };
+  }
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -720,6 +726,9 @@ export async function serverUpdateRosterStudent(input: {
   const classId = input.classId.trim();
   const studentId = input.studentId.trim();
   if (!classId || !studentId) return { ok: false, message: "Missing class or student id" };
+  if (input.status === "Pending") {
+    return { ok: false, message: "Pending class workflow must be created as a class request, not an enrollment" };
+  }
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -1060,34 +1069,6 @@ async function insertEnrichmentRequestRows(
   return { ok: true, rows };
 }
 
-function activeSeatStatus(raw: unknown): boolean {
-  const status = String(raw ?? "approved").toLowerCase();
-  return status === "approved" || status === "pending";
-}
-
-function rowStudentKey(raw: Record<string, unknown>, fallbackPrefix: string, index: number): string {
-  return String(raw.student_id ?? raw.id ?? `${fallbackPrefix}-${index}`);
-}
-
-function reservedSeatCount(row: Record<string, unknown>): number {
-  const reserved = new Set<string>();
-  const enrollments = Array.isArray(row.enrollments) ? row.enrollments : [];
-  enrollments.forEach((raw, index) => {
-    if (!raw || typeof raw !== "object") return;
-    const enrollment = raw as Record<string, unknown>;
-    if (activeSeatStatus(enrollment.status)) reserved.add(rowStudentKey(enrollment, "enrollment", index));
-  });
-
-  const classRequests = Array.isArray(row.class_requests) ? row.class_requests : [];
-  classRequests.forEach((raw, index) => {
-    if (!raw || typeof raw !== "object") return;
-    const request = raw as Record<string, unknown>;
-    if (activeSeatStatus(request.status)) reserved.add(rowStudentKey(request, "request", index));
-  });
-
-  return reserved.size;
-}
-
 async function ensureClassCapacityForChoices(
   supabase: SupabaseMutationClient,
   choices: {
@@ -1101,31 +1082,34 @@ async function ensureClassCapacityForChoices(
   const classIds = [...requestedByClass.keys()];
   if (classIds.length === 0) return { ok: true };
 
-  const { data, error } = await supabase
-    .from("classes")
-    .select(`
-      id,
-      name,
-      capacity,
-      enrollments ( id, student_id, status ),
-      class_requests ( id, student_id, status )
-    `)
-    .in("id", classIds);
+  const [{ data: availability, error: availabilityError }, { data: classes, error: classesError }] = await Promise.all([
+    supabase
+      .from("class_catalog_availability")
+      .select("class_id, seats_remaining, availability_label")
+      .in("class_id", classIds),
+    supabase
+      .from("classes")
+      .select("id, name")
+      .in("id", classIds),
+  ]);
 
-  if (error) return { ok: false, message: error.message };
+  if (availabilityError) return { ok: false, message: availabilityError.message };
+  if (classesError) return { ok: false, message: classesError.message };
 
-  const rows = (data ?? []) as unknown as Record<string, unknown>[];
-  const rowsById = new Map(rows.map((row) => [String(row.id), row]));
+  const availabilityByClassId = new Map(
+    ((availability ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.class_id), row]),
+  );
+  const classNamesById = new Map(
+    ((classes ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.id), String(row.name ?? "Selected class")]),
+  );
   for (const classId of classIds) {
-    const row = rowsById.get(classId);
-    if (!row) return { ok: false, message: "Selected class was not found" };
+    const row = availabilityByClassId.get(classId);
+    if (!row || !classNamesById.has(classId)) return { ok: false, message: "Selected class was not found" };
 
-    const capacity = Math.max(0, Math.floor(Number(row.capacity ?? 0)));
-    const reserved = reservedSeatCount(row);
+    const remaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
     const requested = requestedByClass.get(classId) ?? 0;
-    if (capacity > 0 && reserved + requested > capacity) {
-      const remaining = Math.max(0, capacity - reserved);
-      const className = String(row.name ?? "Selected class");
+    if (requested > remaining) {
+      const className = classNamesById.get(classId) ?? "Selected class";
       return {
         ok: false,
         message:
@@ -1367,16 +1351,22 @@ export async function serverPatchEnrichmentRequest(
     const supabase = await createSupabaseServerClient();
     const mutationClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
     const dbStatus = status.toLowerCase();
-    const { data, error } = await mutationClient
-      .from("class_requests")
-      .update({ status: dbStatus })
-      .eq("id", id)
-      .select(requestSelect)
-      .maybeSingle();
+    const { data, error } = dbStatus === "pending"
+      ? await mutationClient
+          .from("class_requests")
+          .update({ status: "pending" })
+          .eq("id", id)
+          .select(requestSelect)
+          .maybeSingle()
+      : await mutationClient
+          .from("class_requests")
+          .select(requestSelect)
+          .eq("id", id)
+          .maybeSingle();
     if (error) return { ok: false, message: error.message };
-    if (!data) return { ok: false, message: "No row updated" };
+    if (!data) return { ok: false, message: dbStatus === "pending" ? "No row updated" : "Request not found" };
+    const raw = data as unknown as Record<string, unknown>;
     if (dbStatus !== "pending") {
-      const raw = data as unknown as Record<string, unknown>;
       const studentId = String(raw.student_id ?? "").trim();
       const classId = String(raw.class_id ?? "").trim();
       if (!studentId || !classId) return { ok: false, message: "Request is missing student or class id" };
@@ -1408,15 +1398,16 @@ export async function serverPatchEnrichmentRequest(
         .eq("id", id);
       if (requestDeleteError) return { ok: false, message: requestDeleteError.message };
     }
-    const mapped = mapRequestRow(data as unknown as Record<string, unknown>);
+    const mapped = mapRequestRow(raw);
     if (!mapped) return { ok: false, message: "Could not map request" };
+    const row = { ...mapped, status };
     await writeAuditEvent(supabase, {
       action: "class_request.status.update",
       entityType: "class_request",
-      entityId: mapped.id,
-      metadata: { status: mapped.status },
+      entityId: row.id,
+      metadata: { status: row.status },
     });
-    return { ok: true, row: mapped };
+    return { ok: true, row };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };

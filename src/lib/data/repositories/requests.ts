@@ -56,6 +56,8 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
 
   return {
     id,
+    studentId: row.student_id == null ? undefined : String(row.student_id),
+    classId: row.class_id == null ? undefined : String(row.class_id),
     student: studentName || String(row.student_name ?? row.student ?? ""),
     parent:
       guardian ||
@@ -81,6 +83,8 @@ async function loadRequestsResolved(client?: RequestReadClient): Promise<Resolve
       .select(
         `
         id,
+        student_id,
+        class_id,
         status,
         block,
         level,
@@ -169,12 +173,6 @@ export async function fetchAdminEnrichmentDecisionSummaryResolved(): Promise<Enr
   return loadEnrichmentDecisionSummaryResolved(access.client);
 }
 
-function approvalReason(status: ApprovalHistoryRow["status"]): string {
-  if (status === "Approved") return "Approved for placement";
-  if (status === "Waitlisted") return "Waitlisted until a seat opens";
-  return "Not placed in this round";
-}
-
 function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {
   if (row.id == null || String(row.id) === "") return null;
   if (!isEnrichmentClass(row)) return null;
@@ -190,10 +188,10 @@ function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow
     parent: String(student?.guardian_label ?? ""),
     className: String(cls?.name ?? cls?.class_name ?? ""),
     block: String(cls?.block ?? ""),
-    option: "-",
+    option: "Not recorded",
     status,
-    reviewedBy: "School team",
-    reason: approvalReason(status),
+    reviewedBy: "Not recorded",
+    reason: "Not recorded",
   };
 }
 
@@ -207,6 +205,8 @@ async function loadApprovalHistoryResolved(client?: RequestReadClient): Promise<
     .select(
       `
       id,
+      student_id,
+      class_id,
       status,
       created_at,
       students ( display_name, guardian_label ),

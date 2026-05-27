@@ -212,6 +212,8 @@ export type RequestStatus = "Pending" | "Approved" | "Waitlisted" | "Rejected";
 /** Enrichment requests (/dashboard/classes/requests). */
 export type EnrichmentRequestRow = {
   id: string;
+  studentId?: string;
+  classId?: string;
   student: string;
   parent: string;
   class: string;

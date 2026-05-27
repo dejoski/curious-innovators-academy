@@ -215,6 +215,15 @@ export async function fetchStudentProfileResolved(
       logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "enrollments", enrollmentsError);
     }
 
+    const { data: classRequests, error: classRequestsError } = await supabase
+      .from("class_requests")
+      .select("id, status, classes ( id, name, program )")
+      .eq("student_id", id)
+      .order("created_at", { ascending: true });
+    if (classRequestsError) {
+      logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "class_requests", classRequestsError);
+    }
+
     const { data: records, error: recordsError } = await supabase
       .from("student_records")
       .select("id, title, body, category, urgent, created_at, profiles ( display_name, role )")
@@ -226,6 +235,7 @@ export async function fetchStudentProfileResolved(
     }
 
     const enrollmentRows = (enrollments ?? []) as unknown as Record<string, unknown>[];
+    const requestRows = (classRequests ?? []) as unknown as Record<string, unknown>[];
     const coreClasses = enrollmentRows
       .map((row) => firstRel<Record<string, unknown>>(row.classes))
       .filter((row): row is Record<string, unknown> => row !== null)
@@ -240,8 +250,12 @@ export async function fetchStudentProfileResolved(
       .map((row) => firstRel<Record<string, unknown>>(row.classes))
       .filter((row): row is Record<string, unknown> => row !== null)
       .map((row) => ({ id: String(row.id), name: String(row.name ?? "") }));
-    const pending = activeEnrichmentRows.filter((row) => String(row.status ?? "").toLowerCase() !== "approved").length;
-    const approved = activeEnrichmentRows.length - pending;
+    const pending = requestRows.filter((row) => {
+      const cls = firstRel<Record<string, unknown>>(row.classes);
+      return normalizeProgram(cls?.program) === "enrichment" && String(row.status ?? "").toLowerCase() === "pending";
+    }).length;
+    const approved = activeEnrichmentRows.filter((row) => String(row.status ?? "").toLowerCase() === "approved").length;
+    const enrichmentTotal = activeEnrichmentRows.length + pending;
     const timeline = ((records ?? []) as unknown as Record<string, unknown>[])
       .map(mapStudentRecord)
       .filter((row): row is StudentProfileTimelineEvent => row !== null);
@@ -261,7 +275,7 @@ export async function fetchStudentProfileResolved(
         parentName: String(student.guardian_label ?? ""),
         parentHref: "/dashboard/parents",
         coreSummaryLabel: `Core: ${coreClasses.length}`,
-        enrichmentSummaryLabel: `Enrichment: ${approved} / ${activeEnrichmentRows.length}`,
+        enrichmentSummaryLabel: `Enrichment: ${approved} / ${enrichmentTotal}`,
         pendingLabel: pending > 0 ? `Pending Requests: ${pending}` : "Pending requests: none",
         attendanceLabel: "Attendance: —",
         coreClasses,
@@ -314,6 +328,16 @@ export async function fetchStudentScheduleResolved(
       return unavailableSchedule();
     }
 
+    const { data: classRequests, error: classRequestsError } = await supabase
+      .from("class_requests")
+      .select("id, status, classes ( id, name, program, block, schedule_summary )")
+      .eq("student_id", id)
+      .order("created_at", { ascending: true });
+    if (classRequestsError) {
+      logStudentDetailsRepoIssue("fetchStudentScheduleResolved", id, "class_requests", classRequestsError);
+      return unavailableSchedule();
+    }
+
     const row = emptyScheduleRow({
       id: String(student.id),
       name: String(student.display_name ?? ""),
@@ -322,6 +346,12 @@ export async function fetchStudentScheduleResolved(
     ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
       const badge = badgeForEnrollment(enrollment);
       if (badge) pushBadge(row, scheduleSlotForClass(enrollment, index), badge);
+    });
+    ((classRequests ?? []) as unknown as Record<string, unknown>[]).forEach((request, index) => {
+      const status = String(request.status ?? "").toLowerCase();
+      if (status !== "pending") return;
+      const badge = badgeForEnrollment(request);
+      if (badge) pushBadge(row, scheduleSlotForClass(request, index), badge);
     });
     row.b1 = normalizeScheduleBadges(row.b1);
     row.b2 = normalizeScheduleBadges(row.b2);

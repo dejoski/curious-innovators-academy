@@ -23,6 +23,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
   const body = (await req.json()) as Record<string, unknown>;
   const rawChoices = Array.isArray(body.choices) ? body.choices : [];
   const choices = rawChoices.map((raw) => {

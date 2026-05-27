@@ -1,8 +1,4 @@
-import {
-  PARENT_CATALOG_PENDING_KEY,
-  PARENT_CATALOG_REVIEW_STATUS_KEY,
-  PARENT_CATALOG_SUBMITTED_KEY,
-} from "@/lib/parent-dashboard-storage";
+import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 import {
   CATALOG_SLOT_IDS,
   CATALOG_SLOT_META,
@@ -43,6 +39,9 @@ export type ParentCatalogIdentity = {
   parentName?: string;
 };
 
+const LEGACY_PARENT_CATALOG_SUBMITTED_KEY = "cia-parent-catalog-submitted";
+const LEGACY_PARENT_CATALOG_REVIEW_STATUS_KEY = "cia-parent-catalog-review-status";
+
 export const INITIAL_PARENT_CATALOG_REQUESTS: ParentCatalogRequests = CATALOG_SLOT_IDS.reduce(
   (next, slotId) => {
     next[slotId] = { firstChoice: null, secondChoice: null };
@@ -52,7 +51,7 @@ export const INITIAL_PARENT_CATALOG_REQUESTS: ParentCatalogRequests = CATALOG_SL
 );
 
 export function localReviewKey(slotId: CatalogSlotId, kind: "first" | "second") {
-  return `local-${slotId}-${kind}`;
+  return `catalog-${slotId}-${kind}`;
 }
 
 export function dispatchParentCatalogUpdated() {
@@ -91,26 +90,6 @@ export function normalizeParentCatalogRequests(requests: ParentCatalogRequests |
   return normalizeRequests(requests);
 }
 
-export function readLocalReviewStatuses(): LocalReviewStatuses {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.sessionStorage.getItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-    return raw ? (JSON.parse(raw) as LocalReviewStatuses) : {};
-  } catch {
-    return {};
-  }
-}
-
-export function writeLocalReviewStatus(id: string, status: LocalReviewStatus) {
-  if (typeof window === "undefined") return;
-  const reviewStatuses = readLocalReviewStatuses();
-  window.sessionStorage.setItem(
-    PARENT_CATALOG_REVIEW_STATUS_KEY,
-    JSON.stringify({ ...reviewStatuses, [id]: status }),
-  );
-  dispatchParentCatalogUpdated();
-}
-
 export function readParentCatalogSnapshot(): {
   requests: ParentCatalogRequests | null;
   submittedAt: string | null;
@@ -143,11 +122,9 @@ export function readParentCatalogSnapshot(identity?: Pick<ParentCatalogIdentity,
   }
 
   try {
-    const submittedRaw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY);
     const draftRaw = window.sessionStorage.getItem(PARENT_CATALOG_PENDING_KEY);
-    const submitted = submittedRaw
-      ? (JSON.parse(submittedRaw) as { requests?: unknown; submittedAt?: string } & ParentCatalogIdentity)
-      : null;
+    window.sessionStorage.removeItem(LEGACY_PARENT_CATALOG_SUBMITTED_KEY);
+    window.sessionStorage.removeItem(LEGACY_PARENT_CATALOG_REVIEW_STATUS_KEY);
     const draft = draftRaw
       ? (JSON.parse(draftRaw) as { requests?: unknown; submittedAt?: string } & ParentCatalogIdentity)
       : null;
@@ -156,15 +133,15 @@ export function readParentCatalogSnapshot(identity?: Pick<ParentCatalogIdentity,
       if (!parsed) return false;
       return parsed.studentId ? parsed.studentId === identity.studentId : parsed.studentName === identity.studentName;
     };
-    const parsed = matchesStudent(submitted) ? submitted : matchesStudent(draft) ? draft : null;
+    const parsed = matchesStudent(draft) ? draft : null;
     if (!parsed) {
       return { requests: null, submittedAt: null, state: null, reviewStatuses: {} };
     }
     return {
       requests: parsed?.requests ? normalizeRequests(parsed.requests) : null,
-      submittedAt: parsed?.submittedAt ?? null,
-      state: parsed === submitted ? "submitted" : "draft",
-      reviewStatuses: readLocalReviewStatuses(),
+      submittedAt: null,
+      state: "draft",
+      reviewStatuses: {},
       studentId: parsed?.studentId,
       studentName: parsed?.studentName,
       parentName: parsed?.parentName,
@@ -199,31 +176,60 @@ export function clearPendingParentCatalogRequests(identity: Pick<ParentCatalogId
 }
 
 export function clearSubmittedParentCatalogSnapshot(identity: Pick<ParentCatalogIdentity, "studentId"> = {}) {
+  void identity;
   if (typeof window === "undefined") return;
-  if (identity.studentId) {
-    try {
-      const raw = window.sessionStorage.getItem(PARENT_CATALOG_SUBMITTED_KEY);
-      const parsed = raw ? (JSON.parse(raw) as ParentCatalogIdentity) : null;
-      if (parsed?.studentId && parsed.studentId !== identity.studentId) return;
-    } catch {
-      return;
-    }
-  }
-  window.sessionStorage.removeItem(PARENT_CATALOG_SUBMITTED_KEY);
-  window.sessionStorage.removeItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
+  window.sessionStorage.removeItem(LEGACY_PARENT_CATALOG_SUBMITTED_KEY);
+  window.sessionStorage.removeItem(LEGACY_PARENT_CATALOG_REVIEW_STATUS_KEY);
   dispatchParentCatalogUpdated();
 }
 
-export function writeSubmittedParentCatalogSnapshot(
-  requests: ParentCatalogRequests,
-  identity: ParentCatalogIdentity = {},
-) {
-  if (typeof window === "undefined") return null;
-  const submittedAt = new Date().toISOString();
-  window.sessionStorage.removeItem(PARENT_CATALOG_REVIEW_STATUS_KEY);
-  window.sessionStorage.setItem(PARENT_CATALOG_SUBMITTED_KEY, JSON.stringify({ requests: normalizeRequests(requests), submittedAt, ...identity }));
-  dispatchParentCatalogUpdated();
-  return submittedAt;
+function requestSlotId(row: EnrichmentRequestRow): CatalogSlotId | null {
+  const block = row.block.trim().toLowerCase();
+  const level = row.level.trim().toLowerCase();
+  return CATALOG_SLOT_IDS.find((slotId) => {
+    const meta = CATALOG_SLOT_META[slotId];
+    return meta.block.toLowerCase() === block && meta.level.toLowerCase() === level;
+  }) ?? null;
+}
+
+function requestChoiceKind(row: EnrichmentRequestRow): "firstChoice" | "secondChoice" {
+  return row.option.trim().toLowerCase().startsWith("2") ? "secondChoice" : "firstChoice";
+}
+
+export function catalogSnapshotFromEnrichmentRequests(
+  rows: EnrichmentRequestRow[],
+  studentId?: string,
+): {
+  requests: ParentCatalogRequests | null;
+  reviewStatuses: LocalReviewStatuses;
+  state: "submitted" | null;
+} {
+  const next = normalizeRequests(null);
+  const reviewStatuses: LocalReviewStatuses = {};
+  let count = 0;
+
+  rows.forEach((row) => {
+    if (studentId && row.studentId && row.studentId !== studentId) return;
+    const slotId = requestSlotId(row);
+    if (!slotId) return;
+    const kind = requestChoiceKind(row);
+    const classId = row.classId ?? "";
+    const name = row.class.trim();
+    if (!classId && !name) return;
+
+    next[slotId] = {
+      ...next[slotId],
+      [kind]: { id: classId, name },
+    };
+    reviewStatuses[localReviewKey(slotId, kind === "firstChoice" ? "first" : "second")] = row.status;
+    count += 1;
+  });
+
+  return {
+    requests: count > 0 ? next : null,
+    reviewStatuses,
+    state: count > 0 ? "submitted" : null,
+  };
 }
 
 export function catalogChoiceReviews(
@@ -311,21 +317,4 @@ export function selectedChoicesForSubmit(requests: ParentCatalogRequests) {
       slot.secondChoice ? { classId: slot.secondChoice.id ?? "", block: meta.block, level: meta.level, option: "2nd" } : null,
     ].filter((choice): choice is { classId: string; block: string; level: string; option: string } => Boolean(choice?.classId));
   });
-}
-
-export function localRequestRowsFromCatalogRequests(
-  requests: ParentCatalogRequests | null,
-  reviewStatuses: LocalReviewStatuses,
-  identity: ParentCatalogIdentity = {},
-): EnrichmentRequestRow[] {
-  return catalogChoiceReviews(requests, reviewStatuses).map((choice) => ({
-    id: choice.id,
-    student: identity.studentName ?? "",
-    parent: identity.parentName ?? "",
-    class: choice.name,
-    block: CATALOG_SLOT_META[choice.slotId].block,
-    level: CATALOG_SLOT_META[choice.slotId].level,
-    option: choice.choice,
-    status: choice.status,
-  }));
 }

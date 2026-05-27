@@ -24,7 +24,7 @@ npm run check:sql-security
 npm run check:server-secret-boundaries
 npm run build
 ```
-
+ 
 ## Data Model
 
 `SUPABASE_SCHEMA.sql` is the readable database schema reference.

@@ -218,6 +218,11 @@ CREATE TABLE public.classes (
   teacher_id uuid NOT NULL REFERENCES public.teachers (id) ON DELETE RESTRICT,
   program public.program_track NOT NULL DEFAULT 'core',
   capacity integer NOT NULL DEFAULT 30,
+  block text,
+  level text,
+  location text,
+  description text,
+  prerequisites text,
   schedule_summary text NOT NULL DEFAULT '',
   status public.class_status NOT NULL DEFAULT 'active',
   created_at timestamptz NOT NULL DEFAULT now()
@@ -231,7 +236,8 @@ CREATE TABLE public.enrollments (
   student_id uuid NOT NULL REFERENCES public.students (id) ON DELETE CASCADE,
   status public.workflow_status NOT NULL DEFAULT 'pending',
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT enrollments_class_student_uniq UNIQUE (class_id, student_id)
+  CONSTRAINT enrollments_class_student_uniq UNIQUE (class_id, student_id),
+  CONSTRAINT enrollments_no_pending_status CHECK (status <> 'pending')
 );
 
 CREATE INDEX enrollments_student_id_idx ON public.enrollments (student_id);
@@ -246,7 +252,8 @@ CREATE TABLE public.class_requests (
   block text,
   level text,
   option_label text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT class_requests_pending_only CHECK (status = 'pending')
 );
 
 CREATE INDEX class_requests_student_idx ON public.class_requests (student_id);
@@ -298,6 +305,94 @@ CREATE TABLE public.notifications (
 );
 
 CREATE INDEX notifications_recipient_idx ON public.notifications (recipient_profile_id);
+
+CREATE TABLE public.audit_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_profile_id uuid REFERENCES public.profiles (id) ON DELETE SET NULL,
+  action text NOT NULL,
+  entity_type text NOT NULL,
+  entity_id text NOT NULL DEFAULT '',
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX audit_events_actor_profile_idx ON public.audit_events (actor_profile_id);
+CREATE INDEX audit_events_created_at_idx ON public.audit_events (created_at DESC);
+
+CREATE TABLE public.invoices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id uuid REFERENCES public.students (id) ON DELETE SET NULL,
+  family_label text,
+  invoice_number text NOT NULL UNIQUE,
+  amount_cents integer NOT NULL DEFAULT 0 CHECK (amount_cents >= 0),
+  currency text NOT NULL DEFAULT 'USD',
+  status text NOT NULL DEFAULT 'open',
+  issued_date date NOT NULL DEFAULT CURRENT_DATE,
+  due_date date NOT NULL DEFAULT CURRENT_DATE,
+  line_items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  payment_url text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX invoices_student_idx ON public.invoices (student_id);
+CREATE INDEX invoices_due_date_idx ON public.invoices (due_date DESC);
+
+CREATE TABLE public.support_tickets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id uuid NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  category text NOT NULL,
+  contact_email text NOT NULL,
+  subject text NOT NULL,
+  message text NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX support_tickets_profile_idx ON public.support_tickets (profile_id);
+CREATE INDEX support_tickets_created_at_idx ON public.support_tickets (created_at DESC);
+
+CREATE TABLE public.user_preferences (
+  profile_id uuid PRIMARY KEY REFERENCES public.profiles (id) ON DELETE CASCADE,
+  digest_weekly boolean NOT NULL DEFAULT true,
+  class_alerts boolean NOT NULL DEFAULT true,
+  request_alerts boolean NOT NULL DEFAULT true,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE VIEW public.class_catalog_availability
+WITH (security_invoker = true)
+AS
+WITH enrollment_counts AS (
+  SELECT
+    class_id,
+    count(*) FILTER (WHERE status = 'approved')::integer AS enrolled_count,
+    count(*) FILTER (WHERE status = 'waitlisted')::integer AS waitlist_count
+  FROM public.enrollments
+  GROUP BY class_id
+),
+request_counts AS (
+  SELECT
+    class_id,
+    count(*) FILTER (WHERE status = 'pending')::integer AS pending_count
+  FROM public.class_requests
+  GROUP BY class_id
+)
+SELECT
+  c.id AS class_id,
+  COALESCE(e.enrolled_count, 0)::integer AS enrolled_count,
+  COALESCE(r.pending_count, 0)::integer AS pending_count,
+  COALESCE(e.waitlist_count, 0)::integer AS waitlist_count,
+  (COALESCE(e.enrolled_count, 0) + COALESCE(r.pending_count, 0))::integer AS reserved_count,
+  GREATEST(c.capacity - (COALESCE(e.enrolled_count, 0) + COALESCE(r.pending_count, 0)), 0)::integer AS seats_remaining,
+  CASE
+    WHEN c.capacity <= 0 THEN 'Open'
+    WHEN c.capacity - (COALESCE(e.enrolled_count, 0) + COALESCE(r.pending_count, 0)) <= 0 THEN 'Full'
+    WHEN c.capacity - (COALESCE(e.enrolled_count, 0) + COALESCE(r.pending_count, 0)) = 1 THEN '1 seat left'
+    ELSE (c.capacity - (COALESCE(e.enrolled_count, 0) + COALESCE(r.pending_count, 0)))::text || ' seats left'
+  END AS availability_label
+FROM public.classes c
+LEFT JOIN enrollment_counts e ON e.class_id = c.id
+LEFT JOIN request_counts r ON r.class_id = c.id;
 
 -- ---------------------------------------------------------------------------
 -- Triggers: profile row on signup + role change guard + touch updated_at
@@ -377,6 +472,10 @@ ALTER TABLE public.schedule_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- profiles
 CREATE POLICY profiles_select
@@ -638,6 +737,53 @@ CREATE POLICY notifications_insert_admin
 CREATE POLICY notifications_delete_admin
   ON public.notifications FOR DELETE TO authenticated
   USING (private.is_admin());
+
+-- audit_events
+CREATE POLICY audit_events_select_admin
+  ON public.audit_events FOR SELECT TO authenticated
+  USING (private.is_admin());
+
+CREATE POLICY audit_events_insert_actor
+  ON public.audit_events FOR INSERT TO authenticated
+  WITH CHECK (actor_profile_id = auth.uid() OR private.is_admin());
+
+-- invoices
+CREATE POLICY invoices_select_scoped
+  ON public.invoices FOR SELECT TO authenticated
+  USING (
+    private.is_admin()
+    OR (student_id IS NOT NULL AND private.parent_can_see_student(student_id))
+    OR (student_id IS NOT NULL AND private.student_is_self(student_id))
+  );
+
+CREATE POLICY invoices_write_admin
+  ON public.invoices FOR ALL TO authenticated
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
+
+-- support_tickets
+CREATE POLICY support_tickets_select_scoped
+  ON public.support_tickets FOR SELECT TO authenticated
+  USING (private.is_admin() OR profile_id = auth.uid());
+
+CREATE POLICY support_tickets_insert_self
+  ON public.support_tickets FOR INSERT TO authenticated
+  WITH CHECK (profile_id = auth.uid() OR private.is_admin());
+
+CREATE POLICY support_tickets_update_admin
+  ON public.support_tickets FOR UPDATE TO authenticated
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
+
+-- user_preferences
+CREATE POLICY user_preferences_select_self
+  ON public.user_preferences FOR SELECT TO authenticated
+  USING (profile_id = auth.uid() OR private.is_admin());
+
+CREATE POLICY user_preferences_upsert_self
+  ON public.user_preferences FOR ALL TO authenticated
+  USING (profile_id = auth.uid() OR private.is_admin())
+  WITH CHECK (profile_id = auth.uid() OR private.is_admin());
 
 -- Default privileges on hosted Supabase cover API roles; private helpers are execution-scoped only.
 GRANT USAGE ON SCHEMA private TO authenticated;

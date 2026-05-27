@@ -20,7 +20,7 @@ import {
   ParentScheduleGrid,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
-import { cachedJson } from "@/lib/client-data-cache";
+import { cachedJson, invalidateClientDataCache } from "@/lib/client-data-cache";
 import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
@@ -29,14 +29,15 @@ import {
 } from "@/lib/parent-student-selection";
 import {
   INITIAL_PARENT_CATALOG_REQUESTS,
+  catalogSnapshotFromEnrichmentRequests,
   catalogChoiceReviews,
   catalogScheduleBadgeOverrides,
+  clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
-  writeSubmittedParentCatalogSnapshot,
   type LocalReviewStatus,
   type LocalReviewStatuses,
   type ParentCatalogIdentity,
@@ -55,6 +56,7 @@ import {
 import type {
   DashboardNotification,
   DataSource,
+  EnrichmentRequestRow,
   SchoolClassRow,
   StudentListItem,
   StudentProfileBundle,
@@ -308,7 +310,7 @@ export default function ParentHomeDashboard() {
       });
       setCatalogDraft(snapshot.requests);
       setLocalRequestState(snapshot.state);
-      setLocalReviewStatuses(snapshot.reviewStatuses);
+      setLocalReviewStatuses({});
     }
 
     readCatalogDraft();
@@ -319,6 +321,34 @@ export default function ParentHomeDashboard() {
       window.removeEventListener("storage", readCatalogDraft);
     };
   }, [student?.id, student?.name]);
+
+  useEffect(() => {
+    if (!student?.id) return;
+    const studentForRequests = student;
+    let cancelled = false;
+    async function loadDbRequestState() {
+      try {
+        const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { requests?: EnrichmentRequestRow[] };
+        const snapshot = catalogSnapshotFromEnrichmentRequests(
+          Array.isArray(body.requests) ? body.requests : [],
+          studentForRequests.id,
+        );
+        if (cancelled || !snapshot.requests) return;
+        clearPendingParentCatalogRequests({ studentId: studentForRequests.id });
+        setCatalogDraft(snapshot.requests);
+        setLocalRequestState(snapshot.state);
+        setLocalReviewStatuses(snapshot.reviewStatuses);
+      } catch {
+        /* Local draft state remains visible when request rows cannot be loaded. */
+      }
+    }
+    void loadDbRequestState();
+    return () => {
+      cancelled = true;
+    };
+  }, [student?.id]);
 
   const localChoiceReviews = useMemo(() => {
     return catalogChoiceReviews(catalogDraft, localReviewStatuses);
@@ -362,7 +392,7 @@ export default function ParentHomeDashboard() {
   const localChoiceCount = localChoiceReviews.length;
   const pendingRequests = isStudentDataLoading
     ? "--"
-    : String(basePendingRequests + (localRequestState === "submitted" ? localPendingChoices : 0)).padStart(2, "0");
+    : String(basePendingRequests || (localRequestState === "submitted" ? localPendingChoices : 0)).padStart(2, "0");
   const hint = loadError ?? sourceHint(dataSource);
 
   const selectedSchedule = useMemo(() => {
@@ -488,24 +518,39 @@ export default function ParentHomeDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId: activeStudentId, choices }),
       });
-      let warningMessage: string | null = null;
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        warningMessage = `Request saved locally for review. Cloud submission failed: ${body?.error ?? res.statusText}.`;
+        setLocalRequestState("draft");
+        setLoadError(`Cloud submission failed: ${body?.error ?? res.statusText}. Your draft is still saved.`);
+        setSelectionDrawerOpen(false);
+        setDetailClass(null);
+        return;
       }
-      writeSubmittedParentCatalogSnapshot(homeCatalogRequests as ParentCatalogRequests, catalogIdentity);
-      setCatalogDraft(homeCatalogRequests as ParentCatalogRequests);
-      setLocalRequestState("submitted");
-      setLocalReviewStatuses({});
+      const body = (await res.json().catch(() => null)) as { requests?: EnrichmentRequestRow[] } | null;
+      const snapshot = catalogSnapshotFromEnrichmentRequests(
+        Array.isArray(body?.requests) ? body.requests : [],
+        activeStudentId,
+      );
+      clearPendingParentCatalogRequests({ studentId: activeStudentId });
+      invalidateClientDataCache("/api/data/classes");
+      if (activeStudentId) {
+        invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/profile`);
+        invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/schedule`);
+      }
+      if (snapshot.requests) {
+        setCatalogDraft(snapshot.requests);
+        setLocalRequestState(snapshot.state);
+        setLocalReviewStatuses(snapshot.reviewStatuses);
+      } else {
+        setLocalRequestState("submitted");
+        setLocalReviewStatuses({});
+      }
       setSelectionDrawerOpen(false);
       setDetailClass(null);
-      setLoadError(warningMessage);
+      setLoadError(null);
     } catch (error) {
-      writeSubmittedParentCatalogSnapshot(homeCatalogRequests as ParentCatalogRequests, catalogIdentity);
-      setCatalogDraft(homeCatalogRequests as ParentCatalogRequests);
-      setLocalRequestState("submitted");
-      setLocalReviewStatuses({});
-      setLoadError(`Request saved locally for review. Cloud submission failed: ${error instanceof Error ? error.message : String(error)}.`);
+      setLocalRequestState("draft");
+      setLoadError(`Cloud submission failed: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.`);
       setSelectionDrawerOpen(false);
       setDetailClass(null);
     } finally {

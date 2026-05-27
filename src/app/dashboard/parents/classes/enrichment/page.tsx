@@ -10,13 +10,15 @@ import {
 } from "@/lib/parent-student-selection";
 import { splitScheduleLabel } from "@/lib/schedule-slots";
 import {
+  catalogSnapshotFromEnrichmentRequests,
   catalogChoiceReviews,
+  clearPendingParentCatalogRequests,
   readParentCatalogSnapshot,
   type LocalReviewStatuses,
   type ParentCatalogChoice,
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
-import type { SchoolClassRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -35,7 +37,7 @@ type ParentEnrichmentRow = {
   availability: string;
   status: string;
   current: boolean;
-  requestSource?: "local-draft";
+  requestSource?: "catalog-request";
 };
 
 type DraftChoiceWithLocalId = ParentCatalogChoice & {
@@ -134,7 +136,7 @@ export default function EnrichmentClassesPage() {
         : readParentCatalogSnapshot();
       setCatalogDraft(snapshot.requests);
       setLocalRequestState(snapshot.state);
-      setLocalReviewStatuses(snapshot.reviewStatuses);
+      setLocalReviewStatuses({});
     }
 
     readCatalogDraft();
@@ -143,6 +145,32 @@ export default function EnrichmentClassesPage() {
     return () => {
       window.removeEventListener("cia-parent-catalog-updated", readCatalogDraft);
       window.removeEventListener("storage", readCatalogDraft);
+    };
+  }, [selectedParentStudentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDbRequestState() {
+      try {
+        const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { requests?: EnrichmentRequestRow[] };
+        const snapshot = catalogSnapshotFromEnrichmentRequests(
+          Array.isArray(body.requests) ? body.requests : [],
+          selectedParentStudentId || undefined,
+        );
+        if (cancelled || !snapshot.requests) return;
+        if (selectedParentStudentId) clearPendingParentCatalogRequests({ studentId: selectedParentStudentId });
+        setCatalogDraft(snapshot.requests);
+        setLocalRequestState(snapshot.state);
+        setLocalReviewStatuses(snapshot.reviewStatuses);
+      } catch {
+        /* Draft state remains visible when request rows cannot be loaded. */
+      }
+    }
+    void loadDbRequestState();
+    return () => {
+      cancelled = true;
     };
   }, [selectedParentStudentId]);
 
@@ -164,7 +192,7 @@ export default function EnrichmentClassesPage() {
             ...cls,
             status: localRequestState === "submitted" ? (reviewedStatus ?? "Pending") : "Draft",
             current: reviewedStatus === "Approved",
-            requestSource: "local-draft" as const,
+            requestSource: "catalog-request" as const,
           }
         : cls;
     });
@@ -302,9 +330,9 @@ export default function EnrichmentClassesPage() {
         </div>
       )}
 
-      {filteredAndSortedClasses.some((cls) => cls.requestSource === "local-draft") && (
+      {filteredAndSortedClasses.some((cls) => cls.requestSource === "catalog-request") && (
         <div className="rounded-[12px] border border-[#14c1d5]/30 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66] font-medium">
-          {localRequestState === "submitted" ? "Showing request statuses from your saved class-selection flow." : "Showing unsubmitted class-selection draft choices."}
+          {localRequestState === "submitted" ? "Showing pending class requests from the school database." : "Showing unsubmitted class-selection draft choices."}
         </div>
       )}
 
