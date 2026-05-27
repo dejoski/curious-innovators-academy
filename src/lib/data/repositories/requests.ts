@@ -7,6 +7,30 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type RequestReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
 
+export type EnrichmentDecisionSummary = {
+  approved: number;
+  waitlisted: number;
+  rejected: number;
+};
+
+export type ApprovalHistoryRow = {
+  id: string;
+  student: string;
+  parent: string;
+  className: string;
+  block: string;
+  option: string;
+  status: Exclude<RequestStatus, "Pending">;
+  reviewedBy: string;
+  reason: string;
+};
+
+const EMPTY_DECISION_SUMMARY: EnrichmentDecisionSummary = {
+  approved: 0,
+  waitlisted: 0,
+  rejected: 0,
+};
+
 function mapStatus(raw: unknown): RequestStatus {
   const s = String(raw ?? "");
   if (s === "Approved" || s === "Rejected" || s === "Pending" || s === "Waitlisted") return s;
@@ -107,4 +131,109 @@ export async function fetchAdminEnrichmentRequestsResolved(): Promise<
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
   return loadRequestsResolved(access.client);
+}
+
+function isEnrichmentClass(row: Record<string, unknown>): boolean {
+  const cls = firstRel<Record<string, unknown>>(row.classes);
+  return String(cls?.program ?? "").toLowerCase() === "enrichment";
+}
+
+async function loadEnrichmentDecisionSummaryResolved(client?: RequestReadClient): Promise<EnrichmentDecisionSummary> {
+  if (!isSupabaseConfigured()) return { ...EMPTY_DECISION_SUMMARY };
+  const supabase = client ?? await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select("status, classes ( program )");
+  if (error || !data?.length) return { ...EMPTY_DECISION_SUMMARY };
+
+  return (data as unknown as Record<string, unknown>[]).reduce<EnrichmentDecisionSummary>(
+    (summary, row) => {
+      if (!isEnrichmentClass(row)) return summary;
+      const status = mapStatus(row.status);
+      if (status === "Approved") summary.approved += 1;
+      else if (status === "Waitlisted") summary.waitlisted += 1;
+      else if (status === "Rejected") summary.rejected += 1;
+      return summary;
+    },
+    { ...EMPTY_DECISION_SUMMARY },
+  );
+}
+
+export async function fetchEnrichmentDecisionSummaryResolved(): Promise<EnrichmentDecisionSummary> {
+  return loadEnrichmentDecisionSummaryResolved();
+}
+
+export async function fetchAdminEnrichmentDecisionSummaryResolved(): Promise<EnrichmentDecisionSummary> {
+  const access = await requireAdminReadClient();
+  if (!access) return { ...EMPTY_DECISION_SUMMARY };
+  return loadEnrichmentDecisionSummaryResolved(access.client);
+}
+
+function approvalReason(status: ApprovalHistoryRow["status"]): string {
+  if (status === "Approved") return "Approved for placement";
+  if (status === "Waitlisted") return "Waitlisted until a seat opens";
+  return "Not placed in this round";
+}
+
+function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {
+  if (row.id == null || String(row.id) === "") return null;
+  if (!isEnrichmentClass(row)) return null;
+
+  const status = mapStatus(row.status);
+  if (status === "Pending") return null;
+
+  const student = firstRel<Record<string, unknown>>(row.students);
+  const cls = firstRel<Record<string, unknown>>(row.classes);
+  return {
+    id: String(row.id),
+    student: String(student?.display_name ?? student?.student_name ?? ""),
+    parent: String(student?.guardian_label ?? ""),
+    className: String(cls?.name ?? cls?.class_name ?? ""),
+    block: String(cls?.block ?? ""),
+    option: "-",
+    status,
+    reviewedBy: "School team",
+    reason: approvalReason(status),
+  };
+}
+
+async function loadApprovalHistoryResolved(client?: RequestReadClient): Promise<
+  ResolvedList<ApprovalHistoryRow>
+> {
+  if (!isSupabaseConfigured()) return unavailableList();
+  const supabase = client ?? await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select(
+      `
+      id,
+      status,
+      created_at,
+      students ( display_name, guardian_label ),
+      classes ( name, program, block, level )
+    `,
+    )
+    .order("created_at", { ascending: false });
+  if (error) return unavailableList();
+
+  return {
+    items: ((data ?? []) as unknown as Record<string, unknown>[])
+      .map(mapApprovalHistoryRow)
+      .filter((row): row is ApprovalHistoryRow => row !== null),
+    source: "remote",
+  };
+}
+
+export async function fetchApprovalHistoryResolved(): Promise<
+  ResolvedList<ApprovalHistoryRow>
+> {
+  return loadApprovalHistoryResolved();
+}
+
+export async function fetchAdminApprovalHistoryResolved(): Promise<
+  ResolvedList<ApprovalHistoryRow>
+> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadApprovalHistoryResolved(access.client);
 }

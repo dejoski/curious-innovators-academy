@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiError, apiWriteError } from "@/lib/api/responses";
-import { fetchEnrichmentRequestsResolved } from "@/lib/data/repositories/requests";
+import {
+  fetchEnrichmentDecisionSummaryResolved,
+  fetchEnrichmentRequestsResolved,
+} from "@/lib/data/repositories/requests";
 import {
   serverInsertEnrichmentRequests,
   serverPatchEnrichmentRequest,
@@ -12,8 +15,11 @@ export async function GET() {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const { items: requests, source } = await fetchEnrichmentRequestsResolved();
-  return NextResponse.json({ requests, source });
+  const [{ items: requests, source }, decisionSummary] = await Promise.all([
+    fetchEnrichmentRequestsResolved(),
+    fetchEnrichmentDecisionSummaryResolved(),
+  ]);
+  return NextResponse.json({ requests, source, decisionSummary });
 }
 
 export async function POST(req: Request) {

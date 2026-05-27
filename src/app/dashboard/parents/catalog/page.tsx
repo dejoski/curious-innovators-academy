@@ -334,8 +334,8 @@ function ParentClassesEnrichmentCatalogContent() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        persistSubmittedSnapshot();
-        setSubmitBanner({ tone: "warning", message: `Request saved locally for review. Cloud submission failed: ${body?.error ?? res.statusText}.` });
+        setLocalRequestState("draft");
+        setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${body?.error ?? res.statusText}. Your draft is still saved.` });
         setOverlayOpen(false);
         return;
       }
@@ -343,8 +343,8 @@ function ParentClassesEnrichmentCatalogContent() {
       setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
       setOverlayOpen(false);
     } catch (error) {
-      persistSubmittedSnapshot();
-      setSubmitBanner({ tone: "warning", message: `Request saved locally for review. Cloud submission failed: ${error instanceof Error ? error.message : String(error)}.` });
+      setLocalRequestState("draft");
+      setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.` });
       setOverlayOpen(false);
     } finally {
       setSubmitting(false);

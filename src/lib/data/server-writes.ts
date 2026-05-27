@@ -1375,11 +1375,11 @@ export async function serverPatchEnrichmentRequest(
       .maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row updated" };
-    if (dbStatus === "approved") {
+    if (dbStatus !== "pending") {
       const raw = data as unknown as Record<string, unknown>;
       const studentId = String(raw.student_id ?? "").trim();
       const classId = String(raw.class_id ?? "").trim();
-      if (!studentId || !classId) return { ok: false, message: "Approved request is missing student or class id" };
+      if (!studentId || !classId) return { ok: false, message: "Request is missing student or class id" };
 
       const { error: enrollmentError } = await mutationClient
         .from("enrollments")
@@ -1387,18 +1387,26 @@ export async function serverPatchEnrichmentRequest(
           {
             student_id: studentId,
             class_id: classId,
-            status: "approved" as const,
+            status: dbStatus as "approved" | "waitlisted" | "rejected",
           },
           { onConflict: "class_id,student_id" },
         );
       if (enrollmentError) return { ok: false, message: enrollmentError.message };
 
-      const cleaned = await clearSameSlotAlternativesAfterApproval(mutationClient, {
-        studentId,
-        approvedClassId: classId,
-        approvedRequestId: id,
-      });
-      if (!cleaned.ok) return cleaned;
+      if (dbStatus === "approved") {
+        const cleaned = await clearSameSlotAlternativesAfterApproval(mutationClient, {
+          studentId,
+          approvedClassId: classId,
+          approvedRequestId: id,
+        });
+        if (!cleaned.ok) return cleaned;
+      }
+
+      const { error: requestDeleteError } = await mutationClient
+        .from("class_requests")
+        .delete()
+        .eq("id", id);
+      if (requestDeleteError) return { ok: false, message: requestDeleteError.message };
     }
     const mapped = mapRequestRow(data as unknown as Record<string, unknown>);
     if (!mapped) return { ok: false, message: "Could not map request" };

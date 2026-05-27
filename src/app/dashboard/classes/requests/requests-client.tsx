@@ -7,29 +7,14 @@ import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
-import {
-  localRequestRowsFromCatalogRequests,
-  readParentCatalogSnapshot,
-  writeLocalReviewStatus,
-} from "@/lib/parent-catalog-state";
+import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
+import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
-
-type RequestStatus = "Pending" | "Approved" | "Waitlisted" | "Rejected";
-
-type EnrichmentRequestRow = {
-  id: string;
-  student: string;
-  parent: string;
-  class: string;
-  block: string;
-  level: string;
-  option: string;
-  status: RequestStatus;
-};
 
 export type ClassesEnrichmentRequestsProps = {
   initialRequests: EnrichmentRequestRow[];
   dataSource: DataSource;
+  initialDecisionSummary?: EnrichmentDecisionSummary;
 };
 
 const PAGE_SIZE = 10;
@@ -56,34 +41,16 @@ function getVisiblePages(current: number, total: number): (number | "ellipsis")[
   return [1, "ellipsis", current, "ellipsis", total];
 }
 
-function applyRequestStatusTransition(
-  rows: EnrichmentRequestRow[],
-  id: string,
-  status: RequestStatus,
-) {
-  const target = rows.find((row) => row.id === id);
-  if (!target) return rows;
-
-  const updatedRows = rows.map((row) => (row.id === id ? { ...row, status } : row));
-  if (status !== "Approved") return updatedRows;
-
-  return updatedRows.filter(
-    (row) =>
-      row.id === id ||
-      row.student !== target.student ||
-      row.block !== target.block ||
-      row.level !== target.level,
-  );
-}
-
 export default function ClassesEnrichmentRequests({
   initialRequests,
   dataSource,
+  initialDecisionSummary = { approved: 0, waitlisted: 0, rejected: 0 },
 }: ClassesEnrichmentRequestsProps) {
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
 
   const [requests, setRequests] = useState<EnrichmentRequestRow[]>(() => [...initialRequests]);
+  const [decisionSummary, setDecisionSummary] = useState<EnrichmentDecisionSummary>(() => initialDecisionSummary);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("All");
@@ -119,41 +86,10 @@ export default function ClassesEnrichmentRequests({
     }
   }, [detailIdFromUrl, requests]);
 
-  useEffect(() => {
-	    function readLocalSubmittedRequests() {
-	      try {
-        const snapshot = readParentCatalogSnapshot();
-	        const localRows = snapshot.state === "submitted"
-	          ? localRequestRowsFromCatalogRequests(snapshot.requests, snapshot.reviewStatuses, {
-              studentName: snapshot.studentName ?? initialRequests[0]?.student,
-              parentName: snapshot.parentName ?? initialRequests[0]?.parent,
-            })
-	          : [];
-        setRequests((prev) => {
-          const remoteRows = prev.filter((row) => !row.id.startsWith("local-"));
-          return [...localRows, ...remoteRows];
-        });
-        if (localRows.length) {
-          setSyncHint("Showing a locally submitted parent request from this browser session.");
-        }
-      } catch {
-        setRequests((prev) => prev.filter((row) => !row.id.startsWith("local-")));
-      }
-    }
-
-    readLocalSubmittedRequests();
-    window.addEventListener("cia-parent-catalog-updated", readLocalSubmittedRequests);
-    window.addEventListener("storage", readLocalSubmittedRequests);
-    return () => {
-      window.removeEventListener("cia-parent-catalog-updated", readLocalSubmittedRequests);
-      window.removeEventListener("storage", readLocalSubmittedRequests);
-    };
-  }, []);
-
   const pendingCount = useMemo(() => requests.filter((r) => r.status === "Pending").length, [requests]);
-  const approvedCount = useMemo(() => requests.filter((r) => r.status === "Approved").length, [requests]);
-  const waitlistedCount = useMemo(() => requests.filter((r) => r.status === "Waitlisted").length, [requests]);
-  const rejectedCount = useMemo(() => requests.filter((r) => r.status === "Rejected").length, [requests]);
+  const approvedCount = decisionSummary.approved;
+  const waitlistedCount = decisionSummary.waitlisted;
+  const rejectedCount = decisionSummary.rejected;
   const totalRequests = requests.length;
   const distinctClasses = useMemo(
     () => new Set(requests.map((r) => r.class.trim()).filter(Boolean)).size,
@@ -215,89 +151,66 @@ export default function ClassesEnrichmentRequests({
     });
   };
 
+  const refreshRequestsFromRemote = async () => {
+    const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
+    if (!res.ok) {
+      setSyncHint(`Could not refresh requests (${await readApiError(res)}).`);
+      return false;
+    }
+    const body = (await res.json()) as {
+      requests?: EnrichmentRequestRow[];
+      decisionSummary?: EnrichmentDecisionSummary;
+    };
+    setRequests(Array.isArray(body.requests) ? body.requests : []);
+    if (body.decisionSummary) setDecisionSummary(body.decisionSummary);
+    return true;
+  };
+
   const applyStatus = async (id: string, status: RequestStatus) => {
-    const prevRow = requests.find((r) => r.id === id);
-    const prevRequests = requests;
-    setRequests((prev) => applyRequestStatusTransition(prev, id, status));
     setConfirmAction(null);
     setRowMenuId(null);
-	    if (id.startsWith("local-")) {
-	      try {
-	        writeLocalReviewStatus(id, status);
-	      } catch {
-        /* Keep the in-memory status even if storage is unavailable. */
-      }
-      setSyncHint("Updated local request status for this browser session.");
-      return;
-    }
+    setSyncHint(null);
     const res = await fetch("/api/data/enrichment-requests", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
     });
-    if (!res.ok && prevRow) {
-      setRequests(prevRequests);
+    if (!res.ok) {
       setSyncHint(`Could not sync status (${await readApiError(res)}).`);
+      return;
     }
+    await refreshRequestsFromRemote();
   };
 
   const applyBulkStatus = async (status: RequestStatus) => {
     if (selectedRows.length === 0) return;
     const targetRows = selectedRows;
-    const failedRows = new Map<string, EnrichmentRequestRow>();
     const failedMessages: string[] = [];
 
-    const previousRequests = requests;
-    setRequests((prev) =>
-      targetRows.reduce(
-        (nextRows, row) => applyRequestStatusTransition(nextRows, row.id, status),
-        prev,
-      ),
-    );
     setRowMenuId(null);
     setSyncHint(null);
 
-    for (const row of targetRows.filter((request) => request.id.startsWith("local-"))) {
-      try {
-        writeLocalReviewStatus(row.id, status);
-      } catch {
-        /* Keep the in-memory status even if storage is unavailable. */
-      }
-    }
-
     await Promise.all(
-      targetRows
-        .filter((request) => !request.id.startsWith("local-"))
-        .map(async (row) => {
-          const res = await fetch("/api/data/enrichment-requests", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: row.id, status }),
-          });
-          if (!res.ok) {
-            failedRows.set(row.id, row);
-            failedMessages.push(await readApiError(res));
-          }
-        }),
+      targetRows.map(async (row) => {
+        const res = await fetch("/api/data/enrichment-requests", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: row.id, status }),
+        });
+        if (!res.ok) {
+          failedMessages.push(await readApiError(res));
+        }
+      }),
     );
 
-    if (failedRows.size > 0) {
-      setRequests(previousRequests);
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const row of targetRows) {
-          if (!failedRows.has(row.id)) next.delete(row.id);
-        }
-        return next;
-      });
-      setSyncHint(`Could not sync ${failedRows.size} selected request(s): ${failedMessages[0] ?? "Unknown error"}.`);
+    if (failedMessages.length > 0) {
+      setSyncHint(`Could not sync ${failedMessages.length} selected request(s): ${failedMessages[0] ?? "Unknown error"}.`);
+      await refreshRequestsFromRemote();
       return;
     }
 
     setSelectedIds(new Set());
-    if (targetRows.some((row) => row.id.startsWith("local-"))) {
-      setSyncHint("Updated selected requests. Browser-local requests were saved locally for this session.");
-    }
+    await refreshRequestsFromRemote();
   };
 
   return (

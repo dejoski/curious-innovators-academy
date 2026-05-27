@@ -5,7 +5,6 @@ import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
-import type { EnrichmentRequestRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -28,26 +27,6 @@ type ApprovalRow = {
   reviewedBy: string;
   reason: string;
 };
-
-function toApprovalRow(row: EnrichmentRequestRow): ApprovalRow | null {
-  if (row.status === "Pending") return null;
-  return {
-    id: row.id,
-    student: row.student,
-    parent: row.parent,
-    className: row.class,
-    block: row.block,
-    option: row.option,
-    status: row.status,
-    reviewedBy: "School team",
-    reason:
-      row.status === "Approved"
-        ? "Approved for placement"
-        : row.status === "Waitlisted"
-          ? "Waitlisted until a seat opens"
-          : "Not placed in this round",
-  };
-}
 
 const PAGE_SIZE = 10;
 
@@ -114,12 +93,10 @@ function ClassesApprovalHistory() {
     let cancelled = false;
     async function loadApprovals() {
       try {
-        const res = await fetch("/api/data/enrichment-requests", { cache: "no-store" });
+        const res = await fetch("/api/data/approval-history", { cache: "no-store" });
         if (!res.ok) throw new Error(res.statusText);
-        const body = (await res.json()) as { requests?: EnrichmentRequestRow[]; source?: string };
-        const nextRows = (body.requests ?? [])
-          .map(toApprovalRow)
-          .filter((x): x is ApprovalRow => x !== null);
+        const body = (await res.json()) as { approvals?: ApprovalRow[]; source?: string };
+        const nextRows = Array.isArray(body.approvals) ? body.approvals : [];
         if (cancelled) return;
         setRows(nextRows);
         setDataHint(
