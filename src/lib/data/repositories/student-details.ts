@@ -442,6 +442,14 @@ export async function fetchStudentScheduleResolved(
   }
 }
 
+export async function fetchAdminStudentScheduleResolved(
+  studentId: string,
+): Promise<StudentScheduleResolved> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableSchedule();
+  return fetchStudentScheduleResolved(studentId, access.client);
+}
+
 function mapStudentRosterEnrollmentRow(row: Record<string, unknown>): StudentRosterRow | null {
   const student = firstRel<Record<string, unknown>>(row.students);
   const cls = firstRel<Record<string, unknown>>(row.classes);
@@ -519,6 +527,14 @@ export async function fetchStudentRosterResolved(
   } catch {
     return unavailableRoster();
   }
+}
+
+export async function fetchAdminStudentRosterResolved(
+  studentId: string,
+): Promise<ResolvedList<StudentRosterRow>> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableRoster();
+  return fetchStudentRosterResolved(studentId, access.client);
 }
 
 export function classRosterStudentsToRosterRows(input: {

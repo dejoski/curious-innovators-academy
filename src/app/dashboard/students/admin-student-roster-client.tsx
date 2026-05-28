@@ -10,7 +10,7 @@ import { DASHBOARD_PANEL_CLASS, DASHBOARD_TABLE_SCROLL_CLASS } from "@/lib/dashb
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
-import type { ClassRosterStatus, ClassRosterStudent, DataSource, SchoolClassRow } from "@/lib/data";
+import type { ClassRosterStatus, ClassRosterStudent, DataSource, SchoolClassOptionRow } from "@/lib/data";
 
 type SortOption = "status" | "student-az" | "student-za";
 
@@ -44,16 +44,15 @@ function sourceHint(source: DataSource) {
   return null;
 }
 
-function classCapacity(row: SchoolClassRow | null) {
-  const parsed = Number(row?.students.split("/")[1] ?? NaN);
-  return row?.capacity ?? (Number.isFinite(parsed) ? parsed : 0);
+function classCapacity(row: SchoolClassOptionRow | null) {
+  return row?.capacity ?? 0;
 }
 
 export default function AdminStudentRosterClient({
   classes,
   dataSource,
 }: {
-  classes: SchoolClassRow[];
+  classes: SchoolClassOptionRow[];
   dataSource: DataSource;
 }) {
   const availableClasses = useMemo(

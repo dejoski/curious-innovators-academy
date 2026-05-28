@@ -430,7 +430,7 @@ export default function ClassesPageClient({
           classesCache.setClassesData(next);
           return next;
         });
-        invalidateDashboardData("/api/dashboard-presentation");
+        invalidateDashboardData(["/api/data/class-options", "/api/dashboard-presentation"]);
         void classesCache.loadClasses(true);
       }
 
@@ -505,7 +505,7 @@ export default function ClassesPageClient({
           classesCache.setClassesData(next);
           return next;
         });
-        invalidateDashboardData(["/api/data/classes", "/api/dashboard-presentation"]);
+        invalidateDashboardData(["/api/data/classes", "/api/data/class-options", "/api/dashboard-presentation"]);
         void classesCache.loadClasses(true);
         setSyncHint(`Imported ${created.length} class row(s).`);
       }
@@ -553,7 +553,7 @@ export default function ClassesPageClient({
       setSyncHint(`Could not delete (${await readApiError(res)}). Row restored here.`);
       return;
     }
-    invalidateDashboardData("/api/dashboard-presentation");
+    invalidateDashboardData(["/api/data/class-options", "/api/dashboard-presentation"]);
     void classesCache.loadClasses(true);
   };
 
@@ -579,7 +579,7 @@ export default function ClassesPageClient({
       const nextClasses = [...classes, body.class];
       setClasses(nextClasses);
       classesCache.setClassesData(nextClasses);
-      invalidateDashboardData("/api/dashboard-presentation");
+      invalidateDashboardData(["/api/data/class-options", "/api/dashboard-presentation"]);
       void classesCache.loadClasses(true);
       return;
     }

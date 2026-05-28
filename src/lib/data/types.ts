@@ -10,6 +10,12 @@ export type StudentListItem = {
   level: string;
   status: "Incomplete" | "Completed";
   enrichment: string;
+  coreAssignedCount: number;
+  coreRequiredCount: number;
+  enrichmentApprovedCount: number;
+  enrichmentRequiredCount: number;
+  enrichmentPendingCount: number;
+  openScheduleBlocks: number;
   notes: string;
   track: ProgramTrack;
 };
@@ -49,6 +55,11 @@ export type SchoolClassRow = {
   /** Parent-facing availability label, e.g. "3 seats left" or "Full". */
   availabilityLabel?: string;
 };
+
+export type SchoolClassOptionRow = Pick<
+  SchoolClassRow,
+  "id" | "name" | "program" | "capacity" | "block" | "level" | "schedule"
+>;
 
 export type ClassRosterStatus = "Approved" | "Pending" | "Waitlisted" | "Rejected";
 

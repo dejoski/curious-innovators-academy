@@ -11,7 +11,7 @@ import {
   DASHBOARD_TABLE_SCROLL_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
 const imgMaskGroup = "/images/icon-pending-requests.svg";
@@ -38,6 +38,7 @@ function TableRow({
   dropdownRef,
   onOpenMessage,
   onRequestRemove,
+  onWarmStudent,
 }: {
   studentId: string;
   studentName: string;
@@ -54,11 +55,14 @@ function TableRow({
   dropdownRef: React.RefObject<HTMLDivElement | null>;
   onOpenMessage: () => void;
   onRequestRemove: () => void;
+  onWarmStudent: (id: string) => void;
 }) {
   const isCompleted = coreStatus === "Completed";
   return (
     <div
       className={`border-[#f0f0f0] border-t flex h-[63.857px] items-start transition-colors ${isSelected ? "bg-[#f8fdfd]" : "hover:bg-gray-50"}`}
+      onMouseEnter={() => onWarmStudent(studentId)}
+      onFocusCapture={() => onWarmStudent(studentId)}
     >
       <div className="w-[194px] flex items-center gap-[12px] pt-[8px]">
         <button
@@ -266,11 +270,8 @@ export default function StudentsStudentsList({
   const stats = useMemo(() => {
     const total = students.length;
     const completed = students.filter((student) => student.status === "Completed").length;
-    const openBlocks = Math.max(0, total - completed);
-    const pendingRequests = students.filter((student) => {
-      const match = /^(\d+)\s*\/\s*(\d+)$/.exec(student.enrichment.trim());
-      return match ? Number(match[1]) < Number(match[2]) : student.status !== "Completed";
-    }).length;
+    const openBlocks = students.reduce((sum, student) => sum + Math.max(0, student.openScheduleBlocks), 0);
+    const pendingRequests = students.reduce((sum, student) => sum + Math.max(0, student.enrichmentPendingCount), 0);
     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { total, completed, openBlocks, pct, pend: pendingRequests };
   }, [students]);
@@ -303,6 +304,18 @@ export default function StudentsStudentsList({
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
+  const warmStudent = React.useCallback((studentId: string) => {
+    if (!studentId) return;
+    preloadStudentDetailData(studentId);
+  }, []);
+
+  useEffect(() => {
+    const visibleIds = paginatedStudents.slice(0, 4).map((student) => student.id);
+    const timers = visibleIds.map((studentId, index) =>
+      window.setTimeout(() => warmStudent(studentId), index * 120),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [paginatedStudents, warmStudent]);
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -773,6 +786,7 @@ export default function StudentsStudentsList({
                     activeDropdown={activeDropdown}
                     setActiveDropdown={setActiveDropdown}
                     dropdownRef={dropdownRef}
+                    onWarmStudent={warmStudent}
                     onOpenMessage={() =>
                       setMessageTarget({
                         id: student.id,

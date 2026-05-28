@@ -5,6 +5,7 @@ import type {
   ClassRosterStatus,
   ClassRosterStudent,
   ProgramTrack,
+  SchoolClassOptionRow,
   SchoolClassRow,
 } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
@@ -230,6 +231,45 @@ export async function fetchAdminClassesResolved(): Promise<ResolvedList<SchoolCl
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
   return loadClassesResolved(access.client);
+}
+
+function mapClassOptionRow(row: Record<string, unknown>): SchoolClassOptionRow | null {
+  if (row.id == null || String(row.id) === "") return null;
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    program: normalizeProgram(row.program),
+    capacity: numberField(row, "capacity") ?? 0,
+    block: String(row.block ?? "").trim(),
+    level: String(row.level ?? "").trim(),
+    schedule: String(row.schedule_summary ?? ""),
+  };
+}
+
+async function loadClassOptionsResolved(client?: ClassReadClient): Promise<ResolvedList<SchoolClassOptionRow>> {
+  if (!isSupabaseConfigured()) return unavailableList();
+  try {
+    const supabase = client ?? await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("classes")
+      .select("id, name, program, capacity, block, level, schedule_summary")
+      .order("created_at", { ascending: true });
+    if (error) return unavailableList();
+    return {
+      items: ((data ?? []) as unknown as Record<string, unknown>[])
+        .map(mapClassOptionRow)
+        .filter((row): row is SchoolClassOptionRow => row !== null),
+      source: "remote",
+    };
+  } catch {
+    return unavailableList();
+  }
+}
+
+export async function fetchAdminClassOptionsResolved(): Promise<ResolvedList<SchoolClassOptionRow>> {
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableList();
+  return loadClassOptionsResolved(access.client);
 }
 
 function unavailableRoster(): ResolvedList<ClassRosterStudent> {

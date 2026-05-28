@@ -3,7 +3,7 @@ type CacheEntry<T> = {
   data: T;
 };
 
-const VERSION = "cia-client-data-v4";
+const VERSION = "cia-client-data-v5";
 const INVALIDATION_STORAGE_KEY = `${VERSION}:invalidation`;
 export const DASHBOARD_CACHE_INVALIDATED_EVENT = "cia-dashboard-cache-invalidated";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
@@ -150,8 +150,21 @@ export function parentStudentDataUrls(studentId: string) {
   ] as const;
 }
 
+export function studentDetailDataUrls(studentId: string) {
+  const encodedId = encodeURIComponent(studentId);
+  return [
+    `/api/data/students/${encodedId}/profile`,
+    `/api/data/students/${encodedId}/schedule`,
+    `/api/data/students/${encodedId}/roster`,
+  ] as const;
+}
+
 export function preloadParentStudentData(studentId: string) {
   for (const url of parentStudentDataUrls(studentId)) preloadJson(url);
+}
+
+export function preloadStudentDetailData(studentId: string) {
+  for (const url of studentDetailDataUrls(studentId)) preloadJson(url);
 }
 
 export async function preloadParentDashboardData(): Promise<{ ok: boolean; studentIds: string[] }> {

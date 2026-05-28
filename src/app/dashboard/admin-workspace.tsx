@@ -13,6 +13,7 @@ import {
   AdminStudentsPanel,
   AdminTeachersPanel,
 } from "./admin-panels";
+import type { AdminWorkspaceInitialData } from "./admin-workspace-page";
 import {
   ADMIN_VIEW_PATHS,
   DASHBOARD_WORKSPACE_EVENT,
@@ -24,13 +25,14 @@ import {
 
 type AdminWorkspaceProps = {
   initialView?: AdminView;
+  initialData?: AdminWorkspaceInitialData;
 };
 
 function classNameForView(active: boolean) {
   return active ? "block" : "hidden";
 }
 
-export default function AdminWorkspace({ initialView = "home" }: AdminWorkspaceProps) {
+export default function AdminWorkspace({ initialView = "home", initialData }: AdminWorkspaceProps) {
   const pathname = usePathname() ?? "";
   const [activeView, setActiveView] = React.useState<AdminView>(
     () => adminViewFromPath(pathname) ?? initialView,
@@ -115,15 +117,15 @@ export default function AdminWorkspace({ initialView = "home" }: AdminWorkspaceP
       </div>
 
       <div className={classNameForView(activeView === "students")} aria-hidden={activeView !== "students"}>
-        <AdminStudentsPanel />
+        <AdminStudentsPanel initialData={initialData?.students} />
       </div>
 
       <div className={classNameForView(activeView === "student-schedule")} aria-hidden={activeView !== "student-schedule"}>
-        <AdminStudentSchedulePanel />
+        <AdminStudentSchedulePanel initialData={initialData?.studentSchedules} />
       </div>
 
       <div className={classNameForView(activeView === "student-roster")} aria-hidden={activeView !== "student-roster"}>
-        <AdminStudentRosterPanel />
+        <AdminStudentRosterPanel initialData={initialData?.classOptions} />
       </div>
 
       <div className={classNameForView(activeView === "parents")} aria-hidden={activeView !== "parents"}>

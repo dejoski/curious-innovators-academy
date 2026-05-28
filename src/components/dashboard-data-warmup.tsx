@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { preloadDashboardData } from "@/lib/client-data-cache";
+import { preloadDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 
 type DashboardWarmupProfile = "admin" | "parent" | "teacher" | "student";
@@ -10,6 +10,7 @@ const ADMIN_WARMUP = [
   "/api/dashboard-presentation",
   "/api/data/notifications",
   "/api/data/classes",
+  "/api/data/class-options",
   "/api/data/enrichment-requests",
   "/api/data/approval-history",
   "/api/data/students",
@@ -20,12 +21,7 @@ const ADMIN_WARMUP = [
 ];
 
 function studentUrls(studentId: string) {
-  const encoded = encodeURIComponent(studentId);
-  return [
-    `/api/data/students/${encoded}/profile`,
-    `/api/data/students/${encoded}/schedule`,
-    `/api/data/students/${encoded}/roster`,
-  ];
+  return [...studentDetailDataUrls(studentId)];
 }
 
 function warmupUrls(profile: DashboardWarmupProfile, studentId: string) {

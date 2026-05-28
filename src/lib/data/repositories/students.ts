@@ -2,9 +2,20 @@ import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { firstRel } from "@/lib/data/repositories/relations";
+import {
+  CATALOG_SLOT_IDS,
+  PARENT_SCHEDULE_SLOT_KEYS,
+  catalogSlotIdFromScheduleSlot,
+  scheduleSlotForClassFields,
+  type ParentScheduleSlotKey,
+} from "@/lib/schedule-slots";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type StudentReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
+
+const CORE_REQUIRED_COUNT = PARENT_SCHEDULE_SLOT_KEYS.filter((slot) => catalogSlotIdFromScheduleSlot(slot) === null).length;
+const ENRICHMENT_REQUIRED_COUNT = CATALOG_SLOT_IDS.length;
 
 export const STUDENT_SELECT = `
   id,
@@ -13,13 +24,102 @@ export const STUDENT_SELECT = `
   level,
   track,
   profile_id,
-  support_notes
+  support_notes,
+  enrollments (
+    id,
+    status,
+    classes (
+      id,
+      program,
+      block,
+      schedule_summary
+    )
+  ),
+  class_requests (
+    id,
+    status,
+    classes (
+      id,
+      program,
+      block,
+      schedule_summary
+    )
+  )
 `;
 
 function parentContactFromStudentRow(row: Record<string, unknown>): { name: string; email: string } {
   return {
     name: String(row.parent_name ?? row.guardian_label ?? row.parent ?? ""),
     email: String(row.parent_email ?? "").trim(),
+  };
+}
+
+function normalizeProgram(raw: unknown): ProgramTrack {
+  const s = String(raw ?? "core").toLowerCase();
+  return s === "enrichment" ? "enrichment" : "core";
+}
+
+function rowsFromRelation(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+}
+
+function slotForPlacement(row: Record<string, unknown>, index: number): ParentScheduleSlotKey {
+  const cls = firstRel<Record<string, unknown>>(row.classes);
+  return scheduleSlotForClassFields({
+    block: cls?.block,
+    scheduleSummary: cls?.schedule_summary,
+    fallbackIndex: index,
+  });
+}
+
+function scheduleCountsFromStudentRow(row: Record<string, unknown>): Pick<
+  StudentListItem,
+  | "coreAssignedCount"
+  | "coreRequiredCount"
+  | "enrichmentApprovedCount"
+  | "enrichmentRequiredCount"
+  | "enrichmentPendingCount"
+  | "openScheduleBlocks"
+> {
+  const coreSlots = new Set<ParentScheduleSlotKey>();
+  const approvedEnrichmentSlots = new Set<ParentScheduleSlotKey>();
+  const pendingEnrichmentSlots = new Set<ParentScheduleSlotKey>();
+
+  rowsFromRelation(row.enrollments).forEach((enrollment, index) => {
+    const status = String(enrollment.status ?? "").toLowerCase();
+    if (status === "rejected") return;
+    const cls = firstRel<Record<string, unknown>>(enrollment.classes);
+    const program = normalizeProgram(cls?.program);
+    const slot = slotForPlacement(enrollment, index);
+    if (program === "core") {
+      coreSlots.add(slot);
+    } else if (status === "approved") {
+      approvedEnrichmentSlots.add(slot);
+    }
+  });
+
+  rowsFromRelation(row.class_requests).forEach((request, index) => {
+    const status = String(request.status ?? "").toLowerCase();
+    if (status !== "pending") return;
+    const cls = firstRel<Record<string, unknown>>(request.classes);
+    if (normalizeProgram(cls?.program) !== "enrichment") return;
+    pendingEnrichmentSlots.add(slotForPlacement(request, index));
+  });
+
+  const coreAssignedCount = Math.min(coreSlots.size, CORE_REQUIRED_COUNT);
+  const enrichmentApprovedCount = Math.min(approvedEnrichmentSlots.size, ENRICHMENT_REQUIRED_COUNT);
+  const openScheduleBlocks = Math.max(
+    0,
+    CORE_REQUIRED_COUNT + ENRICHMENT_REQUIRED_COUNT - coreAssignedCount - enrichmentApprovedCount,
+  );
+
+  return {
+    coreAssignedCount,
+    coreRequiredCount: CORE_REQUIRED_COUNT,
+    enrichmentApprovedCount,
+    enrichmentRequiredCount: ENRICHMENT_REQUIRED_COUNT,
+    enrichmentPendingCount: pendingEnrichmentSlots.size,
+    openScheduleBlocks,
   };
 }
 
@@ -30,20 +130,12 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
   const trackRaw = String(row.track ?? row.program_track ?? "core").toLowerCase();
   const track: ProgramTrack = trackRaw === "enrichment" ? "enrichment" : "core";
 
-  const statusRaw = String(row.core_status ?? row.schedule_status ?? row.status ?? "");
+  const scheduleCounts = scheduleCountsFromStudentRow(row);
   const status: StudentListItem["status"] =
-    statusRaw.toLowerCase().includes("complete") ? "Completed" : "Incomplete";
-
-  let studentsLabel = "";
-  if (row.enrichment != null) {
-    studentsLabel = String(row.enrichment);
-  } else if (row.enrichment_ratio != null) {
-    studentsLabel = String(row.enrichment_ratio);
-  }
-
-  if (!studentsLabel && row.enrichment_completed != null && row.enrichment_total != null) {
-    studentsLabel = `${row.enrichment_completed}/${row.enrichment_total}`;
-  }
+    scheduleCounts.openScheduleBlocks === 0 && scheduleCounts.enrichmentPendingCount === 0
+      ? "Completed"
+      : "Incomplete";
+  const studentsLabel = `${scheduleCounts.enrichmentApprovedCount}/${scheduleCounts.enrichmentRequiredCount}`;
 
   const parentContact = parentContactFromStudentRow(row);
 
@@ -55,7 +147,8 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
     parentEmail: parentContact.email || undefined,
     level: String(row.grade_level ?? row.level ?? ""),
     status,
-    enrichment: studentsLabel || "0/4",
+    enrichment: studentsLabel,
+    ...scheduleCounts,
     notes: String(row.notes ?? row.support_notes ?? ""),
     track,
   };
