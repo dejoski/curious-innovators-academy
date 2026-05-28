@@ -20,6 +20,8 @@ export type EnrichmentDecisionSummary = {
 
 export type ApprovalHistoryRow = {
   id: string;
+  studentId?: string;
+  classId?: string;
   student: string;
   parent: string;
   className: string;
@@ -27,6 +29,9 @@ export type ApprovalHistoryRow = {
   option: string;
   status: Exclude<RequestStatus, "Pending">;
   reviewedBy: string;
+  reviewedAt: string;
+  reviewedAtIso?: string;
+  requestedAt?: string;
   reason: string;
 };
 
@@ -186,6 +191,31 @@ function isEnrichmentClass(row: Record<string, unknown>): boolean {
   return String(cls?.program ?? "").toLowerCase() === "enrichment";
 }
 
+const SCHOOL_TIME_ZONE = "America/New_York";
+
+function dateIso(raw: unknown): string | undefined {
+  const value = String(raw ?? "").trim();
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
+function formatSchoolTimestamp(raw: unknown): string {
+  const value = String(raw ?? "").trim();
+  if (!value) return "Not recorded";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not recorded";
+  return date.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: SCHOOL_TIME_ZONE,
+  });
+}
+
 async function loadEnrichmentDecisionSummaryResolved(client?: RequestReadClient): Promise<EnrichmentDecisionSummary> {
   if (!isSupabaseConfigured()) return { ...EMPTY_DECISION_SUMMARY };
   const supabase = client ?? await createSupabaseServerClient();
@@ -226,8 +256,11 @@ function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow
 
   const student = firstRel<Record<string, unknown>>(row.students);
   const cls = firstRel<Record<string, unknown>>(row.classes);
+  const reviewedAtIso = dateIso(row.created_at);
   return {
     id: String(row.id),
+    studentId: row.student_id == null ? undefined : String(row.student_id),
+    classId: row.class_id == null ? undefined : String(row.class_id),
     student: String(student?.display_name ?? student?.student_name ?? ""),
     parent: String(student?.guardian_label ?? ""),
     className: String(cls?.name ?? cls?.class_name ?? ""),
@@ -235,8 +268,47 @@ function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow
     option: "Not recorded",
     status,
     reviewedBy: "Not recorded",
+    reviewedAt: formatSchoolTimestamp(row.created_at),
+    reviewedAtIso,
+    requestedAt: undefined,
     reason: "Not recorded",
   };
+}
+
+function mapDecisionHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {
+  if (row.id == null || String(row.id) === "") return null;
+  if (!isEnrichmentClass(row)) return null;
+
+  const status = mapStatus(row.status);
+  if (status === "Pending") return null;
+
+  const student = firstRel<Record<string, unknown>>(row.students);
+  const cls = firstRel<Record<string, unknown>>(row.classes);
+  const reviewer = firstRel<Record<string, unknown>>(row.reviewer);
+  const reviewedAtIso = dateIso(row.decided_at);
+  const rawReason = String(row.reason ?? "").trim();
+  const option = String(row.option_label ?? "").trim();
+
+  return {
+    id: String(row.id),
+    studentId: row.student_id == null ? undefined : String(row.student_id),
+    classId: row.class_id == null ? undefined : String(row.class_id),
+    student: String(student?.display_name ?? student?.student_name ?? ""),
+    parent: String(student?.guardian_label ?? ""),
+    className: String(cls?.name ?? cls?.class_name ?? ""),
+    block: formatBlockDayLabel(row.block ?? cls?.block, row.level, cls?.schedule_summary),
+    option: option ? formatRequestOptionLabel(option) : "Not recorded",
+    status,
+    reviewedBy: String(reviewer?.display_name ?? reviewer?.email ?? "").trim() || "Not recorded",
+    reviewedAt: formatSchoolTimestamp(row.decided_at),
+    reviewedAtIso,
+    requestedAt: formatSchoolTimestamp(row.requested_at),
+    reason: rawReason || "Not recorded",
+  };
+}
+
+function decisionKey(row: ApprovalHistoryRow): string {
+  return `${row.studentId ?? ""}\u0000${row.classId ?? ""}\u0000${row.status}`;
 }
 
 async function loadApprovalHistoryResolved(client?: RequestReadClient): Promise<
@@ -244,26 +316,63 @@ async function loadApprovalHistoryResolved(client?: RequestReadClient): Promise<
 > {
   if (!isSupabaseConfigured()) return unavailableList();
   const supabase = client ?? await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("enrollments")
-    .select(
-      `
-      id,
-      student_id,
-      class_id,
-      status,
-      created_at,
-      students ( display_name, guardian_label ),
-      classes ( name, program, block, level, schedule_summary )
-    `,
-    )
-    .order("created_at", { ascending: false });
-  if (error) return unavailableList();
+  const [decisionsResult, enrollmentsResult] = await Promise.all([
+    supabase
+      .from("class_request_decisions")
+      .select(
+        `
+        id,
+        original_request_id,
+        student_id,
+        class_id,
+        requested_by_profile_id,
+        decided_by_profile_id,
+        status,
+        block,
+        level,
+        option_label,
+        reason,
+        requested_at,
+        decided_at,
+        students ( display_name, guardian_label ),
+        classes ( name, program, block, level, schedule_summary ),
+        reviewer:profiles!class_request_decisions_decided_by_profile_id_fkey ( display_name, email )
+      `,
+      )
+      .order("decided_at", { ascending: false }),
+    supabase
+      .from("enrollments")
+      .select(
+        `
+        id,
+        student_id,
+        class_id,
+        status,
+        created_at,
+        students ( display_name, guardian_label ),
+        classes ( name, program, block, level, schedule_summary )
+      `,
+      )
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (decisionsResult.error || enrollmentsResult.error) return unavailableList();
+
+  const decisionRows = ((decisionsResult.data ?? []) as unknown as Record<string, unknown>[])
+    .map(mapDecisionHistoryRow)
+    .filter((row): row is ApprovalHistoryRow => row !== null);
+  const loggedKeys = new Set(decisionRows.map(decisionKey));
+  const enrollmentRows = ((enrollmentsResult.data ?? []) as unknown as Record<string, unknown>[])
+    .map(mapApprovalHistoryRow)
+    .filter((row): row is ApprovalHistoryRow => row !== null)
+    .filter((row) => !loggedKeys.has(decisionKey(row)));
 
   return {
-    items: ((data ?? []) as unknown as Record<string, unknown>[])
-      .map(mapApprovalHistoryRow)
-      .filter((row): row is ApprovalHistoryRow => row !== null),
+    items: [...decisionRows, ...enrollmentRows].sort((a, b) => {
+      const av = a.reviewedAtIso ?? "";
+      const bv = b.reviewedAtIso ?? "";
+      return bv.localeCompare(av);
+    }),
     source: "remote",
   };
 }

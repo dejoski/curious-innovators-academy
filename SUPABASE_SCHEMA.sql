@@ -196,6 +196,7 @@ CREATE TABLE public.students (
   profile_id uuid UNIQUE REFERENCES public.profiles (id) ON DELETE SET NULL,
   display_name text NOT NULL,
   guardian_label text,
+  avatar_url text,
   age_years integer,
   level text,
   track public.program_track NOT NULL DEFAULT 'core',
@@ -258,6 +259,28 @@ CREATE TABLE public.class_requests (
 
 CREATE INDEX class_requests_student_idx ON public.class_requests (student_id);
 CREATE INDEX class_requests_class_idx ON public.class_requests (class_id);
+
+CREATE TABLE public.class_request_decisions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  original_request_id uuid,
+  student_id uuid NOT NULL REFERENCES public.students (id) ON DELETE CASCADE,
+  class_id uuid NOT NULL REFERENCES public.classes (id) ON DELETE CASCADE,
+  requested_by_profile_id uuid REFERENCES public.profiles (id) ON DELETE SET NULL,
+  decided_by_profile_id uuid REFERENCES public.profiles (id) ON DELETE SET NULL,
+  status public.workflow_status NOT NULL,
+  block text,
+  level text,
+  option_label text,
+  reason text,
+  requested_at timestamptz,
+  decided_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT class_request_decisions_no_pending CHECK (status <> 'pending')
+);
+
+CREATE INDEX class_request_decisions_student_idx ON public.class_request_decisions (student_id, decided_at DESC);
+CREATE INDEX class_request_decisions_class_idx ON public.class_request_decisions (class_id, decided_at DESC);
+CREATE INDEX class_request_decisions_original_request_idx ON public.class_request_decisions (original_request_id);
 
 CREATE TABLE public.schedule_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -468,6 +491,7 @@ ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.class_request_decisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
@@ -641,6 +665,23 @@ CREATE POLICY class_requests_update_admin_or_teacher
 CREATE POLICY class_requests_delete_admin
   ON public.class_requests FOR DELETE TO authenticated
   USING (private.is_admin());
+
+-- class_request_decisions
+CREATE POLICY class_request_decisions_select
+  ON public.class_request_decisions FOR SELECT TO authenticated
+  USING (
+    private.is_admin()
+    OR private.parent_can_see_student(class_request_decisions.student_id)
+    OR private.student_is_self(class_request_decisions.student_id)
+    OR private.teacher_owns_class(class_request_decisions.class_id)
+  );
+
+CREATE POLICY class_request_decisions_insert_admin_or_teacher
+  ON public.class_request_decisions FOR INSERT TO authenticated
+  WITH CHECK (
+    private.is_admin()
+    OR private.teacher_owns_class(class_request_decisions.class_id)
+  );
 
 -- schedule_events
 CREATE POLICY schedule_events_select

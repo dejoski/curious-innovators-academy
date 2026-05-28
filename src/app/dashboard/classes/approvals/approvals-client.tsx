@@ -25,7 +25,7 @@ const PAGE_SIZE = 10;
 
 type SortKey = keyof Pick<
   ApprovalRow,
-  "student" | "parent" | "className" | "block" | "option" | "status" | "reviewedBy" | "reason"
+  "student" | "parent" | "className" | "block" | "option" | "status" | "reviewedBy" | "reviewedAt" | "reason"
 >;
 type FilterValue = "All" | ApprovalStatus;
 
@@ -59,8 +59,8 @@ export function ClassesApprovalHistory() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("All");
-  const [sortKey, setSortKey] = useState<SortKey>("student");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("reviewedAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
@@ -125,6 +125,7 @@ export function ClassesApprovalHistory() {
         row.option,
         row.status,
         row.reviewedBy,
+        row.reviewedAt,
         row.reason,
       ]
         .join(" ")
@@ -132,8 +133,8 @@ export function ClassesApprovalHistory() {
       return hay.includes(q);
     });
     filteredRows = [...filteredRows].sort((a, b) => {
-      const av = String(a[sortKey]);
-      const bv = String(b[sortKey]);
+      const av = sortKey === "reviewedAt" ? String(a.reviewedAtIso ?? "") : String(a[sortKey]);
+      const bv = sortKey === "reviewedAt" ? String(b.reviewedAtIso ?? "") : String(b[sortKey]);
       const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -177,6 +178,7 @@ export function ClassesApprovalHistory() {
     ["option", "Option"],
     ["status", "Final Status"],
     ["reviewedBy", "Reviewed by"],
+    ["reviewedAt", "Reviewed at"],
     ["reason", "Reason"],
   ];
 
@@ -200,7 +202,7 @@ export function ClassesApprovalHistory() {
     const selectedRows = processed.filter((row) => selectedIds.has(row.id));
     downloadCsv(
       "approval-history-selected.csv",
-      ["Student", "Parent", "Class", "Block", "Option", "Final Status", "Reviewed By", "Reason"],
+      ["Student", "Parent", "Class", "Block", "Option", "Final Status", "Reviewed By", "Reviewed At", "Requested At", "Reason"],
       selectedRows.map((row) => [
         row.student,
         row.parent,
@@ -209,6 +211,8 @@ export function ClassesApprovalHistory() {
         row.option,
         row.status,
         row.reviewedBy,
+        row.reviewedAt,
+        row.requestedAt ?? "",
         row.reason,
       ]),
     );
@@ -393,9 +397,9 @@ export function ClassesApprovalHistory() {
         </DashboardBulkSelectionBar>
 
         <div className="overflow-x-auto w-full min-w-0 pb-2">
-          <div className="min-w-[900px]">
+          <div className="min-w-[1080px]">
             {/* Table Header Columns */}
-            <div className="grid grid-cols-[15fr_12fr_15fr_8fr_8fr_12fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-3 px-4 w-full items-center">
+            <div className="grid grid-cols-[13fr_10fr_14fr_9fr_8fr_10fr_11fr_13fr_12fr_5fr] border-t border-[#f0f0f0] py-3 px-4 w-full items-center">
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif]">Student</div>
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif]">Parent</div>
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif]">Class</div>
@@ -403,6 +407,7 @@ export function ClassesApprovalHistory() {
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Option</div>
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Final status</div>
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Reviewed by</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Reviewed at</div>
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Reason</div>
               <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center"> </div>
             </div>
@@ -410,7 +415,7 @@ export function ClassesApprovalHistory() {
             {/* Table Rows */}
             <div className="flex flex-col w-full">
               {pageRows.map((row) => (
-                <div key={row.id} className="grid grid-cols-[15fr_12fr_15fr_8fr_8fr_12fr_12fr_12fr_6fr] border-t border-[#f0f0f0] hover:bg-[#fafafa] transition-colors py-2.5 px-4 w-full items-center">
+                <div key={row.id} className="grid grid-cols-[13fr_10fr_14fr_9fr_8fr_10fr_11fr_13fr_12fr_5fr] border-t border-[#f0f0f0] hover:bg-[#fafafa] transition-colors py-2.5 px-4 w-full items-center">
                   
                   {/* Student */}
                   <div className="flex gap-[8px] items-center">
@@ -467,6 +472,11 @@ export function ClassesApprovalHistory() {
                   {/* Reviewed by */}
                   <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px] text-center">
                     {row.reviewedBy}
+                  </div>
+
+                  {/* Reviewed at */}
+                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] text-center">
+                    {row.reviewedAt}
                   </div>
 
                   {/* Reason */}
@@ -627,6 +637,16 @@ export function ClassesApprovalHistory() {
                 <dt className="text-[#666d80]">Reviewed by</dt>
                 <dd className="font-medium text-[#0d0d12]">{detailRow.reviewedBy}</dd>
               </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#666d80]">Reviewed at</dt>
+                <dd className="font-medium text-[#0d0d12]">{detailRow.reviewedAt}</dd>
+              </div>
+              {detailRow.requestedAt && detailRow.requestedAt !== "Not recorded" && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Requested at</dt>
+                  <dd className="font-medium text-[#0d0d12]">{detailRow.requestedAt}</dd>
+                </div>
+              )}
               <div className="pt-2">
                 <dt className="text-[#666d80]">Reason</dt>
                 <dd className="mt-1 italic text-[#0d0d12]">{detailRow.reason}</dd>

@@ -1,7 +1,12 @@
 "use client";
 
 import React from "react";
-import { preloadDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
+import {
+  ADMIN_HOME_DATA_URLS,
+  preloadAdminHomeData,
+  preloadDashboardData,
+  studentDetailDataUrls,
+} from "@/lib/client-data-cache";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 
 type DashboardWarmupProfile = "admin" | "parent" | "teacher" | "student";
@@ -45,12 +50,21 @@ function warmupUrls(profile: DashboardWarmupProfile, studentId: string) {
   ];
 }
 
+function secondaryWarmupUrls(profile: DashboardWarmupProfile, studentId: string) {
+  const urls = warmupUrls(profile, studentId);
+  if (profile !== "admin") return urls;
+  const priority = new Set<string>(ADMIN_HOME_DATA_URLS);
+  return urls.filter((url) => !priority.has(url));
+}
+
 export default function DashboardDataWarmup() {
   const { persona, demoStudentId, isAccountResolved } = useDashboardPersona();
 
   React.useEffect(() => {
     if (!isAccountResolved) return;
-    const urls = warmupUrls(persona, demoStudentId);
+    if (persona === "admin") preloadAdminHomeData();
+
+    const urls = secondaryWarmupUrls(persona, demoStudentId);
     const run = () => {
       for (const url of urls) preloadDashboardData(url);
     };

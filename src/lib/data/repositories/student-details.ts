@@ -195,7 +195,7 @@ export async function fetchStudentProfileResolved(
     const { data: student, error } = await supabase
       .from("students")
       .select(
-        "id, display_name, guardian_label, age_years, level, track, learning_profile, strengths, support_notes",
+        "id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes",
       )
       .eq("id", id)
       .maybeSingle();
@@ -263,7 +263,7 @@ export async function fetchStudentProfileResolved(
     return {
       source: "remote",
       profile: {
-        avatar: "/images/avatars/student-1.png",
+        avatar: String(student.avatar_url ?? "") || "/images/avatars/student-1.png",
         details: {
           name: String(student.display_name ?? ""),
           age: student.age_years == null ? "—" : String(student.age_years),
@@ -306,7 +306,7 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
     const supabase = access.client;
     const { data: students, error: studentsError } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label")
+      .select("id, display_name, guardian_label, avatar_url")
       .order("display_name", { ascending: true });
     if (studentsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "students", studentsError);
@@ -318,6 +318,7 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
         id: String(student.id ?? ""),
         name: String(student.display_name ?? ""),
         parent: String(student.guardian_label ?? ""),
+        avatar: String(student.avatar_url ?? ""),
       }),
     ).filter((row) => row.id);
     const byStudentId = new Map(rows.map((row) => [row.id, row]));
@@ -384,7 +385,7 @@ export async function fetchStudentScheduleResolved(
     const supabase = client ?? await createSupabaseServerClient();
     const { data: student, error } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label")
+      .select("id, display_name, guardian_label, avatar_url")
       .eq("id", id)
       .maybeSingle();
     if (error) {
@@ -417,6 +418,7 @@ export async function fetchStudentScheduleResolved(
       id: String(student.id),
       name: String(student.display_name ?? ""),
       parent: String(student.guardian_label ?? ""),
+      avatar: String(student.avatar_url ?? ""),
     });
     ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
       const badge = badgeForEnrollment(enrollment);
@@ -463,7 +465,7 @@ function mapStudentRosterEnrollmentRow(row: Record<string, unknown>): StudentRos
     parent: String(student?.guardian_label ?? ""),
     age: Number(student?.age_years ?? 0) || 0,
     status: normalizeRosterStatus(row.status),
-    avatar: "/images/avatars/student-1.png",
+    avatar: String(student?.avatar_url ?? "") || "/images/avatars/student-1.png",
     classId: String(cls?.id ?? row.class_id ?? ""),
     classRef: String(cls?.name ?? ""),
     blockRef: String(cls?.block ?? "Unassigned block"),
@@ -509,6 +511,7 @@ export async function fetchStudentRosterResolved(
           id,
           display_name,
           guardian_label,
+          avatar_url,
           age_years,
           level,
           learning_profile,

@@ -2,8 +2,10 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import type { DataSource } from "@/lib/data/fetch-source";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
 import type {
   StudentProfileBundle,
   StudentProfileDetails,
@@ -15,7 +17,6 @@ import {
   isStudentProfileTimelineEventType,
 } from "@/lib/data/types";
 
-const imgGroup = "/images/icon-settings.svg";
 const imgMaskGroup = "/images/icon-group.svg";
 const imgGroup1 = "/images/icon-notification-bell.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
@@ -59,8 +60,10 @@ export default function StudentProfileClient({
   const [profileBanner, setProfileBanner] = useState<null | { tone: "success" | "error"; message: string }>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
 
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
@@ -71,11 +74,13 @@ export default function StudentProfileClient({
       ? bundle.details
       : { name: "", age: "", level: "", learningProfile: "", strengths: "", supportNotes: "" },
   );
+  const [avatarUrl, setAvatarUrl] = useState(() => bundle?.avatar ?? "/images/avatars/student-1.png");
   const [events, setEvents] = useState<TimelineEvent[]>(() => (bundle ? bundle.events : []));
 
   useEffect(() => {
     if (!bundle) return;
     setStudentDetails(bundle.details);
+    setAvatarUrl(bundle.avatar);
     setEvents(bundle.events);
     setFilterType(ALL_HISTORY_FILTER);
     setIsEditModalOpen(false);
@@ -85,8 +90,10 @@ export default function StudentProfileClient({
     setProfileBanner(null);
     setEditError(null);
     setNoteError(null);
+    setAvatarError(null);
     setIsSavingProfile(false);
     setIsSavingNote(false);
+    setIsSavingAvatar(false);
     setNewNoteTitle("");
     setNewNoteContent("");
     setNewNoteType("Academic");
@@ -214,6 +221,42 @@ export default function StudentProfileClient({
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = "";
+    if (!file || isSavingAvatar) return;
+    setAvatarError(null);
+    setIsSavingAvatar(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const res = await fetch(`/api/data/students/${encodeURIComponent(studentId)}/avatar`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        setAvatarError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { avatarUrl?: string };
+      if (!body.avatarUrl) {
+        setAvatarError("Student photo could not be saved.");
+        return;
+      }
+      setAvatarUrl(body.avatarUrl);
+      invalidateDashboardData([
+        "/api/data/students",
+        "/api/data/student-schedules",
+        ...studentDetailDataUrls(studentId),
+      ]);
+      setProfileBanner({ tone: "success", message: "Student photo was saved." });
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Student photo could not be saved.");
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
   const isEditProfileDirty =
     editModalBaseline !== null &&
     (studentDetails.name !== editModalBaseline.name ||
@@ -319,18 +362,33 @@ export default function StudentProfileClient({
           </p>
         ) : null}
         {dataHint ? <p className="text-xs text-[#6b7280] max-w-2xl leading-relaxed">{dataHint}</p> : null}
+        {avatarError ? (
+          <div role="alert" className="mt-2 rounded-[10px] border border-[#f6c8c8] bg-[#fff1f1] px-4 py-3 text-sm font-medium text-[#8c1f1f]">
+            {avatarError}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 w-full">
         <div className="bg-white border border-[#f0f0f0] rounded-[16px] p-6 flex-1 flex flex-col sm:flex-row items-start gap-8 shadow-sm">
           <div className="relative size-[102px] shrink-0">
-            <img alt="Student" className="size-full rounded-full object-cover" src={mock.avatar} />
-            <button
-              onClick={openEditModal}
-              className="absolute bottom-0 right-0 bg-[#14c1d5] border border-[rgba(20,193,213,0.2)] rounded-full size-[24px] flex items-center justify-center hover:bg-[#12aebd] transition-colors"
+            <img alt="Student" className="size-full rounded-full object-cover" src={avatarUrl} />
+            <label
+              className={`absolute bottom-0 right-0 flex size-[30px] items-center justify-center rounded-full border border-[rgba(20,193,213,0.2)] bg-[#14c1d5] text-white transition-colors hover:bg-[#12aebd] ${
+                isSavingAvatar ? "cursor-wait opacity-70" : "cursor-pointer"
+              }`}
+              title="Change student photo"
             >
-              <img alt="Edit" className="size-[12px]" src={imgGroup} />
-            </button>
+              <Camera className="size-[15px]" aria-hidden strokeWidth={2} />
+              <span className="sr-only">Change student photo</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                disabled={isSavingAvatar}
+                onChange={handleAvatarUpload}
+              />
+            </label>
           </div>
 
           <div className="flex flex-col gap-[6px] w-full min-w-0">

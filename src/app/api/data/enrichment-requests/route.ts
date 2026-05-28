@@ -60,7 +60,8 @@ export async function PATCH(req: Request) {
   if (status !== "Approved" && status !== "Rejected" && status !== "Pending" && status !== "Waitlisted") {
     return apiError("Invalid status");
   }
-  const result = await serverPatchEnrichmentRequest(id, status);
+  const reason = typeof body.reason === "string" ? body.reason : undefined;
+  const result = await serverPatchEnrichmentRequest(id, status, { reason });
   if (!result.ok) {
     return apiWriteError(result.message, 400);
   }

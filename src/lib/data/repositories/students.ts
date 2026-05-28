@@ -21,6 +21,7 @@ export const STUDENT_SELECT = `
   id,
   display_name,
   guardian_label,
+  avatar_url,
   level,
   track,
   profile_id,

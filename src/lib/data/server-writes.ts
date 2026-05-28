@@ -1006,14 +1006,62 @@ const requestSelect = `
   id,
   student_id,
   class_id,
+  requested_by_profile_id,
   status,
   block,
   level,
   option_label,
+  created_at,
   students ( display_name, guardian_label ),
   classes ( id, name, program, block, schedule_summary ),
   requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
 `;
+
+type FinalRequestDecisionStatus = "approved" | "waitlisted" | "rejected";
+
+async function insertClassRequestDecisionLog(
+  supabase: SupabaseMutationClient,
+  raw: Record<string, unknown>,
+  input: {
+    status: FinalRequestDecisionStatus;
+    decidedByProfileId?: string | null;
+    reason?: string | null;
+  },
+): Promise<WriteFail | { ok: true }> {
+  const studentId = String(raw.student_id ?? "").trim();
+  const classId = String(raw.class_id ?? "").trim();
+  if (!studentId || !classId) {
+    return { ok: false, message: "Decision log is missing student or class id" };
+  }
+
+  const originalRequestId = String(raw.id ?? "").trim();
+  const requestedByProfileId = String(raw.requested_by_profile_id ?? "").trim();
+  const decidedByProfileId = String(input.decidedByProfileId ?? "").trim();
+  const block = String(raw.block ?? "").trim();
+  const level = String(raw.level ?? "").trim();
+  const optionLabel = String(raw.option_label ?? "").trim();
+  const requestedAt = String(raw.created_at ?? "").trim();
+  const reason = String(input.reason ?? "").trim();
+
+  const { error } = await supabase
+    .from("class_request_decisions")
+    .insert({
+      original_request_id: originalRequestId || null,
+      student_id: studentId,
+      class_id: classId,
+      requested_by_profile_id: requestedByProfileId || null,
+      decided_by_profile_id: decidedByProfileId || null,
+      status: input.status,
+      block: block || null,
+      level: level || null,
+      option_label: optionLabel || null,
+      reason: reason || null,
+      requested_at: requestedAt || null,
+    });
+
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
 
 async function resolveRequestStudentId(
   supabase: SupabaseMutationClient,
@@ -1204,6 +1252,7 @@ async function clearSameSlotAlternativesAfterApproval(
     studentId: string;
     approvedClassId: string;
     approvedRequestId?: string;
+    decidedByProfileId?: string | null;
   },
 ): Promise<WriteFail | { ok: true }> {
   const { data: approvedClass, error: approvedClassError } = await supabase
@@ -1237,6 +1286,27 @@ async function clearSameSlotAlternativesAfterApproval(
       .eq("student_id", input.studentId)
       .in("class_id", conflictingClassIds);
     if (enrollmentDeleteError) return { ok: false, message: enrollmentDeleteError.message };
+  }
+
+  let conflictingRequestsQuery = supabase
+    .from("class_requests")
+    .select(requestSelect)
+    .eq("student_id", input.studentId)
+    .in("class_id", sameSlotClassIds);
+  if (input.approvedRequestId) {
+    conflictingRequestsQuery = conflictingRequestsQuery.neq("id", input.approvedRequestId);
+  }
+
+  const { data: conflictingRequests, error: conflictingRequestsError } = await conflictingRequestsQuery;
+  if (conflictingRequestsError) return { ok: false, message: conflictingRequestsError.message };
+
+  for (const row of (conflictingRequests ?? []) as unknown as Record<string, unknown>[]) {
+    const logged = await insertClassRequestDecisionLog(supabase, row, {
+      status: "rejected",
+      decidedByProfileId: input.decidedByProfileId,
+      reason: "Superseded by approved placement",
+    });
+    if (!logged.ok) return logged;
   }
 
   let requestDelete = supabase
@@ -1420,10 +1490,14 @@ export async function serverInsertEnrichmentRequests(input: {
 export async function serverPatchEnrichmentRequest(
   id: string,
   status: EnrichmentRequestRow["status"],
+  options: { reason?: string } = {},
 ): Promise<WriteOk<EnrichmentRequestRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const mutationClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
     const dbStatus = status.toLowerCase();
     const { data, error } = dbStatus === "pending"
@@ -1445,6 +1519,9 @@ export async function serverPatchEnrichmentRequest(
       const studentId = String(raw.student_id ?? "").trim();
       const classId = String(raw.class_id ?? "").trim();
       if (!studentId || !classId) return { ok: false, message: "Request is missing student or class id" };
+      if (dbStatus !== "approved" && dbStatus !== "waitlisted" && dbStatus !== "rejected") {
+        return { ok: false, message: "Invalid final status" };
+      }
 
       const { error: enrollmentError } = await mutationClient
         .from("enrollments")
@@ -1452,17 +1529,25 @@ export async function serverPatchEnrichmentRequest(
           {
             student_id: studentId,
             class_id: classId,
-            status: dbStatus as "approved" | "waitlisted" | "rejected",
+            status: dbStatus,
           },
           { onConflict: "class_id,student_id" },
         );
       if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+      const logged = await insertClassRequestDecisionLog(mutationClient, raw, {
+        status: dbStatus,
+        decidedByProfileId: user?.id,
+        reason: options.reason,
+      });
+      if (!logged.ok) return logged;
 
       if (dbStatus === "approved") {
         const cleaned = await clearSameSlotAlternativesAfterApproval(mutationClient, {
           studentId,
           approvedClassId: classId,
           approvedRequestId: id,
+          decidedByProfileId: user?.id,
         });
         if (!cleaned.ok) return cleaned;
       }
@@ -1480,7 +1565,7 @@ export async function serverPatchEnrichmentRequest(
       action: "class_request.status.update",
       entityType: "class_request",
       entityId: row.id,
-      metadata: { status: row.status },
+      metadata: { status: row.status, reason: options.reason ?? null },
     });
     return { ok: true, row };
   } catch (e) {

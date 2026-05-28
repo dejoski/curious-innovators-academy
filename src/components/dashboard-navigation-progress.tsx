@@ -42,7 +42,7 @@ export function DashboardNavigationProgressProvider({
     for (const route of DASHBOARD_PREFETCH_ROUTES) {
       router.prefetch(route);
     }
-  }, [router]);
+  }, [pathname, router]);
 
   const value = React.useMemo(
     () => ({

@@ -11,6 +11,12 @@ const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
 let cacheScope = "default";
 
+export const ADMIN_HOME_DATA_URLS = [
+  "/api/dashboard-presentation",
+  "/api/data/notifications",
+  "/api/data/enrichment-requests",
+] as const;
+
 function cacheKey(url: string) {
   return `${VERSION}:${cacheScope}:${url}`;
 }
@@ -165,6 +171,10 @@ export function preloadParentStudentData(studentId: string) {
 
 export function preloadStudentDetailData(studentId: string) {
   for (const url of studentDetailDataUrls(studentId)) preloadJson(url);
+}
+
+export function preloadAdminHomeData() {
+  for (const url of ADMIN_HOME_DATA_URLS) preloadJson(url);
 }
 
 export async function preloadParentDashboardData(): Promise<{ ok: boolean; studentIds: string[] }> {
