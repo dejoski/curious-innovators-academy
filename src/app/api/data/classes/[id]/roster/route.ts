@@ -40,6 +40,7 @@ export async function POST(req: Request, context: RouteContext) {
           : "Pending";
   const result = await serverInsertRosterStudent({
     classId: id,
+    studentId: body.studentId == null ? undefined : String(body.studentId),
     name: String(body.name ?? ""),
     parent: String(body.parent ?? ""),
     age: body.age == null ? undefined : Number(body.age),

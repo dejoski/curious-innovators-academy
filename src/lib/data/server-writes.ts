@@ -675,6 +675,7 @@ export async function serverDeleteEnrollment(input: {
 
 export async function serverInsertRosterStudent(input: {
   classId: string;
+  studentId?: string;
   name: string;
   parent: string;
   age?: number;
@@ -684,8 +685,9 @@ export async function serverInsertRosterStudent(input: {
 }): Promise<WriteOk<ClassRosterStudent> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const classId = input.classId.trim();
+  const existingStudentId = input.studentId?.trim() ?? "";
   const name = input.name.trim().replace(/\s+/g, " ");
-  if (!classId || !name) return { ok: false, message: "Missing class or student name" };
+  if (!classId || (!name && !existingStudentId)) return { ok: false, message: "Missing class or student" };
   if (input.status === "Pending") {
     return { ok: false, message: "Pending class workflow must be created as a class request, not an enrollment" };
   }
@@ -700,21 +702,53 @@ export async function serverInsertRosterStudent(input: {
     if (classError) return { ok: false, message: classError.message };
     if (!classRow) return { ok: false, message: "Class not found" };
 
-    const age = Number.isFinite(input.age) && Number(input.age) >= 0 ? Math.round(Number(input.age)) : null;
-    const { data: student, error: studentError } = await supabase
-      .from("students")
-      .insert({
-        display_name: name,
-        guardian_label: input.parent.trim() || null,
-        age_years: age,
-        level: input.level.trim() || null,
-        track: classRow.program === "enrichment" ? "enrichment" : "core",
-        support_notes: input.description?.trim() ?? "",
-      })
-      .select("id, display_name, guardian_label, age_years, level, support_notes")
-      .maybeSingle();
-    if (studentError) return { ok: false, message: studentError.message };
-    if (!student?.id) return { ok: false, message: "Student could not be created" };
+    let createdStudent = false;
+    let student: {
+      id?: unknown;
+      display_name?: unknown;
+      guardian_label?: unknown;
+      age_years?: unknown;
+      level?: unknown;
+      support_notes?: unknown;
+    } | null = null;
+
+    if (existingStudentId) {
+      const { data: existingEnrollment, error: existingEnrollmentError } = await supabase
+        .from("enrollments")
+        .select("student_id")
+        .eq("class_id", classId)
+        .eq("student_id", existingStudentId)
+        .maybeSingle();
+      if (existingEnrollmentError) return { ok: false, message: existingEnrollmentError.message };
+      if (existingEnrollment) return { ok: false, message: "Student is already on this class roster." };
+
+      const { data, error } = await supabase
+        .from("students")
+        .select("id, display_name, guardian_label, age_years, level, support_notes")
+        .eq("id", existingStudentId)
+        .maybeSingle();
+      if (error) return { ok: false, message: error.message };
+      if (!data?.id) return { ok: false, message: "Student not found" };
+      student = data;
+    } else {
+      const age = Number.isFinite(input.age) && Number(input.age) >= 0 ? Math.round(Number(input.age)) : null;
+      const { data, error } = await supabase
+        .from("students")
+        .insert({
+          display_name: name,
+          guardian_label: input.parent.trim() || null,
+          age_years: age,
+          level: input.level.trim() || null,
+          track: classRow.program === "enrichment" ? "enrichment" : "core",
+          support_notes: input.description?.trim() ?? "",
+        })
+        .select("id, display_name, guardian_label, age_years, level, support_notes")
+        .maybeSingle();
+      if (error) return { ok: false, message: error.message };
+      if (!data?.id) return { ok: false, message: "Student could not be created" };
+      student = data;
+      createdStudent = true;
+    }
 
     const dbStatus = workflowStatusForRoster(input.status);
     const { error: enrollmentError } = await supabase.from("enrollments").insert({
@@ -744,7 +778,7 @@ export async function serverInsertRosterStudent(input: {
       action: "enrollment.create",
       entityType: "enrollment",
       entityId: `${classId}:${row.id}`,
-      metadata: { classId, studentId: row.id, status: dbStatus, createdStudent: true },
+      metadata: { classId, studentId: row.id, status: dbStatus, createdStudent },
     });
     return { ok: true, row };
   } catch (e) {

@@ -7,8 +7,10 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type {
   ClassRosterStatus,
@@ -106,15 +108,7 @@ export default function ClassDetailsPage() {
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [isEditInfoModalOpen, setIsEditInfoModalOpen] = useState(false);
   const [isRemoveClassModalOpen, setIsRemoveClassModalOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addParent, setAddParent] = useState("");
-  const [addAge, setAddAge] = useState("14");
-  const [addLevel, setAddLevel] = useState("2");
-  const [addStatus, setAddStatus] = useState<Status>("Pending");
-  const [addDescription, setAddDescription] = useState("");
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
-  const [addStudentError, setAddStudentError] = useState<string | null>(null);
-  const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [classEditError, setClassEditError] = useState<string | null>(null);
   const [deleteClassError, setDeleteClassError] = useState<string | null>(null);
   const [editStudentError, setEditStudentError] = useState<string | null>(null);
@@ -370,45 +364,37 @@ export default function ClassDetailsPage() {
     }
   };
 
-  const submitAddStudent = async () => {
-    const name = addName.trim();
-    if (!name) return;
-    setAddStudentError(null);
-    setIsAddingStudent(true);
+  const submitAddStudent = async (input: { studentId: string; status: Exclude<Status, "Pending"> }) => {
+    if (!input.studentId) return;
     try {
       const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          parent: addParent,
-          age: addAge,
-          level: addLevel,
-          status: addStatus,
-          description: addDescription,
+          studentId: input.studentId,
+          status: input.status,
         }),
       });
       if (!res.ok) {
-        setAddStudentError(await readApiError(res));
-        return;
+        throw new Error(await readApiError(res));
       }
       const body = (await res.json()) as { student?: Student };
       if (!body.student) {
-        setAddStudentError("Student could not be added to this class.");
-        return;
+        throw new Error("Student could not be added to this class.");
       }
       setStudents((prev) => [...prev, body.student as Student]);
+      invalidateDashboardData([
+        `/api/data/classes/${encodeURIComponent(classId)}/roster`,
+        "/api/data/students",
+        "/api/data/classes",
+        "/api/data/class-options",
+        "/api/dashboard-presentation",
+        ...studentDetailDataUrls(input.studentId),
+      ]);
       setIsAddStudentModalOpen(false);
-      setAddName("");
-      setAddParent("");
-      setAddAge("14");
-      setAddLevel("2");
-      setAddStatus("Pending");
-      setAddDescription("");
     } catch (error) {
-      setAddStudentError(error instanceof Error ? error.message : "Student could not be added to this class.");
-    } finally {
-      setIsAddingStudent(false);
+      const message = error instanceof Error ? error.message : "Student could not be added to this class.";
+      throw new Error(message);
     }
   };
 
@@ -676,13 +662,6 @@ export default function ClassDetailsPage() {
               <button 
                 type="button"
                 onClick={() => {
-                  setAddName("");
-                  setAddParent("");
-                  setAddAge("14");
-                  setAddLevel("2");
-                  setAddStatus("Pending");
-                  setAddDescription("");
-                  setAddStudentError(null);
                   setIsAddStudentModalOpen(true);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg font-semibold text-sm hover:bg-cyan-600 transition-colors shadow-sm"
@@ -855,89 +834,13 @@ export default function ClassDetailsPage() {
       </div>
 
       {/* Modals */}
-      {isAddStudentModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4" role="dialog" aria-modal="true">
-          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl relative">
-            <button
-              type="button"
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-              onClick={() => setIsAddStudentModalOpen(false)}
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-xl font-bold mb-2 pr-8">Add Student</h3>
-            <p className="text-sm text-gray-500 mb-4">Create a student row and enroll it in this class.</p>
-            {addStudentError ? (
-              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
-                {addStudentError}
-              </div>
-            ) : null}
-            <div className="flex flex-col gap-3">
-              <input
-                value={addName}
-                onChange={(e) => setAddName(e.target.value)}
-                placeholder="Student name"
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              />
-              <input
-                value={addParent}
-                onChange={(e) => setAddParent(e.target.value)}
-                placeholder="Parent / guardian"
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              />
-              <div className="flex gap-2">
-                <input
-                  value={addAge}
-                  onChange={(e) => setAddAge(e.target.value)}
-                  placeholder="Age"
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-1/2"
-                />
-                <input
-                  value={addLevel}
-                  onChange={(e) => setAddLevel(e.target.value)}
-                  placeholder="Level"
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-1/2"
-                />
-              </div>
-              <select
-                value={addStatus}
-                onChange={(e) => setAddStatus(e.target.value as Status)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Waitlisted">Waitlisted</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-              <textarea
-                value={addDescription}
-                onChange={(e) => setAddDescription(e.target.value)}
-                placeholder="Description"
-                rows={2}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setIsAddStudentModalOpen(false)}
-                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={submitAddStudent}
-                disabled={isAddingStudent}
-                className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-cyan-200"
-              >
-                {isAddingStudent ? "Adding..." : "Add"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ClassAddExistingStudentModal
+        open={isAddStudentModalOpen}
+        existingStudentIds={students.map((student) => student.id)}
+        classNameLabel={classMeta.title}
+        onClose={() => setIsAddStudentModalOpen(false)}
+        onSubmit={submitAddStudent}
+      />
       <DashboardBulkImportModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}

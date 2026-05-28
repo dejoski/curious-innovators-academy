@@ -6,8 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type {
   ClassRosterStudent,
@@ -110,11 +112,7 @@ export default function EnrichmentClassDetail() {
 
   const [editClassDraft, setEditClassDraft] = useState({ title: "", description: "" });
 
-  const [addStudentName, setAddStudentName] = useState("");
-  const [addParentName, setAddParentName] = useState("");
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
-  const [addStudentError, setAddStudentError] = useState<string | null>(null);
-  const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [classEditError, setClassEditError] = useState<string | null>(null);
   const [deleteClassError, setDeleteClassError] = useState<string | null>(null);
   const [editStudentError, setEditStudentError] = useState<string | null>(null);
@@ -424,40 +422,38 @@ export default function EnrichmentClassDetail() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId]);
 
-  async function handleSaveAddStudent() {
-    const name = addStudentName.trim();
-    if (!name) return;
-    setAddStudentError(null);
-    setIsAddingStudent(true);
+  async function handleSaveAddStudent(input: { studentId: string; status: Exclude<StudentStatus, "Pending"> }) {
+    if (!input.studentId) return;
     try {
       const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          parent: addParentName,
-          level: "1",
-          status: "Pending",
+          studentId: input.studentId,
+          status: input.status,
         }),
       });
       if (!res.ok) {
-        setAddStudentError(await readApiError(res));
-        return;
+        throw new Error(await readApiError(res));
       }
       const body = (await res.json()) as { student?: Student };
       if (!body.student) {
-        setAddStudentError("Student could not be added to this class.");
-        return;
+        throw new Error("Student could not be added to this class.");
       }
       setStudents((prev) => [...prev, body.student as Student]);
+      invalidateDashboardData([
+        `/api/data/classes/${encodeURIComponent(classId)}/roster`,
+        "/api/data/students",
+        "/api/data/classes",
+        "/api/data/class-options",
+        "/api/dashboard-presentation",
+        ...studentDetailDataUrls(input.studentId),
+      ]);
       setCurrentPage(1);
-      setAddStudentName("");
-      setAddParentName("");
       setIsAddStudentModalOpen(false);
     } catch (error) {
-      setAddStudentError(error instanceof Error ? error.message : "Student could not be added to this class.");
-    } finally {
-      setIsAddingStudent(false);
+      const message = error instanceof Error ? error.message : "Student could not be added to this class.";
+      throw new Error(message);
     }
   }
 
@@ -748,9 +744,6 @@ export default function EnrichmentClassDetail() {
               <button 
                 type="button"
                 onClick={() => {
-                  setAddStudentName("");
-                  setAddParentName("");
-                  setAddStudentError(null);
                   setIsAddStudentModalOpen(true);
                 }}
                 className="bg-[#14c1d5] shadow-sm flex items-center gap-2 px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors"
@@ -932,64 +925,13 @@ export default function EnrichmentClassDetail() {
 
       {/* --- Modals --- */}
 
-      {/* Add Student Modal */}
-      {isAddStudentModalOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              closeAllModals();
-            }
-          }}
-        >
-          <div
-            className="bg-white rounded-[18px] p-6 w-full max-w-md shadow-xl flex flex-col gap-4"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-bold text-[#272932] text-xl">Add Student</h3>
-            <p className="text-[#666d80] text-[14px]">Create a student row and enroll it in this enrichment class.</p>
-            {addStudentError ? (
-              <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
-                {addStudentError}
-              </div>
-            ) : null}
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                placeholder="Student Name"
-                value={addStudentName}
-                onChange={(e) => setAddStudentName(e.target.value)}
-                className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-              />
-              <input
-                type="text"
-                placeholder="Parent Name"
-                value={addParentName}
-                onChange={(e) => setAddParentName(e.target.value)}
-                className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-              />
-            </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setIsAddStudentModalOpen(false)}
-                className="px-4 py-2 text-[#666d80] font-medium text-[14px] hover:bg-gray-50 rounded-[6px] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAddStudent}
-                disabled={isAddingStudent}
-                className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
-              >
-                {isAddingStudent ? "Saving..." : "Save Student"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ClassAddExistingStudentModal
+        open={isAddStudentModalOpen}
+        existingStudentIds={students.map((student) => student.id)}
+        classNameLabel={classTitle}
+        onClose={() => setIsAddStudentModalOpen(false)}
+        onSubmit={handleSaveAddStudent}
+      />
       <DashboardBulkImportModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
