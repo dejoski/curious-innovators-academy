@@ -488,6 +488,124 @@ export async function serverInsertParent(input: {
   return { ok: true, row: mapped };
 }
 
+async function fetchMappedParent(
+  client: SupabaseMutationClient,
+  parentId: string,
+): Promise<WriteOk<ParentSummary> | WriteFail> {
+  const { data, error } = await client
+    .from("parents")
+    .select(
+      `
+      id,
+      created_at,
+      profiles ( display_name, email ),
+      parent_students (
+        students ( id, display_name )
+      )
+    `,
+    )
+    .eq("id", parentId)
+    .maybeSingle();
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: "Parent not found" };
+  const mapped = mapParentRow(data as Record<string, unknown>);
+  if (!mapped) return { ok: false, message: "Could not map parent" };
+  return { ok: true, row: mapped };
+}
+
+export async function serverSetParentStudentLinks(input: {
+  parentId: string;
+  studentIds: string[];
+}): Promise<WriteOk<ParentSummary> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const parentId = input.parentId.trim();
+  const studentIds = [...new Set(input.studentIds.map((id) => id.trim()).filter(Boolean))];
+  if (!parentId) return { ok: false, message: "Missing parent id" };
+
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+
+  const { data: parent, error: parentError } = await access.client
+    .from("parents")
+    .select("id, profiles ( display_name )")
+    .eq("id", parentId)
+    .maybeSingle();
+  if (parentError) return { ok: false, message: parentError.message };
+  if (!parent) return { ok: false, message: "Parent not found" };
+
+  if (studentIds.length > 0) {
+    const { data: students, error: studentsError } = await access.client
+      .from("students")
+      .select("id")
+      .in("id", studentIds);
+    if (studentsError) return { ok: false, message: studentsError.message };
+    const found = new Set((students ?? []).map((row) => String(row.id)));
+    const missing = studentIds.filter((id) => !found.has(id));
+    if (missing.length > 0) return { ok: false, message: "One or more selected students was not found" };
+  }
+
+  const { error: clearError } = await access.client
+    .from("parent_students")
+    .delete()
+    .eq("parent_id", parentId);
+  if (clearError) return { ok: false, message: clearError.message };
+
+  if (studentIds.length > 0) {
+    const { error: linkError } = await access.client
+      .from("parent_students")
+      .insert(studentIds.map((studentId) => ({ parent_id: parentId, student_id: studentId })));
+    if (linkError) return { ok: false, message: linkError.message };
+  }
+
+  const mapped = await fetchMappedParent(access.client, parentId);
+  if (!mapped.ok) return mapped;
+  await writeAuditEvent(access.auditClient, {
+    action: "parent_students.replace",
+    entityType: "parent",
+    entityId: parentId,
+    metadata: { studentIds },
+  });
+  return mapped;
+}
+
+export async function serverCreateParentInviteLink(input: {
+  parentId: string;
+  origin: string;
+}): Promise<{ ok: true; inviteUrl: string; parent: ParentSummary } | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  if (!isSupabaseAdminConfigured()) return { ok: false, message: "Account setup is temporarily unavailable." };
+  const parentId = input.parentId.trim();
+  if (!parentId) return { ok: false, message: "Missing parent id" };
+
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+  const parent = await fetchMappedParent(access.client, parentId);
+  if (!parent.ok) return parent;
+  const email = cleanContactEmail(parent.row.email);
+  if (!isValidContactEmail(email)) return { ok: false, message: "Parent needs a valid email before inviting" };
+
+  const admin = createSupabaseAdminClient();
+  const redirectTo = `${input.origin.replace(/\/$/, "")}/reset-password`;
+  const link = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      redirectTo,
+    },
+  });
+  if (link.error || !link.data.properties?.action_link) {
+    return { ok: false, message: link.error?.message ?? "Could not create invite link" };
+  }
+
+  await writeAuditEvent(access.auditClient, {
+    action: "parent.invite_link.create",
+    entityType: "parent",
+    entityId: parentId,
+    metadata: { email },
+  });
+  return { ok: true, inviteUrl: link.data.properties.action_link, parent: parent.row };
+}
+
 export async function serverDeleteStudent(id: string): Promise<{ ok: true } | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {

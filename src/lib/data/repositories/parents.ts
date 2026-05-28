@@ -28,6 +28,7 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
   if (!id) return null;
   const profile = firstRel<Record<string, unknown>>(row.profiles);
   const linkedStudents = linkedStudentsFromRow(row);
+  const explicitStatus = String(row.status ?? "").trim();
   return {
     id,
     name: String(profile?.display_name ?? row.full_name ?? row.name ?? ""),
@@ -39,7 +40,7 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
         : row.avatar != null
           ? String(row.avatar)
           : undefined,
-    status: row.status != null ? String(row.status) : undefined,
+    status: explicitStatus || (linkedStudents.length > 0 ? "Active" : "Needs students"),
     studentsLabel:
       row.students_label != null
         ? String(row.students_label)

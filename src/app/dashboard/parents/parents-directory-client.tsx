@@ -1,7 +1,7 @@
 "use client";
 
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { ParentSummary } from "@/lib/data/types";
+import type { ParentSummary, StudentListItem } from "@/lib/data/types";
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
@@ -10,13 +10,14 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Link2,
+  Send,
   UserCheck,
-  UserX,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
@@ -99,7 +100,22 @@ export function ParentsAdminDirectory({
   const [messageFor, setMessageFor] = useState<{ id: string; name: string; email: string } | null>(
     null,
   );
+  const [linkDraft, setLinkDraft] = useState<{
+    parent: ParentRow;
+    selectedIds: Set<string>;
+    search: string;
+    saving: boolean;
+    error: string | null;
+  } | null>(null);
+  const [inviteDraft, setInviteDraft] = useState<{
+    parent: ParentRow;
+    inviteUrl: string;
+    copied: boolean;
+  } | null>(null);
+  const [allStudents, setAllStudents] = useState<StudentListItem[] | null>(null);
+  const [studentsError, setStudentsError] = useState<string | null>(null);
   const [studentsForParent, setStudentsForParent] = useState<{
+    parentId: string;
     parentName: string;
     rows: { id: string; name: string }[];
   } | null>(null);
@@ -111,6 +127,23 @@ export function ParentsAdminDirectory({
   useEffect(() => {
     setParents([...initialParents]);
   }, [initialParents]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readDashboardData<{ students?: StudentListItem[] }>("/api/data/students")
+      .then((body) => {
+        if (cancelled) return;
+        setAllStudents(Array.isArray(body.students) ? body.students : []);
+        setStudentsError(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setStudentsError(error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const displayRows = useMemo(() => parents.map(toDisplayRow), [parents]);
 
@@ -137,10 +170,13 @@ export function ParentsAdminDirectory({
     const rows = displayRows;
     const total = rows.length;
     const active = rows.filter((p) => p.status === "Active").length;
-    const inactive = rows.filter((p) => p.status === "Inactive").length;
+    const needsStudents = rows.filter((p) => p.linkedStudents.length === 0).length;
+    const orphanStudents = allStudents
+      ? allStudents.filter((student) => (student.parentIds ?? []).length === 0).length
+      : null;
     const studentLinks = rows.reduce((acc, p) => acc + p.linkedStudents.length, 0);
-    return { total, active, inactive, studentLinks };
-  }, [displayRows]);
+    return { total, active, needsStudents, orphanStudents, studentLinks };
+  }, [allStudents, displayRows]);
 
   const filteredData = useMemo(() => {
     return displayRows.filter((p) => {
@@ -152,6 +188,19 @@ export function ParentsAdminDirectory({
       return matchesSearch && matchesStatus;
     });
   }, [displayRows, searchQuery, statusFilter]);
+
+  const linkableStudents = useMemo(() => {
+    if (!linkDraft || !allStudents) return [];
+    const q = linkDraft.search.trim().toLowerCase();
+    return allStudents.filter((student) => {
+      if (!q) return true;
+      return (
+        student.name.toLowerCase().includes(q) ||
+        student.parent.toLowerCase().includes(q) ||
+        student.level.toLowerCase().includes(q)
+      );
+    });
+  }, [allStudents, linkDraft]);
 
   const totalPages = Math.ceil(filteredData.length / DIRECTORY_PAGE_SIZE) || 1;
 
@@ -203,6 +252,69 @@ export function ParentsAdminDirectory({
       selected.map((parent) => [parent.name, parent.studentsLabel, parent.email, parent.phone, parent.status]),
     );
     setSpreadsheetBanner(`Downloaded ${selected.length} parent row(s) as CSV.`);
+  };
+
+  const refreshParents = async () => {
+    invalidateDashboardData(["/api/data/parents", "/api/data/students", "/api/dashboard-presentation"]);
+    const [parentsBody, studentsBody] = await Promise.all([
+      readDashboardData<{ parents?: ParentSummary[] }>("/api/data/parents", undefined, { force: true }),
+      readDashboardData<{ students?: StudentListItem[] }>("/api/data/students", undefined, { force: true }),
+    ]);
+    setParents(Array.isArray(parentsBody.parents) ? parentsBody.parents : []);
+    setAllStudents(Array.isArray(studentsBody.students) ? studentsBody.students : []);
+  };
+
+  const openLinkManager = (parent: ParentRow) => {
+    setLinkDraft({
+      parent,
+      selectedIds: new Set(parent.linkedStudents.map((student) => student.id)),
+      search: "",
+      saving: false,
+      error: null,
+    });
+  };
+
+  const saveStudentLinks = async () => {
+    if (!linkDraft) return;
+    setLinkDraft((draft) => (draft ? { ...draft, saving: true, error: null } : draft));
+    const res = await fetch("/api/data/parents", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "set-students",
+        parentId: linkDraft.parent.id,
+        studentIds: [...linkDraft.selectedIds],
+      }),
+    });
+    if (!res.ok) {
+      const message = await readApiError(res);
+      setLinkDraft((draft) => (draft ? { ...draft, saving: false, error: message } : draft));
+      return;
+    }
+    await refreshParents();
+    setLinkDraft(null);
+    setSpreadsheetBanner(`Updated student links for ${linkDraft.parent.name}.`);
+  };
+
+  const createInviteLink = async (parent: ParentRow) => {
+    const res = await fetch("/api/data/parents", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create-invite-link",
+        parentId: parent.id,
+      }),
+    });
+    if (!res.ok) {
+      setSpreadsheetBanner(`Could not create invite link: ${await readApiError(res)}.`);
+      return;
+    }
+    const body = (await res.json()) as { inviteUrl?: string };
+    if (!body.inviteUrl) {
+      setSpreadsheetBanner("Could not create invite link.");
+      return;
+    }
+    setInviteDraft({ parent, inviteUrl: body.inviteUrl, copied: false });
   };
 
   const importParents = async (rows: ParsedImportRow[]) => {
@@ -301,14 +413,14 @@ export function ParentsAdminDirectory({
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
             <div className="bg-[rgba(207,165,0,0.2)] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
-              <UserX aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
+              <UserPlus aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
-                Inactive
+                Need students
               </p>
               <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
-                {stats.inactive}
+                {stats.needsStudents}
               </p>
             </div>
           </div>
@@ -316,19 +428,27 @@ export function ParentsAdminDirectory({
         <div className="bg-white border border-[#f0f0f0] border-solid flex items-center px-[14px] py-[12px] rounded-[18px] hover:shadow-md transition-shadow">
           <div className="flex gap-[8px] items-center w-full">
             <div className="bg-[#e6f7f9] flex items-center justify-center rounded-[10px] shrink-0 size-[40px]">
-              <Link2 aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
+              <Users aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
               <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
-                Student links
+                Students needing parents
               </p>
               <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
-                {stats.studentLinks}
+                {stats.orphanStudents == null ? "Loading" : stats.orphanStudents}
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {stats.needsStudents > 0 || (stats.orphanStudents ?? 0) > 0 || studentsError ? (
+        <div className="rounded-[14px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#6f5300]">
+          {studentsError
+            ? `Could not load student link status: ${studentsError}.`
+            : `${stats.needsStudents} parent${stats.needsStudents === 1 ? "" : "s"} and ${stats.orphanStudents ?? 0} student${(stats.orphanStudents ?? 0) === 1 ? "" : "s"} need relationship cleanup.`}
+        </div>
+      ) : null}
 
       <div className={[DASHBOARD_PANEL_CLASS, "flex flex-col w-full overflow-visible"].join(" ")}>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-1 px-[18px] pt-[16px] pb-2 w-full flex-wrap">
@@ -371,7 +491,7 @@ export function ParentsAdminDirectory({
                   className="absolute top-full right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {(["All", "Active", "Inactive"] as const).map((status) => (
+                  {(["All", "Active", "Needs students"] as const).map((status) => (
                     <button
                       key={status}
                       type="button"
@@ -543,6 +663,26 @@ export function ParentsAdminDirectory({
                         type="button"
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => {
+                          openLinkManager(parent);
+                          setOpenActionId(null);
+                        }}
+                      >
+                        Manage students
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => {
+                          void createInviteLink(parent);
+                          setOpenActionId(null);
+                        }}
+                      >
+                        Create invite link
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        onClick={() => {
                           setEditDraft({
                             id: parent.id,
                             name: parent.name,
@@ -568,7 +708,7 @@ export function ParentsAdminDirectory({
                         type="button"
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => {
-                          setStudentsForParent({ parentName: parent.name, rows: parent.linkedStudents });
+                          setStudentsForParent({ parentId: parent.id, parentName: parent.name, rows: parent.linkedStudents });
                           setOpenActionId(null);
                         }}
                       >
@@ -763,6 +903,17 @@ export function ParentsAdminDirectory({
               </ul>
             )}
             <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md px-4 py-2 text-sm font-medium text-[#14c1d5] hover:bg-[#d2f1f5]"
+                onClick={() => {
+                  const parent = displayRows.find((row) => row.id === studentsForParent.parentId);
+                  if (parent) openLinkManager(parent);
+                  setStudentsForParent(null);
+                }}
+              >
+                Manage links
+              </button>
               <Link
                 href="/dashboard/students"
                 className="rounded-md px-4 py-2 text-sm font-medium text-[#14c1d5] hover:bg-[#d2f1f5]"
@@ -777,6 +928,166 @@ export function ParentsAdminDirectory({
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {linkDraft && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="flex max-h-[86vh] w-full max-w-2xl flex-col rounded-xl bg-white p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#272932]">Manage students — {linkDraft.parent.name}</h2>
+                <p className="mt-1 text-sm text-[#666d80]">
+                  These links control what this parent can see after signing in.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-md px-3 py-1.5 text-sm text-[#666d80] hover:bg-gray-100"
+                onClick={() => setLinkDraft(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-[10px] border border-[#f0f0f0] px-3 py-2">
+              <input
+                value={linkDraft.search}
+                onChange={(event) =>
+                  setLinkDraft((draft) => (draft ? { ...draft, search: event.target.value } : draft))
+                }
+                placeholder="Search students..."
+                className="w-full bg-transparent text-sm outline-none placeholder:text-[#8b919f]"
+              />
+            </div>
+
+            {linkDraft.error ? (
+              <div className="mt-3 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {linkDraft.error}
+              </div>
+            ) : null}
+
+            <div className="mt-4 min-h-[240px] overflow-y-auto rounded-[12px] border border-[#f0f0f0]">
+              {!allStudents ? (
+                <div className="p-4 text-sm text-[#666d80]">Loading students...</div>
+              ) : linkableStudents.length === 0 ? (
+                <div className="p-4 text-sm text-[#666d80]">No students match this search.</div>
+              ) : (
+                linkableStudents.map((student) => {
+                  const checked = linkDraft.selectedIds.has(student.id);
+                  const linkedElsewhere = (student.parentIds ?? []).some((id) => id !== linkDraft.parent.id);
+                  return (
+                    <label
+                      key={student.id}
+                      className="flex cursor-pointer items-center justify-between gap-3 border-b border-[#f0f0f0] px-4 py-3 last:border-b-0 hover:bg-[#fafafa]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-[#0d0d12]">{student.name}</span>
+                        <span className="block truncate text-xs text-[#666d80]">
+                          {linkedElsewhere ? `Currently linked to ${student.parent || "another parent"}` : "No other parent link"}
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setLinkDraft((draft) => {
+                            if (!draft) return draft;
+                            const selectedIds = new Set(draft.selectedIds);
+                            if (selectedIds.has(student.id)) selectedIds.delete(student.id);
+                            else selectedIds.add(student.id);
+                            return { ...draft, selectedIds };
+                          })
+                        }
+                        className="size-4 accent-[#14c1d5]"
+                      />
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <p className="text-sm text-[#666d80]">
+                {linkDraft.selectedIds.size} selected
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                  onClick={() => setLinkDraft(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={linkDraft.saving || !allStudents}
+                  className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd] disabled:opacity-60"
+                  onClick={() => void saveStudentLinks()}
+                >
+                  {linkDraft.saving ? "Saving..." : "Save links"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {inviteDraft && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#d2f1f5]">
+                <Send className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={1.8} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-[#272932]">Invite {inviteDraft.parent.name}</h2>
+                <p className="mt-1 text-sm text-[#666d80]">
+                  Send this account setup link to the parent. Their student access comes from the saved links on this page.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[10px] border border-[#f0f0f0] bg-[#fafafa] p-3 text-xs text-[#0d0d12] break-all">
+              {inviteDraft.inviteUrl}
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                onClick={() => setInviteDraft(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-[#14c1d5]/40 px-4 py-2 text-sm font-semibold text-[#14c1d5] hover:bg-[#ecfdff]"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(inviteDraft.inviteUrl);
+                  setInviteDraft((draft) => (draft ? { ...draft, copied: true } : draft));
+                }}
+              >
+                {inviteDraft.copied ? "Copied" : "Copy link"}
+              </button>
+              <a
+                className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
+                href={mailtoHref({
+                  to: inviteDraft.parent.email,
+                  subject: "Your Curious Innovators Academy account",
+                  body: `Hi ${inviteDraft.parent.name},\n\nPlease use this account setup link:\n${inviteDraft.inviteUrl}\n\n`,
+                })}
+              >
+                Open email draft
+              </a>
             </div>
           </div>
         </div>

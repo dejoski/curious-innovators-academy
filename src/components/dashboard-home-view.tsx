@@ -39,7 +39,10 @@ export default function DashboardHomeView({
     enrichmentOfferingCount: 0,
   };
   const topRequests = requests.slice(0, 4);
-  const systemAlerts = notifications.slice(0, 3);
+  const systemAlerts = [
+    ...(presentation?.systemAlerts ?? []).map((alert) => ({ ...alert, read: false, time: "" })),
+    ...notifications,
+  ].slice(0, 3);
   const statusPill: Record<string, string> = {
     Pending: "bg-[#fae7a6] text-[#8b6e00]",
     Approved: "bg-[#d7f0de] text-[#0c6a26]",

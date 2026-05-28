@@ -26,6 +26,16 @@ export const STUDENT_SELECT = `
   track,
   profile_id,
   support_notes,
+  parent_students (
+    parent_id,
+    parents (
+      id,
+      profiles (
+        display_name,
+        email
+      )
+    )
+  ),
   enrollments (
     id,
     status,
@@ -49,10 +59,33 @@ export const STUDENT_SELECT = `
 `;
 
 function parentContactFromStudentRow(row: Record<string, unknown>): { name: string; email: string } {
+  const joins = rowsFromRelation(row.parent_students);
+  const names: string[] = [];
+  let email = "";
+  for (const join of joins) {
+    const parent = firstRel<Record<string, unknown>>(join.parents);
+    const profile = firstRel<Record<string, unknown>>(parent?.profiles);
+    const name = String(profile?.display_name ?? "").trim();
+    if (name) names.push(name);
+    if (!email) email = String(profile?.email ?? "").trim();
+  }
+  if (names.length > 0 || email) {
+    return {
+      name: names.join(", "),
+      email,
+    };
+  }
+
   return {
     name: String(row.parent_name ?? row.guardian_label ?? row.parent ?? ""),
     email: String(row.parent_email ?? "").trim(),
   };
+}
+
+function parentIdsFromStudentRow(row: Record<string, unknown>): string[] {
+  return rowsFromRelation(row.parent_students)
+    .map((join) => String(join.parent_id ?? "").trim())
+    .filter(Boolean);
 }
 
 function normalizeProgram(raw: unknown): ProgramTrack {
@@ -146,6 +179,7 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
     avatar: String(row.avatar_url ?? row.avatar ?? ""),
     parent: parentContact.name,
     parentEmail: parentContact.email || undefined,
+    parentIds: parentIdsFromStudentRow(row),
     level: String(row.grade_level ?? row.level ?? ""),
     status,
     enrichment: studentsLabel,
