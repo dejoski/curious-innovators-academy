@@ -3,6 +3,8 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import {
   BookOpenCheck,
   ChevronDown,
@@ -52,6 +54,7 @@ export default function TeachersTeacherList({
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeachers, setSelectedTeachers] = useState<string[]>([]);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState<"all" | ProgramKind>("all");
@@ -154,6 +157,36 @@ export default function TeachersTeacherList({
       ]),
     );
     setSpreadsheetBanner(`Downloaded ${selected.length} teacher row(s) as CSV.`);
+  };
+
+  const importTeachers = async (rows: ParsedImportRow[]) => {
+    const created: TeacherRow[] = [];
+    const errors: string[] = [];
+    for (const row of rows) {
+      const res = await fetch("/api/data/teachers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: row.values.name,
+          subjects: row.values.subjects,
+          email: row.values.email,
+          phone: row.values.phone,
+          program: row.values.program?.toLowerCase() === "enrichment" ? "enrichment" : "core",
+        }),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { teacher?: TeacherRow };
+        if (body.teacher) created.push(body.teacher);
+      } else {
+        errors.push(`Row ${row.rowNumber}: ${await readApiError(res)}`);
+      }
+    }
+    if (created.length > 0) {
+      setTeachers((prev) => [...prev, ...created]);
+      invalidateDashboardData(["/api/data/teachers", "/api/dashboard-presentation"]);
+      setSpreadsheetBanner(`Imported ${created.length} teacher row(s).`);
+    }
+    return { created: created.length, errors };
   };
 
   const openEdit = (t: TeacherRow) => {
@@ -378,7 +411,7 @@ export default function TeachersTeacherList({
               >
                 <div className="flex items-center px-[2px]">
                   <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] text-[12px] text-center">
-                    {selectedTeachers.length > 0 ? `Deselect All (${selectedTeachers.length})` : "Select All"}
+                    {selectedTeachers.length > 0 ? `Clear selected (${selectedTeachers.length})` : "Select visible"}
                   </p>
                 </div>
               </button>
@@ -394,8 +427,25 @@ export default function TeachersTeacherList({
                   Create Teacher
                 </p>
               </Link>
+              <button
+                type="button"
+                onClick={() => setIsImportOpen(true)}
+                className="border border-[#14c1d5]/40 bg-white px-[14px] py-[8px] rounded-[6px] text-[14px] font-semibold text-[#14c1d5] hover:bg-[#ecfdff] transition-colors"
+              >
+                Bulk import CSV
+              </button>
             </div>
           </div>
+
+          <DashboardBulkSelectionBar count={selectedTeachers.length} noun="teacher" onClear={() => setSelectedTeachers([])}>
+            <button
+              type="button"
+              onClick={exportTeachers}
+              className="rounded-[6px] bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+            >
+              Download selected CSV
+            </button>
+          </DashboardBulkSelectionBar>
 
           <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
             <table className="w-full text-left min-w-[900px]">
@@ -773,6 +823,21 @@ export default function TeachersTeacherList({
           </div>
         </div>
       )}
+      <DashboardBulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Bulk import teachers"
+        entityLabel="teacher"
+        filename="teachers-import-template.csv"
+        columns={[
+          { key: "name", label: "Name", required: true, sample: "New Teacher" },
+          { key: "subjects", label: "Subjects", required: true, sample: "Math, Science" },
+          { key: "email", label: "Email", required: true, sample: "teacher@example.com" },
+          { key: "phone", label: "Phone", sample: "(555) 123-4567" },
+          { key: "program", label: "Program", sample: "core" },
+        ]}
+        onImport={importTeachers}
+      />
     </div>
   );
 }

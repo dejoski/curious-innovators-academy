@@ -66,11 +66,18 @@ function routeBranchActive(pathname: string, route: string) {
 
 type AdminStudentRoute =
   | { section: "list"; studentId: null }
+  | { section: "schedule" | "roster"; studentId: null }
   | { section: "profile" | "schedule" | "roster" | "other"; studentId: string };
 
 function parseAdminStudentRoute(pathname: string): AdminStudentRoute | null {
   if (pathname === "/dashboard/students" || pathname === "/dashboard/students/") {
     return { section: "list", studentId: null };
+  }
+  if (pathname === "/dashboard/students/schedule" || pathname === "/dashboard/students/schedule/") {
+    return { section: "schedule", studentId: null };
+  }
+  if (pathname === "/dashboard/students/roster" || pathname === "/dashboard/students/roster/") {
+    return { section: "roster", studentId: null };
   }
 
   const match = pathname.match(/^\/dashboard\/students\/([^/]+)(?:\/([^/]+))?\/?$/);
@@ -109,11 +116,11 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
-  const adminStudentRoute = parseAdminStudentRoute(pathname);
+  const visualPathname = clientVisualPath ?? pendingPath ?? pathname;
+  const adminStudentRoute = parseAdminStudentRoute(visualPathname);
   const adminStudentDetailRoot = adminStudentRoute?.studentId
     ? `/dashboard/students/${encodeURIComponent(adminStudentRoute.studentId)}`
     : null;
-  const visualPathname = clientVisualPath ?? pendingPath ?? pathname;
 
   const [classesExpanded, setClassesExpanded] = React.useState(() =>
     pathname.startsWith("/dashboard/classes"),
@@ -513,7 +520,16 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       <Link href="/dashboard/students" className={subNavClass(adminStudentListActive || visualPathname === "/dashboard/students")}>
                         Student List
                       </Link>
-                      {adminStudentDetailRoot ? (
+                      {!adminStudentDetailRoot ? (
+                        <>
+                          <Link href="/dashboard/students/schedule" className={subNavClass(adminStudentScheduleActive)}>
+                            Student Schedule
+                          </Link>
+                          <Link href="/dashboard/students/roster" className={subNavClass(adminStudentRosterActive)}>
+                            Student Roster
+                          </Link>
+                        </>
+                      ) : (
                         <>
                           <Link href={adminStudentDetailRoot} className={subNavClass(adminStudentProfileActive)}>
                             Student Profile
@@ -525,7 +541,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                             Student Roster
                           </Link>
                         </>
-                      ) : null}
+                      )}
                     </div>
                   )}
                 </div>

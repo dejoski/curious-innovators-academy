@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
+import { downloadCsv } from "@/lib/client-directory-actions";
 import type {
   ClassRosterStudent,
   ClassRosterStatus,
@@ -90,6 +93,7 @@ export default function EnrichmentClassDetail() {
   const [filterStatus, setFilterStatus] = useState<'All' | StudentStatus>('All');
   const [sortBy, setSortBy] = useState<'None' | 'Name A-Z' | 'Age'>('None');
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -253,19 +257,18 @@ export default function EnrichmentClassDetail() {
     const start = (boundedPage - 1) * itemsPerPage;
     return filteredAndSortedStudents.slice(start, start + itemsPerPage);
   }, [filteredAndSortedStudents, boundedPage, itemsPerPage]);
+  const selectedStudents = useMemo(
+    () => students.filter((student) => selectedStudentIds.has(student.id)),
+    [students, selectedStudentIds],
+  );
 
   // Selection Logic
   const handleSelectAll = () => {
-    const paginatedIds = paginatedStudents.map(s => s.id);
-    const allSelected = paginatedIds.every(id => selectedStudentIds.has(id));
-    
-    const newSelected = new Set(selectedStudentIds);
-    if (allSelected && paginatedIds.length > 0) {
-      paginatedIds.forEach(id => newSelected.delete(id));
-    } else {
-      paginatedIds.forEach(id => newSelected.add(id));
+    if (selectedStudentIds.size > 0) {
+      setSelectedStudentIds(new Set());
+      return;
     }
-    setSelectedStudentIds(newSelected);
+    setSelectedStudentIds(new Set(paginatedStudents.map((student) => student.id)));
   };
 
   const handleSelectRow = (id: string) => {
@@ -276,6 +279,51 @@ export default function EnrichmentClassDetail() {
       newSelected.add(id);
     }
     setSelectedStudentIds(newSelected);
+  };
+
+  const exportSelectedStudents = () => {
+    downloadCsv(
+      `${classTitle.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "enrichment-class"}-selected-students.csv`,
+      ["Student", "Parent", "Age", "Level", "Status", "Description"],
+      selectedStudents.map((student) => [
+        student.name,
+        student.parent,
+        student.age,
+        student.level,
+        student.status,
+        student.description,
+      ]),
+    );
+  };
+
+  const importRosterRows = async (rows: ParsedImportRow[]) => {
+    const created: Student[] = [];
+    const errors: string[] = [];
+    for (const row of rows) {
+      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: row.values.name,
+          parent: row.values.parent,
+          age: row.values.age,
+          level: row.values.level,
+          status: row.values.status,
+          description: row.values.description,
+        }),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { student?: Student };
+        if (body.student) created.push(body.student);
+      } else {
+        errors.push(`Row ${row.rowNumber}: ${await readApiError(res)}`);
+      }
+    }
+    if (created.length > 0) {
+      setStudents((prev) => [...prev, ...created]);
+      setDataHint(`Imported ${created.length} roster row(s).`);
+    }
+    return { created: created.length, errors };
   };
 
   // Helper for Status Badge
@@ -694,7 +742,7 @@ export default function EnrichmentClassDetail() {
                 onClick={handleSelectAll}
                 className="bg-[#fafafa] p-2 rounded-[8px] text-[12px] text-[#0d0d12] hover:bg-gray-100 transition-colors"
               >
-                {paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s.id)) ? 'Deselect All' : 'Select All'}
+                {selectedStudentIds.size > 0 ? `Clear selected (${selectedStudentIds.size})` : "Select visible"}
               </button>
               
               <button 
@@ -710,8 +758,25 @@ export default function EnrichmentClassDetail() {
                 <img src={imgIcRoundPlus} alt="Add" className="w-6 h-6" />
                 <span className="font-semibold text-[14px] text-white tracking-[0.28px]">Add Student</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setIsImportOpen(true)}
+                className="rounded-[6px] border border-[#14c1d5]/40 bg-white px-4 py-2 text-[14px] font-semibold text-[#14c1d5] transition-colors hover:bg-[#ecfdff]"
+              >
+                Bulk import CSV
+              </button>
             </div>
           </div>
+
+          <DashboardBulkSelectionBar count={selectedStudentIds.size} noun="student" onClear={() => setSelectedStudentIds(new Set())}>
+            <button
+              type="button"
+              onClick={exportSelectedStudents}
+              className="rounded-md bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+            >
+              Download selected CSV
+            </button>
+          </DashboardBulkSelectionBar>
 
           {/* Table */}
           <div className="w-full min-w-0 overflow-x-auto pb-2 min-h-[300px]">
@@ -925,6 +990,22 @@ export default function EnrichmentClassDetail() {
           </div>
         </div>
       )}
+      <DashboardBulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Bulk import roster rows"
+        entityLabel="student"
+        filename="class-roster-import-template.csv"
+        columns={[
+          { key: "name", label: "Name", required: true, sample: "New Student" },
+          { key: "parent", label: "Parent", sample: "Parent Name" },
+          { key: "age", label: "Age", sample: "14" },
+          { key: "level", label: "Level", sample: "3" },
+          { key: "status", label: "Status", sample: "Pending" },
+          { key: "description", label: "Description", sample: "Optional roster note" },
+        ]}
+        onImport={importRosterRows}
+      />
 
       {/* Edit Class Info Modal */}
       {isEditClassModalOpen && (

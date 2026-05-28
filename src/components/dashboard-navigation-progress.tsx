@@ -18,6 +18,8 @@ const DASHBOARD_PREFETCH_ROUTES = [
   "/dashboard/classes/requests",
   "/dashboard/classes/approvals",
   "/dashboard/students",
+  "/dashboard/students/schedule",
+  "/dashboard/students/roster",
   "/dashboard/parents",
   "/dashboard/teachers",
   "/dashboard/settings",

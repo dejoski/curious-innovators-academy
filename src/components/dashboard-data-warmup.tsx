@@ -13,6 +13,7 @@ const ADMIN_WARMUP = [
   "/api/data/enrichment-requests",
   "/api/data/approval-history",
   "/api/data/students",
+  "/api/data/student-schedules",
   "/api/data/teachers",
   "/api/data/parents",
   "/api/data/schedule-extras",

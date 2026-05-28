@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentRosterRow } from "@/lib/data/types";
 
@@ -241,15 +242,22 @@ export default function StudentStudentRoster() {
   }, []);
 
   const toggleSelectAllPage = useCallback(() => {
-    const pageIds = pageRows.map((r) => r.id);
-    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allSelected) pageIds.forEach((id) => next.delete(id));
-      else pageIds.forEach((id) => next.add(id));
-      return next;
-    });
-  }, [pageRows, selectedIds]);
+    if (selectedIds.size > 0) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(pageRows.map((row) => row.id)));
+  }, [pageRows, selectedIds.size]);
+
+  const exportSelectedSpreadsheet = async () => {
+    const selected = filteredSorted.filter((student) => selectedIds.has(student.id));
+    downloadCsv(
+      `student-roster-selected-${contextStudentId || "export"}.csv`,
+      ["Student", "Parent", "Age", "Status"],
+      selected.map((s) => [s.name, s.parent, s.age, s.status]),
+    );
+    setActionHint(`Downloaded ${selected.length} selected row(s) as CSV.`);
+  };
 
   return (
     <div className="flex flex-col w-full min-h-full gap-8 p-8 font-sans bg-[#fafafa]">
@@ -455,10 +463,34 @@ export default function StudentStudentRoster() {
               onClick={toggleSelectAllPage}
               className="bg-[#fafafa] hover:bg-gray-100 transition-colors flex items-center p-[8px] rounded-[8px]"
             >
-              <p className="font-normal text-[#0d0d12] text-[12px]">Select All</p>
+              <p className="font-normal text-[#0d0d12] text-[12px]">
+                {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
+              </p>
             </button>
           </div>
         </div>
+
+        {selectedIds.size > 0 ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#14c1d5]/35 bg-[#ecfdff] px-4 py-3 text-sm text-[#155e66]">
+            <span className="font-semibold">{selectedIds.size} student{selectedIds.size === 1 ? "" : "s"} selected</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void exportSelectedSpreadsheet()}
+                className="rounded-md bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+              >
+                Download selected CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="rounded-[6px] bg-white/80 px-3 py-1.5 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/25 hover:bg-white"
+              >
+                Clear selection
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="border-[#f0f0f0] border-y border-solid grid grid-cols-5 items-center py-[16px] px-[10px] w-full text-[#0d0d12] text-[14px] font-semibold">
           <div className="col-span-1 pl-2">Student</div>

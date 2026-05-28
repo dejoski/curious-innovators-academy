@@ -5,9 +5,11 @@ import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useClassesDataCache } from "@/components/classes-data-cache";
+import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
@@ -207,6 +209,7 @@ export default function ClassesPageClient({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(initialSelectedIds),
   );
@@ -216,7 +219,6 @@ export default function ClassesPageClient({
   const rowMenuPanelRef = useRef<HTMLDivElement | null>(null);
   const rowMenuTriggerRef = useRef<HTMLElement | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
-  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -443,7 +445,73 @@ export default function ClassesPageClient({
       }
     } finally {
       setImporting(false);
-      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  };
+
+  const importClassRows = async (rows: ParsedImportRow[]) => {
+    if (importing) return { created: 0, errors: ["Another class import is still running."] };
+    setImporting(true);
+    setSyncHint(null);
+    const seatsPattern = /^\d+\s*\/\s*\d+$/;
+    const validDrafts: ClassImportDraft[] = [];
+    const validationErrors: string[] = [];
+    rows.forEach((row) => {
+      const draft: ClassImportDraft = {
+        name: row.values.name,
+        teacher: row.values.teacher,
+        students: row.values.students || "0/30",
+        schedule: row.values.schedule,
+        status: normalizeImportStatus(row.values.status),
+        track: normalizeImportTrack(row.values.track, trackTab),
+        description: row.values.description,
+        level: row.values.level,
+        block: row.values.block,
+      };
+      if (!draft.name.trim()) validationErrors.push(`Row ${row.rowNumber}: class name is required`);
+      else if (!draft.teacher.trim()) validationErrors.push(`Row ${row.rowNumber}: teacher is required`);
+      else if (!seatsPattern.test(draft.students.trim())) validationErrors.push(`Row ${row.rowNumber}: seats must look like 0/30`);
+      else validDrafts.push(draft);
+    });
+
+    const created: SchoolClassRow[] = [];
+    const writeErrors: string[] = [];
+    try {
+      for (const draft of validDrafts) {
+        const res = await fetch("/api/data/classes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: draft.name.trim(),
+            teacher: draft.teacher.trim(),
+            students: draft.students.trim(),
+            schedule: draft.schedule.trim(),
+            status: draft.status,
+            track: draft.track,
+            description: draft.description?.trim(),
+            level: draft.level?.trim(),
+            block: draft.block?.trim(),
+          }),
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { class?: SchoolClassRow };
+          if (body.class) created.push(body.class);
+        } else {
+          writeErrors.push(`${draft.name}: ${await readApiError(res)}`);
+        }
+      }
+      if (created.length > 0) {
+        setClasses((prev) => {
+          const next = [...prev, ...created];
+          classesCache.setClassesData(next);
+          return next;
+        });
+        invalidateDashboardData(["/api/data/classes", "/api/dashboard-presentation"]);
+        void classesCache.loadClasses(true);
+        setSyncHint(`Imported ${created.length} class row(s).`);
+      }
+      return { created: created.length, errors: [...validationErrors, ...writeErrors] };
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -526,20 +594,11 @@ export default function ClassesPageClient({
   const toggleSelectAllFiltered = () => {
     const ids = visibleRows.map((c) => c.id);
     if (ids.length === 0) return;
-    const allSelected = ids.every((id) => selectedIds.has(id));
-    if (allSelected) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of ids) next.delete(id);
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of ids) next.add(id);
-        return next;
-      });
+    if (selectedIds.size > 0) {
+      setSelectedIds(new Set());
+      return;
     }
+    setSelectedIds(new Set(ids));
   };
 
   const changeTrack = (track: ProgramTrack) => {
@@ -686,7 +745,7 @@ export default function ClassesPageClient({
               </div>
 
               <button type="button" className="text-[12px] text-[#0d0d12]" onClick={toggleSelectAllFiltered}>
-                Select All
+                {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
               </button>
 
               <button
@@ -699,6 +758,16 @@ export default function ClassesPageClient({
               </button>
             </div>
           </div>
+
+          <DashboardBulkSelectionBar count={selectedIds.size} noun="class" onClear={() => setSelectedIds(new Set())}>
+            <button
+              type="button"
+              onClick={exportClasses}
+              className="rounded-[6px] bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+            >
+              Download selected CSV
+            </button>
+          </DashboardBulkSelectionBar>
 
           <div className="w-full overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]">
             <table className="min-w-[980px] table-fixed border-collapse text-left">
@@ -880,24 +949,13 @@ export default function ClassesPageClient({
           )}
 
           <div className="mt-3 flex flex-wrap justify-end gap-3">
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.currentTarget.files?.[0];
-                if (file) void importClasses(file);
-              }}
-            />
             <button
               type="button"
               disabled={importing}
               className="inline-flex items-center gap-2 rounded-[6px] bg-[#fafafa] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#0d0d12] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] hover:bg-[#f0f0f0] disabled:opacity-50"
-              onClick={() => importInputRef.current?.click()}
+              onClick={() => setIsImportOpen(true)}
             >
-              <Upload aria-hidden className="size-4" strokeWidth={1.8} />
-              {importing ? "Uploading..." : "Bulk Upload CSV"}
+              {importing ? "Importing..." : "Bulk import CSV"}
             </button>
             <button
               type="button"
@@ -1008,6 +1066,25 @@ export default function ClassesPageClient({
           </div>
         </div>
       )}
+      <DashboardBulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Bulk import classes"
+        entityLabel="class"
+        filename="classes-import-template.csv"
+        columns={[
+          { key: "name", label: "Name", required: true, sample: "New Class" },
+          { key: "teacher", label: "Teacher", required: true, sample: "Emily Carter" },
+          { key: "students", label: "Students", required: true, sample: "0/30" },
+          { key: "schedule", label: "Schedule", sample: "Day 1/2/3 - Block 1 - 7:00 - 8:30 AM" },
+          { key: "status", label: "Status", sample: "Active" },
+          { key: "track", label: "Track", sample: trackTab },
+          { key: "level", label: "Level", sample: "3" },
+          { key: "block", label: "Block", sample: "Block 1 Day 1" },
+          { key: "description", label: "Description", sample: "Optional class description" },
+        ]}
+        onImport={importClassRows}
+      />
     </div>
   );
 }

@@ -12,15 +12,20 @@ import type { ParentSummary, StudentListItem } from "@/lib/data/types";
 import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
 import ScheduleMonth from "./schedule/schedule-client";
 import StudentsStudentsList from "./students/students-client";
+import AdminStudentRosterClient from "./students/admin-student-roster-client";
+import AdminStudentScheduleClient from "./students/admin-student-schedule-client";
 import TeachersTeacherList from "./teachers/teachers-client";
 import ParentsIndexClientGate from "./parents/parents-index-client";
 import DashboardNotificationsPage from "./notifications/notifications-client";
 import type { DashboardNotification } from "@/lib/data/types";
+import type { SchoolClassRow, StudentScheduleRow } from "@/lib/data/types";
 
 type TeacherRows = React.ComponentProps<typeof TeachersTeacherList>["initialTeachers"];
 
 const SCHEDULE_URL = "/api/data/schedule-extras";
 const STUDENTS_URL = "/api/data/students";
+const STUDENT_SCHEDULES_URL = "/api/data/student-schedules";
+const CLASSES_URL = "/api/data/classes";
 const TEACHERS_URL = "/api/data/teachers";
 const PARENTS_URL = "/api/data/parents";
 const NOTIFICATIONS_URL = "/api/data/notifications";
@@ -108,6 +113,78 @@ export function AdminStudentsPanel() {
   if (status === "loading") return <DashboardPanelLoading label="Loading students..." />;
   if (status === "error") return <DashboardPanelError message={error ?? "Could not load students."} />;
   return <StudentsStudentsList initialStudents={students} dataSource={source} />;
+}
+
+export function AdminStudentSchedulePanel() {
+  const cached = peekDashboardData<{ rows?: StudentScheduleRow[]; source?: DataSource }>(STUDENT_SCHEDULES_URL);
+  const [rows, setRows] = React.useState<StudentScheduleRow[]>(() => cached?.rows ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ rows?: StudentScheduleRow[]; source?: DataSource }>(STUDENT_SCHEDULES_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setRows(body.rows ?? []);
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setRows([]);
+          setSource("unavailable");
+          setError(`Could not load student schedules: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading student schedules..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load student schedules."} />;
+  return <AdminStudentScheduleClient initialRows={rows} dataSource={source} />;
+}
+
+export function AdminStudentRosterPanel() {
+  const cached = peekDashboardData<{ classes?: SchoolClassRow[]; source?: DataSource }>(CLASSES_URL);
+  const [classes, setClasses] = React.useState<SchoolClassRow[]>(() => cached?.classes ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!cached) setStatus("loading");
+    void readDashboardData<{ classes?: SchoolClassRow[]; source?: DataSource }>(CLASSES_URL)
+      .then((body) => {
+        if (cancelled) return;
+        setClasses(body.classes ?? []);
+        setSource(sourceOrUnavailable(body.source));
+        setError(null);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setClasses([]);
+          setSource("unavailable");
+          setError(`Could not load class roster options: ${err instanceof Error ? err.message : String(err)}.`);
+          setStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") return <DashboardPanelLoading label="Loading roster options..." />;
+  if (status === "error") return <DashboardPanelError message={error ?? "Could not load roster options."} />;
+  return <AdminStudentRosterClient classes={classes} dataSource={source} />;
 }
 
 export function AdminTeachersPanel() {

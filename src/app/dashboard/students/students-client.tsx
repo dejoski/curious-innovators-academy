@@ -4,6 +4,8 @@ import type { StudentListItem } from "@/lib/data/types";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
@@ -191,6 +193,7 @@ export default function StudentsStudentsList({
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isCoreFilterOpen, setIsCoreFilterOpen] = useState(false);
@@ -324,6 +327,36 @@ export default function StudentsStudentsList({
       ]),
     );
     setSpreadsheetBanner(`Downloaded ${selected.length} student row(s) as CSV.`);
+  };
+
+  const importStudents = async (rows: ParsedImportRow[]) => {
+    const created: StudentItem[] = [];
+    const errors: string[] = [];
+    for (const row of rows) {
+      const res = await fetch("/api/data/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: row.values.name,
+          parent: row.values.parent,
+          level: row.values.level,
+          track: row.values.track?.toLowerCase() === "enrichment" ? "enrichment" : "core",
+          notes: row.values.notes,
+        }),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { student?: StudentItem };
+        if (body.student) created.push(body.student);
+      } else {
+        errors.push(`Row ${row.rowNumber}: ${await readApiError(res)}`);
+      }
+    }
+    if (created.length > 0) {
+      setStudents((prev) => [...prev, ...created]);
+      invalidateDashboardData(["/api/data/students", "/api/dashboard-presentation"]);
+      setSpreadsheetBanner(`Imported ${created.length} student row(s).`);
+    }
+    return { created: created.length, errors };
   };
   async function saveParentEmail() {
     if (!messageTarget || savingParentEmail) return;
@@ -652,8 +685,8 @@ export default function StudentsStudentsList({
             >
               <p className="text-[12px]">
                 {selectedStudents.length > 0
-                  ? `Deselect All (${selectedStudents.length})`
-                  : "Select All"}
+                  ? `Clear selected (${selectedStudents.length})`
+                  : "Select visible"}
               </p>
             </button>
             <Link
@@ -671,8 +704,32 @@ export default function StudentsStudentsList({
                 Create Student
               </p>
             </Link>
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="bg-white border border-[#14c1d5]/40 text-[#14c1d5] cursor-pointer flex h-[34px] items-center justify-center px-[14px] py-[8px] rounded-[6px] shrink-0 hover:bg-[#ecfdff] transition-colors text-[14px] font-semibold"
+            >
+              Bulk import CSV
+            </button>
           </div>
         </div>
+        <DashboardBulkSelectionBar count={selectedStudents.length} noun="student" onClear={() => setSelectedStudents([])}>
+          <button
+            type="button"
+            onClick={exportStudents}
+            className="rounded-[6px] bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+          >
+            Download selected CSV
+          </button>
+          <Link
+            href={`/dashboard/students/${encodeURIComponent(selectedStudents[0] ?? "")}`}
+            className={`rounded-[6px] px-3 py-1.5 text-[12px] font-semibold ${
+              selectedStudents.length === 1 ? "bg-white/80 text-[#155e66] ring-1 ring-[#14c1d5]/25 hover:bg-white" : "pointer-events-none bg-white/60 text-[#667085]"
+            }`}
+          >
+            Open selected profile
+          </Link>
+        </DashboardBulkSelectionBar>
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
           <div className="w-[1068px] flex flex-col">
             <div className="border-t border-[#f0f0f0] flex h-[64px] items-start pt-[20px]">
@@ -935,6 +992,21 @@ export default function StudentsStudentsList({
           </div>
         </div>
       )}
+      <DashboardBulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Bulk import students"
+        entityLabel="student"
+        filename="students-import-template.csv"
+        columns={[
+          { key: "name", label: "Name", required: true, sample: "New Student" },
+          { key: "parent", label: "Parent", sample: "Parent Name" },
+          { key: "level", label: "Level", required: true, sample: "3" },
+          { key: "track", label: "Track", sample: "core" },
+          { key: "notes", label: "Notes", sample: "Optional support notes" },
+        ]}
+        onImport={importStudents}
+      />
     </div>
   );
 }

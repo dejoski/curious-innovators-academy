@@ -8,6 +8,8 @@ import {
   AdminNotificationsPanel,
   AdminParentsPanel,
   AdminSchedulePanel,
+  AdminStudentRosterPanel,
+  AdminStudentSchedulePanel,
   AdminStudentsPanel,
   AdminTeachersPanel,
 } from "./admin-panels";
@@ -114,6 +116,14 @@ export default function AdminWorkspace({ initialView = "home" }: AdminWorkspaceP
 
       <div className={classNameForView(activeView === "students")} aria-hidden={activeView !== "students"}>
         <AdminStudentsPanel />
+      </div>
+
+      <div className={classNameForView(activeView === "student-schedule")} aria-hidden={activeView !== "student-schedule"}>
+        <AdminStudentSchedulePanel />
+      </div>
+
+      <div className={classNameForView(activeView === "student-roster")} aria-hidden={activeView !== "student-roster"}>
+        <AdminStudentRosterPanel />
       </div>
 
       <div className={classNameForView(activeView === "parents")} aria-hidden={activeView !== "parents"}>

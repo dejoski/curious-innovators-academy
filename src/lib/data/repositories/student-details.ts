@@ -297,6 +297,81 @@ export async function fetchAdminStudentProfileResolved(
   return fetchStudentProfileResolved(studentId, access.client);
 }
 
+export async function fetchAdminStudentSchedulesResolved(): Promise<StudentScheduleResolved> {
+  if (!isSupabaseConfigured()) return unavailableSchedule();
+  const access = await requireAdminReadClient();
+  if (!access) return unavailableSchedule();
+
+  try {
+    const supabase = access.client;
+    const { data: students, error: studentsError } = await supabase
+      .from("students")
+      .select("id, display_name, guardian_label")
+      .order("display_name", { ascending: true });
+    if (studentsError) {
+      logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "students", studentsError);
+      return unavailableSchedule();
+    }
+
+    const rows = ((students ?? []) as unknown as Record<string, unknown>[]).map((student) =>
+      emptyScheduleRow({
+        id: String(student.id ?? ""),
+        name: String(student.display_name ?? ""),
+        parent: String(student.guardian_label ?? ""),
+      }),
+    ).filter((row) => row.id);
+    const byStudentId = new Map(rows.map((row) => [row.id, row]));
+
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from("enrollments")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+      .order("created_at", { ascending: true });
+    if (enrollmentsError) {
+      logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "enrollments", enrollmentsError);
+      return unavailableSchedule();
+    }
+
+    const { data: classRequests, error: classRequestsError } = await supabase
+      .from("class_requests")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+      .order("created_at", { ascending: true });
+    if (classRequestsError) {
+      logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "class_requests", classRequestsError);
+      return unavailableSchedule();
+    }
+
+    ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
+      const studentId = String(enrollment.student_id ?? "");
+      const row = byStudentId.get(studentId);
+      const badge = badgeForEnrollment(enrollment);
+      if (row && badge) pushBadge(row, scheduleSlotForClass(enrollment, index), badge);
+    });
+
+    ((classRequests ?? []) as unknown as Record<string, unknown>[]).forEach((request, index) => {
+      if (String(request.status ?? "").toLowerCase() !== "pending") return;
+      const studentId = String(request.student_id ?? "");
+      const row = byStudentId.get(studentId);
+      const badge = badgeForEnrollment(request);
+      if (row && badge) pushBadge(row, scheduleSlotForClass(request, index), badge);
+    });
+
+    rows.forEach((row) => {
+      row.b1 = normalizeScheduleBadges(row.b1);
+      row.b2 = normalizeScheduleBadges(row.b2);
+      row.b3Tue = normalizeScheduleBadges(row.b3Tue);
+      row.b3Wed = normalizeScheduleBadges(row.b3Wed);
+      row.b3Thu = normalizeScheduleBadges(row.b3Thu);
+      row.b4Tue = normalizeScheduleBadges(row.b4Tue);
+      row.b4Wed = normalizeScheduleBadges(row.b4Wed);
+      row.b4Thu = normalizeScheduleBadges(row.b4Thu);
+    });
+
+    return { rows, source: "remote" };
+  } catch {
+    return unavailableSchedule();
+  }
+}
+
 export async function fetchStudentScheduleResolved(
   studentId: string,
   client?: StudentReadClient,

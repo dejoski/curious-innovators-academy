@@ -3,10 +3,12 @@
 import { Suspense, useMemo, useRef, useState, useEffect } from "react";
 import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ListPlus, X, XCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { useClassesDataCache } from "@/components/classes-data-cache";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
+import { downloadCsv } from "@/lib/client-directory-actions";
 import type { ApprovalHistoryRow } from "@/lib/data/repositories/requests";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
@@ -156,9 +158,6 @@ export function ClassesApprovalHistory() {
   const isInitialApprovalsLoad = !hasResolvedApprovals && (classesCache.approvals.loading || rows.length === 0);
   const statValue = (value: number) =>
     isInitialApprovalsLoad ? <DashboardValueSkeleton className="h-5 w-10" /> : value;
-  const pageIdSet = useMemo(() => new Set(pageRows.map((r) => r.id)), [pageRows]);
-  const allOnPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
-
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -169,12 +168,11 @@ export function ClassesApprovalHistory() {
   };
 
   const toggleSelectAllPage = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allOnPageSelected) pageIdSet.forEach((id) => next.delete(id));
-      else pageIdSet.forEach((id) => next.add(id));
-      return next;
-    });
+    if (selectedIds.size > 0) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(pageRows.map((row) => row.id)));
   };
 
   const sortLabels: [SortKey, string][] = [
@@ -202,6 +200,24 @@ export function ClassesApprovalHistory() {
       URL.revokeObjectURL(url);
       setActionHint("Clipboard was unavailable, so the approval record was downloaded.");
     }
+  };
+
+  const exportSelectedApprovals = () => {
+    const selectedRows = processed.filter((row) => selectedIds.has(row.id));
+    downloadCsv(
+      "approval-history-selected.csv",
+      ["Student", "Parent", "Class", "Block", "Option", "Final Status", "Reviewed By", "Reason"],
+      selectedRows.map((row) => [
+        row.student,
+        row.parent,
+        row.className,
+        row.block,
+        row.option,
+        row.status,
+        row.reviewedBy,
+        row.reason,
+      ]),
+    );
   };
 
   return (
@@ -366,11 +382,21 @@ export function ClassesApprovalHistory() {
               onClick={toggleSelectAllPage}
             >
               <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
-                {allOnPageSelected ? "Deselect page" : "Select All"}
+                {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
               </span>
             </button>
           </div>
         </div>
+
+        <DashboardBulkSelectionBar count={selectedIds.size} noun="approval" onClear={() => setSelectedIds(new Set())}>
+          <button
+            type="button"
+            onClick={exportSelectedApprovals}
+            className="rounded-md bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+          >
+            Download selected CSV
+          </button>
+        </DashboardBulkSelectionBar>
 
         <div className="overflow-x-auto w-full min-w-0 pb-2">
           <div className="min-w-[900px]">

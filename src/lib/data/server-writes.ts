@@ -2,6 +2,7 @@ import "server-only";
 
 import { mapClassRow } from "@/lib/data/repositories/classes";
 import { mapNotificationRow } from "@/lib/data/repositories/notifications";
+import { mapParentRow } from "@/lib/data/repositories/parents";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
@@ -13,6 +14,7 @@ import type {
   ClassRosterStudent,
   DashboardNotification,
   EnrichmentRequestRow,
+  ParentSummary,
   ScheduleCalendarEvent,
   SchoolClassRow,
   StudentListItem,
@@ -445,6 +447,45 @@ export async function serverInsertStudent(input: {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };
   }
+}
+
+export async function serverInsertParent(input: {
+  name: string;
+  email: string;
+}): Promise<WriteOk<ParentSummary> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+  const ensured = await ensureParentProfileForEmail(access.client, {
+    displayName: input.name,
+    email: input.email,
+  });
+  if (!ensured.ok) return ensured;
+  const { data, error } = await access.client
+    .from("parents")
+    .select(
+      `
+      id,
+      created_at,
+      profiles ( display_name, email ),
+      parent_students (
+        students ( id, display_name )
+      )
+    `,
+    )
+    .eq("id", ensured.parentId)
+    .maybeSingle();
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: "Parent not found after import" };
+  const mapped = mapParentRow(data as Record<string, unknown>);
+  if (!mapped) return { ok: false, message: "Could not map imported parent" };
+  await writeAuditEvent(access.auditClient, {
+    action: "parent.create",
+    entityType: "parent",
+    entityId: mapped.id,
+    metadata: { name: mapped.name, email: mapped.email },
+  });
+  return { ok: true, row: mapped };
 }
 
 export async function serverDeleteStudent(id: string): Promise<{ ok: true } | WriteFail> {

@@ -14,6 +14,8 @@ export type AdminView =
   | "schedule"
   | "classes"
   | "students"
+  | "student-schedule"
+  | "student-roster"
   | "parents"
   | "teachers"
   | "notifications";
@@ -51,6 +53,8 @@ export const ADMIN_VIEW_PATHS: Record<AdminView, string> = {
   schedule: "/dashboard/schedule",
   classes: "/dashboard/classes/core",
   students: "/dashboard/students",
+  "student-schedule": "/dashboard/students/schedule",
+  "student-roster": "/dashboard/students/roster",
   parents: "/dashboard/parents",
   teachers: "/dashboard/teachers",
   notifications: "/dashboard/notifications",
@@ -84,6 +88,8 @@ export function adminViewFromPath(pathname: string): AdminView | null {
   if (pathname === "/dashboard/schedule") return "schedule";
   if (classesViewFromPath(pathname)) return "classes";
   if (pathname === "/dashboard/students") return "students";
+  if (pathname === "/dashboard/students/schedule") return "student-schedule";
+  if (pathname === "/dashboard/students/roster") return "student-roster";
   if (pathname === "/dashboard/parents") return "parents";
   if (pathname === "/dashboard/teachers") return "teachers";
   if (pathname === "/dashboard/notifications") return "notifications";

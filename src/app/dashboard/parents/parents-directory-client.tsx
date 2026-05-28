@@ -4,6 +4,8 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { ParentSummary } from "@/lib/data/types";
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import {
   ChevronDown,
   ChevronLeft,
@@ -13,6 +15,8 @@ import {
   UserX,
 } from "lucide-react";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
+import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
@@ -82,6 +86,7 @@ export function ParentsAdminDirectory({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -169,18 +174,12 @@ export function ParentsAdminDirectory({
 
   const handleSelectAll = () => {
     const filteredIds = filteredData.map((p) => p.id);
-    if (
-      filteredIds.length > 0 &&
-      filteredIds.every((id) => selectedIds.includes(id))
-    ) {
-      setSelectedIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
-    } else {
-      setSelectedIds((prev) => {
-        const s = new Set(prev);
-        for (const id of filteredIds) s.add(id);
-        return [...s];
-      });
+    if (filteredIds.length === 0) return;
+    if (selectedIds.length > 0) {
+      setSelectedIds([]);
+      return;
     }
+    setSelectedIds(filteredIds);
   };
 
   const toggleSelection = (id: string) => {
@@ -204,6 +203,33 @@ export function ParentsAdminDirectory({
       selected.map((parent) => [parent.name, parent.studentsLabel, parent.email, parent.phone, parent.status]),
     );
     setSpreadsheetBanner(`Downloaded ${selected.length} parent row(s) as CSV.`);
+  };
+
+  const importParents = async (rows: ParsedImportRow[]) => {
+    const created: ParentSummary[] = [];
+    const errors: string[] = [];
+    for (const row of rows) {
+      const res = await fetch("/api/data/parents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: row.values.name,
+          email: row.values.email,
+        }),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { parent?: ParentSummary };
+        if (body.parent) created.push(body.parent);
+      } else {
+        errors.push(`Row ${row.rowNumber}: ${await readApiError(res)}`);
+      }
+    }
+    if (created.length > 0) {
+      setParents((prev) => [...prev, ...created]);
+      invalidateDashboardData(["/api/data/parents", "/api/dashboard-presentation"]);
+      setSpreadsheetBanner(`Imported ${created.length} parent row(s).`);
+    }
+    return { created: created.length, errors };
   };
 
   const saveEdit = () => {
@@ -374,11 +400,28 @@ export function ParentsAdminDirectory({
               }`}
             >
               <p className="font-['Inter:Regular',sans-serif] text-[12px]">
-                {selectedIds.length > 0 ? `Deselect All (${selectedIds.length})` : "Select All"}
+                {selectedIds.length > 0 ? `Clear selected (${selectedIds.length})` : "Select visible"}
               </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="flex items-center rounded-[8px] border border-[#14c1d5]/40 bg-white px-3 py-2 text-[12px] font-semibold text-[#14c1d5] transition-colors hover:bg-[#ecfdff]"
+            >
+              Bulk import CSV
             </button>
           </div>
         </div>
+
+        <DashboardBulkSelectionBar count={selectedIds.length} noun="parent" onClear={() => setSelectedIds([])}>
+          <button
+            type="button"
+            onClick={exportParents}
+            className="rounded-[6px] bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+          >
+            Download selected CSV
+          </button>
+        </DashboardBulkSelectionBar>
 
         <div
           style={{ gridTemplateColumns: PARENTS_TABLE_GRID_TEMPLATE_COLUMNS }}
@@ -738,6 +781,18 @@ export function ParentsAdminDirectory({
           </div>
         </div>
       )}
+      <DashboardBulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Bulk import parents"
+        entityLabel="parent"
+        filename="parents-import-template.csv"
+        columns={[
+          { key: "name", label: "Name", required: true, sample: "New Parent" },
+          { key: "email", label: "Email", required: true, sample: "parent@example.com" },
+        ]}
+        onImport={importParents}
+      />
     </div>
   );
 }
