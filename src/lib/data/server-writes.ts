@@ -1030,7 +1030,15 @@ export async function serverInsertTeacher(input: {
       .maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row returned" };
-    const mapped = mapTeacherRow(data as unknown as Record<string, unknown>);
+    const { data: assignedClasses, error: classError } = await supabase
+      .from("classes")
+      .select("id, teacher_id, name, program")
+      .eq("teacher_id", String(data.id));
+    if (classError) return { ok: false, message: classError.message };
+    const mapped = mapTeacherRow({
+      ...(data as unknown as Record<string, unknown>),
+      classes: assignedClasses ?? [],
+    });
     if (!mapped) return { ok: false, message: "Could not map saved teacher" };
     if (input.name.trim()) {
       await supabase
@@ -1085,7 +1093,15 @@ export async function serverUpdateTeacher(
         .update({ display_name: input.name.trim() })
         .eq("id", row.profile_id);
     }
-    const mapped = mapTeacherRow(data as unknown as Record<string, unknown>);
+    const { data: assignedClasses, error: classError } = await supabase
+      .from("classes")
+      .select("id, teacher_id, name, program")
+      .eq("teacher_id", id);
+    if (classError) return { ok: false, message: classError.message };
+    const mapped = mapTeacherRow({
+      ...(data as unknown as Record<string, unknown>),
+      classes: assignedClasses ?? [],
+    });
     if (!mapped) return { ok: false, message: "Could not map saved teacher" };
     if (input.name.trim()) mapped.name = input.name.trim();
     mapped.email = input.email.trim();

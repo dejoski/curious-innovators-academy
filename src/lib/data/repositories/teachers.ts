@@ -2,6 +2,7 @@ import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { TeacherRow } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type TeacherReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
@@ -10,11 +11,27 @@ export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
   if (row.id == null || String(row.id) === "") return null;
 
   const id = String(row.id);
+  const classRows = Array.isArray(row.classes) ? (row.classes as Record<string, unknown>[]) : [];
+  const subjectClasses = Array.from(
+    new Set(
+      classRows
+        .map((classRow) => String(classRow.name ?? "").trim())
+        .filter((name) => name.length > 0),
+    ),
+  );
+  const coreClassCount = classRows.filter((classRow) => String(classRow.program ?? "").toLowerCase() !== "enrichment").length;
+  const enrichmentClassCount = classRows.filter((classRow) => String(classRow.program ?? "").toLowerCase() === "enrichment").length;
   const prog = String(row.program ?? row.track ?? "core").toLowerCase();
-  const program: TeacherRow["program"] = prog === "enrichment" ? "enrichment" : "core";
+  const program: TeacherRow["program"] =
+    enrichmentClassCount > 0 && coreClassCount === 0
+      ? "enrichment"
+      : coreClassCount > 0
+        ? "core"
+        : prog === "enrichment"
+          ? "enrichment"
+          : "core";
 
-  const profiles = row.profiles as Record<string, unknown> | Record<string, unknown>[] | null;
-  const p = Array.isArray(profiles) ? profiles[0] : profiles;
+  const p = firstRel<Record<string, unknown>>(row.profiles);
   const displayName =
     p && typeof p === "object" && p !== null
       ? String((p as { display_name?: unknown }).display_name ?? "")
@@ -27,7 +44,11 @@ export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
   return {
     id,
     name: String(row.full_name ?? displayName ?? row.name ?? ""),
-    subjects: String(row.subjects ?? row.subject_areas ?? ""),
+    subjects: subjectClasses.length ? subjectClasses.join(", ") : "No classes assigned",
+    subjectClasses,
+    classCount: subjectClasses.length,
+    coreClassCount,
+    enrichmentClassCount,
     email: String(row.email ?? email ?? ""),
     phone: String(row.phone ?? ""),
     avatar: String(row.avatar_url ?? row.avatar ?? ""),
@@ -42,21 +63,44 @@ async function loadTeachersResolved(client?: TeacherReadClient): Promise<Resolve
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("teachers")
-      .select("id, subjects, phone, program, profiles ( display_name, email )")
-      .order("created_at", { ascending: true });
+    const [teachersResult, classesResult] = await Promise.all([
+      supabase
+        .from("teachers")
+        .select("id, subjects, phone, program, profiles ( display_name, email )")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("classes")
+        .select("id, teacher_id, name, program")
+        .order("name", { ascending: true }),
+    ]);
 
-    if (error) {
+    if (teachersResult.error || classesResult.error) {
       return unavailableList();
     }
 
+    const data = teachersResult.data;
     if (!data?.length) {
       return { items: [], source: "remote" };
     }
 
+    const classesByTeacherId = new Map<string, Record<string, unknown>[]>();
+    for (const classRow of (classesResult.data ?? []) as unknown as Record<string, unknown>[]) {
+      const teacherId = String(classRow.teacher_id ?? "");
+      if (!teacherId) continue;
+      const rows = classesByTeacherId.get(teacherId) ?? [];
+      rows.push(classRow);
+      classesByTeacherId.set(teacherId, rows);
+    }
+
     const mapped = data
-      .map((row) => mapTeacherRow(row as unknown as Record<string, unknown>))
+      .map((row) => {
+        const teacherRow = row as unknown as Record<string, unknown>;
+        const id = String(teacherRow.id ?? "");
+        return mapTeacherRow({
+          ...teacherRow,
+          classes: classesByTeacherId.get(id) ?? [],
+        });
+      })
       .filter((x): x is TeacherRow => x !== null);
 
     if (mapped.length === 0) {

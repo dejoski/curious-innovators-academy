@@ -1,6 +1,7 @@
 "use client";
 
 import type { DataSource } from "@/lib/data/fetch-source";
+import type { TeacherRow } from "@/lib/data/types";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
@@ -31,15 +32,22 @@ const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
 type ProgramKind = "core" | "enrichment";
 
-type TeacherRow = {
-  id: string;
-  name: string;
-  subjects: string;
-  email: string;
-  phone: string;
-  avatar: string;
-  program: ProgramKind;
-};
+const MAX_CLASS_PREVIEW = 3;
+
+function assignedClassNames(teacher: TeacherRow): string[] {
+  return teacher.subjectClasses?.length ? teacher.subjectClasses : [];
+}
+
+function assignedClassPreview(teacher: TeacherRow): string {
+  const classes = assignedClassNames(teacher);
+  if (classes.length === 0) return "No classes assigned";
+  const visible = classes.slice(0, MAX_CLASS_PREVIEW).join(", ");
+  return classes.length > MAX_CLASS_PREVIEW ? `${visible} +${classes.length - MAX_CLASS_PREVIEW} more` : visible;
+}
+
+function teachesProgram(teacher: TeacherRow, program: ProgramKind): boolean {
+  return program === "core" ? teacher.coreClassCount > 0 : teacher.enrichmentClassCount > 0;
+}
 
 export type TeachersTeacherListProps = {
   initialTeachers: TeacherRow[];
@@ -111,11 +119,15 @@ export default function TeachersTeacherList({
   const filteredTeachers = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return teachers.filter((teacher) => {
+      const classText = assignedClassNames(teacher).join(" ");
       const matchesSearch =
-        teacher.name.toLowerCase().includes(q) || teacher.subjects.toLowerCase().includes(q) || teacher.email.toLowerCase().includes(q);
+        teacher.name.toLowerCase().includes(q) ||
+        teacher.subjects.toLowerCase().includes(q) ||
+        classText.toLowerCase().includes(q) ||
+        teacher.email.toLowerCase().includes(q);
       if (!matchesSearch) return false;
       if (programFilter === "all") return true;
-      return teacher.program === programFilter;
+      return teachesProgram(teacher, programFilter);
     });
   }, [teachers, searchQuery, programFilter]);
 
@@ -147,13 +159,13 @@ export default function TeachersTeacherList({
       : filteredTeachers;
     downloadCsv(
       "teachers-directory.csv",
-      ["Name", "Subjects", "Email", "Phone", "Program"],
+      ["Name", "Assigned Classes", "Email", "Phone", "Program Counts"],
       selected.map((teacher) => [
         teacher.name,
-        teacher.subjects,
+        assignedClassNames(teacher).join("; ") || "No classes assigned",
         teacher.email,
         teacher.phone,
-        teacher.program === "core" ? "Core" : "Enrichment",
+        `Core: ${teacher.coreClassCount}; Enrichment: ${teacher.enrichmentClassCount}`,
       ]),
     );
     setSpreadsheetBanner(`Downloaded ${selected.length} teacher row(s) as CSV.`);
@@ -210,7 +222,6 @@ export default function TeachersTeacherList({
     const optimistic: TeacherRow = {
       ...editTeacher,
       name,
-      subjects: editDraft.subjects.trim() || editTeacher.subjects,
       email: editDraft.email.trim() || editTeacher.email,
       phone: editDraft.phone.trim() || editTeacher.phone,
       program: editDraft.program,
@@ -248,8 +259,8 @@ export default function TeachersTeacherList({
 
   const stats = useMemo(() => {
     const total = teachers.length;
-    const core = teachers.filter((t) => t.program === "core").length;
-    const enrichment = teachers.filter((t) => t.program === "enrichment").length;
+    const core = teachers.filter((t) => t.coreClassCount > 0).length;
+    const enrichment = teachers.filter((t) => t.enrichmentClassCount > 0).length;
     const withEmail = teachers.filter((t) => t.email.trim()).length;
     return { total, core, enrichment, withEmail };
   }, [teachers]);
@@ -495,7 +506,20 @@ export default function TeachersTeacherList({
                         </div>
                       </td>
                       <td className="py-[12px] px-[10px]">
-                        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px]">{teacher.subjects}</p>
+                        {assignedClassNames(teacher).length > MAX_CLASS_PREVIEW ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewTeacher(teacher)}
+                            className="max-w-[320px] text-left font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px] underline-offset-2 hover:text-[#14c1d5] hover:underline"
+                            title={teacher.subjects}
+                          >
+                            {assignedClassPreview(teacher)}
+                          </button>
+                        ) : (
+                          <p className="max-w-[320px] font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px]">
+                            {assignedClassPreview(teacher)}
+                          </p>
+                        )}
                       </td>
                       <td className="py-[12px] px-[10px]">
                         <p className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px]">{teacher.email}</p>
@@ -662,11 +686,26 @@ export default function TeachersTeacherList({
         >
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#0d0d12]">{viewTeacher.name}</h2>
-            <p className="mt-3 text-sm text-[#666d80]">
-              <span className="font-semibold text-[#0d0d12]">Subjects:</span> {viewTeacher.subjects}
-            </p>
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-[#0d0d12]">Assigned classes</p>
+              {assignedClassNames(viewTeacher).length > 0 ? (
+                <div className="mt-2 flex max-h-56 flex-wrap gap-2 overflow-y-auto pr-1">
+                  {assignedClassNames(viewTeacher).map((className) => (
+                    <span
+                      key={className}
+                      className="rounded-full border border-[#d7e8da] bg-[#edf6ef] px-2.5 py-1 text-xs font-medium text-[#245d2a]"
+                    >
+                      {className}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-[#666d80]">No classes assigned.</p>
+              )}
+            </div>
             <p className="mt-2 text-sm text-[#666d80]">
-              <span className="font-semibold text-[#0d0d12]">Program:</span> {viewTeacher.program === "core" ? "Core" : "Enrichment"}
+              <span className="font-semibold text-[#0d0d12]">Program counts:</span> Core {viewTeacher.coreClassCount} ·
+              Enrichment {viewTeacher.enrichmentClassCount}
             </p>
             <p className="mt-2 text-sm text-[#666d80] break-all">{viewTeacher.email}</p>
             <p className="mt-1 text-sm text-[#666d80]">{viewTeacher.phone}</p>
@@ -704,7 +743,7 @@ export default function TeachersTeacherList({
                 />
               </label>
               <label className="text-sm text-gray-700">
-                Subjects
+                Profile subjects (optional)
                 <input
                   className="mt-1 w-full rounded-md border p-2"
                   value={editDraft.subjects}

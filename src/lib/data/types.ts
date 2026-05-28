@@ -204,7 +204,13 @@ export type ScheduleCalendarEvent = {
 export type TeacherRow = {
   id: string;
   name: string;
+  /** Display summary derived from assigned classes, not editable teacher metadata. */
   subjects: string;
+  /** Full assigned class names derived from classes.teacher_id. */
+  subjectClasses: string[];
+  classCount: number;
+  coreClassCount: number;
+  enrichmentClassCount: number;
   email: string;
   phone: string;
   avatar: string;
