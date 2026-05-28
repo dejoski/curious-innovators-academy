@@ -37,6 +37,14 @@ function sourceOrUnavailable(source: DataSource | undefined): DataSource {
   return source ?? "unavailable";
 }
 
+function usablePayload<T extends { source?: DataSource }>(payload: T | null): T | null {
+  return payload?.source === "unavailable" ? null : payload;
+}
+
+function isUnavailableSource(source: DataSource | undefined): boolean {
+  return source === "unavailable";
+}
+
 type PanelStatus = "loading" | "ready" | "error";
 
 export function AdminHomePanel() {
@@ -44,10 +52,10 @@ export function AdminHomePanel() {
 }
 
 export function AdminSchedulePanel() {
-  const cached = peekDashboardData<{
+  const cached = usablePayload(peekDashboardData<{
     extrasByDate?: Record<string, CalendarEvent[]>;
     source?: DataSource;
-  }>(SCHEDULE_URL);
+  }>(SCHEDULE_URL));
   const [extrasByDate, setExtrasByDate] = React.useState<Record<string, CalendarEvent[]>>(
     () => cached?.extrasByDate ?? {},
   );
@@ -61,6 +69,13 @@ export function AdminSchedulePanel() {
     void readDashboardData<{ extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource }>(SCHEDULE_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setExtrasByDate({});
+          setSource("unavailable");
+          setError("Schedule is temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setExtrasByDate(body.extrasByDate ?? {});
         setSource(sourceOrUnavailable(body.source));
         setError(null);
@@ -84,22 +99,30 @@ export function AdminSchedulePanel() {
 }
 
 export function AdminStudentsPanel({ initialData }: { initialData?: AdminWorkspaceInitialData["students"] }) {
-  const cached = peekDashboardData<{ students?: StudentListItem[]; source?: DataSource }>(STUDENTS_URL);
-  const [students, setStudents] = React.useState<StudentListItem[]>(() => initialData?.rows ?? cached?.students ?? []);
-  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(initialData?.source ?? cached?.source));
-  const [status, setStatus] = React.useState<PanelStatus>(() => (initialData || cached ? "ready" : "loading"));
+  const usableInitialData = initialData?.source === "remote" ? initialData : undefined;
+  const cached = usablePayload(peekDashboardData<{ students?: StudentListItem[]; source?: DataSource }>(STUDENTS_URL));
+  const [students, setStudents] = React.useState<StudentListItem[]>(() => usableInitialData?.rows ?? cached?.students ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(usableInitialData?.source ?? cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (usableInitialData || cached ? "ready" : "loading"));
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
-    if (initialData) {
-      mutateDashboardData(STUDENTS_URL, () => ({ students: initialData.rows, source: initialData.source }));
+    if (usableInitialData) {
+      mutateDashboardData(STUDENTS_URL, () => ({ students: usableInitialData.rows, source: usableInitialData.source }));
     } else if (!cached) {
       setStatus("loading");
     }
     void readDashboardData<{ students?: StudentListItem[]; source?: DataSource }>(STUDENTS_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setStudents([]);
+          setSource("unavailable");
+          setError("Students are temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setStudents(body.students ?? []);
         setSource(sourceOrUnavailable(body.source));
         setError(null);
@@ -115,7 +138,7 @@ export function AdminStudentsPanel({ initialData }: { initialData?: AdminWorkspa
     return () => {
       cancelled = true;
     };
-  }, [cached, initialData]);
+  }, [cached, usableInitialData]);
 
   if (status === "loading") return <DashboardPanelLoading label="Loading students..." />;
   if (status === "error") return <DashboardPanelError message={error ?? "Could not load students."} />;
@@ -123,22 +146,30 @@ export function AdminStudentsPanel({ initialData }: { initialData?: AdminWorkspa
 }
 
 export function AdminStudentSchedulePanel({ initialData }: { initialData?: AdminWorkspaceInitialData["studentSchedules"] }) {
-  const cached = peekDashboardData<{ rows?: StudentScheduleRow[]; source?: DataSource }>(STUDENT_SCHEDULES_URL);
-  const [rows, setRows] = React.useState<StudentScheduleRow[]>(() => initialData?.rows ?? cached?.rows ?? []);
-  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(initialData?.source ?? cached?.source));
-  const [status, setStatus] = React.useState<PanelStatus>(() => (initialData || cached ? "ready" : "loading"));
+  const usableInitialData = initialData?.source === "remote" ? initialData : undefined;
+  const cached = usablePayload(peekDashboardData<{ rows?: StudentScheduleRow[]; source?: DataSource }>(STUDENT_SCHEDULES_URL));
+  const [rows, setRows] = React.useState<StudentScheduleRow[]>(() => usableInitialData?.rows ?? cached?.rows ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(usableInitialData?.source ?? cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (usableInitialData || cached ? "ready" : "loading"));
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
-    if (initialData) {
-      mutateDashboardData(STUDENT_SCHEDULES_URL, () => ({ rows: initialData.rows, source: initialData.source }));
+    if (usableInitialData) {
+      mutateDashboardData(STUDENT_SCHEDULES_URL, () => ({ rows: usableInitialData.rows, source: usableInitialData.source }));
     } else if (!cached) {
       setStatus("loading");
     }
     void readDashboardData<{ rows?: StudentScheduleRow[]; source?: DataSource }>(STUDENT_SCHEDULES_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setRows([]);
+          setSource("unavailable");
+          setError("Student schedules are temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setRows(body.rows ?? []);
         setSource(sourceOrUnavailable(body.source));
         setError(null);
@@ -155,7 +186,7 @@ export function AdminStudentSchedulePanel({ initialData }: { initialData?: Admin
     return () => {
       cancelled = true;
     };
-  }, [cached, initialData]);
+  }, [cached, usableInitialData]);
 
   if (status === "loading") return <DashboardPanelLoading label="Loading student schedules..." />;
   if (status === "error") return <DashboardPanelError message={error ?? "Could not load student schedules."} />;
@@ -163,22 +194,30 @@ export function AdminStudentSchedulePanel({ initialData }: { initialData?: Admin
 }
 
 export function AdminStudentRosterPanel({ initialData }: { initialData?: AdminWorkspaceInitialData["classOptions"] }) {
-  const cached = peekDashboardData<{ classes?: SchoolClassOptionRow[]; source?: DataSource }>(CLASS_OPTIONS_URL);
-  const [classes, setClasses] = React.useState<SchoolClassOptionRow[]>(() => initialData?.rows ?? cached?.classes ?? []);
-  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(initialData?.source ?? cached?.source));
-  const [status, setStatus] = React.useState<PanelStatus>(() => (initialData || cached ? "ready" : "loading"));
+  const usableInitialData = initialData?.source === "remote" ? initialData : undefined;
+  const cached = usablePayload(peekDashboardData<{ classes?: SchoolClassOptionRow[]; source?: DataSource }>(CLASS_OPTIONS_URL));
+  const [classes, setClasses] = React.useState<SchoolClassOptionRow[]>(() => usableInitialData?.rows ?? cached?.classes ?? []);
+  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(usableInitialData?.source ?? cached?.source));
+  const [status, setStatus] = React.useState<PanelStatus>(() => (usableInitialData || cached ? "ready" : "loading"));
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
-    if (initialData) {
-      mutateDashboardData(CLASS_OPTIONS_URL, () => ({ classes: initialData.rows, source: initialData.source }));
+    if (usableInitialData) {
+      mutateDashboardData(CLASS_OPTIONS_URL, () => ({ classes: usableInitialData.rows, source: usableInitialData.source }));
     } else if (!cached) {
       setStatus("loading");
     }
     void readDashboardData<{ classes?: SchoolClassOptionRow[]; source?: DataSource }>(CLASS_OPTIONS_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setClasses([]);
+          setSource("unavailable");
+          setError("Class roster options are temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setClasses(body.classes ?? []);
         setSource(sourceOrUnavailable(body.source));
         setError(null);
@@ -195,7 +234,7 @@ export function AdminStudentRosterPanel({ initialData }: { initialData?: AdminWo
     return () => {
       cancelled = true;
     };
-  }, [cached, initialData]);
+  }, [cached, usableInitialData]);
 
   if (status === "loading") return <DashboardPanelLoading label="Loading roster options..." />;
   if (status === "error") return <DashboardPanelError message={error ?? "Could not load roster options."} />;
@@ -203,7 +242,7 @@ export function AdminStudentRosterPanel({ initialData }: { initialData?: AdminWo
 }
 
 export function AdminTeachersPanel() {
-  const cached = peekDashboardData<{ teachers?: TeacherRows; source?: DataSource }>(TEACHERS_URL);
+  const cached = usablePayload(peekDashboardData<{ teachers?: TeacherRows; source?: DataSource }>(TEACHERS_URL));
   const [teachers, setTeachers] = React.useState<TeacherRows>(() => cached?.teachers ?? []);
   const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
   const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
@@ -215,6 +254,13 @@ export function AdminTeachersPanel() {
     void readDashboardData<{ teachers?: TeacherRows; source?: DataSource }>(TEACHERS_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setTeachers([]);
+          setSource("unavailable");
+          setError("Teachers are temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setTeachers(body.teachers ?? []);
         setSource(sourceOrUnavailable(body.source));
         setError(null);
@@ -238,7 +284,7 @@ export function AdminTeachersPanel() {
 }
 
 export function AdminParentsPanel() {
-  const cached = peekDashboardData<{ parents?: ParentSummary[]; source?: DataSource }>(PARENTS_URL);
+  const cached = usablePayload(peekDashboardData<{ parents?: ParentSummary[]; source?: DataSource }>(PARENTS_URL));
   const [parents, setParents] = React.useState<ParentSummary[]>(() => cached?.parents ?? []);
   const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
   const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
@@ -250,6 +296,13 @@ export function AdminParentsPanel() {
     void readDashboardData<{ parents?: ParentSummary[]; source?: DataSource }>(PARENTS_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setParents([]);
+          setSource("unavailable");
+          setError("Parents are temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setParents(body.parents ?? []);
         setSource(sourceOrUnavailable(body.source));
         setError(null);
@@ -273,7 +326,7 @@ export function AdminParentsPanel() {
 }
 
 export function AdminNotificationsPanel() {
-  const cached = peekDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL);
+  const cached = usablePayload(peekDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL));
   const [notifications, setNotifications] = React.useState<DashboardNotification[]>(() => cached?.notifications ?? []);
   const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
   const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
@@ -285,6 +338,13 @@ export function AdminNotificationsPanel() {
     void readDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL)
       .then((body) => {
         if (cancelled) return;
+        if (isUnavailableSource(body.source)) {
+          setNotifications([]);
+          setSource("unavailable");
+          setError("Notifications are temporarily unavailable.");
+          setStatus("error");
+          return;
+        }
         setNotifications(body.notifications ?? []);
         setSource(sourceOrUnavailable(body.source));
         setError(null);

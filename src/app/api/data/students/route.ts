@@ -1,16 +1,32 @@
 import { NextResponse } from "next/server";
-import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { loadCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteStudent,
   serverInsertStudent,
   serverUpdateStudent,
 } from "@/lib/data/server-writes";
-import { fetchStudentsResolved } from "@/lib/data/repositories/students";
+import { fetchAdminStudentsResolved, fetchStudentsResolved } from "@/lib/data/repositories/students";
 
-export async function GET(request: Request) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
+export async function GET() {
+  const current = await loadCurrentApiUser();
+  if (current.error || !current.user || !current.supabase) {
+    return NextResponse.json(
+      { error: current.error ?? "Sign in required." },
+      { status: current.status ?? 401 },
+    );
+  }
+
+  const { data: profile } = await current.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", current.user.id)
+    .maybeSingle();
+
+  if (String(profile?.role ?? "").toLowerCase() === "admin") {
+    const { items: students, source } = await fetchAdminStudentsResolved();
+    return NextResponse.json({ students, source });
+  }
 
   const { items: students, source } = await fetchStudentsResolved();
   return NextResponse.json({ students, source });

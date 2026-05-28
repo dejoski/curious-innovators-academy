@@ -29,6 +29,15 @@ function now() {
   return Date.now();
 }
 
+function isUnavailablePayload(data: unknown): boolean {
+  return Boolean(
+    data &&
+      typeof data === "object" &&
+      "source" in data &&
+      (data as { source?: unknown }).source === "unavailable",
+  );
+}
+
 function readStorage<T>(url: string): CacheEntry<T> | null {
   if (typeof window === "undefined") return null;
   try {
@@ -44,6 +53,10 @@ function readStorage<T>(url: string): CacheEntry<T> | null {
 }
 
 function writeCache<T>(url: string, data: T, ttlMs: number) {
+  if (isUnavailablePayload(data)) {
+    clearLocalCache(url);
+    return data;
+  }
   const entry: CacheEntry<T> = { data, expiresAt: now() + ttlMs };
   memoryCache.set(scopedKey(url), entry as CacheEntry<unknown>);
   if (typeof window !== "undefined") {
@@ -124,7 +137,8 @@ export function peekCachedJson<T>(url: string): T | null {
 
 export async function cachedJson<T>(url: string, ttlMs = DEFAULT_TTL_MS): Promise<T> {
   const cached = peekCachedJson<T>(url);
-  if (cached) return cached;
+  if (cached && !isUnavailablePayload(cached)) return cached;
+  if (cached) clearLocalCache(url);
 
   const key = scopedKey(url);
   const existing = inFlight.get(key) as Promise<T> | undefined;
@@ -247,7 +261,8 @@ export async function readDashboardData<T>(
   if (!loader) return cachedJson<T>(key, options.ttlMs);
 
   const cached = peekCachedJson<T>(key);
-  if (cached && !options.force) return cached;
+  if (cached && !options.force && !isUnavailablePayload(cached)) return cached;
+  if (cached && isUnavailablePayload(cached)) clearLocalCache(key);
 
   const existing = inFlight.get(scopedKey(key)) as Promise<T> | undefined;
   if (existing) return existing;
