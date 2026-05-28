@@ -22,6 +22,7 @@ import {
 } from "@/components/parent-schedule-grid";
 import {
   cachedJson,
+  DASHBOARD_CACHE_INVALIDATED_EVENT,
   invalidateClientDataCache,
   invalidateDashboardData,
   readDashboardData,
@@ -195,10 +196,28 @@ function ParentClassesEnrichmentCatalogContent() {
       }
     }
     void loadActiveStudentSchedule();
+    function handleCacheInvalidated(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail as { url?: string | null } | undefined : undefined;
+      const url = detail?.url ?? null;
+      const studentId = activeStudent?.id ?? requestedStudentId ?? "";
+      if (
+        !url ||
+        url === "/api/data/students" ||
+        url === "/api/data/enrichment-requests" ||
+        (studentId && (
+          url === `/api/data/students/${encodeURIComponent(studentId)}/profile` ||
+          url === `/api/data/students/${encodeURIComponent(studentId)}/schedule`
+        ))
+      ) {
+        void loadActiveStudentSchedule();
+      }
+    }
+    window.addEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
     return () => {
       cancelled = true;
+      window.removeEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
     };
-  }, [requestedStudentId]);
+  }, [activeStudent?.id, requestedStudentId]);
 
   useEffect(() => {
     function clearLegacyStatuses() {
@@ -262,11 +281,26 @@ function ParentClassesEnrichmentCatalogContent() {
       }
     }
     void loadRequestState();
+    function handleCacheInvalidated(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail as { url?: string | null } | undefined : undefined;
+      const url = detail?.url ?? null;
+      if (
+        !url ||
+        url === "/api/data/enrichment-requests" ||
+        url === "/api/data/classes" ||
+        url === `/api/data/students/${encodeURIComponent(studentForRequests.id)}/profile` ||
+        url === `/api/data/students/${encodeURIComponent(studentForRequests.id)}/schedule`
+      ) {
+        void loadRequestState();
+      }
+    }
     window.addEventListener("cia-parent-catalog-updated", loadRequestState);
+    window.addEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
     window.addEventListener("storage", loadRequestState);
     return () => {
       cancelled = true;
       window.removeEventListener("cia-parent-catalog-updated", loadRequestState);
+      window.removeEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
       window.removeEventListener("storage", loadRequestState);
     };
   }, [activeStudent?.id, activeStudent?.name]);

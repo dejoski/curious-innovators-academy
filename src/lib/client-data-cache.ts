@@ -4,6 +4,8 @@ type CacheEntry<T> = {
 };
 
 const VERSION = "cia-client-data-v4";
+const INVALIDATION_STORAGE_KEY = `${VERSION}:invalidation`;
+export const DASHBOARD_CACHE_INVALIDATED_EVENT = "cia-dashboard-cache-invalidated";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
@@ -46,6 +48,65 @@ function writeCache<T>(url: string, data: T, ttlMs: number) {
     }
   }
   return data;
+}
+
+function clearLocalCache(url?: string) {
+  if (url) {
+    const key = scopedKey(url);
+    memoryCache.delete(key);
+    inFlight.delete(key);
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(cacheKey(url));
+    return;
+  }
+  memoryCache.clear();
+  inFlight.clear();
+  if (typeof window !== "undefined") {
+    for (const key of Object.keys(window.sessionStorage)) {
+      if (key.startsWith(`${VERSION}:`)) window.sessionStorage.removeItem(key);
+    }
+  }
+}
+
+function dispatchInvalidationEvent(url?: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(DASHBOARD_CACHE_INVALIDATED_EVENT, {
+      detail: { scope: cacheScope, url: url ?? null },
+    }),
+  );
+}
+
+function broadcastInvalidation(url?: string) {
+  if (typeof window === "undefined") return;
+  dispatchInvalidationEvent(url);
+  try {
+    window.localStorage.setItem(
+      INVALIDATION_STORAGE_KEY,
+      JSON.stringify({
+        scope: cacheScope,
+        url: url ?? null,
+        at: Date.now(),
+      }),
+    );
+  } catch {
+    /* Cross-tab cache sync is best-effort; local invalidation already happened. */
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== INVALIDATION_STORAGE_KEY || !event.newValue) return;
+    try {
+      const payload = JSON.parse(event.newValue) as { scope?: string; url?: string | null };
+      if (payload.scope && payload.scope !== cacheScope) return;
+      const url = typeof payload.url === "string" ? payload.url : undefined;
+      clearLocalCache(url);
+      dispatchInvalidationEvent(url);
+    } catch {
+      clearLocalCache();
+      dispatchInvalidationEvent();
+    }
+  });
 }
 
 export function peekCachedJson<T>(url: string): T | null {
@@ -117,20 +178,8 @@ export async function preloadParentDashboardData(): Promise<{ ok: boolean; stude
 }
 
 export function invalidateClientDataCache(url?: string) {
-  if (url) {
-    const key = scopedKey(url);
-    memoryCache.delete(key);
-    inFlight.delete(key);
-    if (typeof window !== "undefined") window.sessionStorage.removeItem(cacheKey(url));
-    return;
-  }
-  memoryCache.clear();
-  inFlight.clear();
-  if (typeof window !== "undefined") {
-    for (const key of Object.keys(window.sessionStorage)) {
-      if (key.startsWith(`${VERSION}:`)) window.sessionStorage.removeItem(key);
-    }
-  }
+  clearLocalCache(url);
+  broadcastInvalidation(url);
 }
 
 export type DashboardCacheOptions = {

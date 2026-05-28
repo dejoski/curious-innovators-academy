@@ -24,6 +24,7 @@ import {
 } from "@/components/parent-schedule-grid";
 import {
   cachedJson,
+  DASHBOARD_CACHE_INVALIDATED_EVENT,
   invalidateClientDataCache,
   invalidateDashboardData,
   readDashboardData,
@@ -307,8 +308,23 @@ export default function ParentHomeDashboard() {
       }
     }
     void loadParentHome();
+    function handleCacheInvalidated(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail as { url?: string | null } | undefined : undefined;
+      const url = detail?.url ?? null;
+      if (
+        !url ||
+        url === "/api/data/students" ||
+        url === "/api/data/classes" ||
+        url === "/api/data/enrichment-requests" ||
+        url.startsWith("/api/data/students/")
+      ) {
+        void loadParentHome();
+      }
+    }
+    window.addEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
     return () => {
       cancelled = true;
+      window.removeEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
     };
   }, [requestedStudentId]);
 
@@ -356,11 +372,27 @@ export default function ParentHomeDashboard() {
     }
 
     void syncCatalogRequestState();
+    function handleCacheInvalidated(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail as { url?: string | null } | undefined : undefined;
+      const url = detail?.url ?? null;
+      if (
+        !url ||
+        url === "/api/data/enrichment-requests" ||
+        url === "/api/data/classes" ||
+        url === `/api/data/students/${encodeURIComponent(activeStudent.id)}/profile` ||
+        url === `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`
+      ) {
+        void syncCatalogRequestState();
+      }
+    }
+
     window.addEventListener("cia-parent-catalog-updated", syncCatalogRequestState);
+    window.addEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
     window.addEventListener("storage", syncCatalogRequestState);
     return () => {
       cancelled = true;
       window.removeEventListener("cia-parent-catalog-updated", syncCatalogRequestState);
+      window.removeEventListener(DASHBOARD_CACHE_INVALIDATED_EVENT, handleCacheInvalidated);
       window.removeEventListener("storage", syncCatalogRequestState);
     };
   }, [student?.id, student?.name]);

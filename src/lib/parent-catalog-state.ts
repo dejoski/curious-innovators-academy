@@ -247,7 +247,14 @@ function requestSlotId(row: EnrichmentRequestRow): CatalogSlotId | null {
   const level = row.level.trim().toLowerCase();
   return CATALOG_SLOT_IDS.find((slotId) => {
     const meta = CATALOG_SLOT_META[slotId];
-    return meta.block.toLowerCase() === block && meta.level.toLowerCase() === level;
+    const metaBlock = meta.block.toLowerCase();
+    const metaLevel = meta.level.toLowerCase();
+    return (
+      (metaBlock === block && metaLevel === level) ||
+      meta.title.toLowerCase() === block ||
+      meta.label.toLowerCase() === block ||
+      (block.includes(`block ${metaBlock.replace("b", "")}`) && block.includes(`day ${metaLevel}`))
+    );
   }) ?? null;
 }
 

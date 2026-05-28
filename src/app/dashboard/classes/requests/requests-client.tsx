@@ -8,7 +8,7 @@ import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { useClassesDataCache } from "@/components/classes-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { invalidateDashboardData, parentStudentDataUrls } from "@/lib/client-data-cache";
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
@@ -196,8 +196,22 @@ export default function ClassesEnrichmentRequests({
     });
   };
 
-  const refreshRequestsFromRemote = async () => {
-    invalidateDashboardData("/api/dashboard-presentation");
+  const invalidateRequestDecisionCaches = (rows: EnrichmentRequestRow[]) => {
+    const touchedKeys = new Set<string>([
+      "/api/dashboard-presentation",
+      "/api/data/enrichment-requests",
+      "/api/data/classes",
+      "/api/data/approval-history",
+    ]);
+    rows.forEach((row) => {
+      if (!row.studentId) return;
+      parentStudentDataUrls(row.studentId).forEach((url) => touchedKeys.add(url));
+    });
+    invalidateDashboardData([...touchedKeys]);
+  };
+
+  const refreshRequestsFromRemote = async (touchedRows: EnrichmentRequestRow[] = []) => {
+    invalidateRequestDecisionCaches(touchedRows);
     const payload = await classesCache.loadRequests(true);
     setRequests(payload.requests);
     setDecisionSummary(payload.decisionSummary);
@@ -207,6 +221,7 @@ export default function ClassesEnrichmentRequests({
   };
 
   const applyStatus = async (id: string, status: RequestStatus) => {
+    const touchedRow = requests.find((request) => request.id === id);
     setConfirmAction(null);
     setRowMenuId(null);
     setSyncHint(null);
@@ -219,7 +234,7 @@ export default function ClassesEnrichmentRequests({
       setSyncHint(`Could not sync status (${await readApiError(res)}).`);
       return;
     }
-    await refreshRequestsFromRemote();
+    await refreshRequestsFromRemote(touchedRow ? [touchedRow] : []);
   };
 
   const applyBulkStatus = async (status: RequestStatus) => {
@@ -245,12 +260,12 @@ export default function ClassesEnrichmentRequests({
 
     if (failedMessages.length > 0) {
       setSyncHint(`Could not sync ${failedMessages.length} selected request(s): ${failedMessages[0] ?? "Unknown error"}.`);
-      await refreshRequestsFromRemote();
+      await refreshRequestsFromRemote(targetRows);
       return;
     }
 
     setSelectedIds(new Set());
-    await refreshRequestsFromRemote();
+    await refreshRequestsFromRemote(targetRows);
   };
 
   return (
