@@ -2,13 +2,14 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Filter, Search } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import { DASHBOARD_PANEL_CLASS, DASHBOARD_TABLE_SCROLL_CLASS } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data";
 
@@ -91,6 +92,7 @@ export default function AdminStudentScheduleClient({
   initialRows: StudentScheduleRow[];
   dataSource: DataSource;
 }) {
+  const router = useRouter();
   const [rows] = useState(() => [...initialRows]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ScheduleFilter>("all");
@@ -108,6 +110,12 @@ export default function AdminStudentScheduleClient({
     document.addEventListener("mousedown", closeActions);
     return () => document.removeEventListener("mousedown", closeActions);
   }, []);
+
+  const warmStudent = React.useCallback((studentId: string) => {
+    if (!studentId) return;
+    preloadStudentDetailData(studentId);
+    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
+  }, [router]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -270,7 +278,12 @@ export default function AdminStudentScheduleClient({
             <tbody>
               {filteredRows.length ? (
                 filteredRows.map((row) => (
-                  <tr key={row.id} className="border-b border-[#f0f0f0] text-[16px] text-[#0d0d12]">
+                  <tr
+                    key={row.id}
+                    className="border-b border-[#f0f0f0] text-[16px] text-[#0d0d12]"
+                    onMouseEnter={() => warmStudent(row.id)}
+                    onFocusCapture={() => warmStudent(row.id)}
+                  >
                     <td className="px-3 py-5">
                       <div className="flex min-w-0 items-center gap-3">
                         <button
@@ -295,7 +308,10 @@ export default function AdminStudentScheduleClient({
                       <DashboardRowActionsMenu
                         label={`Actions for ${row.name}`}
                         isOpen={openActionId === row.id}
-                        onToggle={() => setOpenActionId((id) => (id === row.id ? null : row.id))}
+                        onToggle={() => {
+                          warmStudent(row.id);
+                          setOpenActionId((id) => (id === row.id ? null : row.id));
+                        }}
                         onClose={() => setOpenActionId(null)}
                         actions={[
                           { label: "View schedule", href: `/dashboard/students/${encodeURIComponent(row.id)}/schedule` },

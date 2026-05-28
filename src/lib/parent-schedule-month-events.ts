@@ -11,10 +11,15 @@ import {
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
 
-const FEB_2026 = { year: 2026, monthIndex: 1 };
-
 function dateKey(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function monthFromDate(baseDate: Date) {
+  return {
+    year: baseDate.getFullYear(),
+    monthIndex: baseDate.getMonth(),
+  };
 }
 
 function addEvent(target: Record<string, CalendarEvent[]>, key: string, event: CalendarEvent) {
@@ -46,24 +51,32 @@ function classMap(classes: SchoolClassRow[] = []) {
 
 function slotLabel(slot: ParentScheduleSlotKey): string {
   const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
-  return catalogSlot ? CATALOG_SLOT_META[catalogSlot].label : slot;
+  if (catalogSlot) return CATALOG_SLOT_META[catalogSlot].label;
+  if (slot === "b1") return "Block 1";
+  if (slot === "b2") return "Block 2";
+  return slot;
 }
 
-export function studentScheduleToMonthEvents(row: StudentScheduleRow | null, classes: SchoolClassRow[] = []): Record<string, CalendarEvent[]> {
+export function studentScheduleToMonthEvents(
+  row: StudentScheduleRow | null,
+  classes: SchoolClassRow[] = [],
+  baseDate: Date = new Date(),
+): Record<string, CalendarEvent[]> {
   if (!row) return {};
   const events: Record<string, CalendarEvent[]> = {};
   const byClassName = classMap(classes);
-  const daysInMonth = new Date(FEB_2026.year, FEB_2026.monthIndex + 1, 0).getDate();
+  const scheduleMonth = monthFromDate(baseDate);
+  const daysInMonth = new Date(scheduleMonth.year, scheduleMonth.monthIndex + 1, 0).getDate();
   for (const [slot, weekdays] of Object.entries(SLOT_TO_WEEKDAY) as [ParentScheduleSlotKey, number[]][]) {
     const badges = row[slot].filter((badge) => badge.tone !== "empty" && badge.label !== "--");
     if (!badges.length) continue;
     for (let day = 1; day <= daysInMonth; day += 1) {
-      const d = new Date(FEB_2026.year, FEB_2026.monthIndex, day);
+      const d = new Date(scheduleMonth.year, scheduleMonth.monthIndex, day);
       if (!weekdays.includes(d.getDay())) continue;
       for (const [index, badge] of badges.entries()) {
         const className = cleanClassName(badge.label);
         const details = byClassName.get(normalizedClassName(badge.label));
-        addEvent(events, dateKey(FEB_2026.year, FEB_2026.monthIndex, day), {
+        addEvent(events, dateKey(scheduleMonth.year, scheduleMonth.monthIndex, day), {
           id: `${row.id}-${slot}-${day}-${index}`,
           time: SLOT_START_TIME[slot],
           title: className || badge.label,

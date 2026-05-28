@@ -150,7 +150,6 @@ export default function ParentScheduleClient() {
           showTodayButton={false}
           refreshExtrasOnClient={false}
           allowEventCreation={false}
-          initialDateIso="2026-02-01"
         />
       )}
     </div>

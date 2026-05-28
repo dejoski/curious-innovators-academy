@@ -38,6 +38,14 @@ type ClassMeta = {
   capacityEnrolled: number;
   capacityMax: number;
   pendingCount: number;
+  plannerSubject: string;
+  plannerSummary: string;
+  teacherGuideObjectives: string;
+  teacherGuideInformation: string;
+  teacherGuideSummary: string;
+  studentGuideObjectives: string;
+  studentGuideInformation: string;
+  studentGuideSummary: string;
 };
 
 const EMPTY_CLASS_META: ClassMeta = {
@@ -47,6 +55,14 @@ const EMPTY_CLASS_META: ClassMeta = {
   capacityEnrolled: 0,
   capacityMax: 1,
   pendingCount: 0,
+  plannerSubject: "",
+  plannerSummary: "",
+  teacherGuideObjectives: "",
+  teacherGuideInformation: "",
+  teacherGuideSummary: "",
+  studentGuideObjectives: "",
+  studentGuideInformation: "",
+  studentGuideSummary: "",
 };
 
 function parseCapacity(label: string): { enrolled: number; max: number } {
@@ -67,6 +83,14 @@ function classMetaFromRow(row: SchoolClassRow): ClassMeta {
     capacityEnrolled: capacity.enrolled,
     capacityMax: capacity.max,
     pendingCount: row.pendingCount,
+    plannerSubject: row.plannerSubject || "",
+    plannerSummary: row.plannerSummary || "",
+    teacherGuideObjectives: row.teacherGuideObjectives || "",
+    teacherGuideInformation: row.teacherGuideInformation || "",
+    teacherGuideSummary: row.teacherGuideSummary || "",
+    studentGuideObjectives: row.studentGuideObjectives || "",
+    studentGuideInformation: row.studentGuideInformation || "",
+    studentGuideSummary: row.studentGuideSummary || "",
   };
 }
 
@@ -110,7 +134,18 @@ export default function EnrichmentClassDetail() {
   const [isRemoveClassModalOpen, setIsRemoveClassModalOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
 
-  const [editClassDraft, setEditClassDraft] = useState({ title: "", description: "" });
+  const [editClassDraft, setEditClassDraft] = useState({
+    title: "",
+    description: "",
+    plannerSubject: "",
+    plannerSummary: "",
+    teacherGuideObjectives: "",
+    teacherGuideInformation: "",
+    teacherGuideSummary: "",
+    studentGuideObjectives: "",
+    studentGuideInformation: "",
+    studentGuideSummary: "",
+  });
 
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
   const [classEditError, setClassEditError] = useState<string | null>(null);
@@ -150,10 +185,7 @@ export default function EnrichmentClassDetail() {
         const row = (classesBody.classes ?? []).find((item) => item.id === classId);
         if (row) {
           setClassTitle(row.name);
-          setClassDescription(
-            row.description ||
-              `${row.name} roster and request status are loaded from the class data source.`,
-          );
+          setClassDescription(row.description || "");
           setClassMeta(classMetaFromRow(row));
         }
         setStudents(rosterBody.students ?? []);
@@ -347,7 +379,18 @@ export default function EnrichmentClassDetail() {
   }
 
   const openEditClassModal = () => {
-    setEditClassDraft({ title: classTitle, description: classDescription });
+    setEditClassDraft({
+      title: classTitle,
+      description: classDescription,
+      plannerSubject: classMeta.plannerSubject,
+      plannerSummary: classMeta.plannerSummary,
+      teacherGuideObjectives: classMeta.teacherGuideObjectives,
+      teacherGuideInformation: classMeta.teacherGuideInformation,
+      teacherGuideSummary: classMeta.teacherGuideSummary,
+      studentGuideObjectives: classMeta.studentGuideObjectives,
+      studentGuideInformation: classMeta.studentGuideInformation,
+      studentGuideSummary: classMeta.studentGuideSummary,
+    });
     setClassEditError(null);
     setIsEditClassModalOpen(true);
   };
@@ -373,6 +416,14 @@ export default function EnrichmentClassDetail() {
           description: editClassDraft.description,
           block,
           level,
+          plannerSubject: editClassDraft.plannerSubject,
+          plannerSummary: editClassDraft.plannerSummary,
+          teacherGuideObjectives: editClassDraft.teacherGuideObjectives,
+          teacherGuideInformation: editClassDraft.teacherGuideInformation,
+          teacherGuideSummary: editClassDraft.teacherGuideSummary,
+          studentGuideObjectives: editClassDraft.studentGuideObjectives,
+          studentGuideInformation: editClassDraft.studentGuideInformation,
+          studentGuideSummary: editClassDraft.studentGuideSummary,
         }),
       });
       if (!res.ok) {
@@ -382,10 +433,7 @@ export default function EnrichmentClassDetail() {
       const body = (await res.json()) as { class?: SchoolClassRow };
       if (body.class) {
         setClassTitle(body.class.name);
-        setClassDescription(
-          body.class.description ||
-            `${body.class.name} roster and request status are loaded from the class data source.`,
-        );
+        setClassDescription(body.class.description || "");
         setClassMeta(classMetaFromRow(body.class));
       } else {
         setClassTitle(t);
@@ -965,7 +1013,7 @@ export default function EnrichmentClassDetail() {
             onMouseDown={(e) => e.stopPropagation()}
           >
             <h3 className="font-bold text-[#272932] text-xl">Edit Class Info</h3>
-            <p className="text-[#666d80] text-[14px]">Update the details for this class through the data API.</p>
+            <p className="text-[#666d80] text-[14px]">Update the details for this class.</p>
             {classEditError ? (
               <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {classEditError}
@@ -983,6 +1031,35 @@ export default function EnrichmentClassDetail() {
                 onChange={(e) => setEditClassDraft((d) => ({ ...d, description: e.target.value }))}
                 className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5] resize-none h-24"
               />
+              <div className="border-t border-[#f0f0f0] pt-3">
+                <p className="mb-2 font-semibold text-[#272932] text-[14px]">Daily Planner</p>
+                <textarea
+                  value={editClassDraft.plannerSubject}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, plannerSubject: e.target.value }))}
+                  className="mb-3 h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                  aria-label="Daily planner subject"
+                />
+                <textarea
+                  value={editClassDraft.plannerSummary}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, plannerSummary: e.target.value }))}
+                  className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                  aria-label="Daily planner summary"
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <p className="font-semibold text-[#272932] text-[14px]">Teacher's Guide</p>
+                  <textarea value={editClassDraft.teacherGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide objectives" />
+                  <textarea value={editClassDraft.teacherGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide information" />
+                  <textarea value={editClassDraft.teacherGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide summary" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <p className="font-semibold text-[#272932] text-[14px]">Students' Guide</p>
+                  <textarea value={editClassDraft.studentGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide objectives" />
+                  <textarea value={editClassDraft.studentGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide information" />
+                  <textarea value={editClassDraft.studentGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide summary" />
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">
               <button

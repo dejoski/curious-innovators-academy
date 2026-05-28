@@ -6,7 +6,12 @@ import {
   serverInsertStudent,
   serverUpdateStudent,
 } from "@/lib/data/server-writes";
-import { fetchAdminStudentsResolved, fetchStudentsResolved } from "@/lib/data/repositories/students";
+import {
+  fetchAdminStudentsResolved,
+  fetchParentStudentsResolved,
+  fetchStudentsResolved,
+} from "@/lib/data/repositories/students";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   const current = await loadCurrentApiUser();
@@ -25,6 +30,11 @@ export async function GET() {
 
   if (String(profile?.role ?? "").toLowerCase() === "admin") {
     const { items: students, source } = await fetchAdminStudentsResolved();
+    return NextResponse.json({ students, source });
+  }
+
+  if (String(profile?.role ?? "").toLowerCase() === "parent") {
+    const { items: students, source } = await fetchParentStudentsResolved(createSupabaseAdminClient(), current.user.id);
     return NextResponse.json({ students, source });
   }
 

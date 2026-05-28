@@ -135,6 +135,38 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION private.user_owns_parent(p_parent_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.parents pa
+    WHERE pa.id = p_parent_id
+      AND pa.profile_id = auth.uid()
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION private.teacher_can_see_parent(p_parent_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.parent_students ps
+    WHERE ps.parent_id = p_parent_id
+      AND private.teacher_teaches_student(ps.student_id)
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION private.student_is_self(p_student_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -153,11 +185,15 @@ REVOKE ALL ON FUNCTION private.is_admin() FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.parent_can_see_student(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.teacher_teaches_student(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.student_is_self(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION private.user_owns_parent(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION private.teacher_can_see_parent(uuid) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated;
 GRANT EXECUTE ON FUNCTION private.parent_can_see_student(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.teacher_teaches_student(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.student_is_self(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.user_owns_parent(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.teacher_can_see_parent(uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Core tables
@@ -224,6 +260,14 @@ CREATE TABLE public.classes (
   location text,
   description text,
   prerequisites text,
+  planner_subject text,
+  planner_summary text,
+  teacher_guide_objectives text,
+  teacher_guide_information text,
+  teacher_guide_summary text,
+  student_guide_objectives text,
+  student_guide_information text,
+  student_guide_summary text,
   schedule_summary text NOT NULL DEFAULT '',
   status public.class_status NOT NULL DEFAULT 'active',
   created_at timestamptz NOT NULL DEFAULT now()
@@ -517,12 +561,7 @@ CREATE POLICY parents_select
   USING (
     private.is_admin()
     OR profile_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.parent_students ps
-      JOIN public.students s ON s.id = ps.student_id
-      WHERE ps.parent_id = parents.id
-        AND private.teacher_teaches_student(s.id)
-    )
+    OR private.teacher_can_see_parent(parents.id)
   );
 
 CREATE POLICY parents_insert_admin
@@ -588,7 +627,7 @@ CREATE POLICY parent_students_select
   ON public.parent_students FOR SELECT TO authenticated
   USING (
     private.is_admin()
-    OR EXISTS (SELECT 1 FROM public.parents pa WHERE pa.id = parent_students.parent_id AND pa.profile_id = auth.uid())
+    OR private.user_owns_parent(parent_students.parent_id)
     OR private.parent_can_see_student(parent_students.student_id)
     OR private.teacher_teaches_student(parent_students.student_id)
   );

@@ -32,6 +32,13 @@ type ParentStudentContextSelectorProps = {
 
 function readCachedStudents() {
   const body = peekCachedJson<StudentsBody>("/api/data/students");
+  if (body?.source === "unavailable") {
+    return {
+      body: null,
+      students: [],
+      source: null,
+    };
+  }
   return {
     body,
     students: Array.isArray(body?.students) ? body.students : [],

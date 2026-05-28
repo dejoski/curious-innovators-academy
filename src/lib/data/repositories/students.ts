@@ -58,6 +58,17 @@ export const STUDENT_SELECT = `
   )
 `;
 
+const PARENT_STUDENT_SELECT = `
+  id,
+  display_name,
+  guardian_label,
+  avatar_url,
+  level,
+  track,
+  profile_id,
+  support_notes
+`;
+
 function parentContactFromStudentRow(row: Record<string, unknown>): { name: string; email: string } {
   const joins = rowsFromRelation(row.parent_students);
   const names: string[] = [];
@@ -230,6 +241,63 @@ export async function fetchStudents(): Promise<StudentListItem[]> {
 
 export async function fetchStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
   return loadStudentsResolved();
+}
+
+export async function fetchParentStudentsResolved(
+  client: StudentReadClient,
+  profileId: string,
+): Promise<ResolvedList<StudentListItem>> {
+  if (!isSupabaseConfigured()) {
+    return unavailableList();
+  }
+
+  const userId = profileId.trim();
+  if (!userId) return unavailableList();
+
+  try {
+    const { data: parent, error: parentError } = await client
+      .from("parents")
+      .select("id")
+      .eq("profile_id", userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (parentError) return unavailableList();
+    const parentId = String(parent?.id ?? "").trim();
+    if (!parentId) return { items: [], source: "remote" };
+
+    const { data: links, error: linksError } = await client
+      .from("parent_students")
+      .select("student_id")
+      .eq("parent_id", parentId);
+
+    if (linksError) return unavailableList();
+    const studentIds = Array.from(
+      new Set(
+        ((links ?? []) as { student_id?: unknown }[])
+          .map((row) => String(row.student_id ?? "").trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (studentIds.length === 0) return { items: [], source: "remote" };
+
+    const { data, error } = await client
+      .from("students")
+      .select(PARENT_STUDENT_SELECT)
+      .in("id", studentIds)
+      .order("display_name", { ascending: true });
+
+    if (error) return unavailableList();
+
+    const mapped = ((data ?? []) as unknown as Record<string, unknown>[])
+      .map((row) => mapStudentRow(row))
+      .filter((row): row is StudentListItem => row !== null);
+
+    return { items: mapped, source: "remote" };
+  } catch {
+    return unavailableList();
+  }
 }
 
 export async function fetchAdminStudentsResolved(): Promise<ResolvedList<StudentListItem>> {

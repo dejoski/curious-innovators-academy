@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
-import { fetchStudentProfileResolved, mapStudentRecord } from "@/lib/data/repositories/student-details";
+import {
+  fetchAdminStudentProfileResolved,
+  fetchStudentProfileResolved,
+  mapStudentRecord,
+} from "@/lib/data/repositories/student-details";
 import {
   isStudentProfileTimelineEventType,
   type StudentProfileTimelineEventType,
@@ -36,6 +40,11 @@ export async function GET(req: Request, context: RouteContext) {
   const { id } = await context.params;
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
+
+  const adminRead = await fetchAdminStudentProfileResolved(id);
+  if (adminRead.source !== "unavailable") {
+    return NextResponse.json(adminRead);
+  }
 
   const { profile, source } = await fetchStudentProfileResolved(id);
   return NextResponse.json({ profile, source });

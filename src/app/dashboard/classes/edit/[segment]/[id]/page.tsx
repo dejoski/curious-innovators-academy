@@ -105,6 +105,17 @@ export default function EditClassPage() {
           schedule: draft.schedule.trim(),
           status: draft.status,
           track: draft.program,
+          description: draft.description ?? "",
+          level: draft.level ?? "",
+          block: draft.block ?? "",
+          plannerSubject: draft.plannerSubject ?? "",
+          plannerSummary: draft.plannerSummary ?? "",
+          teacherGuideObjectives: draft.teacherGuideObjectives ?? "",
+          teacherGuideInformation: draft.teacherGuideInformation ?? "",
+          teacherGuideSummary: draft.teacherGuideSummary ?? "",
+          studentGuideObjectives: draft.studentGuideObjectives ?? "",
+          studentGuideInformation: draft.studentGuideInformation ?? "",
+          studentGuideSummary: draft.studentGuideSummary ?? "",
         }),
       });
       if (res.ok) {
@@ -171,6 +182,59 @@ export default function EditClassPage() {
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
+          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+            Description
+            <textarea
+              value={draft.description ?? ""}
+              onChange={(e) => setRow({ ...draft, description: e.target.value })}
+              className="min-h-[96px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+            />
+          </label>
+          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+            Level
+            <input
+              value={draft.level ?? ""}
+              onChange={(e) => setRow({ ...draft, level: e.target.value })}
+              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+            />
+          </label>
+          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+            Block
+            <input
+              value={draft.block ?? ""}
+              onChange={(e) => setRow({ ...draft, block: e.target.value })}
+              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+            />
+          </label>
+
+          <div className="border-t border-[#f0f0f0] pt-4">
+            <h2 className="mb-3 font-sans text-[18px] font-bold text-[#272932]">Daily Planner</h2>
+            <div className="grid gap-3">
+              <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+                Subject
+                <textarea value={draft.plannerSubject ?? ""} onChange={(e) => setRow({ ...draft, plannerSubject: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+              </label>
+              <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+                Summary
+                <textarea value={draft.plannerSummary ?? ""} onChange={(e) => setRow({ ...draft, plannerSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+              </label>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="flex flex-col gap-3">
+                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Teacher's Guide</h3>
+                <textarea aria-label="Teacher guide objectives" value={draft.teacherGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+                <textarea aria-label="Teacher guide information" value={draft.teacherGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+                <textarea aria-label="Teacher guide summary" value={draft.teacherGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+              </div>
+              <div className="flex flex-col gap-3">
+                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Students' Guide</h3>
+                <textarea aria-label="Student guide objectives" value={draft.studentGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, studentGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+                <textarea aria-label="Student guide information" value={draft.studentGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, studentGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+                <textarea aria-label="Student guide summary" value={draft.studentGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, studentGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+              </div>
+            </div>
+          </div>
+
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Status
             <select

@@ -42,17 +42,7 @@ function formatAvailabilityLabel(seatsRemaining: number, capacity: number): stri
 }
 
 const CLASS_SELECT = `
-  id,
-  name,
-  program,
-  capacity,
-  schedule_summary,
-  level,
-  block,
-  location,
-  description,
-  prerequisites,
-  status,
+  *,
   teachers (
     profiles (
       display_name
@@ -114,6 +104,14 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
     location: String(row.location ?? "").trim(),
     description: String(row.description ?? "").trim(),
     prerequisites: String(row.prerequisites ?? "").trim(),
+    plannerSubject: String(row.planner_subject ?? row.plannerSubject ?? "").trim(),
+    plannerSummary: String(row.planner_summary ?? row.plannerSummary ?? "").trim(),
+    teacherGuideObjectives: String(row.teacher_guide_objectives ?? row.teacherGuideObjectives ?? "").trim(),
+    teacherGuideInformation: String(row.teacher_guide_information ?? row.teacherGuideInformation ?? "").trim(),
+    teacherGuideSummary: String(row.teacher_guide_summary ?? row.teacherGuideSummary ?? "").trim(),
+    studentGuideObjectives: String(row.student_guide_objectives ?? row.studentGuideObjectives ?? "").trim(),
+    studentGuideInformation: String(row.student_guide_information ?? row.studentGuideInformation ?? "").trim(),
+    studentGuideSummary: String(row.student_guide_summary ?? row.studentGuideSummary ?? "").trim(),
     pendingCount,
     waitlistCount,
     capacity,

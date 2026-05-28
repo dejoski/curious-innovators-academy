@@ -50,6 +50,19 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
+function TextAreaInput(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      className={[
+        "min-h-[112px] w-full resize-y rounded-[8px] border border-[#dfe1e7] bg-white px-4 py-3 font-sans text-[15px] leading-[1.45] text-[#272932] outline-none transition-colors placeholder:text-[#818898]",
+        "focus:border-[#14c1d5] focus:ring-2 focus:ring-[#14c1d5]/15",
+        props.className ?? "",
+      ].join(" ")}
+    />
+  );
+}
+
 function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement> & { leadingIcon?: React.ReactNode }) {
   return (
     <div className="relative">
@@ -101,6 +114,14 @@ export default function AddClassForm() {
   const [block, setBlock] = useState<BlockOption>("1");
   const [status, setStatus] = useState<ClassStatus>("Active");
   const [capacity, setCapacity] = useState("");
+  const [plannerSubject, setPlannerSubject] = useState("");
+  const [plannerSummary, setPlannerSummary] = useState("");
+  const [teacherGuideObjectives, setTeacherGuideObjectives] = useState("");
+  const [teacherGuideInformation, setTeacherGuideInformation] = useState("");
+  const [teacherGuideSummary, setTeacherGuideSummary] = useState("");
+  const [studentGuideObjectives, setStudentGuideObjectives] = useState("");
+  const [studentGuideInformation, setStudentGuideInformation] = useState("");
+  const [studentGuideSummary, setStudentGuideSummary] = useState("");
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -150,6 +171,14 @@ export default function AddClassForm() {
           track: segment,
           description: description.trim(),
           block: blockText,
+          plannerSubject: plannerSubject.trim(),
+          plannerSummary: plannerSummary.trim(),
+          teacherGuideObjectives: teacherGuideObjectives.trim(),
+          teacherGuideInformation: teacherGuideInformation.trim(),
+          teacherGuideSummary: teacherGuideSummary.trim(),
+          studentGuideObjectives: studentGuideObjectives.trim(),
+          studentGuideInformation: studentGuideInformation.trim(),
+          studentGuideSummary: studentGuideSummary.trim(),
         }),
       });
       if (res.ok) {
@@ -273,6 +302,51 @@ export default function AddClassForm() {
                 <option>{blockTime.end}</option>
               </SelectInput>
             </label>
+          </div>
+        </FormSection>
+
+        <FormSection title="Daily Planner">
+          <div className="grid gap-5 md:grid-cols-2">
+            <label className="flex flex-col gap-3 md:col-span-2">
+              <FieldLabel>Subject</FieldLabel>
+              <TextAreaInput value={plannerSubject} onChange={(e) => setPlannerSubject(e.target.value)} />
+            </label>
+            <label className="flex flex-col gap-3 md:col-span-2">
+              <FieldLabel>Summary</FieldLabel>
+              <TextAreaInput value={plannerSummary} onChange={(e) => setPlannerSummary(e.target.value)} />
+            </label>
+          </div>
+          <div className="mt-7 grid gap-5 md:grid-cols-2">
+            <div className="flex flex-col gap-5">
+              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Teacher's Guide</h3>
+              <label className="flex flex-col gap-3">
+                <FieldLabel>Objectives</FieldLabel>
+                <TextAreaInput value={teacherGuideObjectives} onChange={(e) => setTeacherGuideObjectives(e.target.value)} />
+              </label>
+              <label className="flex flex-col gap-3">
+                <FieldLabel>Information</FieldLabel>
+                <TextAreaInput value={teacherGuideInformation} onChange={(e) => setTeacherGuideInformation(e.target.value)} />
+              </label>
+              <label className="flex flex-col gap-3">
+                <FieldLabel>Summary</FieldLabel>
+                <TextAreaInput value={teacherGuideSummary} onChange={(e) => setTeacherGuideSummary(e.target.value)} />
+              </label>
+            </div>
+            <div className="flex flex-col gap-5">
+              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Students' Guide</h3>
+              <label className="flex flex-col gap-3">
+                <FieldLabel>Objectives</FieldLabel>
+                <TextAreaInput value={studentGuideObjectives} onChange={(e) => setStudentGuideObjectives(e.target.value)} />
+              </label>
+              <label className="flex flex-col gap-3">
+                <FieldLabel>Information</FieldLabel>
+                <TextAreaInput value={studentGuideInformation} onChange={(e) => setStudentGuideInformation(e.target.value)} />
+              </label>
+              <label className="flex flex-col gap-3">
+                <FieldLabel>Summary</FieldLabel>
+                <TextAreaInput value={studentGuideSummary} onChange={(e) => setStudentGuideSummary(e.target.value)} />
+              </label>
+            </div>
           </div>
         </FormSection>
 

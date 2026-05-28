@@ -3,6 +3,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentListItem } from "@/lib/data/types";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
@@ -192,6 +193,7 @@ export default function StudentsStudentsList({
   initialStudents,
   dataSource,
 }: StudentsStudentsListProps) {
+  const router = useRouter();
   const [students, setStudents] = useState<StudentItem[]>(() => [
     ...initialStudents,
   ]);
@@ -310,7 +312,8 @@ export default function StudentsStudentsList({
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
-  }, []);
+    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
+  }, [router]);
 
   useEffect(() => {
     const visibleIds = paginatedStudents.slice(0, 4).map((student) => student.id);

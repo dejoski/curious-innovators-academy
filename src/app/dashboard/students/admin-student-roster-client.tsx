@@ -2,13 +2,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import { DASHBOARD_PANEL_CLASS, DASHBOARD_TABLE_SCROLL_CLASS } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
+import { invalidateDashboardData, preloadStudentDetailData, readDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { ClassRosterStatus, ClassRosterStudent, DataSource, SchoolClassOptionRow } from "@/lib/data";
 
@@ -55,6 +56,7 @@ export default function AdminStudentRosterClient({
   classes: SchoolClassOptionRow[];
   dataSource: DataSource;
 }) {
+  const router = useRouter();
   const availableClasses = useMemo(
     () => classes.filter((row) => row.program === "enrichment" || row.program === "core"),
     [classes],
@@ -128,6 +130,12 @@ export default function AdminStudentRosterClient({
     document.addEventListener("mousedown", closePickers);
     return () => document.removeEventListener("mousedown", closePickers);
   }, []);
+
+  const warmStudent = React.useCallback((studentId: string) => {
+    if (!studentId) return;
+    preloadStudentDetailData(studentId);
+    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
+  }, [router]);
 
   const blockOptions = useMemo(() => uniqueSorted(availableClasses.map((row) => row.block)), [availableClasses]);
   const levelOptions = useMemo(
@@ -403,7 +411,12 @@ export default function AdminStudentRosterClient({
                 </tr>
               ) : visibleRows.length ? (
                 visibleRows.map((student) => (
-                  <tr key={`${student.id}-${student.status}`} className="border-b border-[#f0f0f0] text-[16px] text-[#0d0d12]">
+                  <tr
+                    key={`${student.id}-${student.status}`}
+                    className="border-b border-[#f0f0f0] text-[16px] text-[#0d0d12]"
+                    onMouseEnter={() => warmStudent(student.id)}
+                    onFocusCapture={() => warmStudent(student.id)}
+                  >
                     <td className="px-3 py-5">
                       <div className="flex min-w-0 items-center gap-3">
                         <button
@@ -431,7 +444,10 @@ export default function AdminStudentRosterClient({
                       <DashboardRowActionsMenu
                         label={`Actions for ${student.name}`}
                         isOpen={openActionId === student.id}
-                        onToggle={() => setOpenActionId((id) => (id === student.id ? null : student.id))}
+                        onToggle={() => {
+                          warmStudent(student.id);
+                          setOpenActionId((id) => (id === student.id ? null : student.id));
+                        }}
                         onClose={() => setOpenActionId(null)}
                         actions={[
                           { label: "View profile", href: `/dashboard/students/${encodeURIComponent(student.id)}` },

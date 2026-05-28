@@ -206,30 +206,35 @@ export async function fetchStudentProfileResolved(
     }
     if (!student) return { profile: null, source: "remote" };
 
-    const { data: enrollments, error: enrollmentsError } = await supabase
-      .from("enrollments")
-      .select("id, status, classes ( id, name, program )")
-      .eq("student_id", id)
-      .order("created_at", { ascending: true });
+    const [enrollmentsResult, classRequestsResult, recordsResult] = await Promise.all([
+      supabase
+        .from("enrollments")
+        .select("id, status, classes ( id, name, program )")
+        .eq("student_id", id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("class_requests")
+        .select("id, status, classes ( id, name, program )")
+        .eq("student_id", id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("student_records")
+        .select("id, title, body, category, urgent, created_at, profiles ( display_name, role )")
+        .eq("student_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+    const { data: enrollments, error: enrollmentsError } = enrollmentsResult;
     if (enrollmentsError) {
       logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "enrollments", enrollmentsError);
     }
 
-    const { data: classRequests, error: classRequestsError } = await supabase
-      .from("class_requests")
-      .select("id, status, classes ( id, name, program )")
-      .eq("student_id", id)
-      .order("created_at", { ascending: true });
+    const { data: classRequests, error: classRequestsError } = classRequestsResult;
     if (classRequestsError) {
       logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "class_requests", classRequestsError);
     }
 
-    const { data: records, error: recordsError } = await supabase
-      .from("student_records")
-      .select("id, title, body, category, urgent, created_at, profiles ( display_name, role )")
-      .eq("student_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20);
+    const { data: records, error: recordsError } = recordsResult;
     if (recordsError) {
       logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "student_records", recordsError);
     }
@@ -394,21 +399,25 @@ export async function fetchStudentScheduleResolved(
     }
     if (!student) return { rows: [], source: "remote" };
 
-    const { data: enrollments, error: enrollmentsError } = await supabase
-      .from("enrollments")
-      .select("id, status, classes ( id, name, program, block, schedule_summary )")
-      .eq("student_id", id)
-      .order("created_at", { ascending: true });
+    const [enrollmentsResult, classRequestsResult] = await Promise.all([
+      supabase
+        .from("enrollments")
+        .select("id, status, classes ( id, name, program, block, schedule_summary )")
+        .eq("student_id", id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("class_requests")
+        .select("id, status, classes ( id, name, program, block, schedule_summary )")
+        .eq("student_id", id)
+        .order("created_at", { ascending: true }),
+    ]);
+    const { data: enrollments, error: enrollmentsError } = enrollmentsResult;
     if (enrollmentsError) {
       logStudentDetailsRepoIssue("fetchStudentScheduleResolved", id, "enrollments", enrollmentsError);
       return unavailableSchedule();
     }
 
-    const { data: classRequests, error: classRequestsError } = await supabase
-      .from("class_requests")
-      .select("id, status, classes ( id, name, program, block, schedule_summary )")
-      .eq("student_id", id)
-      .order("created_at", { ascending: true });
+    const { data: classRequests, error: classRequestsError } = classRequestsResult;
     if (classRequestsError) {
       logStudentDetailsRepoIssue("fetchStudentScheduleResolved", id, "class_requests", classRequestsError);
       return unavailableSchedule();

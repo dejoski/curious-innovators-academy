@@ -8,6 +8,19 @@ import {
 } from "@/lib/data/server-writes";
 import { fetchClassesResolved } from "@/lib/data/repositories/classes";
 
+function plannerFields(body: Record<string, unknown>) {
+  return {
+    plannerSubject: body.plannerSubject != null ? String(body.plannerSubject) : undefined,
+    plannerSummary: body.plannerSummary != null ? String(body.plannerSummary) : undefined,
+    teacherGuideObjectives: body.teacherGuideObjectives != null ? String(body.teacherGuideObjectives) : undefined,
+    teacherGuideInformation: body.teacherGuideInformation != null ? String(body.teacherGuideInformation) : undefined,
+    teacherGuideSummary: body.teacherGuideSummary != null ? String(body.teacherGuideSummary) : undefined,
+    studentGuideObjectives: body.studentGuideObjectives != null ? String(body.studentGuideObjectives) : undefined,
+    studentGuideInformation: body.studentGuideInformation != null ? String(body.studentGuideInformation) : undefined,
+    studentGuideSummary: body.studentGuideSummary != null ? String(body.studentGuideSummary) : undefined,
+  };
+}
+
 export async function GET(request: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
@@ -31,6 +44,7 @@ export async function POST(req: Request) {
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
+    ...plannerFields(body),
   });
   if (!result.ok) {
     return apiWriteError(result.message);
@@ -57,6 +71,7 @@ export async function PATCH(req: Request) {
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
+    ...plannerFields(body),
   });
   if (!result.ok) {
     return apiWriteError(result.message);

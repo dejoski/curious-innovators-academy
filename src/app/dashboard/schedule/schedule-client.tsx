@@ -4,7 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserRound, X } from "lucide-react";
 import {
   type CalendarEvent,
   type CalendarEventType,
@@ -15,10 +15,6 @@ import {
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { readApiError } from "@/lib/client-api-errors";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
-import {
-  ParentClassDetailsContent,
-  parentClassOptionFromRow,
-} from "@/components/parent-class-drawers";
 import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
@@ -182,6 +178,36 @@ function WeekEventCard({
   );
 }
 
+function PlannerRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid border-b border-[#e6e9ef] last:border-b-0 md:grid-cols-[180px_1fr]">
+      <div className="bg-white px-0 py-3 text-[15px] font-semibold text-[#0d0d12] md:px-0">{label}</div>
+      <div className="bg-[#fafafa] px-4 py-3 text-[14px] leading-6 text-[#666d80]">{children}</div>
+    </div>
+  );
+}
+
+function PlannerSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-8">
+      <h4 className="mb-4 text-center text-[17px] font-semibold text-[#0d0d12]">{title}</h4>
+      <div className="border-t border-[#e6e9ef]">{children}</div>
+    </div>
+  );
+}
+
 function EventDetailsModal({
   event,
   onClose,
@@ -190,83 +216,75 @@ function EventDetailsModal({
   onClose: () => void;
 }) {
   const details = event.classDetails;
-
-  if (!details) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        onClick={onClose}
-      >
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <h3 className="text-xl font-bold">{event.title}</h3>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-xl font-bold text-gray-500 hover:text-gray-800"
-              aria-label="Close event details"
-            >
-              &times;
-            </button>
-          </div>
-          <div className="flex flex-col gap-3">
-            <p>
-              <strong>Time:</strong> {event.time}
-            </p>
-            <p>
-              <strong>Type:</strong> {typeLabel(event.type)}
-            </p>
-            <p>
-              <strong>Description:</strong>{" "}
-              {event.description?.trim()
-                ? event.description
-                : "No additional description for this event."}
-            </p>
-          </div>
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg bg-[#14c1d5] px-4 py-2 font-medium text-white hover:bg-[#12aebd]"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const option = parentClassOptionFromRow(details);
+  const title = displayEventTitle(event.title);
+  const subject = details?.plannerSubject?.trim() || details?.description?.trim() || event.description?.trim();
+  const summary = details?.plannerSummary?.trim();
+  const preparedBy = details?.teacher?.trim();
+  const grade = details?.level?.trim();
+  const status = event.statusLabel ?? typeLabel(event.type);
+  const teacherGuideRows = [
+    ["Objectives", details?.teacherGuideObjectives?.trim()],
+    ["Information", details?.teacherGuideInformation?.trim()],
+    ["Summary", details?.teacherGuideSummary?.trim()],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+  const studentGuideRows = [
+    ["Objectives", details?.studentGuideObjectives?.trim()],
+    ["Information", details?.studentGuideInformation?.trim()],
+    ["Summary", details?.studentGuideSummary?.trim()],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+      className="fixed inset-0 z-50 flex justify-end bg-black/40"
       onClick={onClose}
+      role="presentation"
     >
-      <div className="relative max-h-[calc(100dvh-32px)] w-full max-w-[760px] overflow-hidden rounded-[18px] bg-white p-6 shadow-2xl md:p-8" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-5 top-5 z-10 rounded-full p-1 text-[#666d80] hover:bg-[#f5f7fa] hover:text-[#272932]"
-          aria-label="Close class details"
-        >
-          &times;
-        </button>
-        <div className="max-h-[calc(100dvh-112px)] overflow-y-auto pr-1">
-          <ParentClassDetailsContent option={option} statusLabel={event.statusLabel ?? typeLabel(event.type)} />
-        </div>
-
-        <div className="flex justify-end border-t border-[#e6e9ef] pt-5">
+      <section
+        className="h-full w-full max-w-[620px] overflow-y-auto bg-white px-6 py-6 shadow-2xl md:px-8"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="daily-planner-title"
+      >
+        <div className="mb-7 flex items-start justify-between gap-4">
+          <div>
+            <h3 id="daily-planner-title" className="font-sans text-[26px] font-bold leading-tight text-[#272932]">
+              Daily Planner
+            </h3>
+            <p className="mt-2 text-[15px] text-[#666d80]">{title}</p>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[6px] bg-[#14c1d5] px-5 py-2 text-[14px] font-semibold text-white hover:bg-[#12aebd]"
+            className="rounded-full p-2 text-[#666d80] transition hover:bg-[#f5f7fa] hover:text-[#272932] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35"
+            aria-label="Close daily planner"
           >
-            Close
+            <X className="size-5" aria-hidden strokeWidth={2} />
           </button>
         </div>
-      </div>
+
+        <div className="border-t border-[#e6e9ef]">
+          {subject ? <PlannerRow label="Subject">{subject}</PlannerRow> : null}
+          {preparedBy ? <PlannerRow label="Prepared By">{preparedBy}</PlannerRow> : null}
+          {grade ? <PlannerRow label="Grade">{grade}</PlannerRow> : null}
+          {summary ? <PlannerRow label="Summary">{summary}</PlannerRow> : null}
+          <PlannerRow label="Status">{status}</PlannerRow>
+          <PlannerRow label="Time">{event.time}</PlannerRow>
+          {event.scheduleSlotLabel ? <PlannerRow label="Block">{event.scheduleSlotLabel}</PlannerRow> : null}
+        </div>
+
+        {teacherGuideRows.length ? (
+          <PlannerSection title="Teacher's Guide">
+            {teacherGuideRows.map(([label, value]) => <PlannerRow key={label} label={label}>{value}</PlannerRow>)}
+          </PlannerSection>
+        ) : null}
+
+        {studentGuideRows.length ? (
+          <PlannerSection title="Students' Guide">
+            {studentGuideRows.map(([label, value]) => <PlannerRow key={label} label={label}>{value}</PlannerRow>)}
+          </PlannerSection>
+        ) : null}
+      </section>
     </div>
   );
 }
