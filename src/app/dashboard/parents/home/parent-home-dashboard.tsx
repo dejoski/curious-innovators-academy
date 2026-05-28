@@ -417,6 +417,7 @@ export default function ParentHomeDashboard() {
   }, [draftOnlyCatalogRequests, localRequestState, serverCatalogDraft, serverLocalReviewStatuses]);
 
   const localPendingChoices = localChoiceReviews.filter((choice) => choice.status === "Pending").length;
+  const showCatalogStatusBanner = localRequestState === "draft" || localPendingChoices > 0;
 
   const attendance = isStudentDataLoading ? "--" : profile ? metricValue(profile.attendanceLabel, "--") : "--";
   const basePendingRequests = Number(!isStudentDataLoading && profile ? firstNumber(profile.pendingLabel, "0") : "0");
@@ -651,39 +652,41 @@ export default function ParentHomeDashboard() {
         </div>
       ) : null}
 
-      <ParentCatalogStatusBanner
-        state={localRequestState}
-        choices={localChoiceReviews}
-        actions={
-          <>
-            {localRequestState === "draft" && hasCatalogChoices ? (
-              <button
-                type="button"
-                onClick={submitHomeSelections}
-                disabled={submitting}
-                className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
-              >
-                {submitting ? "Submitting..." : "Submit Draft"}
-              </button>
-            ) : null}
-            {localRequestState === "draft" && hasCatalogChoices ? (
-              <button
-                type="button"
-                onClick={discardHomeDraft}
+      {showCatalogStatusBanner ? (
+        <ParentCatalogStatusBanner
+          state={localRequestState}
+          choices={localChoiceReviews}
+          actions={
+            <>
+              {localRequestState === "draft" && hasCatalogChoices ? (
+                <button
+                  type="button"
+                  onClick={submitHomeSelections}
+                  disabled={submitting}
+                  className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+                >
+                  {submitting ? "Submitting..." : "Submit Draft"}
+                </button>
+              ) : null}
+              {localRequestState === "draft" && hasCatalogChoices ? (
+                <button
+                  type="button"
+                  onClick={discardHomeDraft}
+                  className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
+                >
+                  Discard draft
+                </button>
+              ) : null}
+              <Link
+                href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)}
                 className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
               >
-                Discard draft
-              </button>
-            ) : null}
-            <Link
-              href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)}
-              className="inline-flex h-8 items-center justify-center rounded-[6px] bg-white/70 px-3 text-[12px] font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 hover:bg-white"
-            >
-              Review Class Selection
-            </Link>
-          </>
-        }
-      />
+                Review Class Selection
+              </Link>
+            </>
+          }
+        />
+      ) : null}
 
       <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
         <div className="flex-1 min-w-[200px] bg-white border border-[#f0f0f0] rounded-[18px] p-5 flex items-center shadow-sm">

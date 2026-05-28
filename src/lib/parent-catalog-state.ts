@@ -344,12 +344,10 @@ export function catalogBadgesForSlot(
 ): StudentScheduleBadge[] {
   const slot = requests?.[slotId];
   const rows = catalogChoiceReviews({ ...INITIAL_PARENT_CATALOG_REQUESTS, [slotId]: slot ?? {} }, reviewStatuses)
-    .filter((row) => row.slotId === slotId);
+    .filter((row) => row.slotId === slotId && row.status !== "Rejected");
   return rows.map((row) => ({
     label:
-      row.status === "Rejected"
-        ? `${row.choice === "2nd" ? "Rejected 2nd" : "Rejected"}: ${row.name}`
-        : row.status === "Waitlisted"
+      row.status === "Waitlisted"
           ? `${row.choice === "2nd" ? "Waitlisted 2nd" : "Waitlisted"}: ${row.name}`
           : row.choice === "2nd"
             ? `2nd: ${row.name}`
