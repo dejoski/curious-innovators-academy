@@ -9,6 +9,7 @@ import { readApiError } from "@/lib/client-api-errors";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { ClassRosterStudent, SchoolClassRow, StudentRosterRow, StudentRosterStatus } from "@/lib/data/types";
+import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup1 = "/images/icon-search.svg";
@@ -45,19 +46,6 @@ const StatusBadge = ({ status }: { status: StudentRosterStatus }) => {
     </div>
   );
 };
-
-function paginationSlice(totalPages: number, page: number): (number | "ellipsis")[] {
-  if (totalPages <= 5) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }
-  if (page <= 3) {
-    return [1, 2, 3, "ellipsis", totalPages];
-  }
-  if (page >= totalPages - 2) {
-    return [1, "ellipsis", totalPages - 2, totalPages - 1, totalPages];
-  }
-  return [1, "ellipsis", page, "ellipsis", totalPages];
-}
 
 function mapClassRosterRows(
   classId: string,
@@ -209,7 +197,7 @@ export default function StudentClassRoster() {
   const itemsPerPage = 10;
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / itemsPerPage));
   const displayPage = Math.min(Math.max(1, currentPage), totalPages);
-  const pageSlice = paginationSlice(totalPages, displayPage);
+  const pageSlice = getVisibleDashboardPages(displayPage, totalPages);
 
   const pageRows = useMemo(() => {
     const start = (displayPage - 1) * itemsPerPage;

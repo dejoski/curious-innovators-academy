@@ -10,6 +10,7 @@ import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { ApprovalHistoryRow } from "@/lib/data/repositories/requests";
+import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -27,13 +28,6 @@ type SortKey = keyof Pick<
   "student" | "parent" | "className" | "block" | "option" | "status" | "reviewedBy" | "reason"
 >;
 type FilterValue = "All" | ApprovalStatus;
-
-function getVisiblePages(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  if (current <= 3) return [1, 2, 3, "ellipsis", total];
-  if (current >= total - 2) return [1, "ellipsis", total - 2, total - 1, total];
-  return [1, "ellipsis", current, "ellipsis", total];
-}
 
 export default function ClassesApprovalHistoryClient() {
   return (
@@ -153,7 +147,7 @@ export function ClassesApprovalHistory() {
     return processed.slice(start, start + PAGE_SIZE);
   }, [processed, safePage]);
 
-  const visiblePages = getVisiblePages(safePage, totalPages);
+  const visiblePages = getVisibleDashboardPages(safePage, totalPages);
   const hasResolvedApprovals = Boolean(classesCache.approvals.loadedAt);
   const isInitialApprovalsLoad = !hasResolvedApprovals && (classesCache.approvals.loading || rows.length === 0);
   const statValue = (value: number) =>

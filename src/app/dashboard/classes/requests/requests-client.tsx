@@ -11,6 +11,7 @@ import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, parentStudentDataUrls } from "@/lib/client-data-cache";
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
+import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 
@@ -45,13 +46,6 @@ function actionLabel(type: "approve" | "waitlist" | "reject") {
   if (type === "approve") return "Approve";
   if (type === "waitlist") return "Waitlist";
   return "Reject";
-}
-
-function getVisiblePages(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  if (current <= 3) return [1, 2, 3, "ellipsis", total];
-  if (current >= total - 2) return [1, "ellipsis", total - 2, total - 1, total];
-  return [1, "ellipsis", current, "ellipsis", total];
 }
 
 export default function ClassesEnrichmentRequests({
@@ -159,7 +153,7 @@ export default function ClassesEnrichmentRequests({
     return processed.slice(start, start + PAGE_SIZE);
   }, [processed, safePage]);
 
-  const visiblePages = getVisiblePages(safePage, totalPages);
+  const visiblePages = getVisibleDashboardPages(safePage, totalPages);
   const hasResolvedRequests = Boolean(classesCache.requests.loadedAt) || initialRequests.length > 0;
   const isInitialRequestsLoad = !hasResolvedRequests && (classesCache.requests.loading || requests.length === 0);
   const metricValue = (value: React.ReactNode) =>

@@ -13,6 +13,7 @@ import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
+import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
@@ -79,13 +80,6 @@ type ClassImportDraft = {
 function dash(text: string): string {
   const t = text.trim();
   return t.length > 0 ? t : "—";
-}
-
-function getVisiblePages(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-  if (current <= 3) return [1, 2, 3, "ellipsis", total];
-  if (current >= total - 2) return [1, "ellipsis", total - 2, total - 1, total];
-  return [1, "ellipsis", current, "ellipsis", total];
 }
 
 function parseStudentsSort(s: string): [number, number] {
@@ -344,7 +338,7 @@ export default function ClassesPageClient({
     return visibleRows.slice(start, start + PAGE_SIZE);
   }, [visibleRows, safePage]);
 
-  const visiblePages = getVisiblePages(safePage, totalPages);
+  const visiblePages = getVisibleDashboardPages(safePage, totalPages);
   const hasResolvedClasses = Boolean(classesCache.classes.loadedAt) || initialClasses.length > 0;
   const isInitialClassesLoad = !hasResolvedClasses && (classesCache.classes.loading || classes.length === 0);
 
@@ -770,45 +764,45 @@ export default function ClassesPageClient({
           </DashboardBulkSelectionBar>
 
           <div className="w-full overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]">
-            <table className="min-w-[980px] table-fixed border-collapse text-left">
+            <table className="min-w-[1160px] table-fixed border-collapse text-left">
               <colgroup>
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
-                <col className="w-[11.111%]" />
+                <col className="w-[300px]" />
+                <col className="w-[180px]" />
+                <col className="w-[130px]" />
+                <col className="w-[140px]" />
+                <col className="w-[210px]" />
+                <col className="w-[72px]" />
+                <col className="w-[76px]" />
+                <col className="w-[92px]" />
+                <col className="w-[52px]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-[#ebecef]">
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Class Name
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Teacher
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Level
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Block
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Schedule
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Pending
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Waitlist
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Seats
                   </th>
-                  <th className="whitespace-nowrap px-[8px] py-[8px] text-center font-sans text-[11px] font-semibold tracking-[0.02em] text-[#0d0d12]">
+                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
                     Action
                   </th>
                 </tr>
@@ -817,7 +811,7 @@ export default function ClassesPageClient({
                 {pageRows.map((cls, idx) => (
                   <tr
                     key={cls.id}
-                    className={`h-[75px] cursor-pointer border-b border-[#f0f0f0] transition-colors hover:bg-[#f6fbfc] ${
+                    className={`h-[68px] cursor-pointer border-b border-[#f0f0f0] transition-colors hover:bg-[#f6fbfc] ${
                       idx % 2 === 1 ? "bg-[rgba(250,250,250,0.4)]" : ""
                     }`}
                     onClick={() => goToClassDetail(cls)}
@@ -830,50 +824,50 @@ export default function ClassesPageClient({
                     tabIndex={0}
                     role="link"
                   >
-                    <td className="px-[10px] py-[2px] align-top font-sans text-[16px] font-normal text-[#0d0d12]">
-                      <div className="flex items-start gap-[8px]">
-                        <span className="mt-[1px] flex size-[14px] items-center justify-center rounded-[4px] border border-[#14c1d5] bg-[#d2f1f5] opacity-50">
+                    <td className="px-3 py-3 align-middle font-sans text-[14px] font-medium text-[#272932]">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex size-[14px] shrink-0 items-center justify-center rounded-[4px] border border-[#14c1d5] bg-[#d2f1f5] opacity-50">
                           {selectedIds.has(cls.id) ? (
                             <img src={imgCheckRounded} alt="" className="size-[12px]" />
                           ) : null}
                         </span>
-                        <span className="block max-w-[85px] leading-[1.25]">{cls.name}</span>
+                        <span className="line-clamp-2 min-w-0 leading-[1.25]" title={cls.name}>{cls.name}</span>
                       </div>
                     </td>
-                    <td className="truncate px-[10px] py-[2px] align-top font-sans text-[16px] leading-[1.25] text-[#0d0d12]">
+                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={cls.teacher}>
                       {cls.teacher}
                     </td>
-                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] text-[#0d0d12]">
+                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={dash(cls.level)}>
                       {dash(cls.level)}
                     </td>
-                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] text-[#0d0d12]">
+                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={dash(cls.block)}>
                       {dash(cls.block)}
                     </td>
-                    <td className="px-[10px] py-[2px] align-top font-sans text-[16px] text-[#0d0d12]">
-                      <div className="flex flex-col items-center gap-[7px]">
-                        <span className="text-[16px] leading-[1.25] text-[#0d0d12]">{cls.schedule}</span>
-                        <span className="text-[11px] leading-[11px] text-[#666d80]">
+                    <td className="px-3 py-3 align-middle font-sans text-[14px] text-[#272932]">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="line-clamp-2 leading-[1.25]" title={cls.schedule}>{cls.schedule}</span>
+                        <span className="truncate text-[12px] leading-[1.2] text-[#818898]" title={cls.location || "Room not assigned"}>
                           {cls.location || "Room not assigned"}
                         </span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] tabular-nums text-[#0d0d12]">
+                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.35] tabular-nums text-[#272932]">
                       {cls.pendingCount}
                     </td>
-                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[1.25] tabular-nums text-[#0d0d12]">
+                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.35] tabular-nums text-[#272932]">
                       {cls.waitlistCount}
                     </td>
-                    <td className="whitespace-nowrap px-[10px] py-[2px] text-center align-top font-sans text-[16px] leading-[0.99] tabular-nums text-[#0d0d12]">
-                      <div className="flex flex-col items-center">
+                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.2] tabular-nums text-[#272932]">
+                      <div className="flex flex-col items-center gap-1">
                         <span>{cls.students}</span>
                         {trackTab === "enrichment" && (
-                          <span className="mt-[6px] italic text-[16px] leading-[0.99] text-[#666d80]">
+                          <span className="max-w-[86px] truncate text-[12px] italic leading-[1.2] text-[#818898]">
                             {cls.pendingCount > 0 ? `(${cls.pendingCount} pending)` : "No pending requests"}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="relative px-[10px] py-[2px] align-top text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="relative px-3 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         data-classes-row-trigger={cls.id}

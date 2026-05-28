@@ -13,6 +13,7 @@ import {
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
+import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 const imgHugeiconsStudent1 = "/images/icon-student-picker.svg";
 const imgMaskGroup = "/images/icon-pending-requests.svg";
 const imgGroup2 = "/images/icon-fully-scheduled.svg";
@@ -300,9 +301,11 @@ export default function StudentsStudentsList({
     }
   };
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage) || 1;
+  const safePage = Math.min(currentPage, totalPages);
+  const visiblePages = getVisibleDashboardPages(safePage, totalPages);
   const paginatedStudents = filteredStudents.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage,
   );
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
@@ -808,55 +811,53 @@ export default function StudentsStudentsList({
             </div>
           </div>
         </div>
-        <div className="flex justify-between items-center mt-[10px]">
-          <div className="flex gap-[12px] items-center mx-auto">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={`flex items-center justify-center size-[18px] rounded-full transition-colors ${currentPage === 1 ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
-            </button>
-            <div className="flex gap-[3px] items-center">
-              {[1, 2, 3].map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`transition-colors flex flex-col items-center justify-center px-[5px] py-[9px] rounded-[9px] size-[18px] ${currentPage === page ? "bg-[#14c1d5] hover:bg-[#12aebd]" : "hover:bg-gray-100"}`}
-                >
-                  <p
-                    className={`font-semibold text-[12px] text-center leading-[0] ${currentPage === page ? "text-white" : "text-[#666d80]"}`}
-                  >
-                    {page}
-                  </p>
-                </button>
-              ))}
-              <div className="flex flex-col items-center justify-center px-[5px] py-[9px] rounded-[9px] size-[18px]">
-                <p className="font-semibold text-[12px] text-center leading-[0] text-[#666d80]">
-                  ...
-                </p>
+        {totalPages > 1 ? (
+          <div className="flex justify-between items-center mt-[10px]">
+            <div className="flex gap-[12px] items-center mx-auto">
+              <button
+                onClick={() => handlePageChange(safePage - 1)}
+                disabled={safePage === 1}
+                className={`flex items-center justify-center size-[18px] rounded-full transition-colors ${safePage === 1 ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
+              </button>
+              <div className="flex gap-[3px] items-center">
+                {visiblePages.map((page, index) =>
+                  page === "ellipsis" ? (
+                    <div
+                      key={`ellipsis-${index}`}
+                      className="flex flex-col items-center justify-center px-[5px] py-[9px] rounded-[9px] size-[18px]"
+                    >
+                      <p className="font-semibold text-[12px] text-center leading-[0] text-[#666d80]">...</p>
+                    </div>
+                  ) : (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => handlePageChange(page)}
+                      className={`transition-colors flex flex-col items-center justify-center px-[5px] py-[9px] rounded-[9px] size-[18px] ${safePage === page ? "bg-[#14c1d5] hover:bg-[#12aebd]" : "hover:bg-gray-100"}`}
+                    >
+                      <p
+                        className={`font-semibold text-[12px] text-center leading-[0] ${safePage === page ? "text-white" : "text-[#666d80]"}`}
+                      >
+                        {page}
+                      </p>
+                    </button>
+                  ),
+                )}
               </div>
               <button
-                type="button"
-                onClick={() => handlePageChange(9)}
-                className="transition-colors flex flex-col items-center justify-center px-[5px] py-[9px] rounded-[9px] size-[18px] hover:bg-gray-100"
+                onClick={() => handlePageChange(safePage + 1)}
+                disabled={safePage === totalPages}
+                className={`flex items-center justify-center size-[18px] rounded-full transition-colors ${safePage === totalPages ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
+                aria-label="Next page"
               >
-                <p className="font-semibold text-[12px] text-center leading-[0] text-[#666d80]">
-                  9
-                </p>
+                <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
               </button>
             </div>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={`flex items-center justify-center size-[18px] rounded-full transition-colors ${currentPage === totalPages ? "opacity-30 cursor-not-allowed" : "hover:opacity-70"}`}
-              aria-label="Next page"
-            >
-              <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
-            </button>
           </div>
-        </div>
+        ) : null}
         <div
           className="absolute flex flex-col items-end gap-2"
           style={{ right: 38, bottom: 20 }}

@@ -7,6 +7,7 @@ import { mutateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentRosterRow } from "@/lib/data/types";
+import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup1 = "/images/icon-search.svg";
@@ -27,19 +28,6 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
   return null;
 };
-
-function paginationSlice(totalPages: number, page: number): (number | "ellipsis")[] {
-  if (totalPages <= 5) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }
-  if (page <= 3) {
-    return [1, 2, 3, "ellipsis", totalPages];
-  }
-  if (page >= totalPages - 2) {
-    return [1, "ellipsis", totalPages - 2, totalPages - 1, totalPages];
-  }
-  return [1, "ellipsis", page, "ellipsis", totalPages];
-}
 
 function uniqueSorted(values: string[], numeric = false) {
   return Array.from(new Set(values.filter(Boolean))).sort((a, b) =>
@@ -233,7 +221,7 @@ export default function StudentRosterClient({
   const itemsPerPage = 10;
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / itemsPerPage));
   const displayPage = Math.min(Math.max(1, currentPage), totalPages);
-  const pageButtons = paginationSlice(totalPages, displayPage);
+  const pageButtons = getVisibleDashboardPages(displayPage, totalPages);
 
   const pageRows = useMemo(() => {
     const start = (displayPage - 1) * itemsPerPage;
