@@ -358,6 +358,7 @@ export default function StudentsStudentsList({
         body: JSON.stringify({
           name: row.values.name,
           parent: row.values.parent,
+          parentEmail: row.values.parentEmail,
           level: row.values.level,
           track: row.values.track?.toLowerCase() === "enrichment" ? "enrichment" : "core",
           notes: row.values.notes,
@@ -1019,6 +1020,7 @@ export default function StudentsStudentsList({
         columns={[
           { key: "name", label: "Name", required: true, sample: "New Student" },
           { key: "parent", label: "Parent", sample: "Parent Name" },
+          { key: "parentEmail", label: "Parent Email", sample: "parent@example.com" },
           { key: "level", label: "Level", required: true, sample: "3" },
           { key: "track", label: "Track", sample: "core" },
           { key: "notes", label: "Notes", sample: "Optional support notes" },

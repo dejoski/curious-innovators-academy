@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
+import { dashboardHomeForPersona, dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
+import type { DashboardPersona } from "@/lib/dashboard/persona";
 
 const DEMO_CREDENTIALS = {
   admin: {
@@ -72,9 +74,25 @@ export default function LoginClient() {
           setLoginError("Signed in, but your account has no accessible profile.");
           return;
         }
-        const payload = (await response.json().catch(() => null)) as { profile?: { email?: string } } | null;
+        const payload = (await response.json().catch(() => null)) as {
+          profile?: { email?: string; role?: DashboardPersona; defaultStudentId?: string | null };
+        } | null;
         if (!payload?.profile?.email) {
           setLoginError("Signed in, but no account credentials were accepted for this email.");
+          return;
+        }
+        const role = payload.profile.role;
+        if (role === "admin" || role === "parent" || role === "teacher" || role === "student") {
+          const requestedNext = nextPath ?? safeNextPath();
+          const home = dashboardHomeForPersona(role, payload.profile.defaultStudentId);
+          const resolvedPath = nextPath
+            ? dashboardHrefForPersona(nextPath, role, payload.profile.defaultStudentId)
+            : requestedNext === "/dashboard"
+              ? home
+              : dashboardHrefForPersona(requestedNext, role, payload.profile.defaultStudentId);
+          invalidateClientDataCache();
+          router.replace(resolvedPath);
+          router.refresh();
           return;
         }
       } catch {

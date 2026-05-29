@@ -5,13 +5,13 @@ import Link from "next/link";
 import { CalendarDays, Download, ListChecks, UserRound } from "lucide-react";
 
 import {
-  buildParentScheduleBadges,
   ParentScheduleGrid,
   type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
+import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import { downloadCsv } from "@/lib/client-directory-actions";
-import { mutateDashboardData } from "@/lib/client-data-cache";
+import { mutateDashboardData, readDashboardData } from "@/lib/client-data-cache";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
@@ -31,14 +31,14 @@ type SlotDetail = {
 };
 
 const SLOT_DETAILS: SlotDetail[] = [
-  { slot: "b1", day: "Day 1-3", block: "Block 1", time: "7:00 - 8:30 am" },
-  { slot: "b2", day: "Day 1-3", block: "Block 2", time: "8:40 - 10:10 am" },
-  { slot: "b3Tue", day: "Day 1", block: "Block 3", time: "10:20 - 11:50 am" },
-  { slot: "b3Wed", day: "Day 2", block: "Block 3", time: "10:20 - 11:50 am" },
-  { slot: "b3Thu", day: "Day 3", block: "Block 3", time: "10:20 - 11:50 am" },
-  { slot: "b4Tue", day: "Day 1", block: "Block 4", time: "12:00 - 1:30 pm" },
-  { slot: "b4Wed", day: "Day 2", block: "Block 4", time: "12:00 - 1:30 pm" },
-  { slot: "b4Thu", day: "Day 3", block: "Block 4", time: "12:00 - 1:30 pm" },
+  { slot: "b1", day: "Day 1-3", block: "Block 1", time: "9:00 - 10:30 am" },
+  { slot: "b2", day: "Day 1-3", block: "Block 2", time: "10:30 am - 12:00 pm" },
+  { slot: "b3Tue", day: "Day 1", block: "Block 3", time: "12:30 - 2:00 pm" },
+  { slot: "b3Wed", day: "Day 2", block: "Block 3", time: "12:30 - 2:00 pm" },
+  { slot: "b3Thu", day: "Day 3", block: "Block 3", time: "12:30 - 2:00 pm" },
+  { slot: "b4Tue", day: "Day 1", block: "Block 4", time: "2:00 - 3:30 pm" },
+  { slot: "b4Wed", day: "Day 2", block: "Block 4", time: "2:00 - 3:30 pm" },
+  { slot: "b4Thu", day: "Day 3", block: "Block 4", time: "2:00 - 3:30 pm" },
 ];
 
 const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = [
@@ -152,10 +152,11 @@ export default function StudentScheduleClient({
       if (initialRows.length === 0) setIsLoading(true);
       setLoadError(null);
       try {
-        const res = await fetch(cacheKey, { credentials: "same-origin" });
-        if (!res.ok) throw new Error(`Schedule API failed: ${res.status}`);
-        const payload = (await res.json()) as { rows?: RowData[]; source?: DataSource };
-        mutateDashboardData(cacheKey, () => payload);
+        const payload = await readDashboardData<{ rows?: RowData[]; source?: DataSource }>(
+          cacheKey,
+          undefined,
+          { force: true },
+        );
         if (cancelled) return;
         setRows(Array.isArray(payload.rows) ? payload.rows : []);
         setSource(payload.source ?? "unavailable");
@@ -265,12 +266,12 @@ export default function StudentScheduleClient({
       </div>
 
       {isLoading ? (
-        <div className={`${DASHBOARD_PANEL_CLASS} flex min-h-[300px] items-center justify-center p-8`} role="status">
+        <output className={`${DASHBOARD_PANEL_CLASS} flex min-h-[300px] items-center justify-center p-8`}>
           <div className="flex flex-col items-center gap-3 text-center">
             <span className="size-8 animate-spin rounded-full border-[3px] border-[#14c1d5]/25 border-t-[#14c1d5]" aria-hidden />
-            <p className="text-sm font-semibold text-[#155e66]">Loading student schedule...</p>
+            <p className="text-sm font-semibold text-[#155e66]">Loading student schedule&hellip;</p>
           </div>
-        </div>
+        </output>
       ) : schedule ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -96,7 +96,12 @@ export async function signUpWithInviteOrDemo(params: {
     options: trimmedName ? { data: { full_name: trimmedName } } : {},
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    const message = /already|registered|exists/i.test(error.message)
+      ? "This email already has a parent account. Use the invite/reset link from the Parents page or reset the password instead of creating a second account."
+      : error.message;
+    return { ok: false, message };
+  }
 
   if (data.session) {
     return { ok: true, kind: "session" };

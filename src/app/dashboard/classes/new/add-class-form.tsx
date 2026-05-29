@@ -15,10 +15,10 @@ type BlockOption = "1" | "2" | "3" | "4";
 const DEFAULT_TEACHER_NAME = "Unassigned Teacher";
 
 const BLOCK_TIMES: Record<BlockOption, { label: string; start: string; end: string }> = {
-  "1": { label: "Block 1", start: "7:00 AM", end: "8:30 AM" },
-  "2": { label: "Block 2", start: "8:40 AM", end: "10:10 AM" },
-  "3": { label: "Block 3", start: "10:20 AM", end: "11:50 AM" },
-  "4": { label: "Block 4", start: "12:00 PM", end: "1:30 PM" },
+  "1": { label: "Block 1", start: "9:00 AM", end: "10:30 AM" },
+  "2": { label: "Block 2", start: "10:30 AM", end: "12:00 PM" },
+  "3": { label: "Block 3", start: "12:30 PM", end: "2:00 PM" },
+  "4": { label: "Block 4", start: "2:00 PM", end: "3:30 PM" },
 };
 
 const DAY_OPTIONS: DayOption[] = ["1", "2", "3"];

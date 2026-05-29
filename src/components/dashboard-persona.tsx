@@ -2,8 +2,8 @@
 
 import React, {
   createContext,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -22,26 +22,10 @@ import {
   type DemoAccountId,
 } from "@/lib/demo-accounts";
 import { cachedJson, invalidateClientDataCache, setClientDataCacheScope } from "@/lib/client-data-cache";
+import { PERSONA_LABELS } from "@/lib/dashboard/persona-labels";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
-
-/** @deprecated Prefer `useDashboardPersona().demoStudentId` */
-export const DEMO_STUDENT_ID = "";
-
-export const PERSONA_LABELS: Record<DashboardPersona, string> = {
-  admin: "Admin",
-  parent: "Parent",
-  teacher: "Teacher",
-  student: "Student",
-};
-
-export const PERSONA_ORDER: DashboardPersona[] = [
-  "admin",
-  "parent",
-  "teacher",
-  "student",
-];
 
 const PRODUCTION_ACCOUNT_DEFAULT = {
   persona: "parent" as DashboardPersona,
@@ -108,13 +92,32 @@ function productionAccountFromProfile(profile: CurrentAccountProfile): Productio
   };
 }
 
+function initialDemoAccountId(): DemoAccountId {
+  if (!isTestPersonaSwitcherEnabled() || typeof window === "undefined") {
+    return DEFAULT_DEMO_ACCOUNT_ID;
+  }
+  try {
+    const fromState = parseDemoStateJson(
+      window.localStorage.getItem(DEMO_STATE_STORAGE_KEY),
+    );
+    if (fromState) return fromState;
+    const legacyPersona = readLegacyPersona(
+      window.localStorage.getItem(LEGACY_PERSONA_STORAGE_KEY),
+    );
+    if (legacyPersona) return defaultDemoAccountIdForPersona(legacyPersona);
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_DEMO_ACCOUNT_ID;
+}
+
 export function DashboardPersonaProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const [demoAccountId, setDemoAccountIdState] = useState<DemoAccountId>(
-    DEFAULT_DEMO_ACCOUNT_ID,
+    () => initialDemoAccountId(),
   );
   const [productionAccount, setProductionAccount] = useState<ProductionAccount>(
     PRODUCTION_ACCOUNT_DEFAULT,
@@ -135,22 +138,13 @@ export function DashboardPersonaProvider({
     }
 
     try {
-      const fromState = parseDemoStateJson(
-        window.localStorage.getItem(DEMO_STATE_STORAGE_KEY),
-      );
-      if (fromState) {
-        setDemoAccountIdState(fromState); // eslint-disable-line react-hooks/set-state-in-effect -- localStorage rehydration after mount
-        return;
-      }
       const legacyPersona = readLegacyPersona(
         window.localStorage.getItem(LEGACY_PERSONA_STORAGE_KEY),
       );
       if (legacyPersona) {
-        const migrated = defaultDemoAccountIdForPersona(legacyPersona);
-        setDemoAccountIdState(migrated);
         window.localStorage.setItem(
           DEMO_STATE_STORAGE_KEY,
-          serializeDemoState(migrated),
+          serializeDemoState(defaultDemoAccountIdForPersona(legacyPersona)),
         );
         window.localStorage.removeItem(LEGACY_PERSONA_STORAGE_KEY);
       }
@@ -276,29 +270,11 @@ export function DashboardPersonaProvider({
 }
 
 export function useDashboardPersona(): DashboardPersonaContextValue {
-  const ctx = useContext(DashboardPersonaContext);
+  const ctx = use(DashboardPersonaContext);
   if (!ctx) {
     throw new Error(
       "useDashboardPersona must be used within DashboardPersonaProvider",
     );
   }
   return ctx;
-}
-
-/** Resolve persisted demo account id on the client (QA only). */
-export function readStoredDemoAccountId(): DemoAccountId | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const id = parseDemoStateJson(
-      window.localStorage.getItem(DEMO_STATE_STORAGE_KEY),
-    );
-    if (id) return id;
-    const legacy = readLegacyPersona(
-      window.localStorage.getItem(LEGACY_PERSONA_STORAGE_KEY),
-    );
-    if (legacy) return defaultDemoAccountIdForPersona(legacy);
-  } catch {
-    /* ignore */
-  }
-  return null;
 }

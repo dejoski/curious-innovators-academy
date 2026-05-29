@@ -1,27 +1,29 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Bell, CalendarDays, ChevronRight } from "lucide-react";
+import { Bell, CalendarDays, ChevronRight, ListChecks, UserRound } from "lucide-react";
 
 import { ParentCatalogStatusBanner } from "@/components/parent-catalog-status-banner";
 import {
   ParentClassDetailsDrawer,
   ParentClassSelectionDrawer,
-  classOptionForScheduleBadge,
-  fallbackParentClassOption,
-  parentClassOptionsForCatalogSlot,
-  parentClassOptionFromRow,
   type ParentClassChoiceKind,
   type ParentClassOption,
   type ParentClassSlotContext,
 } from "@/components/parent-class-drawers";
 import {
-  buildParentScheduleBadges,
+  classOptionForScheduleBadge,
+  fallbackParentClassOption,
+  parentClassOptionsForCatalogSlot,
+  parentClassOptionFromRow,
+} from "@/lib/parent-class-options";
+import {
   ParentScheduleGrid,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
+import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import {
   cachedJson,
   DASHBOARD_CACHE_INVALIDATED_EVENT,
@@ -74,9 +76,6 @@ import type {
   StudentScheduleRow,
 } from "@/lib/data";
 
-const imgHugeiconsStudent1 = "/images/icon-student.svg";
-const imgGroup1 = "/images/icon-group.svg";
-
 type LocalRequestState = "draft" | "submitted" | null;
 type HomeCatalogRequests = Record<CatalogSlotId, {
   firstChoice: ParentClassOption | null;
@@ -100,6 +99,20 @@ function RowArrow() {
     <div className="bg-[#fafafa] flex items-center justify-center rounded-[8px] p-2 shrink-0">
       <ChevronRight className="size-[14px] text-[#666d80]" aria-hidden strokeWidth={2} />
     </div>
+  );
+}
+
+export default function ParentHomeDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] w-full items-center justify-center p-8 font-sans text-[#666d80]">
+          Loading dashboard&hellip;
+        </div>
+      }
+    >
+      <ParentHomeDashboardContent />
+    </Suspense>
   );
 }
 
@@ -200,9 +213,8 @@ function studentScopedHref(href: string, studentId: string | undefined): string 
 
 function StudentDashboardLoading({ studentName }: { studentName?: string }) {
   return (
-    <div
+    <output
       className="flex min-h-[360px] w-full items-center justify-center rounded-[18px] border border-[#d9eef1] bg-white px-6 py-8 shadow-sm"
-      role="status"
       aria-live="polite"
     >
       <div className="flex flex-col items-center gap-3 text-center">
@@ -217,11 +229,11 @@ function StudentDashboardLoading({ studentName }: { studentName?: string }) {
           Fetching the selected student profile, schedule, and class choices.
         </p>
       </div>
-    </div>
+    </output>
   );
 }
 
-export default function ParentHomeDashboard() {
+function ParentHomeDashboardContent() {
   const searchParams = useSearchParams();
   const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [student, setStudent] = useState<StudentListItem | null>(null);
@@ -536,6 +548,11 @@ export default function ParentHomeDashboard() {
   }
 
   function openSelectionForSlot(slot: ParentScheduleSlotKey) {
+    const currentBadges = scheduleBadgesBySlot[slot] ?? [];
+    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved")) {
+      setLoadError("This slot already has a confirmed class. Ask the school team to change it, or use waitlist actions for classes that should not replace the approved schedule.");
+      return;
+    }
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
     if (!catalogSlot) return;
     setActiveSlot(catalogSlot);
@@ -647,9 +664,9 @@ export default function ParentHomeDashboard() {
   return (
     <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
       {hint ? (
-        <div className="rounded-xl border border-[#cfa500]/35 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00]" role="status">
+        <output className="rounded-xl border border-[#cfa500]/35 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00]">
           {hint}
-        </div>
+        </output>
       ) : null}
 
       {showCatalogStatusBanner ? (
@@ -692,7 +709,7 @@ export default function ParentHomeDashboard() {
         <div className="flex-1 min-w-[200px] bg-white border border-[#f0f0f0] rounded-[18px] p-5 flex items-center shadow-sm">
           <div className="flex flex-col gap-3">
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
-              <img alt="" className="size-5" src={imgHugeiconsStudent1} />
+              <UserRound className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
             <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
               {attendance}
@@ -705,13 +722,7 @@ export default function ParentHomeDashboard() {
         <div className="flex-1 min-w-[200px] bg-white border border-[#f0f0f0] rounded-[18px] p-5 flex items-center shadow-sm">
           <div className="flex flex-col gap-3">
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
-              <div className="relative size-5 overflow-hidden">
-                <div className="absolute inset-[8.33%_16.67%]">
-                  <div className="absolute inset-[-4.5%_-5.63%]">
-                    <img alt="" className="block max-w-none size-full" src={imgGroup1} />
-                  </div>
-                </div>
-              </div>
+              <ListChecks className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
             <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
               {pendingRequests}
@@ -761,7 +772,7 @@ export default function ParentHomeDashboard() {
             </div>
             <div className="flex flex-col gap-6">
               {isStudentDataLoading ? (
-                <p className="text-sm text-[#666d80]">Loading alerts...</p>
+                <p className="text-sm text-[#666d80]">Loading alerts&hellip;</p>
               ) : notifications.length ? (
                 notifications.map((item) => <AlertRow key={item.id} item={item} studentId={activeStudentId} />)
               ) : (

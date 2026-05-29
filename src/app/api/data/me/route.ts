@@ -91,9 +91,32 @@ export async function GET(request: Request) {
     return NextResponse.json({ profile: null, source: "remote" }, { status: 200 });
   }
 
-  const role = normalizeRole(profile?.role);
-  const displayName = String(profile?.display_name ?? user.email ?? "Signed-in user").trim() || "Signed-in user";
-  const email = String(profile?.email ?? user.email ?? "").trim();
+  let accountProfile = profile;
+  if (!accountProfile) {
+    const displayNameFromMetadata =
+      normalizeDisplayName(user.user_metadata?.full_name) ||
+      normalizeDisplayName(user.user_metadata?.name) ||
+      String(user.email ?? "Signed-in user").trim();
+    const emailFromAuth = String(user.email ?? "").trim();
+    const { data: createdProfile } = await supabase
+      .from("profiles")
+      .upsert({
+        id: user.id,
+        email: emailFromAuth,
+        display_name: displayNameFromMetadata || "Signed-in user",
+        role: "parent",
+      }, { onConflict: "id" })
+      .select("id, email, display_name, role")
+      .maybeSingle();
+    accountProfile = createdProfile;
+    await supabase.from("parents").upsert({ profile_id: user.id }, { onConflict: "profile_id" });
+  } else if (normalizeRole(accountProfile.role) === "parent") {
+    await supabase.from("parents").upsert({ profile_id: user.id }, { onConflict: "profile_id" });
+  }
+
+  const role = normalizeRole(accountProfile?.role);
+  const displayName = String(accountProfile?.display_name ?? user.email ?? "Signed-in user").trim() || "Signed-in user";
+  const email = String(accountProfile?.email ?? user.email ?? "").trim();
   const defaultStudentId = await resolveDefaultStudentId(supabase, user.id, role);
   const { data: preferences } = await supabase
     .from("user_preferences")

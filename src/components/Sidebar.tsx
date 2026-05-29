@@ -531,9 +531,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                         </>
                       ) : (
                         <>
-                          <Link href={adminStudentDetailRoot} className={subNavClass(adminStudentProfileActive)}>
-                            Student Profile
-                          </Link>
                           <Link href={`${adminStudentDetailRoot}/schedule`} className={subNavClass(adminStudentScheduleActive)}>
                             Student Schedule
                           </Link>
@@ -583,9 +580,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
                       <Link href="/dashboard/teachers" className={subNavClass(adminTeacherListActive || visualPathname === "/dashboard/teachers")}>
                         Teacher list
-                      </Link>
-                      <Link href="/dashboard/teachers/new" className={subNavClass(adminTeacherNewActive || visualPathname.startsWith("/dashboard/teachers/new"))}>
-                        Add teacher
                       </Link>
                     </div>
                   )}
@@ -706,18 +700,14 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col w-full">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setParentStudentsNavExpanded(!parentStudentsOpen)
-                    }
-                    className={`content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] text-left ${
-                      parentStudentsVisualActive
-                        ? "hover:bg-[#f0f0f0]/60"
-                        : DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS
-                    }`}
-                  >
+                <Link
+                  href={parentRouteHref(PARENT_STUDENTS_HREF)}
+                  className={`content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] text-left ${
+                    parentStudentsVisualActive
+                      ? "hover:bg-[#f0f0f0]/60"
+                      : DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS
+                  }`}
+                >
                     <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
                       <img
                         alt=""
@@ -734,25 +724,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     >
                       Students
                     </p>
-                    <ChevronDown
-                      aria-hidden
-                      strokeWidth={1.75}
-                      className={`size-[18px] shrink-0 transition-transform duration-200 ${
-                        parentStudentsOpen ? "rotate-180" : ""
-                      } ${parentStudentsVisualActive || parentStudentsOpen ? "text-[#14c1d5]" : "text-[#666d80]"}`}
-                    />
-                  </button>
-                  {parentStudentsOpen && (
-                    <div className={DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS}>
-                      <Link
-                        href={parentRouteHref(PARENT_STUDENTS_HREF)}
-                        className={parentNavSubLinkClass(parentStudentsBranchActive)}
-                      >
-                        Student Profile
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                </Link>
               </>
             )}
             {isOpen && persona === "student" && (

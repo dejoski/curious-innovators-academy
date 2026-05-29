@@ -252,7 +252,7 @@ export default function ParentClassesCoreClient() {
               </button>
               {isFilterOpen && (
                 <div className="absolute top-full left-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
-                  {["All", "Monday", "Tuesday", "Friday"].map((day) => (
+                  {["All", "Tuesday", "Wednesday", "Thursday"].map((day) => (
                     <button
                       key={day}
                       onClick={() => { setFilterDay(day); setIsFilterOpen(false); }}

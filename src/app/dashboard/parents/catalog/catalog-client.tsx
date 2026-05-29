@@ -8,18 +8,20 @@ import { ArrowRight, Info, Lightbulb } from "lucide-react";
 import { ParentCatalogStatusBanner } from "@/components/parent-catalog-status-banner";
 import {
   ParentClassSelectionDrawer,
-  fallbackParentClassOption,
-  parentClassOptionsForCatalogSlot,
-  parentClassOptionFromRow,
   type ParentClassChoiceKind,
   type ParentClassOption,
   type ParentClassSlotContext,
 } from "@/components/parent-class-drawers";
 import {
-  buildParentScheduleBadges,
+  fallbackParentClassOption,
+  parentClassOptionsForCatalogSlot,
+  parentClassOptionFromRow,
+} from "@/lib/parent-class-options";
+import {
   ParentScheduleGrid,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
+import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import {
   cachedJson,
   DASHBOARD_CACHE_INVALIDATED_EVENT,
@@ -122,7 +124,6 @@ function ParentClassesEnrichmentCatalogContent() {
   const [serverReviewStatuses, setServerReviewStatuses] = useState<LocalReviewStatuses>({});
   const [serverRequestState, setServerRequestState] = useState<"submitted" | null>(null);
   const [editingRequests, setEditingRequests] = useState<Record<SlotId, SlotRequests> | null>(null);
-  const [, setLocalReviewStatuses] = useState<LocalReviewStatuses>({});
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
@@ -138,7 +139,10 @@ function ParentClassesEnrichmentCatalogContent() {
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
         const rows = Array.isArray(body.classes) ? body.classes : [];
-        const enrichment = rows.filter((row) => row.program === "enrichment").map(parentClassOptionFromRow);
+        const enrichment = rows.reduce<ParentClassOption[]>((next, row) => {
+          if (row.program === "enrichment") next.push(parentClassOptionFromRow(row));
+          return next;
+        }, []);
         if (cancelled) return;
         setAvailableClasses(enrichment);
         setCatalogHint(
@@ -220,27 +224,12 @@ function ParentClassesEnrichmentCatalogContent() {
   }, [activeStudent?.id, requestedStudentId]);
 
   useEffect(() => {
-    function clearLegacyStatuses() {
-      setLocalReviewStatuses({});
-    }
-
-    clearLegacyStatuses();
-    window.addEventListener("storage", clearLegacyStatuses);
-    window.addEventListener("cia-parent-catalog-updated", clearLegacyStatuses);
-    return () => {
-      window.removeEventListener("storage", clearLegacyStatuses);
-      window.removeEventListener("cia-parent-catalog-updated", clearLegacyStatuses);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!activeStudent?.id) {
       setRequests(normalizedCatalogRequests());
       setServerRequests(normalizedCatalogRequests());
       setServerRequestState(null);
       setServerReviewStatuses({});
       setLocalRequestState(null);
-      setLocalReviewStatuses({});
       setRestoredDraft(false);
       return;
     }
@@ -255,7 +244,6 @@ function ParentClassesEnrichmentCatalogContent() {
       if (!cancelled) {
         setRequests(draftRequests ?? normalizedCatalogRequests());
         setLocalRequestState(draftRequests ? "draft" : null);
-        setLocalReviewStatuses({});
         setRestoredDraft(Boolean(draftRequests));
       }
 
@@ -273,7 +261,6 @@ function ParentClassesEnrichmentCatalogContent() {
         if (!draftRequests) {
           setRequests(dbRequests);
           setLocalRequestState(dbSnapshot.state);
-          setLocalReviewStatuses(dbSnapshot.reviewStatuses);
           setRestoredDraft(false);
         }
       } catch {
@@ -401,6 +388,11 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function openScheduleSlot(slot: ParentScheduleSlotKey) {
+    const currentBadges = scheduleBadgesBySlot[slot] ?? [];
+    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved")) {
+      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed class. Ask the school team to change it, or use waitlist actions for classes that should not replace the approved schedule." });
+      return;
+    }
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
     if (catalogSlot) openSlot(catalogSlot);
   }
@@ -430,7 +422,6 @@ function ParentClassesEnrichmentCatalogContent() {
     if (!selectedChoicesForSubmit(draft as ParentCatalogRequests).length) return;
     setRequests(draft as Record<SlotId, SlotRequests>);
     setLocalRequestState("draft");
-    setLocalReviewStatuses({});
     setRestoredDraft(true);
     try {
       clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
@@ -451,7 +442,6 @@ function ParentClassesEnrichmentCatalogContent() {
     }
     setRequests(serverRequests);
     setLocalRequestState(serverRequestState);
-    setLocalReviewStatuses(serverReviewStatuses);
     setRestoredDraft(false);
     setEditingRequests(null);
     setSubmitBanner({ tone: "success", message: "Draft discarded. Showing the approved schedule again." });
@@ -462,7 +452,6 @@ function ParentClassesEnrichmentCatalogContent() {
     if (!changedDraft) return;
     setRequests(changedDraft as Record<SlotId, SlotRequests>);
     setLocalRequestState("draft");
-    setLocalReviewStatuses({});
     setRestoredDraft(true);
     try {
       clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
@@ -513,7 +502,6 @@ function ParentClassesEnrichmentCatalogContent() {
       setServerReviewStatuses(dbSnapshot.reviewStatuses);
       setRequests(nextRequests);
       setLocalRequestState(dbSnapshot.state);
-      setLocalReviewStatuses(dbSnapshot.reviewStatuses);
       setRestoredDraft(false);
       setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
       closeSelectionDrawer();
@@ -546,9 +534,9 @@ function ParentClassesEnrichmentCatalogContent() {
         <div className="mt-4 flex flex-col gap-2">
           {catalogHint ? <p className="rounded-[8px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">{catalogHint}</p> : null}
           {submitBanner ? (
-            <div role="status" className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]" : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"}`}>
+            <output className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]" : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"}`}>
               <span>{submitBanner.message}</span>
-            </div>
+            </output>
           ) : null}
         </div>
       )}
@@ -586,9 +574,9 @@ function ParentClassesEnrichmentCatalogContent() {
       <div className="mt-6 grid gap-6">
         <div className="grid gap-3">
           {catalogLoading || studentScheduleLoading ? (
-            <div className="rounded-[10px] border border-[#d9eef1] bg-white px-4 py-3 text-sm text-[#666d80]" role="status">
-              Loading class selection data...
-            </div>
+              <output className="rounded-[10px] border border-[#d9eef1] bg-white px-4 py-3 text-sm text-[#666d80]">
+                Loading class selection data&hellip;
+              </output>
           ) : (
             <>
               <div className={`flex flex-col gap-1 rounded-[10px] border px-4 py-3 text-sm min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between ${parentScheduleFinalityClasses(scheduleFinality.state)}`}>
@@ -611,7 +599,7 @@ function ParentClassesEnrichmentCatalogContent() {
         </section>
       </div>
 
-      <section className="mt-8 rounded-[16px] border border-[#e6e9ef] bg-white px-5 py-5 shadow-sm">
+      <section className="mt-8 rounded-[16px] border border-[#e6e9ef] bg-white p-5 shadow-sm">
         <div className="flex gap-[8px]">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#d2f1f5]">
             <Lightbulb className="size-5 text-[#0d0d12]" aria-hidden />
@@ -675,7 +663,7 @@ export default function ParentCatalogClient() {
     <Suspense
       fallback={
         <div className="flex min-h-[40vh] w-full items-center justify-center p-8 font-sans text-[#666d80]">
-          Loading class selection...
+          Loading class selection&hellip;
         </div>
       }
     >

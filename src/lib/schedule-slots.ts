@@ -32,15 +32,15 @@ export const PARENT_SCHEDULE_ROWS: {
   time: string;
   slots: [ParentScheduleSlotKey, ParentScheduleSlotKey, ParentScheduleSlotKey];
 }[] = [
-  { label: "Block 1", time: "7:00 - 8:30 am", slots: ["b1", "b1", "b1"] },
-  { label: "Block 2", time: "8:40 - 10:10 am", slots: ["b2", "b2", "b2"] },
-  { label: "Block 3", time: "10:20 - 11:50 am", slots: ["b3Tue", "b3Wed", "b3Thu"] },
-  { label: "Block 4", time: "12:00 - 1:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
+  { label: "Block 1", time: "9:00 - 10:30 am", slots: ["b1", "b1", "b1"] },
+  { label: "Block 2", time: "10:30 am - 12:00 pm", slots: ["b2", "b2", "b2"] },
+  { label: "Block 3", time: "12:30 - 2:00 pm", slots: ["b3Tue", "b3Wed", "b3Thu"] },
+  { label: "Block 4", time: "2:00 - 3:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
 
 export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
-  b1: [1, 2, 3, 4, 5],
-  b2: [1, 2, 3, 4, 5],
+  b1: [2, 3, 4],
+  b2: [2, 3, 4],
   b3Tue: [2],
   b3Wed: [3],
   b3Thu: [4],
@@ -50,14 +50,14 @@ export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
 };
 
 export const SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
-  b1: "7:00 am",
-  b2: "8:40 am",
-  b3Tue: "10:20 am",
-  b3Wed: "10:20 am",
-  b3Thu: "10:20 am",
-  b4Tue: "12:00 pm",
-  b4Wed: "12:00 pm",
-  b4Thu: "12:00 pm",
+  b1: "9:00 am",
+  b2: "10:30 am",
+  b3Tue: "12:30 pm",
+  b3Wed: "12:30 pm",
+  b3Thu: "12:30 pm",
+  b4Tue: "2:00 pm",
+  b4Wed: "2:00 pm",
+  b4Thu: "2:00 pm",
 };
 
 export const PARENT_SCHEDULE_SLOT_DISPLAY_ORDER: Record<ParentScheduleSlotKey, number> = {
@@ -87,8 +87,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 3 Day 1",
     block: "B3",
     level: "1",
-    time: "10:20 - 11:50 am",
-    overlayTime: "10:20 AM - 11:50 AM",
+    time: "12:30 - 2:00 pm",
+    overlayTime: "12:30 PM - 2:00 PM",
     scheduleSlot: "b3Tue",
     label: "Block 3 / Day 1",
   },
@@ -96,8 +96,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 3 Day 2",
     block: "B3",
     level: "2",
-    time: "10:20 - 11:50 am",
-    overlayTime: "10:20 AM - 11:50 AM",
+    time: "12:30 - 2:00 pm",
+    overlayTime: "12:30 PM - 2:00 PM",
     scheduleSlot: "b3Wed",
     label: "Block 3 / Day 2",
   },
@@ -105,8 +105,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 3 Day 3",
     block: "B3",
     level: "3",
-    time: "10:20 - 11:50 am",
-    overlayTime: "10:20 AM - 11:50 AM",
+    time: "12:30 - 2:00 pm",
+    overlayTime: "12:30 PM - 2:00 PM",
     scheduleSlot: "b3Thu",
     label: "Block 3 / Day 3",
   },
@@ -114,8 +114,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 4 Day 1",
     block: "B4",
     level: "1",
-    time: "12:00 - 1:30 pm",
-    overlayTime: "12:00 PM - 1:30 PM",
+    time: "2:00 - 3:30 pm",
+    overlayTime: "2:00 PM - 3:30 PM",
     scheduleSlot: "b4Tue",
     label: "Block 4 / Day 1",
   },
@@ -123,8 +123,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 4 Day 2",
     block: "B4",
     level: "2",
-    time: "12:00 - 1:30 pm",
-    overlayTime: "12:00 PM - 1:30 PM",
+    time: "2:00 - 3:30 pm",
+    overlayTime: "2:00 PM - 3:30 PM",
     scheduleSlot: "b4Wed",
     label: "Block 4 / Day 2",
   },
@@ -132,8 +132,8 @@ export const CATALOG_SLOT_META: Record<
     title: "Block 4 Day 3",
     block: "B4",
     level: "3",
-    time: "12:00 - 1:30 pm",
-    overlayTime: "12:00 PM - 1:30 PM",
+    time: "2:00 - 3:30 pm",
+    overlayTime: "2:00 PM - 3:30 PM",
     scheduleSlot: "b4Thu",
     label: "Block 4 / Day 3",
   },
@@ -199,6 +199,11 @@ export function scheduleBadgeStatusLabel(
 export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): StudentScheduleBadge[] {
   const real = badges.filter((badge) => badge.tone !== "empty");
   if (real.length === 0) return [];
+
+  const core = real.filter((badge) => badge.tone === "core");
+  if (core.length > 0) {
+    return [core[0]];
+  }
 
   const approved = real.filter((badge) => badge.tone === "approved");
   if (approved.length > 0) {

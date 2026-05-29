@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useRef, useState } from "react";
 import {
-  PERSONA_LABELS,
   useDashboardPersona,
   type DashboardPersona,
 } from "@/components/dashboard-persona";
+import { PERSONA_LABELS } from "@/lib/dashboard/persona-labels";
 import {
   DEMO_ACCOUNTS,
   DEFAULT_DEMO_ACCOUNT_ID,
@@ -30,7 +30,7 @@ type ApiStatusPayload = {
 };
 
 export default function SettingsQaTools() {
-  const router = useRouter();
+  const { push } = useRouter();
   const { persona, setPersona, setDemoAccount, demoAccountId } = useDashboardPersona();
   const [apiStatus, setApiStatus] = useState<ApiStatusPayload | null>(null);
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
@@ -62,9 +62,9 @@ export default function SettingsQaTools() {
       if (isTestPersonaSwitcherEnabled()) {
         setDemoAccount(defaultDemoAccountIdForPersona(targetPersona));
       }
-      router.push(route);
+      push(route);
     },
-    [router, setDemoAccount],
+    [push, setDemoAccount],
   );
 
   const applyDemoAccountAndGo = useCallback(
@@ -72,9 +72,9 @@ export default function SettingsQaTools() {
       if (isTestPersonaSwitcherEnabled()) {
         setDemoAccount(id);
       }
-      router.push(getDemoAccountById(id).defaultRoute);
+      push(getDemoAccountById(id).defaultRoute);
     },
-    [router, setDemoAccount],
+    [push, setDemoAccount],
   );
 
   const openAdminPath = useCallback(
@@ -82,9 +82,9 @@ export default function SettingsQaTools() {
       if (isTestPersonaSwitcherEnabled()) {
         setDemoAccount(DEFAULT_DEMO_ACCOUNT_ID);
       }
-      router.push(href);
+      push(href);
     },
-    [router, setDemoAccount],
+    [push, setDemoAccount],
   );
 
   return (
@@ -203,9 +203,8 @@ export default function SettingsQaTools() {
           <div className="mt-4 space-y-5 text-[12px] text-[#666d80]">
             <div>
               <h4 className="text-[12px] font-semibold text-[#272932] mb-2">Extra role previews</h4>
-              <div
-                className="inline-flex rounded-[8px] border border-[#dfe1e7] bg-[#fafafa] p-[3px] gap-[2px]"
-                role="group"
+              <address
+                className="inline-flex rounded-[8px] border border-[#dfe1e7] bg-[#fafafa] p-[3px] gap-[2px] not-italic"
                 aria-label="Switch dashboard role preview"
               >
                 {(["teacher", "student"] as const).map((key) => (
@@ -222,7 +221,7 @@ export default function SettingsQaTools() {
                     {PERSONA_LABELS[key]}
                   </button>
                 ))}
-              </div>
+              </address>
             </div>
             <div>
               <h4 className="text-[12px] font-semibold text-[#272932] mb-2">All demo accounts</h4>
@@ -265,7 +264,7 @@ export default function SettingsQaTools() {
                   {QA_FLOW_LAUNCHERS.map((flow) => (
                     <li
                       key={flow.id}
-                      className="px-3 py-3 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.5fr)_auto] sm:gap-3 sm:items-center"
+                      className="p-3 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.5fr)_auto] sm:gap-3 sm:items-center"
                     >
                       <div className="mb-2 sm:mb-0">
                         <p className="font-semibold text-[#272932] text-[12px]">{flow.flowName}</p>

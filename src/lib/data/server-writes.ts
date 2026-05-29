@@ -439,13 +439,20 @@ export async function serverDeleteClass(id: string): Promise<{ ok: true } | Writ
 export async function serverInsertStudent(input: {
   name: string;
   parent: string;
+  parentEmail?: string;
   level: string;
   track: "core" | "enrichment";
   notes?: string;
 }): Promise<WriteOk<StudentListItem> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const parentEmail = cleanContactEmail(input.parentEmail);
+  if (input.parentEmail !== undefined && input.parentEmail.trim() && !isValidContactEmail(parentEmail)) {
+    return { ok: false, message: "Enter a valid parent email address" };
+  }
   try {
-    const supabase = await createSupabaseServerClient();
+    const resolved = await mutationClientForParentContactUpdate();
+    if (!resolved.ok) return resolved;
+    const { client, auditClient } = resolved;
     const payload = {
       display_name: input.name.trim(),
       guardian_label: input.parent.trim() || null,
@@ -453,16 +460,33 @@ export async function serverInsertStudent(input: {
       track: input.track,
       support_notes: input.notes?.trim() ?? "",
     };
-    const { data, error } = await supabase.from("students").insert(payload).select("*").maybeSingle();
+    const { data, error } = await client.from("students").insert(payload).select("*").maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row returned" };
-    const mapped = mapStudentRow(data as Record<string, unknown>);
-    if (!mapped) return { ok: false, message: "Could not map saved student" };
-    await writeAuditEvent(supabase, {
+
+    const studentId = String((data as { id?: unknown }).id ?? "");
+    if (parentEmail && studentId) {
+      const parent = await ensureParentProfileForEmail(client, {
+        displayName: input.parent.trim() || "Parent",
+        email: parentEmail,
+      });
+      if (!parent.ok) return parent;
+
+      const { error: linkError } = await client.from("parent_students").insert({
+        parent_id: parent.parentId,
+        student_id: studentId,
+      });
+      if (linkError) return { ok: false, message: linkError.message };
+    }
+
+    const mappedResult = studentId ? await fetchMappedStudent(client, studentId) : { ok: false as const, message: "No row returned" };
+    if (!mappedResult.ok) return mappedResult;
+    const mapped = mappedResult.row;
+    await writeAuditEvent(auditClient, {
       action: "student.create",
       entityType: "student",
       entityId: mapped.id,
-      metadata: { name: mapped.name, track: mapped.track },
+      metadata: { name: mapped.name, track: mapped.track, linkedParentEmail: Boolean(parentEmail) },
     });
     return { ok: true, row: mapped };
   } catch (e) {
@@ -1402,6 +1426,54 @@ async function ensureClassCapacityForChoices(
   return { ok: true };
 }
 
+async function ensureOpenSlotsForRequestChoices(
+  supabase: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    choices: { classId: string; block: string; level: string }[];
+  },
+): Promise<WriteFail | { ok: true }> {
+  const classIds = [...new Set(input.choices.map((choice) => choice.classId).filter(Boolean))];
+  if (classIds.length === 0) return { ok: true };
+
+  const [{ data: requestedClasses, error: classError }, { data: enrollments, error: enrollmentError }] = await Promise.all([
+    supabase
+      .from("classes")
+      .select("id, block, schedule_summary")
+      .in("id", classIds),
+    supabase
+      .from("enrollments")
+      .select("class_id, status, classes ( id, program, block, schedule_summary )")
+      .eq("student_id", input.studentId)
+      .in("status", ["approved", "waitlisted"]),
+  ]);
+
+  if (classError) return { ok: false, message: classError.message };
+  if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+  const requestedSlots = new Map(
+    ((requestedClasses ?? []) as unknown as PlacementClassRow[])
+      .map((row) => [String(row.id ?? ""), classPlacementSlot(row)])
+      .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])),
+  );
+  const occupiedSlots = new Set<string>();
+  for (const row of (enrollments ?? []) as unknown as Record<string, unknown>[]) {
+    if (String(row.status ?? "").toLowerCase() !== "approved") continue;
+    const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+    const slot = classPlacementSlot((classRow ?? {}) as PlacementClassRow);
+    if (slot) occupiedSlots.add(slot);
+  }
+
+  for (const choice of input.choices) {
+    const slot = requestedSlots.get(choice.classId);
+    if (slot && occupiedSlots.has(slot)) {
+      return { ok: false, message: "This schedule slot already has an approved class. Use waitlist instead of submitting another class request for the same block and day." };
+    }
+  }
+
+  return { ok: true };
+}
+
 async function clearSameSlotAlternativesAfterApproval(
   supabase: SupabaseMutationClient,
   input: {
@@ -1604,6 +1676,9 @@ export async function serverInsertEnrichmentRequests(input: {
       const capacity = await ensureClassCapacityForChoices(admin, choices);
       if (!capacity.ok) return capacity;
 
+      const openSlots = await ensureOpenSlotsForRequestChoices(admin, { studentId, choices });
+      if (!openSlots.ok) return openSlots;
+
       return insertEnrichmentRequestRows(admin, {
         studentId,
         requestedByProfileId: requesterProfileId,
@@ -1623,6 +1698,9 @@ export async function serverInsertEnrichmentRequests(input: {
 
     const capacity = await ensureClassCapacityForChoices(capacityClient, choices);
     if (!capacity.ok) return capacity;
+
+    const openSlots = await ensureOpenSlotsForRequestChoices(capacityClient, { studentId, choices });
+    if (!openSlots.ok) return openSlots;
 
     const result = await insertEnrichmentRequestRows(supabase, {
       studentId,

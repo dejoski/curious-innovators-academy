@@ -235,6 +235,8 @@ export default function ClassesPageClient({
   const [sortOpen, setSortOpen] = useState(false);
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [detailClass, setDetailClass] = useState<SchoolClassRow | null>(null);
+  const [waitlistClass, setWaitlistClass] = useState<SchoolClassRow | null>(null);
   const [mounted, setMounted] = useState(false);
   const [importing, setImporting] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -1021,14 +1023,11 @@ export default function ClassesPageClient({
               onClick={(e) => {
                 e.stopPropagation();
                 const row = classes.find((c) => c.id === rowMenu.id);
-                if (row) {
-                  const segment = row.program === "enrichment" ? "enrichment" : "core";
-                  router.push(`/dashboard/classes/edit/${segment}/${row.id}`);
-                }
+                if (row) setDetailClass(row);
                 setRowMenu(null);
               }}
             >
-              Edit
+              View Class
             </button>
             <button
               type="button"
@@ -1036,26 +1035,145 @@ export default function ClassesPageClient({
               className="w-full px-3 py-2 text-left font-sans text-[13px] text-[#0d0d12] hover:bg-[#fafafa]"
               onClick={(e) => {
                 e.stopPropagation();
-                duplicateClassById(rowMenu.id);
-              }}
-            >
-              Duplicate
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="w-full px-3 py-2 text-left font-sans text-[13px] text-[#d80509] hover:bg-[#fafafa]"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPendingDeleteId(rowMenu.id);
+                const row = classes.find((c) => c.id === rowMenu.id);
+                if (row) setWaitlistClass(row);
                 setRowMenu(null);
               }}
             >
-              Delete
+              Add to waitlist
             </button>
           </div>,
           document.body,
         )}
+
+      {detailClass !== null && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="class-detail-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDetailClass(null);
+          }}
+        >
+          <div className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              onClick={() => setDetailClass(null)}
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="pr-8">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#14c1d5]">
+                {detailClass.program === "core" ? "Core Class" : "Enrichment Class"}
+              </p>
+              <h2 id="class-detail-title" className="mt-1 text-[24px] font-bold leading-[1.15] text-[#272932]">
+                {detailClass.name}
+              </h2>
+              <p className="mt-2 text-sm text-[#666d80]">
+                {detailClass.description || "No class description has been added yet."}
+              </p>
+            </div>
+            <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Teacher</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.teacher)}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Schedule</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.schedule)}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Block</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.block)}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Seats</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.students}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Pending</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.pendingCount}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Waitlist</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.waitlistCount}</dd>
+              </div>
+            </dl>
+            <div className="mt-6 flex justify-end gap-3 border-t border-[#f0f0f0] pt-4">
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#272932] hover:bg-[#f0f0f0]"
+                onClick={() => setDetailClass(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#11a9bb]"
+                onClick={() => {
+                  const row = detailClass;
+                  setDetailClass(null);
+                  goToClassDetail(row);
+                }}
+              >
+                Open roster
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {waitlistClass !== null && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="class-waitlist-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setWaitlistClass(null);
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
+            <button
+              type="button"
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              onClick={() => setWaitlistClass(null)}
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h2 id="class-waitlist-title" className="pr-8 text-xl font-bold text-[#272932]">
+              Add to waitlist
+            </h2>
+            <p className="mt-2 text-sm text-[#666d80]">
+              Choose an existing student on the class roster page and set their roster status to Waitlisted for {waitlistClass.name}.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#272932] hover:bg-[#f0f0f0]"
+                onClick={() => setWaitlistClass(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#11a9bb]"
+                onClick={() => {
+                  const row = waitlistClass;
+                  setWaitlistClass(null);
+                  goToClassDetail(row);
+                }}
+              >
+                Open roster
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pendingDeleteId !== null && (
         <div
@@ -1112,7 +1230,7 @@ export default function ClassesPageClient({
           { key: "name", label: "Name", required: true, sample: "New Class" },
           { key: "teacher", label: "Teacher", required: true, sample: "Emily Carter" },
           { key: "students", label: "Students", required: true, sample: "0/30" },
-          { key: "schedule", label: "Schedule", sample: "Day 1/2/3 - Block 1 - 7:00 - 8:30 AM" },
+          { key: "schedule", label: "Schedule", sample: "Day 1/2/3 - Block 1 - 9:00 - 10:30 AM" },
           { key: "status", label: "Status", sample: "Active" },
           { key: "track", label: "Track", sample: trackTab },
           { key: "level", label: "Level", sample: "3" },

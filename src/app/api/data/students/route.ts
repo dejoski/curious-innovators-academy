@@ -50,6 +50,7 @@ export async function POST(req: Request) {
   const result = await serverInsertStudent({
     name: String(body.name ?? ""),
     parent: String(body.parent ?? ""),
+    parentEmail: body.parentEmail != null ? String(body.parentEmail) : undefined,
     level: String(body.level ?? ""),
     track: body.track === "enrichment" ? "enrichment" : "core",
     notes: body.notes != null ? String(body.notes) : undefined,
