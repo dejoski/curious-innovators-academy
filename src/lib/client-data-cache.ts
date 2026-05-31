@@ -3,7 +3,7 @@ type CacheEntry<T> = {
   data: T;
 };
 
-const VERSION = "cia-client-data-v11";
+const VERSION = "cia-client-data-v13";
 const INVALIDATION_STORAGE_KEY = `${VERSION}:invalidation`;
 export const DASHBOARD_CACHE_INVALIDATED_EVENT = "cia-dashboard-cache-invalidated";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;

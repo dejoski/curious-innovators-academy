@@ -191,6 +191,7 @@ function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge 
   const classRow = firstRel<Record<string, unknown>>(row.classes);
   const program = normalizeProgram(classRow?.program);
   const status = String(row.status ?? "").toLowerCase();
+  if (program === "core" && status !== "approved") return null;
   if (program === "enrichment" && status === "rejected") return null;
   return {
     label: classNameShort(String(classRow?.name ?? "")),

@@ -10,7 +10,6 @@ import {
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
 import {
-  mergeCalendarEvents,
   studentScheduleToMonthEvents,
 } from "@/lib/parent-schedule-month-events";
 import type { DataSource, SchoolClassRow, SemesterRow, StudentListItem, StudentScheduleRow } from "@/lib/data";
@@ -18,7 +17,6 @@ import ScheduleMonth from "../../schedule/schedule-client";
 
 type StudentsBody = { students?: StudentListItem[]; source?: DataSource };
 type StudentScheduleBody = { rows?: StudentScheduleRow[]; source?: DataSource };
-type ScheduleExtrasBody = { extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource };
 type ClassesBody = { classes?: SchoolClassRow[]; source?: DataSource };
 type SemestersBody = { semesters?: SemesterRow[]; currentSemester?: SemesterRow | null; source?: DataSource };
 
@@ -37,7 +35,6 @@ function resolveRequestedStudent(students: StudentListItem[], requestedStudentId
 function composeParentScheduleState(
   studentsBody: StudentsBody | null,
   scheduleBody: StudentScheduleBody | null,
-  extrasBody: ScheduleExtrasBody | null,
   classesBody: ClassesBody | null,
   semestersBody: SemestersBody | null,
   requestedStudentId: string,
@@ -46,12 +43,9 @@ function composeParentScheduleState(
   const scheduleRow = scheduleBody?.rows?.[0] ?? null;
   const semester = semestersBody?.currentSemester ?? null;
   return {
-    eventsByDate: mergeCalendarEvents(
-      extrasBody?.extrasByDate ?? {},
-      studentScheduleToMonthEvents(scheduleRow, classesBody?.classes ?? [], semester),
-    ),
-    source: scheduleBody?.source ?? extrasBody?.source ?? classesBody?.source ?? semestersBody?.source ?? studentsBody?.source ?? "unavailable",
-    ready: Boolean(studentsBody && scheduleBody && extrasBody && classesBody && semestersBody),
+    eventsByDate: studentScheduleToMonthEvents(scheduleRow, classesBody?.classes ?? [], semester),
+    source: scheduleBody?.source ?? classesBody?.source ?? semestersBody?.source ?? studentsBody?.source ?? "unavailable",
+    ready: Boolean(studentsBody && scheduleBody && classesBody && semestersBody),
     studentId: selectedStudent?.id ?? null,
     semester,
   };
@@ -63,10 +57,9 @@ function readCachedParentScheduleState(requestedStudentId: string): ParentSchedu
   const scheduleBody = selectedStudent
     ? peekCachedJson<StudentScheduleBody>(`/api/data/students/${encodeURIComponent(selectedStudent.id)}/schedule`)
     : null;
-  const extrasBody = peekCachedJson<ScheduleExtrasBody>("/api/data/schedule-extras");
   const classesBody = peekCachedJson<ClassesBody>("/api/data/classes");
   const semestersBody = peekCachedJson<SemestersBody>("/api/data/semesters");
-  return composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, semestersBody, requestedStudentId);
+  return composeParentScheduleState(studentsBody, scheduleBody, classesBody, semestersBody, requestedStudentId);
 }
 
 export default function ParentScheduleClient() {
@@ -103,16 +96,15 @@ export default function ParentScheduleClient() {
       try {
         const studentsBody = await cachedJson<StudentsBody>("/api/data/students");
         const selectedStudent = resolveRequestedStudent(studentsBody.students ?? [], requestedStudentId);
-        const [scheduleBody, extrasBody, classesBody, semestersBody] = await Promise.all([
+        const [scheduleBody, classesBody, semestersBody] = await Promise.all([
           selectedStudent
             ? cachedJson<StudentScheduleBody>(`/api/data/students/${encodeURIComponent(selectedStudent.id)}/schedule`)
             : Promise.resolve<StudentScheduleBody>({ rows: [], source: studentsBody.source ?? "unavailable" }),
-          cachedJson<ScheduleExtrasBody>("/api/data/schedule-extras"),
           cachedJson<ClassesBody>("/api/data/classes"),
           cachedJson<SemestersBody>("/api/data/semesters"),
         ]);
         if (cancelled) return;
-        setScheduleState(composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, semestersBody, requestedStudentId));
+        setScheduleState(composeParentScheduleState(studentsBody, scheduleBody, classesBody, semestersBody, requestedStudentId));
         setLoadError(null);
       } catch (error) {
         if (!cancelled) {
