@@ -27,6 +27,18 @@ const imgEllipse2732 = "/images/login-ellipse-2.svg";
 const imgEllipse2733 = "/images/login-ellipse-3.svg";
 const imgGroup = "/images/login-email-icon.svg";
 
+function loginDestinationForPersona(role: DashboardPersona, defaultStudentId?: string | null): string {
+  return role === "admin" ? "/dashboard" : dashboardHomeForPersona(role, defaultStudentId);
+}
+
+function replaceLoginDestination(href: string): boolean {
+  if (typeof window !== "undefined" && href === "/dashboard") {
+    window.location.replace(href);
+    return true;
+  }
+  return false;
+}
+
 export default function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -72,8 +84,9 @@ export default function LoginClient() {
         }
         const role = payload.profile.role;
         if (role === "admin" || role === "parent" || role === "teacher" || role === "student") {
-          const home = dashboardHomeForPersona(role, payload.profile.defaultStudentId);
+          const home = loginDestinationForPersona(role, payload.profile.defaultStudentId);
           invalidateClientDataCache();
+          if (replaceLoginDestination(home)) return;
           router.replace(home);
           router.refresh();
           return;
