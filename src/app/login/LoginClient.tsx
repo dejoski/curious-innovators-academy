@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
-import { dashboardHomeForPersona, dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
+import { dashboardHomeForPersona } from "@/lib/dashboard/role-routes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
@@ -27,11 +27,6 @@ const imgEllipse2732 = "/images/login-ellipse-2.svg";
 const imgEllipse2733 = "/images/login-ellipse-3.svg";
 const imgGroup = "/images/login-email-icon.svg";
 
-const DEMO_ROUTE_BY_KIND: Record<"admin" | "parent", string> = {
-  admin: "/dashboard",
-  parent: "/dashboard/parents/home",
-};
-
 export default function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -51,13 +46,7 @@ export default function LoginClient() {
     }
   }, []);
 
-  function safeNextPath(): string {
-    const raw = new URLSearchParams(window.location.search).get("next")?.trim();
-    if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
-    return raw;
-  }
-
-  async function signInWithCredentials(emailAddress: string, secret: string, nextPath?: string) {
+  async function signInWithCredentials(emailAddress: string, secret: string) {
     if (submitting) return;
     setSubmitting(true);
     setLoginError(null);
@@ -83,15 +72,9 @@ export default function LoginClient() {
         }
         const role = payload.profile.role;
         if (role === "admin" || role === "parent" || role === "teacher" || role === "student") {
-          const requestedNext = nextPath ?? safeNextPath();
           const home = dashboardHomeForPersona(role, payload.profile.defaultStudentId);
-          const resolvedPath = nextPath
-            ? dashboardHrefForPersona(nextPath, role, payload.profile.defaultStudentId)
-            : requestedNext === "/dashboard"
-              ? home
-              : dashboardHrefForPersona(requestedNext, role, payload.profile.defaultStudentId);
           invalidateClientDataCache();
-          router.replace(resolvedPath);
+          router.replace(home);
           router.refresh();
           return;
         }
@@ -100,7 +83,7 @@ export default function LoginClient() {
       }
 
       invalidateClientDataCache();
-      router.replace(nextPath ?? safeNextPath());
+      router.replace("/dashboard");
       router.refresh();
     } finally {
       setSubmitting(false);
@@ -114,7 +97,7 @@ export default function LoginClient() {
 
   async function continueAsDemo(kind: "admin" | "parent") {
     const { email: demoEmail, password: demoPassword } = DEMO_CREDENTIALS[kind];
-    void signInWithCredentials(demoEmail, demoPassword, DEMO_ROUTE_BY_KIND[kind]);
+    void signInWithCredentials(demoEmail, demoPassword);
   }
 
   return (
