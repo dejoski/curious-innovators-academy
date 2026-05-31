@@ -39,9 +39,11 @@ export async function POST(req: Request) {
       option: String(choice.option ?? ""),
     };
   });
+  const submitScope = body.submitScope === "choice" ? "choice" : "slot";
   const result = await serverInsertEnrichmentRequests({
     studentId: body.studentId != null ? String(body.studentId) : undefined,
     choices,
+    submitScope,
   });
   if (!result.ok) {
     return apiWriteError(result.message, 400);

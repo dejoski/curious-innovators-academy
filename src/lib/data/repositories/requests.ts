@@ -4,7 +4,6 @@ import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-re
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
-import { fetchCurrentSemesterResolved } from "@/lib/data/repositories/semesters";
 import {
   formatBlockDayLabel,
   formatClassLevelLabel,
@@ -52,19 +51,6 @@ function mapStatus(raw: unknown): RequestStatus {
   if (lower === "rejected") return "Rejected";
   if (lower === "waitlisted" || lower === "waitlist") return "Waitlisted";
   return "Pending";
-}
-
-async function resolveSemesterFilter(client: RequestReadClient, options?: RequestQueryOptions): Promise<string | null> {
-  const explicit = options?.semesterId?.trim();
-  if (explicit) return explicit;
-  const { semester } = await fetchCurrentSemesterResolved(client);
-  return semester?.id ?? null;
-}
-
-function rowMatchesSemester(row: Record<string, unknown>, semesterId: string | null): boolean {
-  if (!semesterId) return true;
-  const cls = firstRel<Record<string, unknown>>(row.classes);
-  return String(cls?.semester_id ?? "") === semesterId;
 }
 
 export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRow | null {
@@ -125,14 +111,13 @@ function mapEnrollmentDecisionRequestRow(row: Record<string, unknown>): Enrichme
 }
 
 async function loadRequestsResolved(client?: RequestReadClient, options?: RequestQueryOptions): Promise<ResolvedList<EnrichmentRequestRow>> {
+  void options;
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
-    const semesterId = await resolveSemesterFilter(supabase, options);
-    if (!semesterId) return unavailableList();
     const [requestsResult, enrollmentsResult] = await Promise.all([
       supabase
       .from("class_requests")
@@ -146,7 +131,7 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
         level,
         option_label,
         students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
-        classes ( name, level, semester_id ),
+        classes ( name, level ),
         requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
       `,
       )
@@ -161,7 +146,7 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
           status,
           created_at,
           students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
-          classes ( name, program, block, level, schedule_summary, semester_id )
+          classes ( name, program, block, level, schedule_summary )
         `,
         )
         .order("created_at", { ascending: false }),
@@ -172,11 +157,9 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
     }
 
     const pendingRows = ((requestsResult.data ?? []) as unknown as Record<string, unknown>[])
-      .filter((row) => rowMatchesSemester(row, semesterId))
       .map((row) => mapRequestRow(row as unknown as Record<string, unknown>))
       .filter((x): x is EnrichmentRequestRow => x !== null);
     const decisionRows = ((enrollmentsResult.data ?? []) as unknown as Record<string, unknown>[])
-      .filter((row) => rowMatchesSemester(row, semesterId))
       .map((row) => mapEnrollmentDecisionRequestRow(row as unknown as Record<string, unknown>))
       .filter((x): x is EnrichmentRequestRow => x !== null);
 

@@ -318,7 +318,7 @@ export default function AddClassForm() {
           </div>
           <div className="mt-7 grid gap-5 md:grid-cols-2">
             <div className="flex flex-col gap-5">
-              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Teacher's Guide</h3>
+              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Teacher&apos;s Guide</h3>
               <label className="flex flex-col gap-3">
                 <FieldLabel>Objectives</FieldLabel>
                 <TextAreaInput value={teacherGuideObjectives} onChange={(e) => setTeacherGuideObjectives(e.target.value)} />
@@ -333,7 +333,7 @@ export default function AddClassForm() {
               </label>
             </div>
             <div className="flex flex-col gap-5">
-              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Students' Guide</h3>
+              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Students&apos; Guide</h3>
               <label className="flex flex-col gap-3">
                 <FieldLabel>Objectives</FieldLabel>
                 <TextAreaInput value={studentGuideObjectives} onChange={(e) => setStudentGuideObjectives(e.target.value)} />

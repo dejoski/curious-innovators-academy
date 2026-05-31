@@ -145,6 +145,21 @@ export function mergeParentCatalogRequests(
   }, {} as ParentCatalogRequests);
 }
 
+export function mergeParentCatalogChoiceRequests(
+  baseRequests: ParentCatalogRequests | null | undefined,
+  overlayRequests: ParentCatalogRequests | null | undefined,
+): ParentCatalogRequests {
+  const base = normalizeRequests(baseRequests);
+  const overlay = normalizeRequests(overlayRequests);
+  return CATALOG_SLOT_IDS.reduce((next, slotId) => {
+    next[slotId] = {
+      firstChoice: overlay[slotId].firstChoice ?? base[slotId].firstChoice,
+      secondChoice: overlay[slotId].secondChoice ?? base[slotId].secondChoice,
+    };
+    return next;
+  }, {} as ParentCatalogRequests);
+}
+
 export function readParentCatalogSnapshot(): {
   requests: ParentCatalogRequests | null;
   submittedAt: string | null;

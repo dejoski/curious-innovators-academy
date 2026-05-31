@@ -222,13 +222,13 @@ export default function EditClassPage() {
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-3">
-                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Teacher's Guide</h3>
+                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Teacher&apos;s Guide</h3>
                 <textarea aria-label="Teacher guide objectives" value={draft.teacherGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
                 <textarea aria-label="Teacher guide information" value={draft.teacherGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
                 <textarea aria-label="Teacher guide summary" value={draft.teacherGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
               </div>
               <div className="flex flex-col gap-3">
-                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Students' Guide</h3>
+                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Students&apos; Guide</h3>
                 <textarea aria-label="Student guide objectives" value={draft.studentGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, studentGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
                 <textarea aria-label="Student guide information" value={draft.studentGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, studentGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
                 <textarea aria-label="Student guide summary" value={draft.studentGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, studentGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />

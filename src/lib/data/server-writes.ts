@@ -1762,10 +1762,10 @@ function normalizeEnrichmentRequestChoices(
 
   const normalized: { classId: string; block: string; level: string; option: "1st" | "2nd" }[] = [];
   bySlot.forEach((group) => {
-    const first = group.first ?? (group.second ? { ...group.second, option: "1st" as const } : null);
-    if (!first) return;
-    normalized.push(first);
-    if (group.first && group.second && group.second.classId !== first.classId) {
+    if (group.first) {
+      normalized.push(group.first);
+    }
+    if (group.second && group.second.classId !== group.first?.classId) {
       normalized.push(group.second);
     }
   });
@@ -1783,11 +1783,12 @@ async function clearPendingEnrichmentRequestChoices(
       level: string;
       option: string;
     }[];
+    submitScope?: "slot" | "choice";
   },
 ): Promise<WriteFail | { ok: true }> {
   const touchedSlots = new Set<string>();
   for (const choice of input.choices) {
-    const slotKey = requestSlotKey(choice);
+    const slotKey = input.submitScope === "choice" ? `${requestSlotKey(choice)}\u0000${choice.option}` : requestSlotKey(choice);
     if (touchedSlots.has(slotKey)) continue;
     touchedSlots.add(slotKey);
 
@@ -1799,6 +1800,9 @@ async function clearPendingEnrichmentRequestChoices(
 
     query = choice.block ? query.eq("block", choice.block) : query.is("block", null);
     query = choice.level ? query.eq("level", choice.level) : query.is("level", null);
+    if (input.submitScope === "choice") {
+      query = query.eq("option_label", choice.option);
+    }
 
     const { data, error } = await query;
     if (error) return { ok: false, message: error.message };
@@ -1829,6 +1833,7 @@ export async function serverInsertEnrichmentRequests(input: {
     level: string;
     option: string;
   }[];
+  submitScope?: "slot" | "choice";
 }): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const choices = normalizeEnrichmentRequestChoices(input.choices
@@ -1869,6 +1874,7 @@ export async function serverInsertEnrichmentRequests(input: {
         studentId,
         semesterId,
         choices,
+        submitScope: input.submitScope,
       });
       if (!cleared.ok) return cleared;
 
@@ -1895,6 +1901,7 @@ export async function serverInsertEnrichmentRequests(input: {
       studentId,
       semesterId,
       choices,
+      submitScope: input.submitScope,
     });
     if (!cleared.ok) return cleared;
 

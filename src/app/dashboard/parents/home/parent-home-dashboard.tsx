@@ -47,10 +47,12 @@ import {
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
   mergedParentCatalogScheduleBadgeOverrides,
+  mergeParentCatalogChoiceRequests,
   mergeParentCatalogRequests,
   readParentCatalogSnapshot,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
+  type ParentCatalogChoice,
   type LocalReviewStatuses,
   type ParentCatalogIdentity,
   type ParentCatalogRequests,
@@ -82,6 +84,11 @@ type HomeCatalogRequests = Record<CatalogSlotId, {
   firstChoice: ParentClassOption | null;
   secondChoice: ParentClassOption | null;
 }>;
+type DetailDraftChoice = {
+  slotId: CatalogSlotId;
+  kind: ParentClassChoiceKind;
+  choice: ParentCatalogChoice;
+};
 
 function normalizedHomeCatalogRequests(requests?: ParentCatalogRequests | null): HomeCatalogRequests {
   return {
@@ -93,6 +100,28 @@ function normalizedHomeCatalogRequests(requests?: ParentCatalogRequests | null):
 function slotContextFromBadges(badges: StudentScheduleBadge[] | undefined): ParentClassSlotContext {
   const current = normalizeScheduleBadges(badges ?? [])[0];
   return current ? { kind: "change", label: current.label } : { kind: "empty" };
+}
+
+function choiceMatchesOption(choice: ParentCatalogChoice | null | undefined, option: ParentClassOption): boolean {
+  if (!choice) return false;
+  if (choice.id && option.id) return choice.id === option.id;
+  const choiceName = choice.name?.trim().toLowerCase() ?? "";
+  const optionName = option.name.trim().toLowerCase();
+  return Boolean(choiceName && choiceName === optionName);
+}
+
+function remainingDraftAfterChoiceSubmit(
+  draft: ParentCatalogRequests | null,
+  submitted: DetailDraftChoice,
+  nextServerRequests: ParentCatalogRequests | null,
+): ParentCatalogRequests | null {
+  if (!draft) return null;
+  const nextDraft = normalizedHomeCatalogRequests(draft);
+  nextDraft[submitted.slotId] = {
+    ...nextDraft[submitted.slotId],
+    [submitted.kind]: null,
+  };
+  return changedParentCatalogRequests(nextDraft as ParentCatalogRequests, nextServerRequests);
 }
 
 function RowArrow() {
@@ -260,6 +289,7 @@ function ParentHomeDashboardContent() {
     option: ParentClassOption;
     statusLabel: string;
     catalogSlot: CatalogSlotId | null;
+    draftChoice?: DetailDraftChoice;
     scheduleDisplay?: ScheduleDisplayParts;
   } | null>(null);
 
@@ -509,6 +539,26 @@ function ParentHomeDashboardContent() {
   const drawerHasCatalogChoices = hasParentCatalogChoices(drawerCatalogRequests as ParentCatalogRequests);
   const activeStudentId = student?.id;
 
+  function detailDraftChoiceForBadge(
+    catalogSlot: CatalogSlotId | null,
+    badge: StudentScheduleBadge,
+    option: ParentClassOption,
+  ): DetailDraftChoice | undefined {
+    if (badge.tone !== "draft" || !catalogSlot) return undefined;
+    const slotDraft = draftOnlyCatalogRequests?.[catalogSlot];
+    if (!slotDraft) return undefined;
+    const firstMatches = choiceMatchesOption(slotDraft.firstChoice, option);
+    const secondMatches = choiceMatchesOption(slotDraft.secondChoice, option);
+    const prefersSecond = /^2nd:/i.test(badge.label);
+    if (secondMatches && (prefersSecond || !firstMatches)) {
+      return { slotId: catalogSlot, kind: "secondChoice", choice: slotDraft.secondChoice! };
+    }
+    if (firstMatches) {
+      return { slotId: catalogSlot, kind: "firstChoice", choice: slotDraft.firstChoice! };
+    }
+    return undefined;
+  }
+
   function persistHomeDraft(next: ParentCatalogRequests) {
     const changedDraft = changedParentCatalogRequests(next, serverCatalogDraft);
     if (!changedDraft) return false;
@@ -573,10 +623,12 @@ function ParentHomeDashboardContent() {
     if (badge.tone === "empty") return;
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
     if (catalogSlot) setActiveSlot(catalogSlot);
+    const option = classOptionForScheduleBadge(badge, classOptions);
     setDetailClass({
-      option: classOptionForScheduleBadge(badge, classOptions),
+      option,
       statusLabel: scheduleBadgeStatusLabel(badge, "compact"),
       catalogSlot,
+      draftChoice: detailDraftChoiceForBadge(catalogSlot, badge, option),
     });
   }
 
@@ -622,7 +674,7 @@ function ParentHomeDashboardContent() {
       const res = await fetch("/api/data/enrichment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: activeStudentId, choices }),
+        body: JSON.stringify({ studentId: activeStudentId, choices, submitScope: "choice" }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -637,6 +689,12 @@ function ParentHomeDashboardContent() {
         Array.isArray(body?.requests) ? body.requests : [],
         activeStudentId,
       );
+      const mergedServerRequests = mergeParentCatalogChoiceRequests(serverCatalogDraft, snapshot.requests);
+      const nextServerRequests = hasParentCatalogChoices(mergedServerRequests) ? mergedServerRequests : null;
+      const nextServerReviewStatuses = {
+        ...serverLocalReviewStatuses,
+        ...snapshot.reviewStatuses,
+      };
       invalidateDashboardData("/api/data/enrichment-requests");
       clearPendingParentCatalogRequests({ studentId: activeStudentId });
       invalidateClientDataCache("/api/data/classes");
@@ -644,12 +702,12 @@ function ParentHomeDashboardContent() {
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/profile`);
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/schedule`);
       }
-      setServerCatalogDraft(snapshot.requests);
-      setServerLocalRequestState(snapshot.state);
-      setServerLocalReviewStatuses(snapshot.reviewStatuses);
-      setCatalogDraft(snapshot.requests);
-      setLocalRequestState(snapshot.state);
-      setLocalReviewStatuses(snapshot.reviewStatuses);
+      setServerCatalogDraft(nextServerRequests);
+      setServerLocalRequestState(nextServerRequests ? "submitted" : null);
+      setServerLocalReviewStatuses(nextServerReviewStatuses);
+      setCatalogDraft(nextServerRequests);
+      setLocalRequestState(nextServerRequests ? "submitted" : null);
+      setLocalReviewStatuses(nextServerReviewStatuses);
       closeSelectionDrawer();
       setDetailClass(null);
       setLoadError(null);
@@ -657,6 +715,92 @@ function ParentHomeDashboardContent() {
       persistHomeDraft(submissionRequests);
       setLoadError(`Cloud submission failed: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.`);
       closeSelectionDrawer();
+      setDetailClass(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitDetailDraftChoice() {
+    if (!detailClass?.draftChoice || submitting) return;
+    const { draftChoice } = detailClass;
+    const meta = SLOT_META[draftChoice.slotId];
+    const classId = draftChoice.choice.id ?? detailClass.option.id;
+    if (!classId) {
+      setLoadError("Cloud submission failed: this draft choice is missing a class id. Your draft is still saved.");
+      return;
+    }
+    const choices = [{
+      classId,
+      block: meta.block,
+      level: meta.level,
+      option: draftChoice.kind === "firstChoice" ? "1st" : "2nd",
+    }];
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/data/enrichment-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: activeStudentId, choices, submitScope: "choice" }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setLoadError(`Cloud submission failed: ${body?.error ?? res.statusText}. Your draft is still saved.`);
+        setDetailClass(null);
+        return;
+      }
+
+      const body = (await res.json().catch(() => null)) as { requests?: EnrichmentRequestRow[] } | null;
+      const submittedSnapshot = catalogSnapshotFromEnrichmentRequests(
+        Array.isArray(body?.requests) ? body.requests : [],
+        activeStudentId,
+      );
+      const mergedServerRequests = mergeParentCatalogChoiceRequests(serverCatalogDraft, submittedSnapshot.requests);
+      const nextServerRequests = hasParentCatalogChoices(mergedServerRequests) ? mergedServerRequests : null;
+      const nextServerReviewStatuses = {
+        ...serverLocalReviewStatuses,
+        ...submittedSnapshot.reviewStatuses,
+      };
+      const remainingDraft = remainingDraftAfterChoiceSubmit(
+        draftOnlyCatalogRequests,
+        draftChoice,
+        nextServerRequests,
+      );
+
+      invalidateDashboardData("/api/data/enrichment-requests");
+      invalidateClientDataCache("/api/data/classes");
+      if (activeStudentId) {
+        invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/profile`);
+        invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudentId)}/schedule`);
+      }
+      setServerCatalogDraft(nextServerRequests);
+      setServerLocalRequestState(nextServerRequests ? "submitted" : null);
+      setServerLocalReviewStatuses(nextServerReviewStatuses);
+      if (remainingDraft) {
+        setCatalogDraft(remainingDraft);
+        setLocalRequestState("draft");
+        setLocalReviewStatuses({});
+        try {
+          clearSubmittedParentCatalogSnapshot({ studentId: activeStudentId });
+          writePendingParentCatalogRequests(remainingDraft, catalogIdentity);
+        } catch {
+          /* Browser storage can be unavailable in privacy modes. */
+        }
+      } else {
+        try {
+          clearPendingParentCatalogRequests({ studentId: activeStudentId });
+        } catch {
+          /* Browser storage can be unavailable in privacy modes. */
+        }
+        setCatalogDraft(nextServerRequests);
+        setLocalRequestState(nextServerRequests ? "submitted" : null);
+        setLocalReviewStatuses(nextServerReviewStatuses);
+      }
+      setDetailClass(null);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(`Cloud submission failed: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.`);
       setDetailClass(null);
     } finally {
       setSubmitting(false);
@@ -833,10 +977,11 @@ function ParentHomeDashboardContent() {
           statusLabel={detailClass.statusLabel}
           scheduleDisplay={detailClass.scheduleDisplay}
           classListHref={parentClassListHref(detailClass.option)}
-          canSubmitDraft={detailClass.statusLabel.startsWith("Draft") && localRequestState === "draft" && hasCatalogChoices}
+          canSubmitDraft={Boolean(detailClass.draftChoice) && localRequestState === "draft" && hasCatalogChoices}
           submitting={submitting}
           onEditSelection={detailClass.statusLabel.startsWith("Draft") && detailClass.catalogSlot ? editDetailSelection : undefined}
-          onSubmitDraft={submitHomeSelections}
+          onSubmitDraft={submitDetailDraftChoice}
+          submitDraftLabel="Submit This Draft"
           onClose={() => setDetailClass(null)}
         />
       ) : null}

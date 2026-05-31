@@ -462,6 +462,7 @@ export function ParentClassDetailsDrawer({
   classListHref,
   canSubmitDraft = false,
   submitting = false,
+  submitDraftLabel = "Submit Draft",
   onEditSelection,
   onSubmitDraft,
   onClose,
@@ -472,6 +473,7 @@ export function ParentClassDetailsDrawer({
   classListHref?: string;
   canSubmitDraft?: boolean;
   submitting?: boolean;
+  submitDraftLabel?: string;
   onEditSelection?: () => void;
   onSubmitDraft?: () => void;
   onClose: () => void;
@@ -516,7 +518,7 @@ export function ParentClassDetailsDrawer({
               className="inline-flex h-[42px] flex-1 items-center justify-center gap-2 rounded-[6px] bg-[#14c1d5] px-4 text-[14px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
             >
               {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-              Submit Draft
+              {submitDraftLabel}
             </button>
           ) : classListHref ? (
             <Link

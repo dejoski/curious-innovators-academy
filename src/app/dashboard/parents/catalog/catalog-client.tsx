@@ -42,7 +42,9 @@ import {
   changedParentCatalogRequests,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
+  hasParentCatalogChoices,
   mergedParentCatalogScheduleBadgeOverrides,
+  mergeParentCatalogChoiceRequests,
   mergeParentCatalogRequests,
   normalizeParentCatalogRequests,
   readParentCatalogSnapshot,
@@ -478,7 +480,7 @@ function ParentClassesEnrichmentCatalogContent() {
       const res = await fetch("/api/data/enrichment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: activeStudent?.id, choices }),
+        body: JSON.stringify({ studentId: activeStudent?.id, choices, submitScope: "choice" }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -492,7 +494,12 @@ function ParentClassesEnrichmentCatalogContent() {
         Array.isArray(body?.requests) ? body.requests : [],
         activeStudent?.id,
       );
-      const nextRequests = normalizedCatalogRequests(dbSnapshot.requests);
+      const nextRequests = normalizedCatalogRequests(mergeParentCatalogChoiceRequests(serverRequests as ParentCatalogRequests, dbSnapshot.requests));
+      const nextReviewStatuses = {
+        ...serverReviewStatuses,
+        ...dbSnapshot.reviewStatuses,
+      };
+      const nextRequestState = hasParentCatalogChoices(nextRequests as ParentCatalogRequests) ? "submitted" : null;
       invalidateDashboardData("/api/data/enrichment-requests");
       clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
       invalidateClientDataCache("/api/data/classes");
@@ -501,10 +508,10 @@ function ParentClassesEnrichmentCatalogContent() {
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`);
       }
       setServerRequests(nextRequests);
-      setServerRequestState(dbSnapshot.state);
-      setServerReviewStatuses(dbSnapshot.reviewStatuses);
+      setServerRequestState(nextRequestState);
+      setServerReviewStatuses(nextReviewStatuses);
       setRequests(nextRequests);
-      setLocalRequestState(dbSnapshot.state);
+      setLocalRequestState(nextRequestState);
       setRestoredDraft(false);
       setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
       closeSelectionDrawer();
