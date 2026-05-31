@@ -338,6 +338,8 @@ export type ScheduleMonthProps = {
   dayLabels?: readonly string[];
   /** Optional starting date in YYYY-MM-DD format for parity snapshots. */
   initialDateIso?: string;
+  /** View used when the URL has no `view` query param. */
+  defaultView?: ScheduleCanvasView;
   /** Active semester range used to anchor and bound schedule navigation. */
   semester?: SemesterRow | null;
   /** Parent schedule passes already-composed student events; do not overwrite them with extras-only refresh. */
@@ -358,6 +360,7 @@ export default function ScheduleMonth({
   showTodayButton = true,
   dayLabels = DAYS_OF_WEEK,
   initialDateIso,
+  defaultView = "Month",
   semester = null,
   refreshExtrasOnClient = true,
   allowEventCreation = true,
@@ -366,12 +369,12 @@ export default function ScheduleMonth({
   const searchParams = useSearchParams();
 
   const [view, setView] = useState<ScheduleCanvasView>(() =>
-    scheduleViewFromParam(searchParams.get("view")),
+    searchParams.has("view") ? scheduleViewFromParam(searchParams.get("view")) : defaultView,
   );
 
   useEffect(() => {
-    setView(scheduleViewFromParam(searchParams.get("view")));
-  }, [searchParams]);
+    setView(searchParams.has("view") ? scheduleViewFromParam(searchParams.get("view")) : defaultView);
+  }, [defaultView, searchParams]);
 
   const selectView = useCallback(
     (v: ScheduleCanvasView) => {

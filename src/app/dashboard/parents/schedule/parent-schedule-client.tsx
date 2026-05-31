@@ -149,6 +149,7 @@ export default function ParentScheduleClient() {
           }}
           showDataSourceBanner={false}
           showTodayButton={false}
+          defaultView="Week"
           refreshExtrasOnClient={false}
           allowEventCreation={false}
           semester={scheduleState.semester}
