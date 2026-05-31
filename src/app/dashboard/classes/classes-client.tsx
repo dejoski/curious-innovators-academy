@@ -245,7 +245,6 @@ export default function ClassesPageClient({
   const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [detailClass, setDetailClass] = useState<SchoolClassRow | null>(null);
-  const [waitlistClass, setWaitlistClass] = useState<SchoolClassRow | null>(null);
   const [mounted, setMounted] = useState(false);
   const [importing, setImporting] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -1036,19 +1035,6 @@ export default function ClassesPageClient({
             >
               View Class
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="w-full px-3 py-2 text-left font-sans text-[13px] text-[#0d0d12] hover:bg-[#fafafa]"
-              onClick={(e) => {
-                e.stopPropagation();
-                const row = classes.find((c) => c.id === rowMenu.id);
-                if (row) setWaitlistClass(row);
-                setRowMenu(null);
-              }}
-            >
-              Add to waitlist
-            </button>
           </div>,
           document.body,
         )}
@@ -1123,55 +1109,6 @@ export default function ClassesPageClient({
                 onClick={() => {
                   const row = detailClass;
                   setDetailClass(null);
-                  goToClassDetail(row);
-                }}
-              >
-                Open roster
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {waitlistClass !== null && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="class-waitlist-title"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setWaitlistClass(null);
-          }}
-        >
-          <div className="relative w-full max-w-md rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
-            <button
-              type="button"
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-              onClick={() => setWaitlistClass(null)}
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <h2 id="class-waitlist-title" className="pr-8 text-xl font-bold text-[#272932]">
-              Add to waitlist
-            </h2>
-            <p className="mt-2 text-sm text-[#666d80]">
-              Choose an existing student on the class roster page and set their roster status to Waitlisted for {waitlistClass.name}.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#272932] hover:bg-[#f0f0f0]"
-                onClick={() => setWaitlistClass(null)}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#11a9bb]"
-                onClick={() => {
-                  const row = waitlistClass;
-                  setWaitlistClass(null);
                   goToClassDetail(row);
                 }}
               >
