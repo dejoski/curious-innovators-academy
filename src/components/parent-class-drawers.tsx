@@ -343,36 +343,38 @@ export function ParentClassSelectionDrawer({
   return (
     <dialog
       open
-      className="fixed inset-0 z-50 flex justify-end bg-black/20"
+      className="fixed inset-0 z-50 m-0 flex h-[100dvh] max-h-none w-screen max-w-none justify-end overflow-hidden border-0 bg-black/20 p-0"
       aria-modal="true"
       aria-labelledby="select-class-title"
     >
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Close class selection" onMouseDown={onClose} />
       <div
-        className="relative z-10 flex h-full w-full flex-col rounded-l-[18px] bg-white p-[24px] shadow-2xl sm:w-[570px]"
+        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-l-[18px] bg-white shadow-2xl sm:w-[570px]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="select-class-title" className="text-[24px] font-bold leading-[1.1] text-[#272932]">Select a Class</h2>
-            <p className="mt-[8px] text-[14px] leading-[1.4] text-[#666d80]">Choose an enrichment class available for this block.</p>
+        <div className="shrink-0 p-[20px] pb-0 sm:p-[24px] sm:pb-0">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 id="select-class-title" className="text-[24px] font-bold leading-[1.1] text-[#272932]">Select a Class</h2>
+              <p className="mt-[8px] text-[14px] leading-[1.4] text-[#666d80]">Choose an enrichment class available for this block.</p>
+            </div>
+            <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">
+              <X className="size-5" aria-hidden />
+            </button>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">
-            <X className="size-5" aria-hidden />
-          </button>
+
+          <div className="mt-[20px] border-y border-[#f0f0f0] py-[18px] text-[16px] font-semibold text-[#0d0d12] sm:mt-[28px] sm:py-[26px]">
+            {title} - {time}
+          </div>
         </div>
 
-        <div className="mt-[28px] border-y border-[#f0f0f0] py-[26px] text-[16px] font-semibold text-[#0d0d12]">
-          {title} - {time}
-        </div>
+        <div className="min-h-0 flex-1 space-y-[24px] overflow-y-auto overscroll-contain px-[20px] py-[18px] sm:space-y-[30px] sm:px-[24px]">
+          <div className={`rounded-[10px] border px-4 py-3 text-[13px] leading-[1.4] ${slotContext?.kind === "change" ? "border-[#84adff]/45 bg-[#eef4ff] text-[#3451a4]" : "border-[#d9eef1] bg-[#f6fcfd] text-[#155e66]"}`}>
+            {slotContext?.kind === "change"
+              ? `You are requesting a change from ${slotContext.label}.`
+              : "You are choosing a class for an empty slot."}
+          </div>
 
-        <div className={`mt-[18px] rounded-[10px] border px-4 py-3 text-[13px] leading-[1.4] ${slotContext?.kind === "change" ? "border-[#84adff]/45 bg-[#eef4ff] text-[#3451a4]" : "border-[#d9eef1] bg-[#f6fcfd] text-[#155e66]"}`}>
-          {slotContext?.kind === "change"
-            ? `You are requesting a change from ${slotContext.label}.`
-            : "You are choosing a class for an empty slot."}
-        </div>
-
-        <div className="mt-[18px] flex-1 space-y-[30px] overflow-y-auto pr-1">
           <ChoiceSelector
             label="Choose the first option"
             value={firstChoice}
@@ -405,7 +407,7 @@ export function ParentClassSelectionDrawer({
           />
         </div>
 
-        <div className="mt-[30px] flex flex-col gap-3 border-t border-[#f0f0f0] pt-[24px] sm:flex-row">
+        <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-[#f0f0f0] bg-white p-[20px] shadow-[0_-8px_24px_rgba(13,13,18,0.06)] sm:flex-row sm:p-[24px]">
           <button type="button" onClick={onClose} className="h-[42px] flex-1 rounded-[6px] bg-[#d2f1f5] text-[14px] font-semibold text-[#14c1d5]">
             Back
           </button>

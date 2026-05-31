@@ -71,13 +71,12 @@ export default function EditClassPage() {
   }
 
   const draft = row!;
-  const seatsPattern = /^\d+\s*\/\s*\d+$/;
-  const canSave = Boolean(draft.name.trim() && draft.teacher.trim() && seatsPattern.test(draft.students.trim())) && !submitting;
+  const capacity = Number(draft.capacity ?? 0);
+  const canSave = Boolean(draft.name.trim() && draft.teacher.trim() && Number.isFinite(capacity) && capacity > 0) && !submitting;
 
   const save = async () => {
     const trimmed = draft.name.trim();
     const teacherName = draft.teacher.trim();
-    const studentsLabel = draft.students.trim();
     if (submitting) return;
     if (!trimmed) {
       setSyncHint("Class name is required.");
@@ -87,8 +86,8 @@ export default function EditClassPage() {
       setSyncHint("Choose an existing teacher from the roster before saving this class.");
       return;
     }
-    if (!seatsPattern.test(studentsLabel)) {
-      setSyncHint("Seats must use the enrolled/capacity format, such as 12/30.");
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      setSyncHint("Capacity must be a positive number.");
       return;
     }
     setSubmitting(true);
@@ -101,7 +100,7 @@ export default function EditClassPage() {
           id: draft.id,
           name: trimmed,
           teacher: teacherName,
-          students: studentsLabel,
+          capacity,
           schedule: draft.schedule.trim(),
           status: draft.status,
           track: draft.program,
@@ -166,10 +165,12 @@ export default function EditClassPage() {
             />
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
-            Seats
+            Capacity
             <input
-              value={draft.students}
-              onChange={(e) => setRow({ ...draft, students: e.target.value })}
+              type="number"
+              min={1}
+              value={String(draft.capacity ?? "")}
+              onChange={(e) => setRow({ ...draft, capacity: Number.parseInt(e.target.value, 10) || 0 })}
               aria-required="true"
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />

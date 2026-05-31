@@ -1,6 +1,7 @@
 import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { InvoiceRow, InvoiceStatus } from "@/lib/data/types";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -49,10 +50,11 @@ export function mapInvoiceRow(row: Record<string, unknown>): InvoiceRow | null {
 
   const student = firstRel<Record<string, unknown>>(row.students);
   const studentName = String(row.student_name ?? student?.display_name ?? "").trim();
+  const parentContact = parentContactFromStudentRow(student);
   const familyLabel = String(
-    row.family_label ??
-      row.family ??
-      student?.guardian_label ??
+    parentContact.name ||
+      row.family_label ||
+      row.family ||
       (studentName ? `${studentName.split(" ").slice(-1)[0]} Family` : ""),
   ).trim();
 
@@ -95,7 +97,8 @@ async function loadInvoicesResolved(): Promise<ResolvedList<InvoiceRow>> {
         payment_url,
         students (
           display_name,
-          guardian_label
+          guardian_label,
+          ${STUDENT_PARENT_CONTACT_SELECT}
         )
       `,
       )

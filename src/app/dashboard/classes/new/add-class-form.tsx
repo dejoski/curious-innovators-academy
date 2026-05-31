@@ -165,7 +165,7 @@ export default function AddClassForm() {
         body: JSON.stringify({
           name: name.trim(),
           teacher: DEFAULT_TEACHER_NAME,
-          students: `0/${capacityNumber}`,
+          capacity: capacityNumber,
           schedule: scheduleText,
           status,
           track: segment,

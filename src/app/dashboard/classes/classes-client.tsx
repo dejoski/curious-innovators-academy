@@ -68,7 +68,7 @@ const VISIBILITY_FILTER_LABELS: Record<VisibilityFilter, string> = {
 type ClassImportDraft = {
   name: string;
   teacher: string;
-  students: string;
+  capacity: number;
   schedule: string;
   status: ClassStatus;
   track: ProgramTrack;
@@ -94,6 +94,14 @@ function parseStudentsSort(s: string): [number, number] {
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(s.trim());
   if (!m) return [0, 0];
   return [Number(m[1]), Number(m[2])];
+}
+
+function capacityFromImportValue(value: string): number {
+  const trimmed = value.trim();
+  const seatsMatch = /^\d+\s*\/\s*(\d+)$/.exec(trimmed);
+  const raw = seatsMatch ? seatsMatch[1] : trimmed;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
 function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
@@ -174,8 +182,9 @@ function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassIm
   return rows.slice(1).map((row) => {
     const name = firstCsvValue(row, headers, ["Class", "Class Name", "Name"]);
     const teacher = firstCsvValue(row, headers, ["Teacher", "Teacher Name"]);
-    const students =
-      firstCsvValue(row, headers, ["Seats", "Students", "Enrollment", "Enrolled/Capacity"]) || "0/30";
+    const capacity = capacityFromImportValue(
+      firstCsvValue(row, headers, ["Capacity", "Max Students", "Seats", "Students", "Enrollment", "Enrolled/Capacity"]) || "30",
+    );
     const schedule = firstCsvValue(row, headers, ["Schedule", "Schedule Summary"]);
     const status = normalizeImportStatus(firstCsvValue(row, headers, ["Status", "Class Status"]));
     const track = normalizeImportTrack(firstCsvValue(row, headers, ["Track", "Program"]), fallbackTrack);
@@ -193,7 +202,7 @@ function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassIm
     return {
       name,
       teacher,
-      students,
+      capacity,
       schedule,
       status,
       track,
@@ -412,14 +421,13 @@ export default function ClassesPageClient({
         return;
       }
 
-      const seatsPattern = /^\d+\s*\/\s*\d+$/;
       const validDrafts: ClassImportDraft[] = [];
       const validationErrors: string[] = [];
       drafts.forEach((draft, idx) => {
         const rowLabel = `Row ${idx + 2}`;
         if (!draft.name.trim()) validationErrors.push(`${rowLabel}: class name is required`);
         else if (!draft.teacher.trim()) validationErrors.push(`${rowLabel}: teacher is required`);
-        else if (!seatsPattern.test(draft.students.trim())) validationErrors.push(`${rowLabel}: seats must look like 0/30`);
+        else if (draft.capacity <= 0) validationErrors.push(`${rowLabel}: capacity must be a positive number`);
         else validDrafts.push(draft);
       });
 
@@ -437,7 +445,7 @@ export default function ClassesPageClient({
           body: JSON.stringify({
             name: draft.name.trim(),
             teacher: draft.teacher.trim(),
-            students: draft.students.trim(),
+            capacity: draft.capacity,
             schedule: draft.schedule.trim(),
             status: draft.status,
             track: draft.track,
@@ -490,14 +498,13 @@ export default function ClassesPageClient({
     if (importing) return { created: 0, errors: ["Another class import is still running."] };
     setImporting(true);
     setSyncHint(null);
-    const seatsPattern = /^\d+\s*\/\s*\d+$/;
     const validDrafts: ClassImportDraft[] = [];
     const validationErrors: string[] = [];
     rows.forEach((row) => {
       const draft: ClassImportDraft = {
         name: row.values.name,
         teacher: row.values.teacher,
-        students: row.values.students || "0/30",
+        capacity: capacityFromImportValue(row.values.capacity || row.values.students || "30"),
         schedule: row.values.schedule,
         status: normalizeImportStatus(row.values.status),
         track: normalizeImportTrack(row.values.track, trackTab),
@@ -507,7 +514,7 @@ export default function ClassesPageClient({
       };
       if (!draft.name.trim()) validationErrors.push(`Row ${row.rowNumber}: class name is required`);
       else if (!draft.teacher.trim()) validationErrors.push(`Row ${row.rowNumber}: teacher is required`);
-      else if (!seatsPattern.test(draft.students.trim())) validationErrors.push(`Row ${row.rowNumber}: seats must look like 0/30`);
+      else if (draft.capacity <= 0) validationErrors.push(`Row ${row.rowNumber}: capacity must be a positive number`);
       else validDrafts.push(draft);
     });
 
@@ -521,7 +528,7 @@ export default function ClassesPageClient({
           body: JSON.stringify({
             name: draft.name.trim(),
             teacher: draft.teacher.trim(),
-            students: draft.students.trim(),
+            capacity: draft.capacity,
             schedule: draft.schedule.trim(),
             status: draft.status,
             track: draft.track,
@@ -1229,7 +1236,7 @@ export default function ClassesPageClient({
         columns={[
           { key: "name", label: "Name", required: true, sample: "New Class" },
           { key: "teacher", label: "Teacher", required: true, sample: "Emily Carter" },
-          { key: "students", label: "Students", required: true, sample: "0/30" },
+          { key: "capacity", label: "Capacity", required: true, sample: "30" },
           { key: "schedule", label: "Schedule", sample: "Day 1/2/3 - Block 1 - 9:00 - 10:30 AM" },
           { key: "status", label: "Status", sample: "Active" },
           { key: "track", label: "Track", sample: trackTab },

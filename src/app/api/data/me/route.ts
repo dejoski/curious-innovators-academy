@@ -6,6 +6,12 @@ import {
   requireRemoteApiSession,
   type SupabaseServerClient,
 } from "@/lib/api/require-auth";
+import {
+  materializeProfileRole,
+  normalizeAccountDisplayName,
+  normalizeAccountRole,
+  upsertAccountProfile,
+} from "@/lib/data/account-materialization";
 import { isRemoteDataRequired } from "@/lib/data/env";
 
 type AppRole = "admin" | "parent" | "teacher" | "student";
@@ -19,13 +25,11 @@ const DEFAULT_PREFERENCES = {
 type AccountPreferences = typeof DEFAULT_PREFERENCES;
 
 function normalizeRole(raw: unknown): AppRole {
-  const role = String(raw ?? "").toLowerCase();
-  if (role === "admin" || role === "parent" || role === "teacher" || role === "student") return role;
-  return "parent";
+  return normalizeAccountRole(raw);
 }
 
 function normalizeDisplayName(raw: unknown): string {
-  return String(raw ?? "").trim().replace(/\s+/g, " ");
+  return normalizeAccountDisplayName(raw);
 }
 
 function mapPreferenceRow(row: Record<string, unknown> | null | undefined): AccountPreferences {
@@ -98,20 +102,35 @@ export async function GET(request: Request) {
       normalizeDisplayName(user.user_metadata?.name) ||
       String(user.email ?? "Signed-in user").trim();
     const emailFromAuth = String(user.email ?? "").trim();
-    const { data: createdProfile } = await supabase
+    const created = await upsertAccountProfile(supabase, {
+      profileId: user.id,
+      email: emailFromAuth,
+      displayName: displayNameFromMetadata || "Signed-in user",
+      role: "parent",
+    });
+    if (!created.ok) {
+      return NextResponse.json({ error: created.message }, { status: 503 });
+    }
+    const { data: createdProfile, error: createdProfileError } = await supabase
       .from("profiles")
-      .upsert({
-        id: user.id,
-        email: emailFromAuth,
-        display_name: displayNameFromMetadata || "Signed-in user",
-        role: "parent",
-      }, { onConflict: "id" })
       .select("id, email, display_name, role")
+      .eq("id", user.id)
       .maybeSingle();
+    if (createdProfileError || !createdProfile) {
+      return NextResponse.json(
+        { error: createdProfileError?.message ?? "Profile setup failed." },
+        { status: 503 },
+      );
+    }
     accountProfile = createdProfile;
-    await supabase.from("parents").upsert({ profile_id: user.id }, { onConflict: "profile_id" });
-  } else if (normalizeRole(accountProfile.role) === "parent") {
-    await supabase.from("parents").upsert({ profile_id: user.id }, { onConflict: "profile_id" });
+  } else {
+    const materialized = await materializeProfileRole(supabase, {
+      profileId: user.id,
+      role: normalizeRole(accountProfile.role),
+    });
+    if (!materialized.ok) {
+      return NextResponse.json({ error: materialized.message }, { status: 503 });
+    }
   }
 
   const role = normalizeRole(accountProfile?.role);

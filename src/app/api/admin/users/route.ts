@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import {
+  cleanAccountEmail,
+  materializeProfileRole,
+  normalizeAccountRole,
+} from "@/lib/data/account-materialization";
 import { isSupabaseConfigured } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -9,12 +14,11 @@ const ROLES = ["admin", "parent", "teacher", "student"] as const;
 type AppRole = (typeof ROLES)[number];
 
 function normalizeRole(raw: unknown): AppRole {
-  const role = String(raw ?? "parent").toLowerCase();
-  return ROLES.includes(role as AppRole) ? (role as AppRole) : "parent";
+  return normalizeAccountRole(raw);
 }
 
 function cleanEmail(raw: unknown): string {
-  return String(raw ?? "").trim().toLowerCase();
+  return cleanAccountEmail(raw);
 }
 
 async function requireAdmin() {
@@ -113,6 +117,10 @@ export async function POST(req: Request) {
   );
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 400 });
+  }
+  const materialized = await materializeProfileRole(admin, { profileId: user.id, role });
+  if (!materialized.ok) {
+    return NextResponse.json({ error: materialized.message }, { status: 400 });
   }
 
   await admin.from("audit_events").insert({

@@ -6,6 +6,7 @@ import {
   fetchEnrichmentRequestsResolved,
 } from "@/lib/data/repositories/requests";
 import {
+  serverDeleteEnrichmentRequest,
   serverInsertEnrichmentRequests,
   serverPatchEnrichmentRequest,
 } from "@/lib/data/server-writes";
@@ -66,4 +67,25 @@ export async function PATCH(req: Request) {
     return apiWriteError(result.message, 400);
   }
   return NextResponse.json({ request: result.row });
+}
+
+export async function DELETE(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
+  const { searchParams } = new URL(req.url);
+  let id = searchParams.get("id")?.trim() ?? "";
+  let reason = searchParams.get("reason")?.trim() || undefined;
+  if (!id) {
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    id = typeof body?.id === "string" ? body.id.trim() : "";
+    reason = typeof body?.reason === "string" ? body.reason : reason;
+  }
+  if (!id) return apiError("Invalid payload");
+
+  const result = await serverDeleteEnrichmentRequest(id, { reason });
+  if (!result.ok) {
+    return apiWriteError(result.message, 400);
+  }
+  return NextResponse.json({ ok: true });
 }

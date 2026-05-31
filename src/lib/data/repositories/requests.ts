@@ -2,6 +2,7 @@ import type { ResolvedList } from "@/lib/data/fetch-source";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
 import {
   formatBlockDayLabel,
@@ -60,7 +61,7 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
   const r = firstRel<Record<string, unknown>>(row.requester);
 
   const studentName = s ? String(s.display_name ?? s.student_name ?? "") : "";
-  const guardian = s ? String(s.guardian_label ?? "") : "";
+  const parentContact = parentContactFromStudentRow(s);
   const className = c ? String(c.name ?? c.class_name ?? "") : "";
   const classLevel = c ? String(c.level ?? "") : "";
   const requesterName = r ? String(r.display_name ?? "") : "";
@@ -74,7 +75,7 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
     classId: row.class_id == null ? undefined : String(row.class_id),
     student: studentName || String(row.student_name ?? row.student ?? ""),
     parent:
-      guardian ||
+      parentContact.name ||
       requesterName ||
       String(row.parent_name ?? row.parent ?? ""),
     class: className || String(row.class_name ?? row.class_title ?? row.class ?? ""),
@@ -99,7 +100,7 @@ function mapEnrollmentDecisionRequestRow(row: Record<string, unknown>): Enrichme
     studentId: row.student_id == null ? undefined : String(row.student_id),
     classId: row.class_id == null ? undefined : String(row.class_id),
     student: String(student?.display_name ?? student?.student_name ?? ""),
-    parent: String(student?.guardian_label ?? ""),
+    parent: parentContactFromStudentRow(student).name,
     class: String(cls?.name ?? cls?.class_name ?? ""),
     block: formatBlockDayLabel(cls?.block, undefined, cls?.schedule_summary),
     level: formatClassLevelLabel(cls?.level),
@@ -127,7 +128,7 @@ async function loadRequestsResolved(client?: RequestReadClient): Promise<Resolve
         block,
         level,
         option_label,
-        students ( display_name, guardian_label ),
+        students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
         classes ( name, level ),
         requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
       `,
@@ -142,7 +143,7 @@ async function loadRequestsResolved(client?: RequestReadClient): Promise<Resolve
           class_id,
           status,
           created_at,
-          students ( display_name, guardian_label ),
+          students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
           classes ( name, program, block, level, schedule_summary )
         `,
         )
@@ -262,7 +263,7 @@ function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow
     studentId: row.student_id == null ? undefined : String(row.student_id),
     classId: row.class_id == null ? undefined : String(row.class_id),
     student: String(student?.display_name ?? student?.student_name ?? ""),
-    parent: String(student?.guardian_label ?? ""),
+    parent: parentContactFromStudentRow(student).name,
     className: String(cls?.name ?? cls?.class_name ?? ""),
     block: formatBlockDayLabel(cls?.block, undefined, cls?.schedule_summary),
     option: "Not recorded",
@@ -294,7 +295,7 @@ function mapDecisionHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow
     studentId: row.student_id == null ? undefined : String(row.student_id),
     classId: row.class_id == null ? undefined : String(row.class_id),
     student: String(student?.display_name ?? student?.student_name ?? ""),
-    parent: String(student?.guardian_label ?? ""),
+    parent: parentContactFromStudentRow(student).name,
     className: String(cls?.name ?? cls?.class_name ?? ""),
     block: formatBlockDayLabel(row.block ?? cls?.block, row.level, cls?.schedule_summary),
     option: option ? formatRequestOptionLabel(option) : "Not recorded",
@@ -334,7 +335,7 @@ async function loadApprovalHistoryResolved(client?: RequestReadClient): Promise<
         reason,
         requested_at,
         decided_at,
-        students ( display_name, guardian_label ),
+        students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
         classes ( name, program, block, level, schedule_summary ),
         reviewer:profiles!class_request_decisions_decided_by_profile_id_fkey ( display_name, email )
       `,
@@ -349,7 +350,7 @@ async function loadApprovalHistoryResolved(client?: RequestReadClient): Promise<
         class_id,
         status,
         created_at,
-        students ( display_name, guardian_label ),
+        students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
         classes ( name, program, block, level, schedule_summary )
       `,
       )

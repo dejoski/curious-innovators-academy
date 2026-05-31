@@ -65,23 +65,13 @@ const EMPTY_CLASS_META: ClassMeta = {
   studentGuideSummary: "",
 };
 
-function parseCapacity(label: string): { enrolled: number; max: number } {
-  const match = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
-  if (!match) return { enrolled: 0, max: 1 };
-  return {
-    enrolled: Number(match[1]) || 0,
-    max: Math.max(1, Number(match[2]) || 1),
-  };
-}
-
 function classMetaFromRow(row: SchoolClassRow): ClassMeta {
-  const capacity = parseCapacity(row.students);
   return {
     teacher: row.teacher || "Teacher not assigned",
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
-    capacityEnrolled: capacity.enrolled,
-    capacityMax: capacity.max,
+    capacityEnrolled: Math.max(0, row.enrolledCount ?? 0),
+    capacityMax: Math.max(1, row.capacity ?? 1),
     pendingCount: row.pendingCount,
     plannerSubject: row.plannerSubject || "",
     plannerSummary: row.plannerSummary || "",
@@ -409,7 +399,7 @@ export default function EnrichmentClassDetail() {
           id: classId,
           name: t,
           teacher: classMeta.teacher,
-          students: `${classMeta.capacityEnrolled}/${classMeta.capacityMax}`,
+          capacity: classMeta.capacityMax,
           schedule: classMeta.schedule,
           status: "Active",
           track: "enrichment",
@@ -470,37 +460,49 @@ export default function EnrichmentClassDetail() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId]);
 
-  async function handleSaveAddStudent(input: { studentId: string; status: Exclude<StudentStatus, "Pending"> }) {
-    if (!input.studentId) return;
+  async function handleSaveAddStudent(input: { studentIds: string[]; status: Exclude<StudentStatus, "Pending"> }) {
+    const studentIds = [...new Set(input.studentIds)].filter(Boolean);
+    if (studentIds.length === 0) return;
+    const added: Student[] = [];
+    const errors: string[] = [];
     try {
-      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: input.studentId,
-          status: input.status,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error(await readApiError(res));
+      for (const studentId of studentIds) {
+        const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId,
+            status: input.status,
+          }),
+        });
+        if (!res.ok) {
+          errors.push(`${studentId}: ${await readApiError(res)}`);
+          continue;
+        }
+        const body = (await res.json()) as { student?: Student };
+        if (body.student) added.push(body.student);
+        else errors.push(`${studentId}: Student could not be added to this class.`);
       }
-      const body = (await res.json()) as { student?: Student };
-      if (!body.student) {
-        throw new Error("Student could not be added to this class.");
+
+      if (added.length > 0) {
+        setStudents((prev) => [...prev, ...added]);
+        invalidateDashboardData([
+          `/api/data/classes/${encodeURIComponent(classId)}/roster`,
+          "/api/data/students",
+          "/api/data/classes",
+          "/api/data/class-options",
+          "/api/dashboard-presentation",
+          ...studentIds.flatMap((studentId) => studentDetailDataUrls(studentId)),
+        ]);
       }
-      setStudents((prev) => [...prev, body.student as Student]);
-      invalidateDashboardData([
-        `/api/data/classes/${encodeURIComponent(classId)}/roster`,
-        "/api/data/students",
-        "/api/data/classes",
-        "/api/data/class-options",
-        "/api/dashboard-presentation",
-        ...studentDetailDataUrls(input.studentId),
-      ]);
+
+      if (errors.length > 0) {
+        throw new Error(`Added ${added.length} of ${studentIds.length} student(s). ${errors[0]}`);
+      }
       setCurrentPage(1);
       setIsAddStudentModalOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Student could not be added to this class.";
+      const message = error instanceof Error ? error.message : "Students could not be added to this class.";
       throw new Error(message);
     }
   }
@@ -1048,13 +1050,13 @@ export default function EnrichmentClassDetail() {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-[#272932] text-[14px]">Teacher's Guide</p>
+                  <p className="font-semibold text-[#272932] text-[14px]">Teacher&apos;s Guide</p>
                   <textarea value={editClassDraft.teacherGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide objectives" />
                   <textarea value={editClassDraft.teacherGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide information" />
                   <textarea value={editClassDraft.teacherGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide summary" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-[#272932] text-[14px]">Students' Guide</p>
+                  <p className="font-semibold text-[#272932] text-[14px]">Students&apos; Guide</p>
                   <textarea value={editClassDraft.studentGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide objectives" />
                   <textarea value={editClassDraft.studentGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide information" />
                   <textarea value={editClassDraft.studentGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide summary" />

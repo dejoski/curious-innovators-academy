@@ -18,6 +18,15 @@
 
 - Format school-facing history and schedule date behavior in `America/New_York`.
 - Verify thin/mobile viewports when layout is involved.
+- During active localhost iteration, keep checks scoped to the change and the running app. Do broad lint/build/typecheck/browser sweeps when the user asks, when shared types or data boundaries changed, or when work is moving toward push, deploy, issue closure, or production recovery.
 - Do not call production fixed until local checks plus Vercel Ready/health are confirmed.
 - This repo's deploy contract is Vercel-only: push to `main`, let Vercel build/deploy, and keep GitHub Actions workflow files out because inert workflow YAML creates false failed checks.
 - For GitHub issue fixes, include proof artifacts in comments when practical: red/green screenshots for UI regressions, production alias checks, Vercel commit status, and temporary-row write/cleanup evidence.
+- Treat fixing, pushing, commenting, and closing GitHub issues as separate steps. Do not close an app-facing issue unless the user explicitly authorized closure for that ticket or the relevant app/browser/production acceptance proof was checked. If the user asks to move fast with lighter proof, push and comment with the proof level, then leave the issue open for owner review.
+
+## React Doctor
+
+- Treat React Doctor full-project score and diff score as separate proof surfaces.
+- Use a temporary npm cache if `npm exec` reports `ECOMPROMISED` or lock-compromised errors.
+- Do not claim overall health from a clean diff score while the full-project backlog remains large.
+- Treat `react-doctor --no-lint --no-dead-code` as executable-check proof only. Native `oxlint` or `oxc-parser` binding failures block full default-score proof until the default command runs successfully.

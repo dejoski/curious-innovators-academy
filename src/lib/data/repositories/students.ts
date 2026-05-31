@@ -2,6 +2,7 @@ import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
 import {
   CATALOG_SLOT_IDS,
@@ -26,16 +27,7 @@ export const STUDENT_SELECT = `
   track,
   profile_id,
   support_notes,
-  parent_students (
-    parent_id,
-    parents (
-      id,
-      profiles (
-        display_name,
-        email
-      )
-    )
-  ),
+  ${STUDENT_PARENT_CONTACT_SELECT},
   enrollments (
     id,
     status,
@@ -69,34 +61,8 @@ const PARENT_STUDENT_SELECT = `
   support_notes
 `;
 
-function parentContactFromStudentRow(row: Record<string, unknown>): { name: string; email: string } {
-  const joins = rowsFromRelation(row.parent_students);
-  const names: string[] = [];
-  let email = "";
-  for (const join of joins) {
-    const parent = firstRel<Record<string, unknown>>(join.parents);
-    const profile = firstRel<Record<string, unknown>>(parent?.profiles);
-    const name = String(profile?.display_name ?? "").trim();
-    if (name) names.push(name);
-    if (!email) email = String(profile?.email ?? "").trim();
-  }
-  if (names.length > 0 || email) {
-    return {
-      name: names.join(", "),
-      email,
-    };
-  }
-
-  return {
-    name: String(row.parent_name ?? row.guardian_label ?? row.parent ?? ""),
-    email: String(row.parent_email ?? "").trim(),
-  };
-}
-
 function parentIdsFromStudentRow(row: Record<string, unknown>): string[] {
-  return rowsFromRelation(row.parent_students)
-    .map((join) => String(join.parent_id ?? "").trim())
-    .filter(Boolean);
+  return parentContactFromStudentRow(row).parentIds;
 }
 
 function normalizeProgram(raw: unknown): ProgramTrack {

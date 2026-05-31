@@ -68,25 +68,15 @@ const EMPTY_CLASS_META: ClassMeta = {
   studentGuideSummary: "",
 };
 
-function parseCapacity(label: string): { enrolled: number; max: number } {
-  const match = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
-  if (!match) return { enrolled: 0, max: 1 };
-  return {
-    enrolled: Number(match[1]) || 0,
-    max: Math.max(1, Number(match[2]) || 1),
-  };
-}
-
 function classMetaFromRow(row: SchoolClassRow): ClassMeta {
-  const capacity = parseCapacity(row.students);
   return {
     title: row.name,
     description: row.description || "",
     teacher: row.teacher || "Teacher not assigned",
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
-    capacityEnrolled: capacity.enrolled,
-    capacityMax: capacity.max,
+    capacityEnrolled: Math.max(0, row.enrolledCount ?? 0),
+    capacityMax: Math.max(1, row.capacity ?? 1),
     plannerSubject: row.plannerSubject || "",
     plannerSummary: row.plannerSummary || "",
     teacherGuideObjectives: row.teacherGuideObjectives || "",
@@ -349,7 +339,6 @@ export default function ClassDetailsPage() {
 
   const saveClassMeta = async () => {
     const max = classMetaDraft.capacityMax <= 0 ? 1 : classMetaDraft.capacityMax;
-    const enrolled = Math.min(Math.max(0, classMetaDraft.capacityEnrolled), max);
     const { block, level } = splitBlockLevelLabel(classMetaDraft.blockLevel);
     setClassEditError(null);
     setIsSavingClassMeta(true);
@@ -361,7 +350,7 @@ export default function ClassDetailsPage() {
           id: classId,
           name: classMetaDraft.title,
           teacher: classMetaDraft.teacher,
-          students: `${enrolled}/${max}`,
+          capacity: max,
           schedule: classMetaDraft.schedule,
           status: "Active",
           track: "core",
@@ -383,7 +372,7 @@ export default function ClassDetailsPage() {
         return;
       }
       const body = (await res.json()) as { class?: SchoolClassRow };
-      const nextMeta = body.class ? classMetaFromRow(body.class) : { ...classMetaDraft, capacityMax: max, capacityEnrolled: enrolled };
+      const nextMeta = body.class ? classMetaFromRow(body.class) : { ...classMetaDraft, capacityMax: max };
       setClassMeta(nextMeta);
       setClassMetaDraft(nextMeta);
       setIsEditInfoModalOpen(false);
@@ -394,36 +383,48 @@ export default function ClassDetailsPage() {
     }
   };
 
-  const submitAddStudent = async (input: { studentId: string; status: Exclude<Status, "Pending"> }) => {
-    if (!input.studentId) return;
+  const submitAddStudent = async (input: { studentIds: string[]; status: Exclude<Status, "Pending"> }) => {
+    const studentIds = [...new Set(input.studentIds)].filter(Boolean);
+    if (studentIds.length === 0) return;
+    const added: Student[] = [];
+    const errors: string[] = [];
     try {
-      const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: input.studentId,
-          status: input.status,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error(await readApiError(res));
+      for (const studentId of studentIds) {
+        const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentId,
+            status: input.status,
+          }),
+        });
+        if (!res.ok) {
+          errors.push(`${studentId}: ${await readApiError(res)}`);
+          continue;
+        }
+        const body = (await res.json()) as { student?: Student };
+        if (body.student) added.push(body.student);
+        else errors.push(`${studentId}: Student could not be added to this class.`);
       }
-      const body = (await res.json()) as { student?: Student };
-      if (!body.student) {
-        throw new Error("Student could not be added to this class.");
+
+      if (added.length > 0) {
+        setStudents((prev) => [...prev, ...added]);
+        invalidateDashboardData([
+          `/api/data/classes/${encodeURIComponent(classId)}/roster`,
+          "/api/data/students",
+          "/api/data/classes",
+          "/api/data/class-options",
+          "/api/dashboard-presentation",
+          ...studentIds.flatMap((studentId) => studentDetailDataUrls(studentId)),
+        ]);
       }
-      setStudents((prev) => [...prev, body.student as Student]);
-      invalidateDashboardData([
-        `/api/data/classes/${encodeURIComponent(classId)}/roster`,
-        "/api/data/students",
-        "/api/data/classes",
-        "/api/data/class-options",
-        "/api/dashboard-presentation",
-        ...studentDetailDataUrls(input.studentId),
-      ]);
+
+      if (errors.length > 0) {
+        throw new Error(`Added ${added.length} of ${studentIds.length} student(s). ${errors[0]}`);
+      }
       setIsAddStudentModalOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Student could not be added to this class.";
+      const message = error instanceof Error ? error.message : "Students could not be added to this class.";
       throw new Error(message);
     }
   };
@@ -971,7 +972,7 @@ export default function ClassDetailsPage() {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="flex flex-col gap-3">
-                  <p className="text-sm font-bold text-[#272932]">Teacher's Guide</p>
+                  <p className="text-sm font-bold text-[#272932]">Teacher&apos;s Guide</p>
                   <label className="text-xs font-semibold text-gray-600">
                     Objectives
                     <textarea value={classMetaDraft.teacherGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
@@ -986,7 +987,7 @@ export default function ClassDetailsPage() {
                   </label>
                 </div>
                 <div className="flex flex-col gap-3">
-                  <p className="text-sm font-bold text-[#272932]">Students' Guide</p>
+                  <p className="text-sm font-bold text-[#272932]">Students&apos; Guide</p>
                   <label className="text-xs font-semibold text-gray-600">
                     Objectives
                     <textarea value={classMetaDraft.studentGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
@@ -1003,17 +1004,14 @@ export default function ClassDetailsPage() {
               </div>
               <div className="flex gap-3">
                 <label className="text-xs font-semibold text-gray-600 flex-1">
-                  Enrolled
+                  Enrolled (derived)
                   <input
                     type="number"
                     min={0}
                     value={String(classMetaDraft.capacityEnrolled)}
-                    onChange={(e) =>
-                      setClassMetaDraft((d) => ({
-                        ...d,
-                        capacityEnrolled: Number.parseInt(e.target.value, 10) || 0,
-                      }))}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    disabled
+                    readOnly
+                    className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
                   />
                 </label>
                 <label className="text-xs font-semibold text-gray-600 flex-1">

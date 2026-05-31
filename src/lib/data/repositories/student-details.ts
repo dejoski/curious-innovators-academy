@@ -18,6 +18,7 @@ import {
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
+import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -195,7 +196,7 @@ export async function fetchStudentProfileResolved(
     const { data: student, error } = await supabase
       .from("students")
       .select(
-        "id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes",
+        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, ${STUDENT_PARENT_CONTACT_SELECT}`,
       )
       .eq("id", id)
       .maybeSingle();
@@ -277,7 +278,7 @@ export async function fetchStudentProfileResolved(
           strengths: String(student.strengths ?? "") || "—",
           supportNotes: String(student.support_notes ?? "") || "—",
         },
-        parentName: String(student.guardian_label ?? ""),
+        parentName: parentContactFromStudentRow(student as unknown as Record<string, unknown>).name,
         parentHref: "/dashboard/parents",
         coreSummaryLabel: `Core: ${coreClasses.length}`,
         enrichmentSummaryLabel: `Enrichment: ${approved} / ${enrichmentTotal}`,
@@ -311,7 +312,7 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
     const supabase = access.client;
     const { data: students, error: studentsError } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label, avatar_url")
+      .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
       .order("display_name", { ascending: true });
     if (studentsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "students", studentsError);
@@ -322,7 +323,7 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
       emptyScheduleRow({
         id: String(student.id ?? ""),
         name: String(student.display_name ?? ""),
-        parent: String(student.guardian_label ?? ""),
+        parent: parentContactFromStudentRow(student as unknown as Record<string, unknown>).name,
         avatar: String(student.avatar_url ?? ""),
       }),
     ).filter((row) => row.id);
@@ -390,7 +391,7 @@ export async function fetchStudentScheduleResolved(
     const supabase = client ?? await createSupabaseServerClient();
     const { data: student, error } = await supabase
       .from("students")
-      .select("id, display_name, guardian_label, avatar_url")
+      .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
       .eq("id", id)
       .maybeSingle();
     if (error) {
@@ -426,7 +427,7 @@ export async function fetchStudentScheduleResolved(
     const row = emptyScheduleRow({
       id: String(student.id),
       name: String(student.display_name ?? ""),
-      parent: String(student.guardian_label ?? ""),
+      parent: parentContactFromStudentRow(student as unknown as Record<string, unknown>).name,
       avatar: String(student.avatar_url ?? ""),
     });
     ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
@@ -471,7 +472,7 @@ function mapStudentRosterEnrollmentRow(row: Record<string, unknown>): StudentRos
   return {
     id: String(id),
     name: String(student?.display_name ?? ""),
-    parent: String(student?.guardian_label ?? ""),
+    parent: parentContactFromStudentRow(student).name,
     age: Number(student?.age_years ?? 0) || 0,
     status: normalizeRosterStatus(row.status),
     avatar: String(student?.avatar_url ?? "") || "/images/avatars/student-1.png",
@@ -520,6 +521,7 @@ export async function fetchStudentRosterResolved(
           id,
           display_name,
           guardian_label,
+          ${STUDENT_PARENT_CONTACT_SELECT},
           avatar_url,
           age_years,
           level,

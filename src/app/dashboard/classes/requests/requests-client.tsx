@@ -2,7 +2,7 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus } from "lucide-react";
+import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
@@ -42,10 +42,50 @@ function statusBadgeClass(status: RequestStatus) {
   return "bg-[#ffd9d9] text-[#d80509] border-[#d80509]/50";
 }
 
-function actionLabel(type: "approve" | "waitlist" | "reject") {
-  if (type === "approve") return "Approve";
-  if (type === "waitlist") return "Waitlist";
-  return "Reject";
+const FINAL_STATUSES = ["Approved", "Waitlisted", "Rejected"] as const;
+
+type RequestAdminAction =
+  | { type: "status"; status: RequestStatus; request: EnrichmentRequestRow }
+  | { type: "delete"; request: EnrichmentRequestRow };
+
+function statusActionLabel(status: RequestStatus) {
+  if (status === "Approved") return "Approve";
+  if (status === "Waitlisted") return "Waitlist";
+  if (status === "Rejected") return "Reject";
+  return "Reopen pending";
+}
+
+function statusActionTone(status: RequestStatus) {
+  if (status === "Approved") return "text-[#004d08]";
+  if (status === "Waitlisted") return "text-[#7a5b00]";
+  if (status === "Rejected") return "text-[#d80509]";
+  return "text-[#0d0d12]";
+}
+
+function statusActionOptions(req: EnrichmentRequestRow): RequestStatus[] {
+  const next: RequestStatus[] = [];
+  if (req.status !== "Pending") next.push("Pending");
+  FINAL_STATUSES.forEach((status) => {
+    if (req.status !== status) next.push(status);
+  });
+  return next;
+}
+
+function confirmActionTitle(action: RequestAdminAction) {
+  if (action.type === "delete") return action.request.status === "Pending" ? "Delete request" : "Remove placement";
+  return action.status === "Pending" ? "Reopen request" : `${statusActionLabel(action.status)} request`;
+}
+
+function confirmActionBody(action: RequestAdminAction) {
+  if (action.type === "delete") {
+    return action.request.status === "Pending"
+      ? `Delete the pending request for ${action.request.student}?`
+      : `Remove the final ${action.request.status.toLowerCase()} placement for ${action.request.student}?`;
+  }
+  if (action.status === "Pending") return `Reopen ${action.request.student}'s final placement as a pending request?`;
+  if (action.status === "Approved") return `Approve enrollment for ${action.request.student}?`;
+  if (action.status === "Waitlisted") return `Move ${action.request.student} to the waitlist? This does not reserve a seat.`;
+  return `Reject enrollment for ${action.request.student}?`;
 }
 
 export default function ClassesEnrichmentRequests({
@@ -79,7 +119,7 @@ export default function ClassesEnrichmentRequests({
   const sortRef = useRef<HTMLDivElement | null>(null);
   const rowMenuRef = useRef<HTMLDivElement | null>(null);
   const rowMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
-  const rowMenuPlacement = useFixedMenuPlacement(rowMenuId !== null, rowMenuAnchorRef, 160);
+  const rowMenuPlacement = useFixedMenuPlacement(rowMenuId !== null, rowMenuAnchorRef, 190);
 
   useClickOutside(filterRef, () => setFilterOpen(false), filterOpen);
   useClickOutside(sortRef, () => setSortOpen(false), sortOpen);
@@ -87,8 +127,9 @@ export default function ClassesEnrichmentRequests({
 
   const [confirmAction, setConfirmAction] = useState<
     | null
-    | { type: "approve" | "waitlist" | "reject"; id: string; student: string }
+    | RequestAdminAction
   >(null);
+  const [reasonDraft, setReasonDraft] = useState("");
   const [detailRequest, setDetailRequest] = useState<EnrichmentRequestRow | null>(null);
 
   useEffect(() => {
@@ -159,23 +200,34 @@ export default function ClassesEnrichmentRequests({
   const metricValue = (value: React.ReactNode) =>
     isInitialRequestsLoad ? <DashboardValueSkeleton className="h-5 w-10" /> : value;
 
-  const selectableProcessed = useMemo(() => processed.filter((r) => r.status === "Pending"), [processed]);
+  const selectableProcessed = processed;
   const processedIdSet = useMemo(() => new Set(selectableProcessed.map((r) => r.id)), [selectableProcessed]);
   const allFilteredSelected = selectableProcessed.length > 0 && selectableProcessed.every((r) => selectedIds.has(r.id));
   const selectedRows = useMemo(
-    () => requests.filter((request) => request.status === "Pending" && selectedIds.has(request.id)),
+    () => requests.filter((request) => selectedIds.has(request.id)),
     [requests, selectedIds],
   );
   const selectedCount = selectedRows.length;
 
   const toggleSelect = (id: string) => {
-    if (requests.find((request) => request.id === id)?.status !== "Pending") return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
+
+  const openStatusAction = (request: EnrichmentRequestRow, status: RequestStatus) => {
+    setReasonDraft("");
+    setConfirmAction({ type: "status", status, request });
+    setRowMenuId(null);
+  };
+
+  const openDeleteAction = (request: EnrichmentRequestRow) => {
+    setReasonDraft("");
+    setConfirmAction({ type: "delete", request });
+    setRowMenuId(null);
   };
 
   const toggleSelectAllFiltered = () => {
@@ -214,7 +266,7 @@ export default function ClassesEnrichmentRequests({
     return true;
   };
 
-  const applyStatus = async (id: string, status: RequestStatus) => {
+  const applyStatus = async (id: string, status: RequestStatus, reason?: string) => {
     const touchedRow = requests.find((request) => request.id === id);
     setConfirmAction(null);
     setRowMenuId(null);
@@ -222,10 +274,27 @@ export default function ClassesEnrichmentRequests({
     const res = await fetch("/api/data/enrichment-requests", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status, reason }),
     });
     if (!res.ok) {
       setSyncHint(`Could not sync status (${await readApiError(res)}).`);
+      return;
+    }
+    await refreshRequestsFromRemote(touchedRow ? [touchedRow] : []);
+  };
+
+  const deleteRequest = async (id: string, reason?: string) => {
+    const touchedRow = requests.find((request) => request.id === id);
+    setConfirmAction(null);
+    setRowMenuId(null);
+    setSyncHint(null);
+    const res = await fetch("/api/data/enrichment-requests", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, reason }),
+    });
+    if (!res.ok) {
+      setSyncHint(`Could not remove request (${await readApiError(res)}).`);
       return;
     }
     await refreshRequestsFromRemote(touchedRow ? [touchedRow] : []);
@@ -357,7 +426,7 @@ export default function ClassesEnrichmentRequests({
                 className="bg-[#fafafa] px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-[#272932] hover:bg-[#f0f0f0]"
                 onClick={toggleSelectAllFiltered}
               >
-                {allFilteredSelected ? "Deselect pending" : `Select pending (${selectableProcessed.length})`}
+                {allFilteredSelected ? "Deselect rows" : `Select rows (${selectableProcessed.length})`}
               </button>
             ) : null}
             <div className="relative" ref={filterRef}>
@@ -472,6 +541,13 @@ export default function ClassesEnrichmentRequests({
             </button>
             <button
               type="button"
+              className="rounded-[8px] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#272932]"
+              onClick={() => void applyBulkStatus("Pending")}
+            >
+              Reopen
+            </button>
+            <button
+              type="button"
               className="rounded-[8px] px-3 py-1.5 text-[12px] font-semibold text-[#666d80] hover:bg-white"
               onClick={() => setSelectedIds(new Set())}
             >
@@ -489,8 +565,7 @@ export default function ClassesEnrichmentRequests({
                     type="button"
                     aria-label={`Select ${req.student} request for ${req.class}`}
                     aria-pressed={selectedIds.has(req.id)}
-                    disabled={req.status !== "Pending"}
-                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
+	                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
                       selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                     }`}
                     onClick={() => toggleSelect(req.id)}
@@ -519,35 +594,20 @@ export default function ClassesEnrichmentRequests({
                     <p className="mt-1 font-semibold text-[#0d0d12]">{req.option}</p>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
-                  {req.status === "Pending" ? (
-                    <>
-                      <button
-                        type="button"
-                        className="h-9 flex-1 rounded-[8px] bg-[#004d08] px-3 text-[12px] font-semibold text-white"
-                        onClick={() => setConfirmAction({ type: "approve", id: req.id, student: req.student })}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className="h-9 flex-1 rounded-[8px] bg-[#fff8e6] px-3 text-[12px] font-semibold text-[#7a5b00]"
-                        onClick={() => setConfirmAction({ type: "waitlist", id: req.id, student: req.student })}
-                      >
-                        Waitlist
-                      </button>
-                      <button
-                        type="button"
-                        className="h-9 flex-1 rounded-[8px] bg-[#ffd9d9] px-3 text-[12px] font-semibold text-[#d80509]"
-                        onClick={() => setConfirmAction({ type: "reject", id: req.id, student: req.student })}
-                      >
-                        Reject
-                      </button>
-                    </>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold text-[#272932]"
+	                <div className="mt-3 flex flex-wrap gap-2">
+	                  {statusActionOptions(req).map((status) => (
+	                    <button
+	                      key={status}
+	                      type="button"
+	                      className={`h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold ${statusActionTone(status)}`}
+	                      onClick={() => openStatusAction(req, status)}
+	                    >
+	                      {statusActionLabel(status)}
+	                    </button>
+	                  ))}
+	                  <button
+	                    type="button"
+	                    className="h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold text-[#272932]"
                     onClick={() => setDetailRequest(req)}
                   >
                     View request
@@ -562,7 +622,7 @@ export default function ClassesEnrichmentRequests({
           <div className="grid gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide" style={{ gridTemplateColumns: REQUESTS_GRID_COLUMNS }}>
             <button
               type="button"
-              aria-label={allFilteredSelected ? "Deselect all pending requests" : "Select all pending requests"}
+	              aria-label={allFilteredSelected ? "Deselect all requests" : "Select all requests"}
               aria-pressed={allFilteredSelected}
               disabled={selectableProcessed.length === 0}
               className={`h-4 w-4 rounded border border-[#14c1d5] ${
@@ -591,8 +651,7 @@ export default function ClassesEnrichmentRequests({
                   type="button"
                   aria-label={`Select ${req.student} request for ${req.class}`}
                   aria-pressed={selectedIds.has(req.id)}
-                  disabled={req.status !== "Pending"}
-                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
+	                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
                     selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                   }`}
                   onClick={() => toggleSelect(req.id)}
@@ -624,49 +683,41 @@ export default function ClassesEnrichmentRequests({
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
                 {rowMenuId === req.id && rowMenuPlacement && (
-                  <div
-                    className="fixed z-[70] w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md"
+	                  <div
+	                    className="fixed z-[70] w-[190px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md"
                     style={{
                       top: rowMenuPlacement.top,
                       left: rowMenuPlacement.left,
                     }}
                   >
-                    {req.status === "Pending" && (
-                      <>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 text-left text-[12px] text-[#004d08] hover:bg-[#fafafa]"
-                          onClick={() => setConfirmAction({ type: "approve", id: req.id, student: req.student })}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 text-left text-[12px] text-[#7a5b00] hover:bg-[#fafafa]"
-                          onClick={() => setConfirmAction({ type: "waitlist", id: req.id, student: req.student })}
-                        >
-                          Waitlist
-                        </button>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 text-left text-[12px] text-[#d80509] hover:bg-[#fafafa]"
-                          onClick={() => setConfirmAction({ type: "reject", id: req.id, student: req.student })}
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+	                    {statusActionOptions(req).map((status) => (
+	                      <button
+	                        key={status}
+	                        type="button"
+	                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-[#fafafa] ${statusActionTone(status)}`}
+	                        onClick={() => openStatusAction(req, status)}
+	                      >
+	                        {statusActionLabel(status)}
+	                      </button>
+	                    ))}
+	                    <button
+	                      type="button"
+	                      className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
                       onClick={() => {
                         setDetailRequest(req);
                         setRowMenuId(null);
                       }}
-                    >
-                      View request
-                    </button>
-                  </div>
+	                    >
+	                      View request
+	                    </button>
+	                    <button
+	                      type="button"
+	                      className="w-full px-3 py-2 text-left text-[12px] text-[#d80509] hover:bg-[#fafafa]"
+	                      onClick={() => openDeleteAction(req)}
+	                    >
+	                      {req.status === "Pending" ? "Delete request" : "Remove placement"}
+	                    </button>
+	                  </div>
                 )}
               </div>
             </div>
@@ -775,10 +826,37 @@ export default function ClassesEnrichmentRequests({
                   </span>
                 </dd>
               </div>
-            </dl>
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
+	            </dl>
+	            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+	              {statusActionOptions(detailRequest).map((status) => (
+	                <button
+	                  key={status}
+	                  type="button"
+	                  className={`inline-flex items-center justify-center gap-2 rounded-[8px] border border-[#dfe1e6] px-3 py-2 text-[12px] font-semibold ${statusActionTone(status)} hover:bg-[#fafafa]`}
+	                  onClick={() => {
+	                    setDetailRequest(null);
+	                    openStatusAction(detailRequest, status);
+	                  }}
+	                >
+	                  {status === "Pending" ? <RotateCcw className="h-4 w-4" /> : null}
+	                  {statusActionLabel(status)}
+	                </button>
+	              ))}
+	              <button
+	                type="button"
+	                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[#ffd9d9] px-3 py-2 text-[12px] font-semibold text-[#d80509] hover:bg-[#fff5f5]"
+	                onClick={() => {
+	                  setDetailRequest(null);
+	                  openDeleteAction(detailRequest);
+	                }}
+	              >
+	                <Trash2 className="h-4 w-4" />
+	                {detailRequest.status === "Pending" ? "Delete request" : "Remove placement"}
+	              </button>
+	            </div>
+	            <div className="mt-6 flex justify-end">
+	              <button
+	                type="button"
                 className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90"
                 onClick={() => setDetailRequest(null)}
               >
@@ -797,50 +875,68 @@ export default function ClassesEnrichmentRequests({
           aria-labelledby="confirm-request-title"
         >
           <div className="relative w-full max-w-md rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
-            <button
-              type="button"
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-              onClick={() => setConfirmAction(null)}
-              aria-label="Close"
-            >
+	            <button
+	              type="button"
+	              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+	              onClick={() => {
+	                setConfirmAction(null);
+	                setReasonDraft("");
+	              }}
+	              aria-label="Close"
+	            >
               <X className="w-5 h-5" />
-            </button>
-            <h2 id="confirm-request-title" className="pr-8 text-lg font-semibold text-[#272932]">
-              {actionLabel(confirmAction.type)} request
-            </h2>
-            <p className="mt-2 text-[14px] text-[#666d80]">
-              {confirmAction.type === "approve"
-                ? `Approve enrollment for ${confirmAction.student}?`
-                : confirmAction.type === "waitlist"
-                  ? `Move ${confirmAction.student} to the waitlist? This does not reserve a seat.`
-                  : `Reject enrollment for ${confirmAction.student}?`}
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-[12px] font-semibold text-[#0d0d12]"
-                onClick={() => setConfirmAction(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`rounded-[8px] px-4 py-2 text-[12px] font-semibold text-white ${
-                  confirmAction.type === "approve"
-                    ? "bg-[#004d08]"
-                    : confirmAction.type === "waitlist"
-                      ? "bg-[#cfa500]"
-                      : "bg-[#d80509]"
-                }`}
-                onClick={() =>
-                  applyStatus(
-                    confirmAction.id,
-                    confirmAction.type === "approve" ? "Approved" : confirmAction.type === "waitlist" ? "Waitlisted" : "Rejected",
-                  )
-                }
-              >
-                Confirm
-              </button>
+	            </button>
+	            <h2 id="confirm-request-title" className="pr-8 text-lg font-semibold text-[#272932]">
+	              {confirmActionTitle(confirmAction)}
+	            </h2>
+	            <p className="mt-2 text-[14px] text-[#666d80]">
+	              {confirmActionBody(confirmAction)}
+	            </p>
+	            <label className="mt-4 block text-[12px] font-semibold uppercase tracking-wide text-[#666d80]" htmlFor="request-action-reason">
+	              Correction note
+	            </label>
+	            <textarea
+	              id="request-action-reason"
+	              value={reasonDraft}
+	              onChange={(e) => setReasonDraft(e.target.value)}
+	              placeholder="Optional note for the decision history"
+	              className="mt-2 min-h-[86px] w-full resize-none rounded-[8px] border border-[#dfe1e6] bg-white px-3 py-2 text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+	            />
+	            <div className="mt-6 flex justify-end gap-3">
+	              <button
+	                type="button"
+	                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-[12px] font-semibold text-[#0d0d12]"
+	                onClick={() => {
+	                  setConfirmAction(null);
+	                  setReasonDraft("");
+	                }}
+	              >
+	                Cancel
+	              </button>
+	              <button
+	                type="button"
+	                className={`rounded-[8px] px-4 py-2 text-[12px] font-semibold text-white ${
+	                  confirmAction.type === "delete"
+	                    ? "bg-[#d80509]"
+	                    : confirmAction.status === "Approved"
+	                    ? "bg-[#004d08]"
+	                    : confirmAction.status === "Waitlisted"
+	                      ? "bg-[#cfa500]"
+	                      : confirmAction.status === "Pending"
+	                        ? "bg-[#272932]"
+	                        : "bg-[#d80509]"
+	                }`}
+	                onClick={() => {
+	                  const note = reasonDraft.trim() || undefined;
+	                  if (confirmAction.type === "delete") {
+	                    void deleteRequest(confirmAction.request.id, note);
+	                    return;
+	                  }
+	                  void applyStatus(confirmAction.request.id, confirmAction.status, note);
+	                }}
+	              >
+	                Confirm
+	              </button>
             </div>
           </div>
         </div>

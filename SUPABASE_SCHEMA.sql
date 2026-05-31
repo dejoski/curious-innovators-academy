@@ -249,6 +249,31 @@ CREATE TABLE public.parent_students (
 
 CREATE INDEX parent_students_student_id_idx ON public.parent_students (student_id);
 
+CREATE OR REPLACE VIEW public.student_parent_contacts AS
+SELECT
+  s.id AS student_id,
+  COALESCE(
+    string_agg(DISTINCT p.id::text, ', ' ORDER BY p.id::text) FILTER (WHERE p.id IS NOT NULL),
+    ''
+  ) AS parent_ids,
+  COALESCE(
+    string_agg(DISTINCT NULLIF(BTRIM(pr.display_name), ''), ', ' ORDER BY NULLIF(BTRIM(pr.display_name), ''))
+      FILTER (WHERE NULLIF(BTRIM(pr.display_name), '') IS NOT NULL),
+    ''
+  ) AS parent_names,
+  COALESCE(
+    string_agg(DISTINCT NULLIF(BTRIM(pr.email), ''), ', ' ORDER BY NULLIF(BTRIM(pr.email), ''))
+      FILTER (WHERE NULLIF(BTRIM(pr.email), '') IS NOT NULL),
+    ''
+  ) AS parent_emails,
+  COUNT(DISTINCT p.id)::integer AS linked_parent_count,
+  NULLIF(BTRIM(s.guardian_label), '') AS legacy_guardian_label
+FROM public.students s
+LEFT JOIN public.parent_students ps ON ps.student_id = s.id
+LEFT JOIN public.parents p ON p.id = ps.parent_id
+LEFT JOIN public.profiles pr ON pr.id = p.profile_id
+GROUP BY s.id, s.guardian_label;
+
 CREATE TABLE public.classes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -489,6 +514,34 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE PROCEDURE public.handle_new_user();
 
+CREATE OR REPLACE FUNCTION public.materialize_profile_role()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+BEGIN
+  IF NEW.role = 'parent' THEN
+    INSERT INTO public.parents (profile_id)
+    VALUES (NEW.id)
+    ON CONFLICT (profile_id) DO NOTHING;
+  ELSIF NEW.role = 'teacher' THEN
+    INSERT INTO public.teachers (profile_id)
+    VALUES (NEW.id)
+    ON CONFLICT (profile_id) DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS profiles_materialize_role_trg ON public.profiles;
+CREATE TRIGGER profiles_materialize_role_trg
+  AFTER INSERT OR UPDATE OF role ON public.profiles
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.materialize_profile_role();
+
 CREATE OR REPLACE FUNCTION public.profiles_guard_role_and_email()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -564,9 +617,9 @@ CREATE POLICY parents_select
     OR private.teacher_can_see_parent(parents.id)
   );
 
-CREATE POLICY parents_insert_admin
+CREATE POLICY parents_insert_self_or_admin
   ON public.parents FOR INSERT TO authenticated
-  WITH CHECK (private.is_admin());
+  WITH CHECK (private.is_admin() OR profile_id = auth.uid());
 
 CREATE POLICY parents_update_admin
   ON public.parents FOR UPDATE TO authenticated
@@ -866,4 +919,5 @@ CREATE POLICY user_preferences_upsert_self
   WITH CHECK (profile_id = auth.uid() OR private.is_admin());
 
 -- Default privileges on hosted Supabase cover API roles; private helpers are execution-scoped only.
+GRANT SELECT ON public.student_parent_contacts TO authenticated;
 GRANT USAGE ON SCHEMA private TO authenticated;

@@ -70,19 +70,16 @@ export function fallbackParentClassOption(name: string, id = ""): ParentClassOpt
   };
 }
 
-function seatsFromLabel(label: string): { used: number; capacity: number } | null {
-  const match = /^(\d+)\s*\/\s*(\d+)/.exec(label.trim());
-  if (!match) return null;
-  return { used: Number(match[1]), capacity: Number(match[2]) };
-}
-
 export function seatsRemainingForOption(option: ParentClassOption): number | null {
   if (typeof option.seatsRemaining === "number" && Number.isFinite(option.seatsRemaining)) {
     return Math.max(0, Math.floor(option.seatsRemaining));
   }
-  const parsed = seatsFromLabel(option.seats);
-  if (!parsed) return null;
-  return Math.max(0, parsed.capacity - parsed.used);
+  if (typeof option.capacity !== "number" || !Number.isFinite(option.capacity)) return null;
+  const reserved =
+    typeof option.reservedCount === "number" && Number.isFinite(option.reservedCount)
+      ? option.reservedCount
+      : (option.enrolledCount ?? 0) + (option.pendingCount ?? 0);
+  return Math.max(0, Math.floor(option.capacity) - Math.max(0, Math.floor(reserved)));
 }
 
 export function availabilityLabelForOption(option: ParentClassOption): string {

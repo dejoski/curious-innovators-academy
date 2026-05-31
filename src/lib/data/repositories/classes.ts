@@ -10,6 +10,7 @@ import type {
 } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
+import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -281,7 +282,7 @@ function mapRosterEnrollmentRow(row: Record<string, unknown>): ClassRosterStuden
   return {
     id: String(id),
     name: String(student?.display_name ?? row.student_name ?? ""),
-    parent: String(student?.guardian_label ?? row.parent_name ?? ""),
+    parent: parentContactFromStudentRow(student, { name: row.parent_name }).name,
     age: Number(student?.age_years ?? row.age_years ?? 0) || 0,
     level: String(student?.level ?? row.level ?? ""),
     status: normalizeRosterStatus(row.status),
@@ -318,6 +319,7 @@ export async function fetchClassRosterResolved(
           id,
           display_name,
           guardian_label,
+          ${STUDENT_PARENT_CONTACT_SELECT},
           age_years,
           level,
           learning_profile,

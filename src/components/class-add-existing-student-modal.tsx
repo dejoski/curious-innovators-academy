@@ -15,7 +15,7 @@ type AddExistingStudentModalProps = {
   existingStudentIds: string[];
   classNameLabel: string;
   onClose: () => void;
-  onSubmit: (input: { studentId: string; status: Exclude<ClassRosterStatus, "Pending"> }) => Promise<void>;
+  onSubmit: (input: { studentIds: string[]; status: Exclude<ClassRosterStatus, "Pending"> }) => Promise<void>;
 };
 
 const STATUS_OPTIONS: Exclude<ClassRosterStatus, "Pending">[] = ["Approved", "Waitlisted", "Rejected"];
@@ -29,7 +29,7 @@ export function ClassAddExistingStudentModal({
 }: AddExistingStudentModalProps) {
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [query, setQuery] = useState("");
-  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(() => new Set());
   const [status, setStatus] = useState<Exclude<ClassRosterStatus, "Pending">>("Approved");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -51,6 +51,14 @@ export function ClassAddExistingStudentModal({
         .includes(q),
     );
   }, [availableStudents, query]);
+  const visibleStudentIds = useMemo(() => new Set(visibleStudents.map((student) => student.id)), [visibleStudents]);
+  const selectedAvailableIds = useMemo(() => {
+    const availableIds = new Set(availableStudents.map((student) => student.id));
+    return [...selectedStudentIds].filter((id) => availableIds.has(id));
+  }, [availableStudents, selectedStudentIds]);
+  const selectedCount = selectedAvailableIds.length;
+  const allVisibleSelected =
+    visibleStudents.length > 0 && visibleStudents.every((student) => selectedStudentIds.has(student.id));
 
   useEffect(() => {
     if (!open) return;
@@ -75,25 +83,41 @@ export function ClassAddExistingStudentModal({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (selectedStudentId && visibleStudents.some((student) => student.id === selectedStudentId)) return;
-    setSelectedStudentId(visibleStudents[0]?.id ?? "");
-  }, [open, selectedStudentId, visibleStudents]);
-
   if (!open) return null;
 
+  function toggleStudent(studentId: string) {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }
+
+  function toggleVisibleStudents() {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleStudentIds.forEach((id) => next.delete(id));
+      } else {
+        visibleStudentIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
+
   async function submit() {
-    if (!selectedStudentId || submitting) return;
+    const studentIds = selectedAvailableIds;
+    if (studentIds.length === 0 || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await onSubmit({ studentId: selectedStudentId, status });
+      await onSubmit({ studentIds, status });
       setQuery("");
-      setSelectedStudentId("");
+      setSelectedStudentIds(new Set());
       setStatus("Approved");
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Student could not be added to this class.");
+      setSubmitError(error instanceof Error ? error.message : "Students could not be added to this class.");
     } finally {
       setSubmitting(false);
     }
@@ -141,7 +165,7 @@ export function ClassAddExistingStudentModal({
 
         <div className="mt-5 flex flex-col gap-4">
           <label className="flex flex-col gap-2">
-            <span className="text-sm font-semibold text-[#272932]">Student</span>
+            <span className="text-sm font-semibold text-[#272932]">Students</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               <input
@@ -152,6 +176,21 @@ export function ClassAddExistingStudentModal({
               />
             </div>
           </label>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-medium text-[#666d80]">
+              {selectedCount} selected
+            </p>
+            {visibleStudents.length > 0 ? (
+              <button
+                type="button"
+                onClick={toggleVisibleStudents}
+                className="rounded-[8px] bg-[#fafafa] px-3 py-1.5 text-xs font-semibold text-[#272932] transition-colors hover:bg-[#f0f0f0]"
+              >
+                {allVisibleSelected ? "Deselect visible" : `Select visible (${visibleStudents.length})`}
+              </button>
+            ) : null}
+          </div>
 
           <div className="max-h-[260px] overflow-y-auto rounded-[10px] border border-[#f0f0f0]">
             {loading ? (
@@ -165,15 +204,26 @@ export function ClassAddExistingStudentModal({
                 <button
                   key={student.id}
                   type="button"
-                  onClick={() => setSelectedStudentId(student.id)}
+                  onClick={() => toggleStudent(student.id)}
+                  aria-pressed={selectedStudentIds.has(student.id)}
                   className={`flex w-full items-center justify-between gap-4 border-b border-[#f0f0f0] px-4 py-3 text-left last:border-b-0 transition-colors ${
-                    selectedStudentId === student.id ? "bg-[#ecfdff]" : "hover:bg-gray-50"
+                    selectedStudentIds.has(student.id) ? "bg-[#ecfdff]" : "hover:bg-gray-50"
                   }`}
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[#272932]">{student.name}</span>
-                    <span className="block truncate text-xs text-[#666d80]">
-                      {student.parent || "Parent not assigned"} · Level {student.level || "not set"}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span
+                      aria-hidden
+                      className={`flex size-4 shrink-0 items-center justify-center rounded border border-[#14c1d5] ${
+                        selectedStudentIds.has(student.id) ? "bg-[#14c1d5]" : "bg-[#d2f1f5] opacity-60"
+                      }`}
+                    >
+                      {selectedStudentIds.has(student.id) ? <span className="size-2 rounded-sm bg-white" /> : null}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-[#272932]">{student.name}</span>
+                      <span className="block truncate text-xs text-[#666d80]">
+                        {student.parent || "Parent not assigned"} · Level {student.level || "not set"}
+                      </span>
                     </span>
                   </span>
                   <span className="shrink-0 rounded-full border border-[#dfe1e7] px-2 py-1 text-xs text-[#666d80]">
@@ -211,10 +261,10 @@ export function ClassAddExistingStudentModal({
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={!selectedStudentId || submitting || loading}
+            disabled={selectedCount === 0 || submitting || loading}
             className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#11a9bb] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
           >
-            {submitting ? "Adding..." : "Add to class"}
+            {submitting ? "Adding..." : selectedCount > 1 ? `Add ${selectedCount} to class` : "Add to class"}
           </button>
         </div>
       </div>

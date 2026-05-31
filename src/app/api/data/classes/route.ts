@@ -21,6 +21,15 @@ function plannerFields(body: Record<string, unknown>) {
   };
 }
 
+function capacityField(body: Record<string, unknown>) {
+  const direct = Number(body.capacity);
+  if (Number.isFinite(direct) && direct > 0) return Math.floor(direct);
+  const legacy = String(body.students ?? "").trim();
+  const match = /^\d+\s*\/\s*(\d+)$/.exec(legacy);
+  const parsed = match ? Number(match[1]) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+}
+
 export async function GET(request: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
@@ -37,7 +46,7 @@ export async function POST(req: Request) {
   const result = await serverInsertClass({
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
-    students: String(body.students ?? "0/1"),
+    capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
     track: body.track === "enrichment" ? "enrichment" : "core",
@@ -64,7 +73,7 @@ export async function PATCH(req: Request) {
   const result = await serverUpdateClass(id, {
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
-    students: String(body.students ?? "0/1"),
+    capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
     track: body.track === "enrichment" ? "enrichment" : "core",
