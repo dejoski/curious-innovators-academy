@@ -14,6 +14,7 @@ import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
+import { DashboardActionFeedback, type DashboardActionFeedbackState } from "@/components/dashboard-action-feedback";
 
 export type ClassesEnrichmentRequestsProps = {
   initialRequests: EnrichmentRequestRow[];
@@ -88,6 +89,34 @@ function confirmActionBody(action: RequestAdminAction) {
   return `Reject enrollment for ${action.request.student}?`;
 }
 
+function decisionSummaryForRequests(rows: EnrichmentRequestRow[]): EnrichmentDecisionSummary {
+  return rows.reduce<EnrichmentDecisionSummary>(
+    (summary, row) => {
+      if (row.status === "Approved") summary.approved += 1;
+      if (row.status === "Waitlisted") summary.waitlisted += 1;
+      if (row.status === "Rejected") summary.rejected += 1;
+      return summary;
+    },
+    { approved: 0, waitlisted: 0, rejected: 0 },
+  );
+}
+
+function statusActionProgress(status: RequestStatus, count: number) {
+  const noun = count === 1 ? "class" : "classes";
+  if (status === "Approved") return `Approving ${count} ${noun}...`;
+  if (status === "Waitlisted") return `Moving ${count} ${noun} to waitlist...`;
+  if (status === "Rejected") return `Rejecting ${count} ${noun}...`;
+  return `Reopening ${count} ${noun}...`;
+}
+
+function statusActionComplete(status: RequestStatus, count: number) {
+  const noun = count === 1 ? "class" : "classes";
+  if (status === "Approved") return `${count} ${noun} approved.`;
+  if (status === "Waitlisted") return `${count} ${noun} waitlisted.`;
+  if (status === "Rejected") return `${count} ${noun} rejected.`;
+  return `${count} ${noun} reopened.`;
+}
+
 export default function ClassesEnrichmentRequests({
   initialRequests,
   dataSource,
@@ -104,6 +133,8 @@ export default function ClassesEnrichmentRequests({
     () => classesCache.requests.data?.decisionSummary ?? initialDecisionSummary,
   );
   const [syncHint, setSyncHint] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<DashboardActionFeedbackState>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("All");
   const [sortKey, setSortKey] = useState<SortKey>("student");
@@ -138,6 +169,12 @@ export default function ClassesEnrichmentRequests({
       if (request) setDetailRequest(request);
     }
   }, [detailIdFromUrl, requests]);
+
+  useEffect(() => {
+    if (actionFeedback?.tone !== "success") return;
+    const timeout = window.setTimeout(() => setActionFeedback(null), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [actionFeedback]);
 
   useEffect(() => {
     if (initialRequests.length > 0 && !classesCache.requests.data) {
@@ -266,21 +303,54 @@ export default function ClassesEnrichmentRequests({
     return true;
   };
 
+  const commitOptimisticRequests = (nextRows: EnrichmentRequestRow[]) => {
+    const nextSummary = decisionSummaryForRequests(nextRows);
+    setRequests(nextRows);
+    setDecisionSummary(nextSummary);
+    classesCache.setRequestsData(nextRows, nextSummary, "remote");
+  };
+
+  const reconcileRequestsInBackground = (touchedRows: EnrichmentRequestRow[]) => {
+    void refreshRequestsFromRemote(touchedRows).catch((error) => {
+      setActionFeedback({
+        tone: "error",
+        message: `Updated locally, but refresh failed: ${error instanceof Error ? error.message : String(error)}.`,
+      });
+    });
+  };
+
   const applyStatus = async (id: string, status: RequestStatus, reason?: string) => {
     const touchedRow = requests.find((request) => request.id === id);
     setConfirmAction(null);
     setRowMenuId(null);
     setSyncHint(null);
+    if (!touchedRow || actionBusy) return;
+    const previousRows = requests;
+    const nextRows = previousRows.map((request) => (
+      request.id === id ? { ...request, status } : request
+    ));
+    setActionBusy(true);
+    setActionFeedback({ tone: "loading", message: statusActionProgress(status, 1) });
+    commitOptimisticRequests(nextRows);
     const res = await fetch("/api/data/enrichment-requests", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status, reason }),
     });
     if (!res.ok) {
-      setSyncHint(`Could not sync status (${await readApiError(res)}).`);
+      commitOptimisticRequests(previousRows);
+      setActionFeedback({ tone: "error", message: `Could not update class: ${await readApiError(res)}.` });
+      setActionBusy(false);
       return;
     }
-    await refreshRequestsFromRemote(touchedRow ? [touchedRow] : []);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setActionFeedback({ tone: "success", message: statusActionComplete(status, 1) });
+    setActionBusy(false);
+    reconcileRequestsInBackground([touchedRow]);
   };
 
   const deleteRequest = async (id: string, reason?: string) => {
@@ -288,25 +358,48 @@ export default function ClassesEnrichmentRequests({
     setConfirmAction(null);
     setRowMenuId(null);
     setSyncHint(null);
+    if (!touchedRow || actionBusy) return;
+    const previousRows = requests;
+    const nextRows = previousRows.filter((request) => request.id !== id);
+    setActionBusy(true);
+    setActionFeedback({ tone: "loading", message: "Removing class request..." });
+    commitOptimisticRequests(nextRows);
     const res = await fetch("/api/data/enrichment-requests", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, reason }),
     });
     if (!res.ok) {
-      setSyncHint(`Could not remove request (${await readApiError(res)}).`);
+      commitOptimisticRequests(previousRows);
+      setActionFeedback({ tone: "error", message: `Could not remove request: ${await readApiError(res)}.` });
+      setActionBusy(false);
       return;
     }
-    await refreshRequestsFromRemote(touchedRow ? [touchedRow] : []);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setActionFeedback({ tone: "success", message: "Class request removed." });
+    setActionBusy(false);
+    reconcileRequestsInBackground([touchedRow]);
   };
 
   const applyBulkStatus = async (status: RequestStatus) => {
-    if (selectedRows.length === 0) return;
+    if (selectedRows.length === 0 || actionBusy) return;
     const targetRows = selectedRows;
+    const targetIds = new Set(targetRows.map((row) => row.id));
+    const previousRows = requests;
+    const nextRows = previousRows.map((row) => (
+      targetIds.has(row.id) ? { ...row, status } : row
+    ));
     const failedMessages: string[] = [];
 
     setRowMenuId(null);
     setSyncHint(null);
+    setActionBusy(true);
+    setActionFeedback({ tone: "loading", message: statusActionProgress(status, targetRows.length) });
+    commitOptimisticRequests(nextRows);
 
     await Promise.all(
       targetRows.map(async (row) => {
@@ -322,17 +415,22 @@ export default function ClassesEnrichmentRequests({
     );
 
     if (failedMessages.length > 0) {
-      setSyncHint(`Could not sync ${failedMessages.length} selected request(s): ${failedMessages[0] ?? "Unknown error"}.`);
-      await refreshRequestsFromRemote(targetRows);
+      commitOptimisticRequests(previousRows);
+      setActionFeedback({ tone: "error", message: `Could not update ${failedMessages.length} selected class(es): ${failedMessages[0] ?? "Unknown error"}.` });
+      setActionBusy(false);
+      reconcileRequestsInBackground(targetRows);
       return;
     }
 
     setSelectedIds(new Set());
-    await refreshRequestsFromRemote(targetRows);
+    setActionFeedback({ tone: "success", message: statusActionComplete(status, targetRows.length) });
+    setActionBusy(false);
+    reconcileRequestsInBackground(targetRows);
   };
 
   return (
     <div className="flex h-full flex-col gap-6 bg-[#fafafa] p-4 md:p-8">
+      <DashboardActionFeedback state={actionFeedback} />
       <div className="flex flex-col gap-2">
         <h1 className="text-[28px] font-bold text-[#272932]">Enrichment requests</h1>
         <p className="text-[16px] text-[#666d80]">
@@ -423,7 +521,8 @@ export default function ClassesEnrichmentRequests({
             {selectableProcessed.length > 0 ? (
               <button
                 type="button"
-                className="bg-[#fafafa] px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-[#272932] hover:bg-[#f0f0f0]"
+                disabled={actionBusy}
+                className="bg-[#fafafa] px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-[#272932] hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={toggleSelectAllFiltered}
               >
                 {allFilteredSelected ? "Deselect rows" : `Select rows (${selectableProcessed.length})`}
@@ -520,35 +619,40 @@ export default function ClassesEnrichmentRequests({
             </span>
             <button
               type="button"
-              className="rounded-[8px] bg-[#004d08] px-3 py-1.5 text-[12px] font-semibold text-white"
+              disabled={actionBusy}
+              className="rounded-[8px] bg-[#004d08] px-3 py-1.5 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void applyBulkStatus("Approved")}
             >
               Approve
             </button>
             <button
               type="button"
-              className="rounded-[8px] bg-[#fff8e6] px-3 py-1.5 text-[12px] font-semibold text-[#7a5b00]"
+              disabled={actionBusy}
+              className="rounded-[8px] bg-[#fff8e6] px-3 py-1.5 text-[12px] font-semibold text-[#7a5b00] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void applyBulkStatus("Waitlisted")}
             >
               Waitlist
             </button>
             <button
               type="button"
-              className="rounded-[8px] bg-[#ffd9d9] px-3 py-1.5 text-[12px] font-semibold text-[#d80509]"
+              disabled={actionBusy}
+              className="rounded-[8px] bg-[#ffd9d9] px-3 py-1.5 text-[12px] font-semibold text-[#d80509] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void applyBulkStatus("Rejected")}
             >
               Reject
             </button>
             <button
               type="button"
-              className="rounded-[8px] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#272932]"
+              disabled={actionBusy}
+              className="rounded-[8px] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#272932] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void applyBulkStatus("Pending")}
             >
               Reopen
             </button>
             <button
               type="button"
-              className="rounded-[8px] px-3 py-1.5 text-[12px] font-semibold text-[#666d80] hover:bg-white"
+              disabled={actionBusy}
+              className="rounded-[8px] px-3 py-1.5 text-[12px] font-semibold text-[#666d80] hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => setSelectedIds(new Set())}
             >
               Clear
@@ -565,6 +669,7 @@ export default function ClassesEnrichmentRequests({
                     type="button"
                     aria-label={`Select ${req.student} request for ${req.class}`}
                     aria-pressed={selectedIds.has(req.id)}
+                    disabled={actionBusy}
 	                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
                       selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                     }`}
@@ -599,7 +704,8 @@ export default function ClassesEnrichmentRequests({
 	                    <button
 	                      key={status}
 	                      type="button"
-	                      className={`h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold ${statusActionTone(status)}`}
+	                      disabled={actionBusy}
+	                      className={`h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${statusActionTone(status)}`}
 	                      onClick={() => openStatusAction(req, status)}
 	                    >
 	                      {statusActionLabel(status)}
@@ -607,7 +713,8 @@ export default function ClassesEnrichmentRequests({
 	                  ))}
 	                  <button
 	                    type="button"
-	                    className="h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold text-[#272932]"
+	                    disabled={actionBusy}
+	                    className="h-9 flex-1 rounded-[8px] border border-[#dfe1e6] px-3 text-[12px] font-semibold text-[#272932] disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => setDetailRequest(req)}
                   >
                     View request
@@ -624,7 +731,7 @@ export default function ClassesEnrichmentRequests({
               type="button"
 	              aria-label={allFilteredSelected ? "Deselect all requests" : "Select all requests"}
               aria-pressed={allFilteredSelected}
-              disabled={selectableProcessed.length === 0}
+              disabled={selectableProcessed.length === 0 || actionBusy}
               className={`h-4 w-4 rounded border border-[#14c1d5] ${
                 allFilteredSelected ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
               } disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa]`}
@@ -651,6 +758,7 @@ export default function ClassesEnrichmentRequests({
                   type="button"
                   aria-label={`Select ${req.student} request for ${req.class}`}
                   aria-pressed={selectedIds.has(req.id)}
+                  disabled={actionBusy}
 	                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
                     selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
                   }`}
@@ -676,7 +784,8 @@ export default function ClassesEnrichmentRequests({
                 <button
                   type="button"
                   ref={rowMenuId === req.id ? rowMenuAnchorRef : null}
-                  className="text-gray-400 hover:text-gray-600"
+                  disabled={actionBusy}
+                  className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => setRowMenuId((id) => (id === req.id ? null : req.id))}
                   aria-expanded={rowMenuId === req.id}
                 >
@@ -694,7 +803,8 @@ export default function ClassesEnrichmentRequests({
 	                      <button
 	                        key={status}
 	                        type="button"
-	                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-[#fafafa] ${statusActionTone(status)}`}
+	                        disabled={actionBusy}
+	                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60 ${statusActionTone(status)}`}
 	                        onClick={() => openStatusAction(req, status)}
 	                      >
 	                        {statusActionLabel(status)}
@@ -712,7 +822,8 @@ export default function ClassesEnrichmentRequests({
 	                    </button>
 	                    <button
 	                      type="button"
-	                      className="w-full px-3 py-2 text-left text-[12px] text-[#d80509] hover:bg-[#fafafa]"
+	                      disabled={actionBusy}
+	                      className="w-full px-3 py-2 text-left text-[12px] text-[#d80509] hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
 	                      onClick={() => openDeleteAction(req)}
 	                    >
 	                      {req.status === "Pending" ? "Delete request" : "Remove placement"}
@@ -832,7 +943,8 @@ export default function ClassesEnrichmentRequests({
 	                <button
 	                  key={status}
 	                  type="button"
-	                  className={`inline-flex items-center justify-center gap-2 rounded-[8px] border border-[#dfe1e6] px-3 py-2 text-[12px] font-semibold ${statusActionTone(status)} hover:bg-[#fafafa]`}
+	                  disabled={actionBusy}
+	                  className={`inline-flex items-center justify-center gap-2 rounded-[8px] border border-[#dfe1e6] px-3 py-2 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${statusActionTone(status)} hover:bg-[#fafafa]`}
 	                  onClick={() => {
 	                    setDetailRequest(null);
 	                    openStatusAction(detailRequest, status);
@@ -844,7 +956,8 @@ export default function ClassesEnrichmentRequests({
 	              ))}
 	              <button
 	                type="button"
-	                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[#ffd9d9] px-3 py-2 text-[12px] font-semibold text-[#d80509] hover:bg-[#fff5f5]"
+	                disabled={actionBusy}
+	                className="inline-flex items-center justify-center gap-2 rounded-[8px] border border-[#ffd9d9] px-3 py-2 text-[12px] font-semibold text-[#d80509] hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
 	                onClick={() => {
 	                  setDetailRequest(null);
 	                  openDeleteAction(detailRequest);
@@ -857,7 +970,8 @@ export default function ClassesEnrichmentRequests({
 	            <div className="mt-6 flex justify-end">
 	              <button
 	                type="button"
-                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90"
+                disabled={actionBusy}
+                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => setDetailRequest(null)}
               >
                 Close
@@ -905,7 +1019,8 @@ export default function ClassesEnrichmentRequests({
 	            <div className="mt-6 flex justify-end gap-3">
 	              <button
 	                type="button"
-	                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-[12px] font-semibold text-[#0d0d12]"
+	                disabled={actionBusy}
+	                className="rounded-[8px] bg-[#fafafa] px-4 py-2 text-[12px] font-semibold text-[#0d0d12] disabled:cursor-not-allowed disabled:opacity-60"
 	                onClick={() => {
 	                  setConfirmAction(null);
 	                  setReasonDraft("");
@@ -915,6 +1030,7 @@ export default function ClassesEnrichmentRequests({
 	              </button>
 	              <button
 	                type="button"
+	                disabled={actionBusy}
 	                className={`rounded-[8px] px-4 py-2 text-[12px] font-semibold text-white ${
 	                  confirmAction.type === "delete"
 	                    ? "bg-[#d80509]"
@@ -925,7 +1041,7 @@ export default function ClassesEnrichmentRequests({
 	                      : confirmAction.status === "Pending"
 	                        ? "bg-[#272932]"
 	                        : "bg-[#d80509]"
-	                }`}
+	                } disabled:cursor-not-allowed disabled:opacity-60`}
 	                onClick={() => {
 	                  const note = reasonDraft.trim() || undefined;
 	                  if (confirmAction.type === "delete") {
@@ -935,7 +1051,7 @@ export default function ClassesEnrichmentRequests({
 	                  void applyStatus(confirmAction.request.id, confirmAction.status, note);
 	                }}
 	              >
-	                Confirm
+	                {actionBusy ? "Working..." : "Confirm"}
 	              </button>
             </div>
           </div>
