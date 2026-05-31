@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Info, Lightbulb } from "lucide-react";
@@ -39,15 +39,19 @@ import {
   INITIAL_PARENT_CATALOG_REQUESTS,
   catalogChoiceReviews,
   catalogSnapshotFromEnrichmentRequests,
+  changedParentCatalogChoiceRequests,
   changedParentCatalogRequests,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
+  localReviewKey,
   mergedParentCatalogScheduleBadgeOverrides,
   mergeParentCatalogChoiceRequests,
-  mergeParentCatalogRequests,
   normalizeParentCatalogRequests,
+  parentCatalogRequestsForChoice,
+  parentCatalogRequestsForSlot,
   readParentCatalogSnapshot,
+  remainingParentCatalogDraftAfterSubmit,
   selectedChoicesForSubmit,
   writePendingParentCatalogRequests,
   type LocalReviewStatuses,
@@ -74,6 +78,18 @@ const initialRequests = INITIAL_PARENT_CATALOG_REQUESTS as Record<SlotId, SlotRe
 
 function normalizedCatalogRequests(requests?: ParentCatalogRequests | null): Record<SlotId, SlotRequests> {
   return normalizeParentCatalogRequests(requests ?? INITIAL_PARENT_CATALOG_REQUESTS) as Record<SlotId, SlotRequests>;
+}
+
+function pendingReviewStatusesForRequests(requests: ParentCatalogRequests | null | undefined): LocalReviewStatuses {
+  const normalized = normalizedCatalogRequests(requests);
+  const statuses: LocalReviewStatuses = {};
+
+  (Object.entries(normalized) as [SlotId, SlotRequests][]).forEach(([slotId, slot]) => {
+    if (slot.firstChoice?.id || slot.firstChoice?.name) statuses[localReviewKey(slotId, "first")] = "Pending";
+    if (slot.secondChoice?.id || slot.secondChoice?.name) statuses[localReviewKey(slotId, "second")] = "Pending";
+  });
+
+  return statuses;
 }
 
 function slotContextFromBadges(badges: StudentScheduleBadge[] | undefined): ParentClassSlotContext {
@@ -122,6 +138,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const [activeSlot, setActiveSlot] = useState<SlotId>("block4_day3");
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
+  const [activeSubmitChoice, setActiveSubmitChoice] = useState<ParentClassChoiceKind | null>(null);
   const [requests, setRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
   const [serverRequests, setServerRequests] = useState<Record<SlotId, SlotRequests>>(initialRequests);
   const [serverReviewStatuses, setServerReviewStatuses] = useState<LocalReviewStatuses>({});
@@ -135,6 +152,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const [studentScheduleLoading, setStudentScheduleLoading] = useState(true);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
+  const requestStateVersion = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +258,7 @@ function ParentClassesEnrichmentCatalogContent() {
     const studentForRequests = activeStudent;
     let cancelled = false;
     async function loadRequestState() {
+      const loadVersion = ++requestStateVersion.current;
       const draftSnapshot = readParentCatalogSnapshot({
         studentId: studentForRequests.id,
         studentName: studentForRequests.name,
@@ -257,7 +276,7 @@ function ParentClassesEnrichmentCatalogContent() {
           Array.isArray(body.requests) ? body.requests : [],
           studentForRequests.id,
         );
-        if (cancelled) return;
+        if (cancelled || requestStateVersion.current !== loadVersion) return;
         const dbRequests = normalizedCatalogRequests(dbSnapshot.requests);
         setServerRequests(dbRequests);
         setServerRequestState(dbSnapshot.state);
@@ -316,10 +335,10 @@ function ParentClassesEnrichmentCatalogContent() {
 
   const draftOnlyRequests = useMemo(() => {
     if (localRequestState !== "draft") return null;
-    return changedParentCatalogRequests(requests as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
+    return changedParentCatalogChoiceRequests(requests as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
   }, [localRequestState, requests, serverRequests]);
   const renderedRequests = useMemo(
-    () => mergeParentCatalogRequests(serverRequests as ParentCatalogRequests, draftOnlyRequests),
+    () => mergeParentCatalogChoiceRequests(serverRequests as ParentCatalogRequests, draftOnlyRequests),
     [draftOnlyRequests, serverRequests],
   );
   const scheduleBadgesBySlot = useMemo(() => {
@@ -354,6 +373,15 @@ function ParentClassesEnrichmentCatalogContent() {
   const activeMeta = SLOT_META[activeSlot];
   const activeRequests = drawerRequests[activeSlot];
   const slotContext = slotContextFromBadges(studentSchedule?.[activeMeta.scheduleSlot]);
+  const changedDrawerRequests = changedParentCatalogChoiceRequests(drawerRequests as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
+  const activeChangedSlot = changedDrawerRequests?.[activeSlot];
+  const activeChangedChoiceKinds = (["firstChoice", "secondChoice"] as ParentClassChoiceKind[]).filter((kind) =>
+    Boolean(activeChangedSlot?.[kind]?.id || activeChangedSlot?.[kind]?.name),
+  );
+  const submitChoiceKind =
+    activeSubmitChoice && activeChangedChoiceKinds.includes(activeSubmitChoice)
+      ? activeSubmitChoice
+      : activeChangedChoiceKinds[0] ?? null;
 
   function resolveStoredChoice(choice: SlotRequests["firstChoice"] | null | undefined): ParentClassOption | null {
     if (!choice?.name && !choice?.id) return null;
@@ -383,12 +411,14 @@ function ParentClassesEnrichmentCatalogContent() {
     setEditingRequests(renderedRequests as Record<SlotId, SlotRequests>);
     setOverlayOpen(true);
     setOpenChoice(null);
+    setActiveSubmitChoice(null);
   }
 
   function closeSelectionDrawer() {
     setOverlayOpen(false);
     setEditingRequests(null);
     setOpenChoice(null);
+    setActiveSubmitChoice(null);
     setDetailClass(null);
   }
 
@@ -403,6 +433,9 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
+    const currentRequests = editingRequests ?? (renderedRequests as Record<SlotId, SlotRequests>);
+    const currentActive = currentRequests[activeSlot];
+    const selectedKind: ParentClassChoiceKind = kind === "secondChoice" && !currentActive.firstChoice ? "firstChoice" : kind;
     setEditingRequests((prev) => {
       const current = prev ?? (renderedRequests as Record<SlotId, SlotRequests>);
       const active = current[activeSlot];
@@ -417,14 +450,16 @@ function ParentClassesEnrichmentCatalogContent() {
         },
       };
     });
+    setActiveSubmitChoice(selectedKind);
     setSubmitBanner(null);
     setOpenChoice(null);
   }
 
   function saveDraftSelections() {
     const rawDraft = editingRequests ?? (renderedRequests as Record<SlotId, SlotRequests>);
-    const draft = changedParentCatalogRequests(rawDraft as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
+    const draft = changedParentCatalogChoiceRequests(rawDraft as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
     if (!selectedChoicesForSubmit(draft as ParentCatalogRequests).length) return;
+    requestStateVersion.current += 1;
     setRequests(draft as Record<SlotId, SlotRequests>);
     setLocalRequestState("draft");
     setRestoredDraft(true);
@@ -439,6 +474,7 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function discardDraft() {
+    requestStateVersion.current += 1;
     try {
       clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
       clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
@@ -453,7 +489,7 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function saveFailedSubmitAsDraft(draft: Record<SlotId, SlotRequests>) {
-    const changedDraft = changedParentCatalogRequests(draft as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
+    const changedDraft = changedParentCatalogChoiceRequests(draft as ParentCatalogRequests, serverRequests as ParentCatalogRequests);
     if (!changedDraft) return;
     setRequests(changedDraft as Record<SlotId, SlotRequests>);
     setLocalRequestState("draft");
@@ -466,14 +502,22 @@ function ParentClassesEnrichmentCatalogContent() {
     }
   }
 
-  async function submitSelections() {
+  async function submitSelections(scope: "all-drafts" | "active-choice" | "active-slot" = "all-drafts") {
     const rawSubmissionRequests = editingRequests ?? (localRequestState === "draft" ? renderedRequests : requests);
-    const submissionRequests = changedParentCatalogRequests(
+    const changedDraft = changedParentCatalogChoiceRequests(
       rawSubmissionRequests as ParentCatalogRequests,
       serverRequests as ParentCatalogRequests,
     );
+    if (!changedDraft || submitting) return;
+    const submissionRequests =
+      scope === "active-choice" && submitChoiceKind
+        ? parentCatalogRequestsForChoice(changedDraft, activeSlot, submitChoiceKind)
+        : scope === "active-slot"
+          ? parentCatalogRequestsForSlot(changedDraft, activeSlot)
+          : changedDraft;
     const choices = selectedChoicesForSubmit(submissionRequests as ParentCatalogRequests);
-    if (!submissionRequests || !choices.length || submitting) return;
+    if (!submissionRequests || !choices.length) return;
+    requestStateVersion.current += 1;
     setSubmitting(true);
     setSubmitBanner(null);
     try {
@@ -484,7 +528,7 @@ function ParentClassesEnrichmentCatalogContent() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        saveFailedSubmitAsDraft(submissionRequests as Record<SlotId, SlotRequests>);
+        saveFailedSubmitAsDraft(changedDraft as Record<SlotId, SlotRequests>);
         setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${body?.error ?? res.statusText}. Your draft is still saved.` });
         closeSelectionDrawer();
         return;
@@ -494,29 +538,49 @@ function ParentClassesEnrichmentCatalogContent() {
         Array.isArray(body?.requests) ? body.requests : [],
         activeStudent?.id,
       );
-      const nextRequests = normalizedCatalogRequests(mergeParentCatalogChoiceRequests(serverRequests as ParentCatalogRequests, dbSnapshot.requests));
+      const submittedRequests = mergeParentCatalogChoiceRequests(submissionRequests, dbSnapshot.requests);
+      const nextRequests = normalizedCatalogRequests(mergeParentCatalogChoiceRequests(serverRequests as ParentCatalogRequests, submittedRequests));
       const nextReviewStatuses = {
         ...serverReviewStatuses,
+        ...pendingReviewStatusesForRequests(submissionRequests),
         ...dbSnapshot.reviewStatuses,
       };
       const nextRequestState = hasParentCatalogChoices(nextRequests as ParentCatalogRequests) ? "submitted" : null;
+      const remainingDraft = remainingParentCatalogDraftAfterSubmit(
+        changedDraft,
+        submissionRequests,
+        nextRequests as ParentCatalogRequests,
+      );
+      setServerRequests(nextRequests);
+      setServerRequestState(nextRequestState);
+      setServerReviewStatuses(nextReviewStatuses);
+      if (remainingDraft) {
+        setRequests(remainingDraft as Record<SlotId, SlotRequests>);
+        setLocalRequestState("draft");
+        setRestoredDraft(true);
+        try {
+          clearSubmittedParentCatalogSnapshot({ studentId: activeStudent?.id });
+          writePendingParentCatalogRequests(remainingDraft, catalogIdentity);
+        } catch {
+          /* Browser storage can be unavailable in privacy modes. */
+        }
+        setSubmitBanner({ tone: "success", message: "Selection submitted for school review. Other draft choices are still saved." });
+      } else {
+        clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
+        setRequests(nextRequests);
+        setLocalRequestState(nextRequestState);
+        setRestoredDraft(false);
+        setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
+      }
       invalidateDashboardData("/api/data/enrichment-requests");
-      clearPendingParentCatalogRequests({ studentId: activeStudent?.id });
       invalidateClientDataCache("/api/data/classes");
       if (activeStudent?.id) {
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`);
         invalidateClientDataCache(`/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`);
       }
-      setServerRequests(nextRequests);
-      setServerRequestState(nextRequestState);
-      setServerReviewStatuses(nextReviewStatuses);
-      setRequests(nextRequests);
-      setLocalRequestState(nextRequestState);
-      setRestoredDraft(false);
-      setSubmitBanner({ tone: "success", message: "Selections submitted for school review." });
       closeSelectionDrawer();
     } catch (error) {
-      saveFailedSubmitAsDraft(submissionRequests as Record<SlotId, SlotRequests>);
+      saveFailedSubmitAsDraft(changedDraft as Record<SlotId, SlotRequests>);
       setSubmitBanner({ tone: "warning", message: `Could not submit selections: ${error instanceof Error ? error.message : String(error)}. Your draft is still saved.` });
       closeSelectionDrawer();
     } finally {
@@ -561,11 +625,11 @@ function ParentClassesEnrichmentCatalogContent() {
             {localRequestState === "draft" && hasChoices ? (
               <button
                 type="button"
-                onClick={submitSelections}
+                onClick={() => submitSelections("all-drafts")}
                 disabled={submitting}
                 className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
               >
-                {submitting ? "Submitting..." : "Submit Draft"}
+                {submitting ? "Submitting..." : "Submit Drafts"}
               </button>
             ) : null}
             {localRequestState === "draft" && hasChoices ? (
@@ -651,15 +715,23 @@ function ParentClassesEnrichmentCatalogContent() {
           openChoice={openChoice}
           onToggleChoice={(kind) => {
             if (kind === "secondChoice" && !firstChoice) return;
+            setActiveSubmitChoice(kind);
             setOpenChoice((open) => (open === kind ? null : kind));
           }}
           onSelectChoice={selectChoice}
           onClose={closeSelectionDrawer}
           onOpenClassDetails={(option, scheduleDisplay) => setDetailClass({ option, scheduleDisplay })}
           onSaveDraft={saveDraftSelections}
-          onSubmit={submitSelections}
+          onSubmit={() => submitSelections("active-choice")}
+          onSubmitSlotChoices={activeChangedChoiceKinds.length > 1 ? () => submitSelections("active-slot") : undefined}
           saveDraftDisabled={!drawerHasChoices}
-          submitDisabled={!activeSlotHasChoices}
+          submitDisabled={!activeSlotHasChoices || !submitChoiceKind}
+          submitLabel={
+            submitChoiceKind === "secondChoice"
+              ? "Submit second choice"
+              : "Submit first choice"
+          }
+          submitSlotChoicesLabel="Submit first and second choice"
           submitting={submitting}
           secondChoiceDisabled={!firstChoice}
           optionsLoading={catalogLoading}

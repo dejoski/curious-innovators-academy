@@ -30,6 +30,10 @@ const {
   catalogChoiceReviews,
   catalogSnapshotFromEnrichmentRequests,
   localReviewKey,
+  parentCatalogRequestsForChoice,
+  parentCatalogRequestsForSlot,
+  remainingParentCatalogDraftAfterSubmit,
+  selectedChoicesForSubmit,
 } = require("../src/lib/parent-catalog-state.ts");
 
 const mariaId = "ba601e9a-3d15-4a57-aa14-35d6ac516245";
@@ -106,5 +110,43 @@ assert.deepEqual(
     "Pending:2nd:The Science of the Mind: Intro to Psychology",
   ],
 );
+
+const twoChoiceDraft = {
+  block3_day1: { firstChoice: null, secondChoice: null },
+  block3_day2: { firstChoice: null, secondChoice: null },
+  block3_day3: { firstChoice: null, secondChoice: null },
+  block4_day1: {
+    firstChoice: { id: "songwriting", name: "Singing & Songwriting" },
+    secondChoice: { id: "podcast", name: "Podcast Studio" },
+  },
+  block4_day2: { firstChoice: null, secondChoice: null },
+  block4_day3: { firstChoice: null, secondChoice: null },
+};
+
+const firstChoiceOnly = parentCatalogRequestsForChoice(twoChoiceDraft, "block4_day1", "firstChoice");
+assert.deepEqual(selectedChoicesForSubmit(firstChoiceOnly), [
+  { classId: "songwriting", block: "B4", level: "1", option: "1st" },
+]);
+
+const activeSlotChoices = parentCatalogRequestsForSlot(twoChoiceDraft, "block4_day1");
+assert.deepEqual(
+  selectedChoicesForSubmit(activeSlotChoices).map((choice) => `${choice.option}:${choice.classId}`),
+  ["1st:songwriting", "2nd:podcast"],
+);
+
+const remainingAfterFirstSubmit = remainingParentCatalogDraftAfterSubmit(
+  twoChoiceDraft,
+  firstChoiceOnly,
+  {
+    ...twoChoiceDraft,
+    block4_day1: {
+      firstChoice: { id: "songwriting", name: "Singing & Songwriting" },
+      secondChoice: null,
+    },
+  },
+);
+assert.deepEqual(selectedChoicesForSubmit(remainingAfterFirstSubmit), [
+  { classId: "podcast", block: "B4", level: "1", option: "2nd" },
+]);
 
 console.log("parent catalog state regression passed");

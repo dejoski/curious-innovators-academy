@@ -326,8 +326,12 @@ export function ParentClassSelectionDrawer({
   onOpenClassDetails,
   onSaveDraft,
   onSubmit,
+  onSubmitSlotChoices,
   saveDraftDisabled,
   submitDisabled,
+  submitLabel = "Submit for Approval",
+  submitSlotChoicesDisabled = false,
+  submitSlotChoicesLabel = "Submit first and second choice",
   submitting,
   secondChoiceDisabled = false,
   optionsLoading = false,
@@ -346,8 +350,12 @@ export function ParentClassSelectionDrawer({
   onOpenClassDetails?: (option: ParentClassOption, scheduleDisplay?: ScheduleDisplayParts) => void;
   onSaveDraft?: () => void;
   onSubmit: () => void;
+  onSubmitSlotChoices?: () => void;
   saveDraftDisabled?: boolean;
   submitDisabled: boolean;
+  submitLabel?: string;
+  submitSlotChoicesDisabled?: boolean;
+  submitSlotChoicesLabel?: string;
   submitting: boolean;
   secondChoiceDisabled?: boolean;
   optionsLoading?: boolean;
@@ -447,8 +455,18 @@ export function ParentClassSelectionDrawer({
             className="inline-flex h-[42px] flex-1 items-center justify-center gap-2 rounded-[6px] bg-[#d2f1f5] text-[14px] font-semibold text-white disabled:opacity-100 enabled:bg-[#14c1d5]"
           >
             {submitting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-            Submit for Approval
+            {submitLabel}
           </button>
+          {onSubmitSlotChoices ? (
+            <button
+              type="button"
+              disabled={submitSlotChoicesDisabled || submitting}
+              onClick={onSubmitSlotChoices}
+              className="inline-flex h-[42px] flex-1 items-center justify-center gap-2 rounded-[6px] border border-[#14c1d5] bg-white px-4 text-[14px] font-semibold text-[#14c1d5] hover:bg-[#ecfdff] disabled:cursor-not-allowed disabled:border-[#dfe1e6] disabled:text-[#818898]"
+            >
+              {submitSlotChoicesLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </dialog>

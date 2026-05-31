@@ -828,7 +828,7 @@ function ParentHomeDashboardContent() {
                   disabled={submitting}
                   className="inline-flex h-8 items-center justify-center rounded-[6px] bg-[#14c1d5] px-3 text-[12px] font-semibold text-white hover:bg-[#11a9ba] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
                 >
-                  {submitting ? "Submitting..." : "Submit Draft"}
+                  {submitting ? "Submitting..." : "Submit Drafts"}
                 </button>
               ) : null}
               {localRequestState === "draft" && hasCatalogChoices ? (

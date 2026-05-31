@@ -18,6 +18,7 @@ export type ParentCatalogSlotRequest = {
 };
 
 export type ParentCatalogRequests = Record<CatalogSlotId, ParentCatalogSlotRequest>;
+export type ParentCatalogChoiceKind = keyof ParentCatalogSlotRequest;
 
 export type LocalReviewStatus = "Pending" | "Approved" | "Waitlisted" | "Rejected";
 export type LocalReviewStatuses = Record<string, LocalReviewStatus>;
@@ -126,6 +127,31 @@ export function changedParentCatalogRequests(
   CATALOG_SLOT_IDS.forEach((slotId) => {
     if (hasSlotChoice(draft[slotId]) && !sameSlotRequest(draft[slotId], base[slotId])) {
       changed[slotId] = draft[slotId];
+      changedCount += 1;
+    }
+  });
+
+  return changedCount ? changed : null;
+}
+
+export function changedParentCatalogChoiceRequests(
+  draftRequests: ParentCatalogRequests | null | undefined,
+  baseRequests: ParentCatalogRequests | null | undefined,
+): ParentCatalogRequests | null {
+  const draft = normalizeRequests(draftRequests);
+  const base = normalizeRequests(baseRequests);
+  const changed = normalizeRequests(null);
+  let changedCount = 0;
+
+  CATALOG_SLOT_IDS.forEach((slotId) => {
+    const firstChoice = normalizeChoice(draft[slotId].firstChoice);
+    const secondChoice = normalizeChoice(draft[slotId].secondChoice);
+    if (firstChoice && !sameCatalogChoice(firstChoice, base[slotId].firstChoice)) {
+      changed[slotId].firstChoice = firstChoice;
+      changedCount += 1;
+    }
+    if (secondChoice && !sameCatalogChoice(secondChoice, base[slotId].secondChoice)) {
+      changed[slotId].secondChoice = secondChoice;
       changedCount += 1;
     }
   });
@@ -402,10 +428,30 @@ export function mergedParentCatalogScheduleBadgeOverrides(
   baseState: "submitted" | null,
   draftRequests: ParentCatalogRequests | null,
 ): ParentScheduleBadges {
-  return {
-    ...catalogScheduleBadgeOverrides(baseRequests, baseReviewStatuses, baseState),
-    ...catalogScheduleBadgeOverrides(draftRequests, {}, draftRequests ? "draft" : null),
-  };
+  const visibleBaseRequests = normalizeRequests(baseRequests);
+  const normalizedDraftRequests = normalizeRequests(draftRequests);
+
+  CATALOG_SLOT_IDS.forEach((slotId) => {
+    if (normalizedDraftRequests[slotId].firstChoice?.id || normalizedDraftRequests[slotId].firstChoice?.name) {
+      visibleBaseRequests[slotId].firstChoice = null;
+    }
+    if (normalizedDraftRequests[slotId].secondChoice?.id || normalizedDraftRequests[slotId].secondChoice?.name) {
+      visibleBaseRequests[slotId].secondChoice = null;
+    }
+  });
+
+  const baseBadges = catalogScheduleBadgeOverrides(visibleBaseRequests, baseReviewStatuses, baseState);
+  const draftBadges = catalogScheduleBadgeOverrides(normalizedDraftRequests, {}, draftRequests ? "draft" : null);
+  const mergedBadges: ParentScheduleBadges = { ...baseBadges };
+
+  Object.entries(draftBadges).forEach(([slot, badges]) => {
+    mergedBadges[slot as keyof ParentScheduleBadges] = [
+      ...(mergedBadges[slot as keyof ParentScheduleBadges] ?? []),
+      ...badges,
+    ];
+  });
+
+  return mergedBadges;
 }
 
 export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolean {
@@ -415,6 +461,63 @@ export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolea
       slot.secondChoice?.id ||
       slot.secondChoice?.name,
   ));
+}
+
+export function parentCatalogRequestsForChoice(
+  requests: ParentCatalogRequests | null | undefined,
+  slotId: CatalogSlotId,
+  choiceKind: ParentCatalogChoiceKind,
+): ParentCatalogRequests | null {
+  const normalized = normalizeRequests(requests);
+  const choice = normalizeChoice(normalized[slotId][choiceKind]);
+  if (!choice?.id && !choice?.name) return null;
+  return {
+    ...normalizeRequests(null),
+    [slotId]: {
+      firstChoice: choiceKind === "firstChoice" ? choice : null,
+      secondChoice: choiceKind === "secondChoice" ? choice : null,
+    },
+  };
+}
+
+export function parentCatalogRequestsForSlot(
+  requests: ParentCatalogRequests | null | undefined,
+  slotId: CatalogSlotId,
+): ParentCatalogRequests | null {
+  const normalized = normalizeRequests(requests);
+  if (!hasSlotChoice(normalized[slotId])) return null;
+  return {
+    ...normalizeRequests(null),
+    [slotId]: normalized[slotId],
+  };
+}
+
+export function remainingParentCatalogDraftAfterSubmit(
+  draftRequests: ParentCatalogRequests | null | undefined,
+  submittedRequests: ParentCatalogRequests | null | undefined,
+  nextBaseRequests: ParentCatalogRequests | null | undefined,
+): ParentCatalogRequests | null {
+  const draft = normalizeRequests(draftRequests);
+  const submitted = normalizeRequests(submittedRequests);
+  const base = normalizeRequests(nextBaseRequests);
+  const nextDraft = normalizeRequests(draft);
+
+  CATALOG_SLOT_IDS.forEach((slotId) => {
+    if (submitted[slotId].firstChoice?.id || submitted[slotId].firstChoice?.name) {
+      nextDraft[slotId].firstChoice = null;
+    }
+    if (submitted[slotId].secondChoice?.id || submitted[slotId].secondChoice?.name) {
+      nextDraft[slotId].secondChoice = null;
+    }
+    if (sameCatalogChoice(nextDraft[slotId].firstChoice, base[slotId].firstChoice)) {
+      nextDraft[slotId].firstChoice = null;
+    }
+    if (sameCatalogChoice(nextDraft[slotId].secondChoice, base[slotId].secondChoice)) {
+      nextDraft[slotId].secondChoice = null;
+    }
+  });
+
+  return changedParentCatalogChoiceRequests(nextDraft, nextBaseRequests);
 }
 
 export function selectedChoicesForSubmit(requests: ParentCatalogRequests) {
