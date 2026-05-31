@@ -38,6 +38,62 @@ export const PARENT_SCHEDULE_ROWS: {
   { label: "Block 4", time: "2:00 - 3:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
 
+export type ScheduleDisplayParts = { day: string; time: string };
+
+const SCHEDULE_SEPARATOR_RE = /\s*(?:\u00c2?\u00b7|\||,)\s*/;
+const TIME_RANGE_RE = /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*-\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i;
+
+function schedulePartsFromText(value: unknown): string[] {
+  return String(value ?? "").split(SCHEDULE_SEPARATOR_RE).map((part) => part.trim()).filter(Boolean);
+}
+
+export function scheduleTimeForBlock(block: unknown): string | null {
+  const blockNumber = blockNumberFromText(block);
+  if (!blockNumber) return null;
+  return PARENT_SCHEDULE_ROWS[blockNumber - 1]?.time ?? null;
+}
+
+export function classSchedulePartsFromFields(input: {
+  block?: unknown;
+  level?: unknown;
+  scheduleSummary?: unknown;
+}): ScheduleDisplayParts {
+  const source = [input.scheduleSummary, input.block, input.level].filter(Boolean).join(" ");
+  const scheduleParts = schedulePartsFromText(input.scheduleSummary);
+  const blockNumber = blockNumberFromText(source);
+  const dayNumber =
+    dayNumberFromText(input.scheduleSummary) ??
+    dayNumberFromText(input.block) ??
+    (blockNumber && blockNumber >= 3 ? dayNumberFromText(input.level) : null);
+  const fallbackDay =
+    scheduleParts.find((part) => !blockNumberFromText(part) && !TIME_RANGE_RE.test(part)) ||
+    String(input.block ?? "").trim() ||
+    "Schedule not set";
+  const day =
+    dayNumber != null
+      ? `Day ${dayNumber}`
+      : fallbackDay;
+  const time =
+    scheduleTimeForBlock(source) ??
+    scheduleParts.find((part) => TIME_RANGE_RE.test(part)) ??
+    String(input.scheduleSummary ?? "").match(TIME_RANGE_RE)?.[0] ??
+    "Time not set";
+
+  return { day, time };
+}
+
+export function formatClassScheduleLabel(input: {
+  block?: unknown;
+  level?: unknown;
+  scheduleSummary?: unknown;
+}): string {
+  const source = [input.scheduleSummary, input.block, input.level].filter(Boolean).join(" ");
+  const blockNumber = blockNumberFromText(source);
+  const blockLabel = blockNumber ? `Block ${blockNumber}` : String(input.block ?? "").trim();
+  const { day, time } = classSchedulePartsFromFields(input);
+  return [day, blockLabel, time].filter(Boolean).join(" \u00b7 ");
+}
+
 export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
   b1: [2, 3, 4],
   b2: [2, 3, 4],
@@ -214,11 +270,7 @@ export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): Student
 }
 
 export function splitScheduleLabel(schedule: string): { day: string; time: string } {
-  const parts = schedule.split("·").map((part) => part.trim()).filter(Boolean);
-  return {
-    day: parts[0] || schedule || "Schedule not set",
-    time: parts[1] || "Time not set",
-  };
+  return classSchedulePartsFromFields({ scheduleSummary: schedule });
 }
 
 function blockNumberFromText(value: unknown): number | null {

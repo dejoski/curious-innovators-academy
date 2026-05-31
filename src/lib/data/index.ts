@@ -6,6 +6,7 @@ export * from "./repositories/students";
 export * from "./repositories/teachers";
 export * from "./repositories/parents";
 export * from "./repositories/classes";
+export * from "./repositories/semesters";
 export * from "./repositories/requests";
 export * from "./repositories/schedule";
 export * from "./repositories/student-details";

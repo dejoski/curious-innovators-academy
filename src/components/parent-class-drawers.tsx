@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, ChevronDown, Loader2, UserRound, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ExternalLink, Loader2, UserRound, X } from "lucide-react";
 
 import {
   availabilityLabelForOption,
@@ -18,6 +18,7 @@ export type {
   ParentClassChoiceKind,
   ParentClassOption,
   ParentClassSlotContext,
+  ScheduleDisplayParts,
 } from "@/lib/parent-class-options";
 
 function detailsStatusLabel(option: ParentClassOption, statusLabel?: string): string {
@@ -34,8 +35,10 @@ function detailsStatusClasses(label: string): string {
   return "text-[#4f5665]";
 }
 
-function detailsProgramClasses(option: ParentClassOption): string {
-  return option.program === "core" ? "bg-[#14c1d5] text-white" : "bg-[#d80509] text-white";
+function detailsProgramClasses(option: ParentClassOption, status: string): string {
+  if (option.program === "core") return "bg-[#14c1d5] text-white";
+  if (/assigned|approved/i.test(status)) return "bg-[#004d08] text-white";
+  return "bg-[#d80509] text-white";
 }
 
 function detailsProgramLabel(option: ParentClassOption): string {
@@ -53,15 +56,17 @@ function detailsAvailabilityLabel(option: ParentClassOption): string {
 export function ParentClassDetailsContent({
   option,
   statusLabel,
+  scheduleDisplay,
   titleId,
 }: {
   option: ParentClassOption;
   statusLabel?: string;
+  scheduleDisplay?: ScheduleDisplayParts;
   titleId?: string;
 }) {
   const status = detailsStatusLabel(option, statusLabel);
   const statusClasses = detailsStatusClasses(status);
-  const schedule = scheduleParts(option);
+  const schedule = scheduleDisplay ?? scheduleParts(option);
   const isCore = option.program === "core";
 
   return (
@@ -70,7 +75,7 @@ export function ParentClassDetailsContent({
         <h2 id={titleId} className="text-[28px] font-bold leading-[1.1] text-[#272932] md:text-[34px]">
           {option.name}
         </h2>
-        <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${detailsProgramClasses(option)}`}>
+        <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${detailsProgramClasses(option, status)}`}>
           {detailsProgramLabel(option)}
         </span>
       </div>
@@ -145,33 +150,41 @@ export function ParentClassSummaryCard({
   option,
   statusLabel,
   scheduleDisplay,
+  onOpenDetails,
 }: {
   option: ParentClassOption | null;
   statusLabel?: string;
   scheduleDisplay?: ScheduleDisplayParts;
+  onOpenDetails?: (option: ParentClassOption, scheduleDisplay?: ScheduleDisplayParts) => void;
 }) {
   if (!option) return null;
   const scheduleLabel = scheduleDisplay ? `${scheduleDisplay.day} · ${scheduleDisplay.time}` : option.block || option.schedule || "Selected block";
   const status = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
-  const availabilityLabel = availabilityLabelForOption(option);
-  const pendingHolds = Math.max(0, Math.floor(option.pendingCount ?? 0));
-
   return (
-    <div className="rounded-[6px] border border-[#dfe1e6] bg-white p-[12px]">
+    <div className="rounded-[8px] border border-[#dfe1e6] bg-white px-[14px] py-[12px] sm:px-[16px] sm:py-[14px]">
       <div className="flex items-start justify-between gap-3 border-b border-[#dfe1e6] pb-[10px]">
-        <h3 className="text-[16px] font-semibold leading-[1.4] text-[#272932]">{option.name}</h3>
+        <h3 className="min-w-0 text-[18px] font-semibold leading-[1.25] text-[#272932] sm:text-[20px]">
+          {option.name}
+        </h3>
+        {onOpenDetails ? (
+          <button
+            type="button"
+            aria-label={`Open details for ${option.name}`}
+            onClick={() => onOpenDetails(option, scheduleDisplay)}
+            className="inline-flex size-[32px] shrink-0 items-center justify-center rounded-[6px] text-[#14c1d5] hover:bg-[#ecfdff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14c1d5]"
+          >
+            <ExternalLink className="size-[18px]" aria-hidden strokeWidth={2.4} />
+          </button>
+        ) : null}
       </div>
-      <div className="space-y-[8px] border-b border-[#dfe1e6] py-[12px] text-[12px] leading-[1.35] text-[#4f5665]">
-        <p>Description: {option.description}</p>
-        <p>Teacher: {option.teacher}</p>
-        <p>Schedule: {scheduleLabel}</p>
-        <p>Availability: {availabilityLabel}</p>
-        {option.capacity != null && option.reservedCount != null ? <p>Capacity held: {option.reservedCount}/{option.capacity}</p> : null}
-        {pendingHolds > 0 ? <p>Pending holds: {pendingHolds}</p> : null}
-        {option.location ? <p>Location: {option.location}</p> : null}
-        {option.prerequisites && option.prerequisites !== "None listed" ? <p>Prerequisites: {option.prerequisites}</p> : null}
+      <div className="space-y-[8px] border-b border-[#dfe1e6] py-[12px] text-[15px] leading-[1.35] text-[#4f5665] sm:text-[16px]">
+        <p className="line-clamp-2">
+          <span className="font-medium">Description:</span> {option.description || "Class details are not available from the class catalog yet."}
+        </p>
+        <p>Teacher: {option.teacher || "Teacher not assigned"}</p>
+        <p>{scheduleLabel}</p>
       </div>
-      <p className="pt-[10px] text-[12px] text-[#4f5665]">Status: {status}</p>
+      <p className="pt-[12px] text-[15px] leading-[1.35] text-[#4f5665] sm:text-[16px]">Status: {status}</p>
     </div>
   );
 }
@@ -263,6 +276,7 @@ function ChoiceSelector({
   disabled = false,
   helperText,
   loading = false,
+  onOpenDetails,
 }: {
   label: string;
   value: ParentClassOption | null;
@@ -274,6 +288,7 @@ function ChoiceSelector({
   disabled?: boolean;
   helperText?: string;
   loading?: boolean;
+  onOpenDetails?: (option: ParentClassOption, scheduleDisplay?: ScheduleDisplayParts) => void;
 }) {
   return (
     <div>
@@ -290,7 +305,7 @@ function ChoiceSelector({
         loading={loading}
       />
       <div className="mt-[12px]">
-        <ParentClassSummaryCard option={value} scheduleDisplay={scheduleDisplay} />
+        <ParentClassSummaryCard option={value} scheduleDisplay={scheduleDisplay} onOpenDetails={onOpenDetails} />
       </div>
     </div>
   );
@@ -308,6 +323,7 @@ export function ParentClassSelectionDrawer({
   onToggleChoice,
   onSelectChoice,
   onClose,
+  onOpenClassDetails,
   onSaveDraft,
   onSubmit,
   saveDraftDisabled,
@@ -327,6 +343,7 @@ export function ParentClassSelectionDrawer({
   onToggleChoice: (kind: ParentClassChoiceKind) => void;
   onSelectChoice: (cls: ParentClassOption, kind: ParentClassChoiceKind) => void;
   onClose: () => void;
+  onOpenClassDetails?: (option: ParentClassOption, scheduleDisplay?: ScheduleDisplayParts) => void;
   onSaveDraft?: () => void;
   onSubmit: () => void;
   saveDraftDisabled?: boolean;
@@ -349,7 +366,7 @@ export function ParentClassSelectionDrawer({
     >
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Close class selection" onMouseDown={onClose} />
       <div
-        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-l-[18px] bg-white shadow-2xl sm:w-[570px]"
+        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-l-[18px] bg-white shadow-2xl sm:w-[calc(100vw-72px)] lg:max-w-[1094px]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 p-[20px] pb-0 sm:p-[24px] sm:pb-0">
@@ -383,6 +400,7 @@ export function ParentClassSelectionDrawer({
             open={openChoice === "firstChoice"}
             onToggle={() => onToggleChoice("firstChoice")}
             onSelect={(cls) => onSelectChoice(cls, "firstChoice")}
+            onOpenDetails={onOpenClassDetails}
             helperText={
               optionsLoading
                 ? "Loading enrichment classes for this block and day."
@@ -401,6 +419,7 @@ export function ParentClassSelectionDrawer({
             open={!secondChoiceDisabled && openChoice === "secondChoice"}
             onToggle={() => onToggleChoice("secondChoice")}
             onSelect={(cls) => onSelectChoice(cls, "secondChoice")}
+            onOpenDetails={onOpenClassDetails}
             disabled={secondChoiceDisabled}
             helperText={secondChoiceDisabled ? "Choose a first option before adding a backup choice." : undefined}
             loading={optionsLoading}
@@ -439,6 +458,7 @@ export function ParentClassSelectionDrawer({
 export function ParentClassDetailsDrawer({
   option,
   statusLabel,
+  scheduleDisplay,
   classListHref,
   canSubmitDraft = false,
   submitting = false,
@@ -448,6 +468,7 @@ export function ParentClassDetailsDrawer({
 }: {
   option: ParentClassOption;
   statusLabel?: string;
+  scheduleDisplay?: ScheduleDisplayParts;
   classListHref?: string;
   canSubmitDraft?: boolean;
   submitting?: boolean;
@@ -471,7 +492,7 @@ export function ParentClassDetailsDrawer({
           <X className="size-7" aria-hidden />
         </button>
         <div className="flex-1 overflow-y-auto pr-1">
-          <ParentClassDetailsContent option={option} statusLabel={statusLabel ?? option.status ?? "Open"} titleId="class-details-title" />
+          <ParentClassDetailsContent option={option} statusLabel={statusLabel ?? option.status ?? "Open"} scheduleDisplay={scheduleDisplay} titleId="class-details-title" />
         </div>
 
         <div className="flex flex-col gap-3 border-t border-[#f0f0f0] pt-[24px] sm:flex-row">

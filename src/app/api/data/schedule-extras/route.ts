@@ -5,12 +5,15 @@ import { fetchScheduleExtrasResolved } from "@/lib/data/repositories/schedule";
 import { serverInsertScheduleEvent } from "@/lib/data/server-writes";
 import type { ScheduleCalendarEvent } from "@/lib/data/types";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const { extrasByDate, source } = await fetchScheduleExtrasResolved();
-  return NextResponse.json({ extrasByDate, source });
+  const { searchParams } = new URL(request.url);
+  const { extrasByDate, semester, source } = await fetchScheduleExtrasResolved(undefined, {
+    semesterId: searchParams.get("semesterId"),
+  });
+  return NextResponse.json({ extrasByDate, semester, source });
 }
 
 export async function POST(req: Request) {

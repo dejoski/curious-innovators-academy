@@ -23,6 +23,7 @@ import type {
   ParentSummary,
   ScheduleCalendarEvent,
   SchoolClassRow,
+  SemesterRow,
   StudentListItem,
   TeacherRow,
 } from "@/lib/data/types";
@@ -77,6 +78,40 @@ function classPlacementSlot(row: PlacementClassRow): string | null {
 function normalizeCapacity(raw: unknown): number {
   const capacity = Number(raw);
   return Number.isFinite(capacity) && capacity > 0 ? Math.floor(capacity) : 30;
+}
+
+function mapSemesterWriteRow(row: Record<string, unknown>): SemesterRow | null {
+  const id = String(row.id ?? "").trim();
+  if (!id) return null;
+  return {
+    id,
+    name: String(row.name ?? "").trim(),
+    startsOn: String(row.starts_on ?? "").slice(0, 10),
+    endsOn: String(row.ends_on ?? "").slice(0, 10),
+    isCurrent: Boolean(row.is_current),
+  };
+}
+
+function normalizeDateOnly(raw: string): string | null {
+  const trimmed = raw.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
+
+async function resolveCurrentSemesterId(supabase: SupabaseMutationClient): Promise<string | null> {
+  const { data } = await supabase
+    .from("semesters")
+    .select("id")
+    .eq("is_current", true)
+    .maybeSingle();
+  if (data && "id" in data) return String((data as { id: unknown }).id);
+
+  const { data: first } = await supabase
+    .from("semesters")
+    .select("id")
+    .order("starts_on", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return first && "id" in first ? String((first as { id: unknown }).id) : null;
 }
 
 async function currentUserIsAdmin(
@@ -173,9 +208,77 @@ async function resolveTeacherIdByDisplayName(
   return found?.id ?? null;
 }
 
+export async function serverUpdateSemester(input: {
+  id: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  isCurrent?: boolean;
+}): Promise<WriteOk<SemesterRow> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+
+  const id = input.id.trim();
+  const startsOn = normalizeDateOnly(input.startsOn);
+  const endsOn = normalizeDateOnly(input.endsOn);
+  const name = input.name.trim();
+  if (!id) return { ok: false, message: "Missing semester id" };
+  if (!name) return { ok: false, message: "Semester name is required" };
+  if (!startsOn || !endsOn) return { ok: false, message: "Use yyyy-mm-dd dates for the semester range" };
+  if (Date.parse(`${endsOn}T00:00:00Z`) < Date.parse(`${startsOn}T00:00:00Z`)) {
+    return { ok: false, message: "Semester end date must be on or after the start date" };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.id || !(await currentUserIsAdmin(supabase, user.id))) {
+      return { ok: false, message: "Only admins can update semesters" };
+    }
+
+    if (input.isCurrent) {
+      const { error: clearError } = await supabase
+        .from("semesters")
+        .update({ is_current: false, updated_at: new Date().toISOString() })
+        .neq("id", id);
+      if (clearError) return { ok: false, message: clearError.message };
+    }
+
+    const payload: Record<string, unknown> = {
+      name,
+      starts_on: startsOn,
+      ends_on: endsOn,
+      updated_at: new Date().toISOString(),
+    };
+    if (input.isCurrent) payload.is_current = true;
+    const { data, error } = await supabase
+      .from("semesters")
+      .update(payload)
+      .eq("id", id)
+      .select("id, name, starts_on, ends_on, is_current")
+      .maybeSingle();
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "Semester not found" };
+    const mapped = mapSemesterWriteRow(data as unknown as Record<string, unknown>);
+    if (!mapped) return { ok: false, message: "Could not map updated semester" };
+    await writeAuditEvent(supabase, {
+      action: "semester.update",
+      entityType: "semester",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, startsOn: mapped.startsOn, endsOn: mapped.endsOn, isCurrent: mapped.isCurrent },
+    });
+    return { ok: true, row: mapped };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
 export async function serverInsertClass(input: {
   name: string;
   teacher: string;
+  semesterId?: string;
   capacity?: number;
   schedule: string;
   status: SchoolClassRow["status"];
@@ -204,9 +307,12 @@ export async function serverInsertClass(input: {
           "Could not match teacher name to a staff profile. Add the teacher first or use an exact display name from the roster.",
       };
     }
+    const semesterId = input.semesterId?.trim() || await resolveCurrentSemesterId(supabase);
+    if (!semesterId) return { ok: false, message: "Choose a current semester before creating classes." };
     const payload: Record<string, unknown> = {
       name: input.name.trim(),
       teacher_id: teacherId,
+      semester_id: semesterId,
       program: (input.track ?? "core") as "core" | "enrichment",
       capacity,
       schedule_summary: input.schedule.trim(),
@@ -254,6 +360,7 @@ async function flattenClassRowForMap(
     .select(
       `
       *,
+      semesters ( id, name, starts_on, ends_on, is_current ),
       teachers ( profiles ( display_name ) ),
       enrollments ( id, status )
     `,
@@ -284,6 +391,7 @@ export async function serverUpdateClass(
   input: {
     name: string;
     teacher: string;
+    semesterId?: string;
     capacity?: number;
     schedule: string;
     status: SchoolClassRow["status"];
@@ -317,6 +425,7 @@ export async function serverUpdateClass(
       schedule_summary: input.schedule.trim(),
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
     };
+    if (input.semesterId?.trim()) payload.semester_id = input.semesterId.trim();
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
@@ -1439,6 +1548,7 @@ async function ensureClassCapacityForChoices(
   choices: {
     classId: string;
   }[],
+  options: { semesterId: string },
 ): Promise<WriteFail | { ok: true }> {
   const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
     next.set(choice.classId, (next.get(choice.classId) ?? 0) + 1);
@@ -1454,7 +1564,7 @@ async function ensureClassCapacityForChoices(
       .in("class_id", classIds),
     supabase
       .from("classes")
-      .select("id, name")
+      .select("id, name, semester_id")
       .in("id", classIds),
   ]);
 
@@ -1470,6 +1580,10 @@ async function ensureClassCapacityForChoices(
   for (const classId of classIds) {
     const row = availabilityByClassId.get(classId);
     if (!row || !classNamesById.has(classId)) return { ok: false, message: "Selected class was not found" };
+    const classRow = ((classes ?? []) as unknown as Record<string, unknown>[]).find((candidate) => String(candidate.id) === classId);
+    if (String(classRow?.semester_id ?? "") !== options.semesterId) {
+      return { ok: false, message: "Selected class is not available in the current semester." };
+    }
 
     const remaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
     const requested = requestedByClass.get(classId) ?? 0;
@@ -1493,6 +1607,7 @@ async function ensureOpenSlotsForRequestChoices(
   input: {
     studentId: string;
     choices: { classId: string; block: string; level: string }[];
+    semesterId: string;
   },
 ): Promise<WriteFail | { ok: true }> {
   const classIds = [...new Set(input.choices.map((choice) => choice.classId).filter(Boolean))];
@@ -1501,11 +1616,11 @@ async function ensureOpenSlotsForRequestChoices(
   const [{ data: requestedClasses, error: classError }, { data: enrollments, error: enrollmentError }] = await Promise.all([
     supabase
       .from("classes")
-      .select("id, block, schedule_summary")
+      .select("id, block, schedule_summary, semester_id")
       .in("id", classIds),
     supabase
       .from("enrollments")
-      .select("class_id, status, classes ( id, program, block, schedule_summary )")
+      .select("class_id, status, classes ( id, program, block, schedule_summary, semester_id )")
       .eq("student_id", input.studentId)
       .in("status", ["approved", "waitlisted"]),
   ]);
@@ -1515,6 +1630,7 @@ async function ensureOpenSlotsForRequestChoices(
 
   const requestedSlots = new Map(
     ((requestedClasses ?? []) as unknown as PlacementClassRow[])
+      .filter((row) => String((row as Record<string, unknown>).semester_id ?? "") === input.semesterId)
       .map((row) => [String(row.id ?? ""), classPlacementSlot(row)])
       .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])),
   );
@@ -1522,6 +1638,7 @@ async function ensureOpenSlotsForRequestChoices(
   for (const row of (enrollments ?? []) as unknown as Record<string, unknown>[]) {
     if (String(row.status ?? "").toLowerCase() !== "approved") continue;
     const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+    if (String((classRow as Record<string, unknown> | null)?.semester_id ?? "") !== input.semesterId) continue;
     const slot = classPlacementSlot((classRow ?? {}) as PlacementClassRow);
     if (slot) occupiedSlots.add(slot);
   }
@@ -1547,20 +1664,22 @@ async function clearSameSlotAlternativesAfterApproval(
 ): Promise<WriteFail | { ok: true }> {
   const { data: approvedClass, error: approvedClassError } = await supabase
     .from("classes")
-    .select("id, program, block, schedule_summary")
+    .select("id, program, block, schedule_summary, semester_id")
     .eq("id", input.approvedClassId)
     .maybeSingle();
   if (approvedClassError) return { ok: false, message: approvedClassError.message };
   if (!approvedClass) return { ok: false, message: "Approved class was not found" };
 
   const approved = approvedClass as PlacementClassRow;
+  const semesterId = String((approvedClass as Record<string, unknown>).semester_id ?? "");
   if (String(approved.program ?? "").toLowerCase() !== "enrichment") return { ok: true };
 
   const approvedSlot = classPlacementSlot(approved);
   const { data: classRows, error: classesError } = await supabase
     .from("classes")
     .select("id, program, block, schedule_summary")
-    .eq("program", "enrichment");
+    .eq("program", "enrichment")
+    .eq("semester_id", semesterId);
   if (classesError) return { ok: false, message: classesError.message };
 
   const sameSlotClassIds = ((classRows ?? []) as PlacementClassRow[])
@@ -1658,6 +1777,7 @@ async function clearPendingEnrichmentRequestChoices(
   supabase: SupabaseMutationClient,
   input: {
     studentId: string;
+    semesterId: string;
     choices: {
       block: string;
       level: string;
@@ -1673,15 +1793,29 @@ async function clearPendingEnrichmentRequestChoices(
 
     let query = supabase
       .from("class_requests")
-      .delete()
+      .select("id, classes ( semester_id )")
       .eq("student_id", input.studentId)
       .eq("status", "pending");
 
     query = choice.block ? query.eq("block", choice.block) : query.is("block", null);
     query = choice.level ? query.eq("level", choice.level) : query.is("level", null);
 
-    const { error } = await query;
+    const { data, error } = await query;
     if (error) return { ok: false, message: error.message };
+    const ids = ((data ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => {
+        const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+        return String((cls as Record<string, unknown> | null)?.semester_id ?? "") === input.semesterId;
+      })
+      .map((row) => String(row.id ?? ""))
+      .filter(Boolean);
+    if (ids.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("class_requests")
+        .delete()
+        .in("id", ids);
+      if (deleteError) return { ok: false, message: deleteError.message };
+    }
   }
 
   return { ok: true };
@@ -1721,6 +1855,8 @@ export async function serverInsertEnrichmentRequests(input: {
       }
 
       const admin = createSupabaseAdminClient();
+      const semesterId = await resolveCurrentSemesterId(admin);
+      if (!semesterId) return { ok: false, message: "Choose a current semester before submitting class selections" };
       const studentExists = await ensureStudentExists(admin, studentId);
       if (!studentExists) return { ok: false, message: "Selected student was not found" };
 
@@ -1731,14 +1867,15 @@ export async function serverInsertEnrichmentRequests(input: {
 
       const cleared = await clearPendingEnrichmentRequestChoices(admin, {
         studentId,
+        semesterId,
         choices,
       });
       if (!cleared.ok) return cleared;
 
-      const capacity = await ensureClassCapacityForChoices(admin, choices);
+      const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId });
       if (!capacity.ok) return capacity;
 
-      const openSlots = await ensureOpenSlotsForRequestChoices(admin, { studentId, choices });
+      const openSlots = await ensureOpenSlotsForRequestChoices(admin, { studentId, choices, semesterId });
       if (!openSlots.ok) return openSlots;
 
       return insertEnrichmentRequestRows(admin, {
@@ -1752,16 +1889,19 @@ export async function serverInsertEnrichmentRequests(input: {
     if (!studentId) return { ok: false, message: "Could not resolve a student for this request" };
 
     const capacityClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
+    const semesterId = await resolveCurrentSemesterId(capacityClient);
+    if (!semesterId) return { ok: false, message: "Choose a current semester before submitting class selections" };
     const cleared = await clearPendingEnrichmentRequestChoices(capacityClient, {
       studentId,
+      semesterId,
       choices,
     });
     if (!cleared.ok) return cleared;
 
-    const capacity = await ensureClassCapacityForChoices(capacityClient, choices);
+    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId });
     if (!capacity.ok) return capacity;
 
-    const openSlots = await ensureOpenSlotsForRequestChoices(capacityClient, { studentId, choices });
+    const openSlots = await ensureOpenSlotsForRequestChoices(capacityClient, { studentId, choices, semesterId });
     if (!openSlots.ok) return openSlots;
 
     const result = await insertEnrichmentRequestRows(supabase, {

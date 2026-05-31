@@ -67,10 +67,6 @@ function normalizeSlotRequest(raw: ParentCatalogSlotRequest | null | undefined):
   const firstChoice = normalizeChoice(raw?.firstChoice);
   const secondChoice = normalizeChoice(raw?.secondChoice);
 
-  if (!firstChoice && secondChoice) {
-    return { firstChoice: secondChoice, secondChoice: null };
-  }
-
   if (firstChoice?.id && secondChoice?.id && firstChoice.id === secondChoice.id) {
     return { firstChoice, secondChoice: null };
   }
@@ -262,6 +258,21 @@ function requestChoiceKind(row: EnrichmentRequestRow): "firstChoice" | "secondCh
   return row.option.trim().toLowerCase().startsWith("2") ? "secondChoice" : "firstChoice";
 }
 
+function reviewStatusPriority(status: LocalReviewStatus): number {
+  if (status === "Pending") return 4;
+  if (status === "Waitlisted") return 3;
+  if (status === "Approved") return 2;
+  return 1;
+}
+
+function shouldReplaceCatalogChoice(
+  currentStatus: LocalReviewStatus | undefined,
+  nextStatus: LocalReviewStatus,
+): boolean {
+  if (!currentStatus) return true;
+  return reviewStatusPriority(nextStatus) > reviewStatusPriority(currentStatus);
+}
+
 export function catalogSnapshotFromEnrichmentRequests(
   rows: EnrichmentRequestRow[],
   studentId?: string,
@@ -283,11 +294,14 @@ export function catalogSnapshotFromEnrichmentRequests(
     const name = row.class.trim();
     if (!classId && !name) return;
 
+    const reviewKey = localReviewKey(slotId, kind === "firstChoice" ? "first" : "second");
+    if (!shouldReplaceCatalogChoice(reviewStatuses[reviewKey], row.status)) return;
+
     next[slotId] = {
       ...next[slotId],
       [kind]: { id: classId, name },
     };
-    reviewStatuses[localReviewKey(slotId, kind === "firstChoice" ? "first" : "second")] = row.status;
+    reviewStatuses[reviewKey] = row.status;
     count += 1;
   });
 
@@ -330,8 +344,7 @@ export function catalogChoiceReviews(
       toReview("first", slot?.firstChoice),
       toReview("second", slot?.secondChoice),
     ].filter((row): row is LocalCatalogChoiceReview => row !== null);
-    const approvedRows = slotRows.filter((row) => row.status === "Approved");
-    rows.push(...(approvedRows.length ? approvedRows : slotRows));
+    rows.push(...slotRows);
   });
   return rows;
 }
@@ -381,15 +394,19 @@ export function mergedParentCatalogScheduleBadgeOverrides(
 }
 
 export function hasParentCatalogChoices(requests: ParentCatalogRequests): boolean {
-  return Object.values(normalizeRequests(requests)).some((slot) => Boolean(slot.firstChoice?.id || slot.firstChoice?.name));
+  return Object.values(normalizeRequests(requests)).some((slot) => Boolean(
+    slot.firstChoice?.id ||
+      slot.firstChoice?.name ||
+      slot.secondChoice?.id ||
+      slot.secondChoice?.name,
+  ));
 }
 
 export function selectedChoicesForSubmit(requests: ParentCatalogRequests) {
   return (Object.entries(normalizeRequests(requests)) as [CatalogSlotId, ParentCatalogSlotRequest][]).flatMap(([slotId, slot]) => {
     const meta = CATALOG_SLOT_META[slotId];
-    if (!slot.firstChoice) return [];
     return [
-      { classId: slot.firstChoice.id ?? "", block: meta.block, level: meta.level, option: "1st" },
+      slot.firstChoice ? { classId: slot.firstChoice.id ?? "", block: meta.block, level: meta.level, option: "1st" } : null,
       slot.secondChoice ? { classId: slot.secondChoice.id ?? "", block: meta.block, level: meta.level, option: "2nd" } : null,
     ].filter((choice): choice is { classId: string; block: string; level: string; option: string } => Boolean(choice?.classId));
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import type { DataSource } from "@/lib/data/fetch-source";
+import type { SemesterRow } from "@/lib/data/types";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -62,6 +63,33 @@ function scheduleViewFromParam(raw: string | null): ScheduleCanvasView {
   if (x === "week") return "Week";
   if (x === "day") return "Day";
   return "Month";
+}
+
+function dateOnlyToLocalDate(raw: string | undefined): Date | null {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function dateRangeForSemester(semester: SemesterRow | null | undefined): { start: Date; end: Date } | null {
+  const start = dateOnlyToLocalDate(semester?.startsOn);
+  const end = dateOnlyToLocalDate(semester?.endsOn);
+  return start && end ? { start, end } : null;
+}
+
+function clampDateToRange(date: Date, range: { start: Date; end: Date } | null): Date {
+  if (!range) return date;
+  if (date < range.start) return new Date(range.start);
+  if (date > range.end) return new Date(range.end);
+  return date;
+}
+
+function initialScheduleDate(input: { initialDateIso?: string; semester?: SemesterRow | null }): Date {
+  const explicit = dateOnlyToLocalDate(input.initialDateIso);
+  const range = dateRangeForSemester(input.semester);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return clampDateToRange(explicit ?? today, range);
 }
 
 function formatTimeFromInput(htmlTime: string): string {
@@ -310,6 +338,8 @@ export type ScheduleMonthProps = {
   dayLabels?: readonly string[];
   /** Optional starting date in YYYY-MM-DD format for parity snapshots. */
   initialDateIso?: string;
+  /** Active semester range used to anchor and bound schedule navigation. */
+  semester?: SemesterRow | null;
   /** Parent schedule passes already-composed student events; do not overwrite them with extras-only refresh. */
   refreshExtrasOnClient?: boolean;
   /** Whether clicking an empty calendar day opens the event creation form. */
@@ -328,6 +358,7 @@ export default function ScheduleMonth({
   showTodayButton = true,
   dayLabels = DAYS_OF_WEEK,
   initialDateIso,
+  semester = null,
   refreshExtrasOnClient = true,
   allowEventCreation = true,
 }: ScheduleMonthProps) {
@@ -352,11 +383,9 @@ export default function ScheduleMonth({
     [router, searchParams, scheduleRouteBase],
   );
 
-  const [currentDate, setCurrentDate] = useState(() => {
-    if (!initialDateIso) return new Date();
-    const fromIso = new Date(`${initialDateIso}T00:00:00`);
-    return Number.isNaN(fromIso.getTime()) ? new Date() : fromIso;
-  });
+  const [activeSemester, setActiveSemester] = useState<SemesterRow | null>(semester);
+  const semesterRange = useMemo(() => dateRangeForSemester(activeSemester), [activeSemester]);
+  const [currentDate, setCurrentDate] = useState(() => initialScheduleDate({ initialDateIso, semester }));
 
   const [extrasByDateKey, setExtrasByDateKey] = useState<Record<string, CalendarEvent[]>>(() =>
     cloneExtras(initialExtrasByDate),
@@ -378,8 +407,13 @@ export default function ScheduleMonth({
 
   useEffect(() => {
     setExtrasByDateKey(cloneExtras(initialExtrasByDate));
+    setActiveSemester(semester);
     setActiveDataSource(dataSource);
-  }, [dataSource, initialExtrasByDate]);
+  }, [dataSource, initialExtrasByDate, semester]);
+
+  useEffect(() => {
+    setCurrentDate((current) => clampDateToRange(current, semesterRange));
+  }, [semesterRange]);
 
   useEffect(() => {
     if (!refreshExtrasOnClient) return;
@@ -388,10 +422,12 @@ export default function ScheduleMonth({
       try {
         const body = await readDashboardData<{
           extrasByDate?: Record<string, CalendarEvent[]>;
+          semester?: SemesterRow | null;
           source?: DataSource;
         }>("/api/data/schedule-extras");
         if (cancelled) return;
         setExtrasByDateKey(cloneExtras(body.extrasByDate ?? {}));
+        setActiveSemester(body.semester ?? null);
         setActiveDataSource(body.source ?? "unavailable");
       } catch {
         /* Keep server-rendered rows when the client refresh cannot complete. */
@@ -414,7 +450,7 @@ export default function ScheduleMonth({
     if (view === "Month") newDate.setMonth(newDate.getMonth() - 1);
     else if (view === "Week") newDate.setDate(newDate.getDate() - 7);
     else newDate.setDate(newDate.getDate() - 1);
-    setCurrentDate(newDate);
+    setCurrentDate(clampDateToRange(newDate, semesterRange));
   };
 
   const handleNext = () => {
@@ -422,11 +458,11 @@ export default function ScheduleMonth({
     if (view === "Month") newDate.setMonth(newDate.getMonth() + 1);
     else if (view === "Week") newDate.setDate(newDate.getDate() + 7);
     else newDate.setDate(newDate.getDate() + 1);
-    setCurrentDate(newDate);
+    setCurrentDate(clampDateToRange(newDate, semesterRange));
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date());
+    setCurrentDate(clampDateToRange(new Date(), semesterRange));
   };
 
   const handleEventClick = (e: React.MouseEvent, event: CalendarEvent) => {
@@ -776,6 +812,11 @@ export default function ScheduleMonth({
         <p className="font-sans font-normal text-[#666d80] text-[16px] leading-[1.4]">
           {subtitleByView?.[view] ?? heroSubtitle}
         </p>
+        {activeSemester ? (
+          <p className="font-sans text-[13px] font-medium text-[#4f5b73]">
+            {activeSemester.name}: {activeSemester.startsOn} to {activeSemester.endsOn}
+          </p>
+        ) : null}
         {showDataSourceBanner && (activeDataSource === "fallback" || syncHint) && (
           <div className="mt-2 flex flex-col gap-2 max-w-3xl">
             {activeDataSource === "fallback" && (

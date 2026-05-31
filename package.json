@@ -22,6 +22,7 @@
     "check:production-auth-guard": "node scripts/check-production-auth-guard.cjs",
     "check:responsive": "playwright test e2e/responsive.spec.ts",
     "test:e2e": "playwright test",
+    "test:parent-catalog-state": "node scripts/test-parent-catalog-state.cjs",
     "provision:supabase-users": "node scripts/provision-supabase-users.cjs",
     "verify:production": "node scripts/verify-production-readiness.cjs",
     "verify:restore-target": "CIA_VERIFY_RESTORE_TARGET=true node scripts/verify-production-readiness.cjs",

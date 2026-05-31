@@ -274,10 +274,27 @@ LEFT JOIN public.parents p ON p.id = ps.parent_id
 LEFT JOIN public.profiles pr ON pr.id = p.profile_id
 GROUP BY s.id, s.guardian_label;
 
+CREATE TABLE public.semesters (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  starts_on date NOT NULL,
+  ends_on date NOT NULL,
+  is_current boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT semesters_name_unique UNIQUE (name),
+  CONSTRAINT semesters_date_order CHECK (ends_on >= starts_on)
+);
+
+CREATE UNIQUE INDEX semesters_one_current_idx
+  ON public.semesters (is_current)
+  WHERE is_current;
+
 CREATE TABLE public.classes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   teacher_id uuid NOT NULL REFERENCES public.teachers (id) ON DELETE RESTRICT,
+  semester_id uuid NOT NULL REFERENCES public.semesters (id) ON DELETE RESTRICT,
   program public.program_track NOT NULL DEFAULT 'core',
   capacity integer NOT NULL DEFAULT 30,
   block text,
@@ -299,6 +316,7 @@ CREATE TABLE public.classes (
 );
 
 CREATE INDEX classes_teacher_id_idx ON public.classes (teacher_id);
+CREATE INDEX classes_semester_id_idx ON public.classes (semester_id);
 
 CREATE TABLE public.enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -585,6 +603,7 @@ ALTER TABLE public.parents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.semesters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_requests ENABLE ROW LEVEL SECURITY;
@@ -629,6 +648,16 @@ CREATE POLICY parents_update_admin
 CREATE POLICY parents_delete_admin
   ON public.parents FOR DELETE TO authenticated
   USING (private.is_admin());
+
+-- semesters
+CREATE POLICY semesters_select_authenticated
+  ON public.semesters FOR SELECT TO authenticated
+  USING (true);
+
+CREATE POLICY semesters_write_admin
+  ON public.semesters FOR ALL TO authenticated
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 
 -- teachers
 CREATE POLICY teachers_select

@@ -20,7 +20,7 @@ import TeachersTeacherList from "./teachers/teachers-client";
 import ParentsIndexClientGate from "./parents/parents-index-client";
 import DashboardNotificationsPage from "./notifications/notifications-client";
 import type { DashboardNotification } from "@/lib/data/types";
-import type { SchoolClassRow, StudentScheduleRow } from "@/lib/data/types";
+import type { SchoolClassRow, SemesterRow, StudentScheduleRow } from "@/lib/data/types";
 
 type TeacherRows = React.ComponentProps<typeof TeachersTeacherList>["initialTeachers"];
 
@@ -54,29 +54,33 @@ export function AdminHomePanel() {
 export function AdminSchedulePanel() {
   const cached = usablePayload(peekDashboardData<{
     extrasByDate?: Record<string, CalendarEvent[]>;
+    semester?: SemesterRow | null;
     source?: DataSource;
   }>(SCHEDULE_URL));
   const [extrasByDate, setExtrasByDate] = React.useState<Record<string, CalendarEvent[]>>(
     () => cached?.extrasByDate ?? {},
   );
   const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
+  const [semester, setSemester] = React.useState<SemesterRow | null>(() => cached?.semester ?? null);
   const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
     if (!cached) setStatus("loading");
-    void readDashboardData<{ extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource }>(SCHEDULE_URL)
+    void readDashboardData<{ extrasByDate?: Record<string, CalendarEvent[]>; semester?: SemesterRow | null; source?: DataSource }>(SCHEDULE_URL)
       .then((body) => {
         if (cancelled) return;
         if (isUnavailableSource(body.source)) {
           setExtrasByDate({});
+          setSemester(null);
           setSource("unavailable");
           setError("Schedule is temporarily unavailable.");
           setStatus("error");
           return;
         }
         setExtrasByDate(body.extrasByDate ?? {});
+        setSemester(body.semester ?? null);
         setSource(sourceOrUnavailable(body.source));
         setError(null);
         setStatus("ready");
@@ -95,7 +99,7 @@ export function AdminSchedulePanel() {
 
   if (status === "loading") return <DashboardPanelLoading label="Loading schedule..." />;
   if (status === "error") return <DashboardPanelError message={error ?? "Could not load schedule."} />;
-  return <ScheduleMonth initialExtrasByDate={extrasByDate} dataSource={source} />;
+  return <ScheduleMonth initialExtrasByDate={extrasByDate} dataSource={source} semester={semester} />;
 }
 
 export function AdminStudentsPanel({ initialData }: { initialData?: AdminWorkspaceInitialData["students"] }) {

@@ -34,7 +34,10 @@ export async function GET(request: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const { items: classes, source } = await fetchClassesResolved();
+  const { searchParams } = new URL(request.url);
+  const { items: classes, source } = await fetchClassesResolved({
+    semesterId: searchParams.get("semesterId"),
+  });
   return NextResponse.json({ classes, source });
 }
 
@@ -46,6 +49,7 @@ export async function POST(req: Request) {
   const result = await serverInsertClass({
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
+    semesterId: body.semesterId != null ? String(body.semesterId) : undefined,
     capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
@@ -73,6 +77,7 @@ export async function PATCH(req: Request) {
   const result = await serverUpdateClass(id, {
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
+    semesterId: body.semesterId != null ? String(body.semesterId) : undefined,
     capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",

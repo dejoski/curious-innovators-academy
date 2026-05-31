@@ -13,6 +13,7 @@ type DashboardWarmupProfile = "admin" | "parent" | "teacher" | "student";
 
 const ADMIN_WARMUP = [
   "/api/dashboard-presentation",
+  "/api/data/semesters",
   "/api/data/notifications",
   "/api/data/classes",
   "/api/data/class-options",
@@ -34,6 +35,7 @@ function warmupUrls(profile: DashboardWarmupProfile, studentId: string) {
   if (profile === "parent") {
     return [
       "/api/data/notifications",
+      "/api/data/semesters",
       "/api/data/classes",
       "/api/data/enrichment-requests",
       "/api/data/invoices",
@@ -41,10 +43,11 @@ function warmupUrls(profile: DashboardWarmupProfile, studentId: string) {
     ];
   }
   if (profile === "teacher") {
-    return ["/api/data/notifications", "/api/data/schedule-extras", "/api/data/classes"];
+    return ["/api/data/notifications", "/api/data/semesters", "/api/data/schedule-extras", "/api/data/classes"];
   }
   return [
     "/api/data/notifications",
+    "/api/data/semesters",
     "/api/data/classes",
     ...(studentId ? studentUrls(studentId) : []),
   ];

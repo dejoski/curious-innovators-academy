@@ -13,19 +13,21 @@ import {
   mergeCalendarEvents,
   studentScheduleToMonthEvents,
 } from "@/lib/parent-schedule-month-events";
-import type { DataSource, SchoolClassRow, StudentListItem, StudentScheduleRow } from "@/lib/data";
+import type { DataSource, SchoolClassRow, SemesterRow, StudentListItem, StudentScheduleRow } from "@/lib/data";
 import ScheduleMonth from "../../schedule/schedule-client";
 
 type StudentsBody = { students?: StudentListItem[]; source?: DataSource };
 type StudentScheduleBody = { rows?: StudentScheduleRow[]; source?: DataSource };
 type ScheduleExtrasBody = { extrasByDate?: Record<string, CalendarEvent[]>; source?: DataSource };
 type ClassesBody = { classes?: SchoolClassRow[]; source?: DataSource };
+type SemestersBody = { semesters?: SemesterRow[]; currentSemester?: SemesterRow | null; source?: DataSource };
 
 type ParentScheduleState = {
   eventsByDate: Record<string, CalendarEvent[]>;
   source: DataSource;
   ready: boolean;
   studentId: string | null;
+  semester: SemesterRow | null;
 };
 
 function resolveRequestedStudent(students: StudentListItem[], requestedStudentId: string): StudentListItem | null {
@@ -37,18 +39,21 @@ function composeParentScheduleState(
   scheduleBody: StudentScheduleBody | null,
   extrasBody: ScheduleExtrasBody | null,
   classesBody: ClassesBody | null,
+  semestersBody: SemestersBody | null,
   requestedStudentId: string,
 ): ParentScheduleState {
   const selectedStudent = resolveRequestedStudent(studentsBody?.students ?? [], requestedStudentId);
   const scheduleRow = scheduleBody?.rows?.[0] ?? null;
+  const semester = semestersBody?.currentSemester ?? null;
   return {
     eventsByDate: mergeCalendarEvents(
       extrasBody?.extrasByDate ?? {},
-      studentScheduleToMonthEvents(scheduleRow, classesBody?.classes ?? []),
+      studentScheduleToMonthEvents(scheduleRow, classesBody?.classes ?? [], semester),
     ),
-    source: scheduleBody?.source ?? extrasBody?.source ?? classesBody?.source ?? studentsBody?.source ?? "unavailable",
-    ready: Boolean(studentsBody && scheduleBody && extrasBody && classesBody),
+    source: scheduleBody?.source ?? extrasBody?.source ?? classesBody?.source ?? semestersBody?.source ?? studentsBody?.source ?? "unavailable",
+    ready: Boolean(studentsBody && scheduleBody && extrasBody && classesBody && semestersBody),
     studentId: selectedStudent?.id ?? null,
+    semester,
   };
 }
 
@@ -60,7 +65,8 @@ function readCachedParentScheduleState(requestedStudentId: string): ParentSchedu
     : null;
   const extrasBody = peekCachedJson<ScheduleExtrasBody>("/api/data/schedule-extras");
   const classesBody = peekCachedJson<ClassesBody>("/api/data/classes");
-  return composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, requestedStudentId);
+  const semestersBody = peekCachedJson<SemestersBody>("/api/data/semesters");
+  return composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, semestersBody, requestedStudentId);
 }
 
 export default function ParentScheduleClient() {
@@ -71,6 +77,7 @@ export default function ParentScheduleClient() {
     source: "unavailable",
     ready: false,
     studentId: null,
+    semester: null,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -88,6 +95,7 @@ export default function ParentScheduleClient() {
           source: "unavailable",
           ready: false,
           studentId: null,
+          semester: null,
         });
         setIsLoading(true);
       }
@@ -95,15 +103,16 @@ export default function ParentScheduleClient() {
       try {
         const studentsBody = await cachedJson<StudentsBody>("/api/data/students");
         const selectedStudent = resolveRequestedStudent(studentsBody.students ?? [], requestedStudentId);
-        const [scheduleBody, extrasBody, classesBody] = await Promise.all([
+        const [scheduleBody, extrasBody, classesBody, semestersBody] = await Promise.all([
           selectedStudent
             ? cachedJson<StudentScheduleBody>(`/api/data/students/${encodeURIComponent(selectedStudent.id)}/schedule`)
             : Promise.resolve<StudentScheduleBody>({ rows: [], source: studentsBody.source ?? "unavailable" }),
           cachedJson<ScheduleExtrasBody>("/api/data/schedule-extras"),
           cachedJson<ClassesBody>("/api/data/classes"),
+          cachedJson<SemestersBody>("/api/data/semesters"),
         ]);
         if (cancelled) return;
-        setScheduleState(composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, requestedStudentId));
+        setScheduleState(composeParentScheduleState(studentsBody, scheduleBody, extrasBody, classesBody, semestersBody, requestedStudentId));
         setLoadError(null);
       } catch (error) {
         if (!cancelled) {
@@ -150,6 +159,7 @@ export default function ParentScheduleClient() {
           showTodayButton={false}
           refreshExtrasOnClient={false}
           allowEventCreation={false}
+          semester={scheduleState.semester}
         />
       )}
     </div>

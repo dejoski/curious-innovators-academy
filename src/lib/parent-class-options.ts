@@ -1,4 +1,5 @@
 import type { ProgramTrack, SchoolClassRow, StudentScheduleBadge } from "@/lib/data/types";
+import { classSchedulePartsFromFields, type ScheduleDisplayParts } from "@/lib/schedule-slots";
 
 export type ParentClassOption = {
   id: string;
@@ -26,7 +27,7 @@ export type ParentClassSlotContext =
   | { kind: "change"; label: string }
   | { kind: "empty" };
 
-export type ScheduleDisplayParts = { day: string; time: string };
+export type { ScheduleDisplayParts };
 
 export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption {
   const fallbackDescription =
@@ -96,11 +97,11 @@ export function isOptionFull(option: ParentClassOption): boolean {
 }
 
 export function scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
-  const parts = (option.schedule ?? "").split("·").map((part) => part.trim()).filter(Boolean);
-  return {
-    day: parts[0] || option.block || "Schedule not set",
-    time: parts[2] || parts[1] || "Time not set",
-  };
+  return classSchedulePartsFromFields({
+    block: option.block,
+    level: option.level,
+    scheduleSummary: option.schedule,
+  });
 }
 
 export function classNameFromScheduleBadge(label: string): string {

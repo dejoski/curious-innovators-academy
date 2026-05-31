@@ -12,6 +12,7 @@ import {
   type ParentClassChoiceKind,
   type ParentClassOption,
   type ParentClassSlotContext,
+  type ScheduleDisplayParts,
 } from "@/components/parent-class-drawers";
 import {
   classOptionForScheduleBadge,
@@ -259,6 +260,7 @@ function ParentHomeDashboardContent() {
     option: ParentClassOption;
     statusLabel: string;
     catalogSlot: CatalogSlotId | null;
+    scheduleDisplay?: ScheduleDisplayParts;
   } | null>(null);
 
   useEffect(() => {
@@ -815,6 +817,7 @@ function ParentHomeDashboardContent() {
           }}
           onSelectChoice={selectHomeChoice}
           onClose={closeSelectionDrawer}
+          onOpenClassDetails={(option, scheduleDisplay) => setDetailClass({ option, statusLabel: option.status ?? "Open", catalogSlot: activeSlot, scheduleDisplay })}
           onSaveDraft={saveHomeDraft}
           onSubmit={submitHomeSelections}
           saveDraftDisabled={!drawerHasCatalogChoices}
@@ -828,6 +831,7 @@ function ParentHomeDashboardContent() {
         <ParentClassDetailsDrawer
           option={detailClass.option}
           statusLabel={detailClass.statusLabel}
+          scheduleDisplay={detailClass.scheduleDisplay}
           classListHref={parentClassListHref(detailClass.option)}
           canSubmitDraft={detailClass.statusLabel.startsWith("Draft") && localRequestState === "draft" && hasCatalogChoices}
           submitting={submitting}

@@ -12,12 +12,13 @@ import {
 } from "@/lib/data/server-writes";
 import type { EnrichmentRequestRow } from "@/lib/data/types";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
+  const { searchParams } = new URL(request.url);
   const [{ items: requests, source }, decisionSummary] = await Promise.all([
-    fetchEnrichmentRequestsResolved(),
+    fetchEnrichmentRequestsResolved({ semesterId: searchParams.get("semesterId") }),
     fetchEnrichmentDecisionSummaryResolved(),
   ]);
   return NextResponse.json({ requests, source, decisionSummary });

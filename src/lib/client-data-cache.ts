@@ -3,7 +3,7 @@ type CacheEntry<T> = {
   data: T;
 };
 
-const VERSION = "cia-client-data-v6";
+const VERSION = "cia-client-data-v7";
 const INVALIDATION_STORAGE_KEY = `${VERSION}:invalidation`;
 export const DASHBOARD_CACHE_INVALIDATED_EVENT = "cia-dashboard-cache-invalidated";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
@@ -13,6 +13,7 @@ let cacheScope = "default";
 
 export const ADMIN_HOME_DATA_URLS = [
   "/api/dashboard-presentation",
+  "/api/data/semesters",
   "/api/data/notifications",
   "/api/data/enrichment-requests",
 ] as const;
@@ -202,6 +203,7 @@ export async function preloadParentDashboardData(): Promise<{ ok: boolean; stude
     .filter(Boolean);
   const urls = [
     "/api/data/me",
+    "/api/data/semesters",
     "/api/data/classes",
     "/api/data/notifications",
     "/api/data/schedule-extras",

@@ -1,5 +1,13 @@
 export type ProgramTrack = "core" | "enrichment";
 
+export type SemesterRow = {
+  id: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  isCurrent: boolean;
+};
+
 /** Students list (/dashboard/students). */
 export type StudentListItem = {
   id: string;
@@ -24,6 +32,10 @@ export type StudentListItem = {
 /** Classes overview (/dashboard/classes). */
 export type SchoolClassRow = {
   id: string;
+  semesterId: string;
+  semesterName: string;
+  semesterStartsOn: string;
+  semesterEndsOn: string;
   name: string;
   teacher: string;
   students: string;
@@ -75,7 +87,7 @@ export type SchoolClassRow = {
 
 export type SchoolClassOptionRow = Pick<
   SchoolClassRow,
-  "id" | "name" | "program" | "capacity" | "block" | "level" | "schedule"
+  "id" | "semesterId" | "semesterName" | "semesterStartsOn" | "semesterEndsOn" | "name" | "program" | "capacity" | "block" | "level" | "schedule"
 >;
 
 export type ClassRosterStatus = "Approved" | "Pending" | "Waitlisted" | "Rejected";

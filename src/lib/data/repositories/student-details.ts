@@ -20,6 +20,7 @@ import {
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
+import { fetchCurrentSemesterResolved } from "@/lib/data/repositories/semesters";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type StudentReadClient = Pick<
@@ -36,6 +37,7 @@ type StudentScheduleResolved = {
   rows: StudentScheduleRow[];
   source: DataSource;
 };
+type StudentScheduleQueryOptions = { semesterId?: string | null };
 
 const SCHOOL_TIME_ZONE = "America/New_York";
 
@@ -68,6 +70,19 @@ function unavailableRoster(): ResolvedList<StudentRosterRow> {
 function normalizeProgram(raw: unknown): ProgramTrack {
   const s = String(raw ?? "core").toLowerCase();
   return s === "enrichment" ? "enrichment" : "core";
+}
+
+async function resolveSemesterFilter(client: StudentReadClient, options?: StudentScheduleQueryOptions): Promise<string | null> {
+  const explicit = options?.semesterId?.trim();
+  if (explicit) return explicit;
+  const { semester } = await fetchCurrentSemesterResolved(client);
+  return semester?.id ?? null;
+}
+
+function rowMatchesSemester(row: Record<string, unknown>, semesterId: string | null): boolean {
+  if (!semesterId) return true;
+  const classRow = firstRel<Record<string, unknown>>(row.classes);
+  return String(classRow?.semester_id ?? "") === semesterId;
 }
 
 function normalizeRosterStatus(raw: unknown): StudentRosterStatus {
@@ -206,16 +221,17 @@ export async function fetchStudentProfileResolved(
       return unavailableProfile();
     }
     if (!student) return { profile: null, source: "remote" };
+    const semesterId = await resolveSemesterFilter(supabase);
 
     const [enrollmentsResult, classRequestsResult, recordsResult] = await Promise.all([
       supabase
         .from("enrollments")
-        .select("id, status, classes ( id, name, program )")
+        .select("id, status, classes ( id, name, program, semester_id )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
         .from("class_requests")
-        .select("id, status, classes ( id, name, program )")
+        .select("id, status, classes ( id, name, program, semester_id )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
@@ -240,8 +256,10 @@ export async function fetchStudentProfileResolved(
       logStudentDetailsRepoIssue("fetchStudentProfileResolved", id, "student_records", recordsError);
     }
 
-    const enrollmentRows = (enrollments ?? []) as unknown as Record<string, unknown>[];
-    const requestRows = (classRequests ?? []) as unknown as Record<string, unknown>[];
+    const enrollmentRows = ((enrollments ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => rowMatchesSemester(row, semesterId));
+    const requestRows = ((classRequests ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => rowMatchesSemester(row, semesterId));
     const coreClasses = enrollmentRows
       .map((row) => firstRel<Record<string, unknown>>(row.classes))
       .filter((row): row is Record<string, unknown> => row !== null)
@@ -303,13 +321,15 @@ export async function fetchAdminStudentProfileResolved(
   return fetchStudentProfileResolved(studentId, access.client);
 }
 
-export async function fetchAdminStudentSchedulesResolved(): Promise<StudentScheduleResolved> {
+export async function fetchAdminStudentSchedulesResolved(options?: StudentScheduleQueryOptions): Promise<StudentScheduleResolved> {
   if (!isSupabaseConfigured()) return unavailableSchedule();
   const access = await requireAdminReadClient();
   if (!access) return unavailableSchedule();
 
   try {
     const supabase = access.client;
+    const semesterId = await resolveSemesterFilter(supabase, options);
+    if (!semesterId) return unavailableSchedule();
     const { data: students, error: studentsError } = await supabase
       .from("students")
       .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
@@ -331,7 +351,7 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
 
     const { data: enrollments, error: enrollmentsError } = await supabase
       .from("enrollments")
-      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary, semester_id )")
       .order("created_at", { ascending: true });
     if (enrollmentsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "enrollments", enrollmentsError);
@@ -340,21 +360,25 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
 
     const { data: classRequests, error: classRequestsError } = await supabase
       .from("class_requests")
-      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary, semester_id )")
       .order("created_at", { ascending: true });
     if (classRequestsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "class_requests", classRequestsError);
       return unavailableSchedule();
     }
 
-    ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
+    ((enrollments ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => rowMatchesSemester(row, semesterId))
+      .forEach((enrollment, index) => {
       const studentId = String(enrollment.student_id ?? "");
       const row = byStudentId.get(studentId);
       const badge = badgeForEnrollment(enrollment);
       if (row && badge) pushBadge(row, scheduleSlotForClass(enrollment, index), badge);
     });
 
-    ((classRequests ?? []) as unknown as Record<string, unknown>[]).forEach((request, index) => {
+    ((classRequests ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => rowMatchesSemester(row, semesterId))
+      .forEach((request, index) => {
       if (String(request.status ?? "").toLowerCase() !== "pending") return;
       const studentId = String(request.student_id ?? "");
       const row = byStudentId.get(studentId);
@@ -382,6 +406,7 @@ export async function fetchAdminStudentSchedulesResolved(): Promise<StudentSched
 export async function fetchStudentScheduleResolved(
   studentId: string,
   client?: StudentReadClient,
+  options?: StudentScheduleQueryOptions,
 ): Promise<StudentScheduleResolved> {
   const id = studentId.trim();
   if (!id) return { rows: [], source: "unavailable" };
@@ -389,6 +414,8 @@ export async function fetchStudentScheduleResolved(
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
+    const semesterId = await resolveSemesterFilter(supabase, options);
+    if (!semesterId) return unavailableSchedule();
     const { data: student, error } = await supabase
       .from("students")
       .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
@@ -403,12 +430,12 @@ export async function fetchStudentScheduleResolved(
     const [enrollmentsResult, classRequestsResult] = await Promise.all([
       supabase
         .from("enrollments")
-        .select("id, status, classes ( id, name, program, block, schedule_summary )")
+        .select("id, status, classes ( id, name, program, block, schedule_summary, semester_id )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
         .from("class_requests")
-        .select("id, status, classes ( id, name, program, block, schedule_summary )")
+        .select("id, status, classes ( id, name, program, block, schedule_summary, semester_id )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
     ]);
@@ -430,11 +457,15 @@ export async function fetchStudentScheduleResolved(
       parent: parentContactFromStudentRow(student as unknown as Record<string, unknown>).name,
       avatar: String(student.avatar_url ?? ""),
     });
-    ((enrollments ?? []) as unknown as Record<string, unknown>[]).forEach((enrollment, index) => {
+    ((enrollments ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => rowMatchesSemester(row, semesterId))
+      .forEach((enrollment, index) => {
       const badge = badgeForEnrollment(enrollment);
       if (badge) pushBadge(row, scheduleSlotForClass(enrollment, index), badge);
     });
-    ((classRequests ?? []) as unknown as Record<string, unknown>[]).forEach((request, index) => {
+    ((classRequests ?? []) as unknown as Record<string, unknown>[])
+      .filter((row) => rowMatchesSemester(row, semesterId))
+      .forEach((request, index) => {
       const status = String(request.status ?? "").toLowerCase();
       if (status !== "pending") return;
       const badge = badgeForEnrollment(request);
@@ -456,10 +487,11 @@ export async function fetchStudentScheduleResolved(
 
 export async function fetchAdminStudentScheduleResolved(
   studentId: string,
+  options?: StudentScheduleQueryOptions,
 ): Promise<StudentScheduleResolved> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableSchedule();
-  return fetchStudentScheduleResolved(studentId, access.client);
+  return fetchStudentScheduleResolved(studentId, access.client, options);
 }
 
 function mapStudentRosterEnrollmentRow(row: Record<string, unknown>): StudentRosterRow | null {

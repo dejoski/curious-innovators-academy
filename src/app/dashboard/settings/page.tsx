@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
+import type { SemesterRow } from "@/lib/data/types";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
 type ProvisionRole = "admin" | "parent" | "teacher" | "student";
@@ -45,6 +47,11 @@ export default function DashboardSettingsPage() {
   const [provisionStatus, setProvisionStatus] = useState<string | null>(null);
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const [isProvisioning, setIsProvisioning] = useState(false);
+  const [semesters, setSemesters] = useState<SemesterRow[]>([]);
+  const [semesterDrafts, setSemesterDrafts] = useState<Record<string, SemesterRow>>({});
+  const [semesterStatus, setSemesterStatus] = useState<string | null>(null);
+  const [semesterError, setSemesterError] = useState<string | null>(null);
+  const [semesterSavingId, setSemesterSavingId] = useState<string | null>(null);
   const showQaTools = isTestPersonaSwitcherEnabled();
 
   useEffect(() => {
@@ -77,6 +84,27 @@ export default function DashboardSettingsPage() {
       cancelled = true;
     };
   }, [accountDisplayName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSemesters() {
+      try {
+        const res = await fetch("/api/data/semesters", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as { semesters?: SemesterRow[] };
+        if (cancelled) return;
+        const rows = body.semesters ?? [];
+        setSemesters(rows);
+        setSemesterDrafts(Object.fromEntries(rows.map((semester) => [semester.id, semester])));
+      } catch {
+        if (!cancelled) setSemesterError("Could not load semester settings.");
+      }
+    }
+    void loadSemesters();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,6 +183,73 @@ export default function DashboardSettingsPage() {
       setIsProvisioning(false);
     }
   }, [provisionEmail, provisionName, provisionPassword, provisionRole, sendInviteEmail]);
+
+  const updateSemesterDraft = useCallback((id: string, patch: Partial<SemesterRow>) => {
+    setSemesterDrafts((current) => {
+      const draft = current[id];
+      if (!draft) return current;
+      return { ...current, [id]: { ...draft, ...patch } };
+    });
+  }, []);
+
+  const saveSemester = useCallback(async (id: string, makeCurrent = false) => {
+    const draft = semesterDrafts[id];
+    if (!draft || semesterSavingId) return;
+    setSemesterStatus(null);
+    setSemesterError(null);
+    setSemesterSavingId(id);
+    try {
+      const res = await fetch("/api/data/semesters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          name: draft.name,
+          startsOn: draft.startsOn,
+          endsOn: draft.endsOn,
+          isCurrent: makeCurrent || draft.isCurrent,
+        }),
+      });
+      if (!res.ok) {
+        setSemesterError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { semester?: SemesterRow };
+      const savedSemester = body.semester;
+      if (savedSemester) {
+        setSemesters((current) =>
+          current.map((semester) => {
+            if (savedSemester.isCurrent) {
+              return semester.id === id ? savedSemester : { ...semester, isCurrent: false };
+            }
+            return semester.id === id ? savedSemester : semester;
+          }),
+        );
+        setSemesterDrafts((current) => {
+          const next = { ...current };
+          if (savedSemester.isCurrent) {
+            for (const key of Object.keys(next)) next[key] = { ...next[key], isCurrent: false };
+          }
+          next[id] = savedSemester;
+          return next;
+        });
+      }
+      invalidateDashboardData([
+        "/api/data/semesters",
+        "/api/data/classes",
+        "/api/data/class-options",
+        "/api/data/schedule-extras",
+        "/api/data/student-schedules",
+        "/api/data/enrichment-requests",
+      ]);
+      setSemesterStatus(makeCurrent ? "Current semester switched." : "Semester dates saved.");
+      window.setTimeout(() => setSemesterStatus(null), 4500);
+    } catch {
+      setSemesterError("Request failed.");
+    } finally {
+      setSemesterSavingId(null);
+    }
+  }, [semesterDrafts, semesterSavingId]);
 
   return (
     <div className="p-8 w-full max-w-[1168px] mx-auto font-sans pb-16">
@@ -307,6 +402,99 @@ export default function DashboardSettingsPage() {
               </button>
             </li>
           </ul>
+        </section>
+
+        <section className="rounded-[12px] border border-[#eef0f3] bg-white p-6 shadow-sm">
+          <h2 className="text-[#272932] text-lg font-semibold mb-1">Semesters</h2>
+          <p className="text-[#666d80] text-sm mb-6">
+            Define the active school term used by class selection and schedule calendars. School days remain Tuesday, Wednesday, and Thursday.
+          </p>
+
+          {semesterStatus ? (
+            <p className="mb-4 rounded-[8px] border border-[#c8f4f0] bg-[#e8fafb] px-3 py-2 text-sm text-[#0d5c56]" role="status">
+              {semesterStatus}
+            </p>
+          ) : null}
+          {semesterError ? (
+            <p className="mb-4 rounded-[8px] border border-[#f4cccc] bg-[#fff5f5] px-3 py-2 text-sm text-[#a33d3d]" role="alert">
+              {semesterError}
+            </p>
+          ) : null}
+
+          <div className="grid gap-4">
+            {semesters.length === 0 ? (
+              <p className="rounded-[10px] border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 text-sm text-[#666d80]">
+                Semester settings are unavailable until the semester migration is applied.
+              </p>
+            ) : null}
+            {semesters.map((semester) => {
+              const draft = semesterDrafts[semester.id] ?? semester;
+              const saving = semesterSavingId === semester.id;
+              return (
+                <div key={semester.id} className="rounded-[10px] border border-[#e6e9ef] bg-[#fafafa] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[15px] font-semibold text-[#272932]">{semester.name}</p>
+                      <p className="text-[12px] text-[#666d80]">
+                        {semester.isCurrent ? "Current semester" : "Available semester"}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${semester.isCurrent ? "bg-[#d2f1f5] text-[#155e66]" : "bg-white text-[#666d80] ring-1 ring-[#dfe1e7]"}`}>
+                      {semester.isCurrent ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_150px_150px_auto] md:items-end">
+                    <label className="flex flex-col gap-2">
+                      <span className="text-[13px] font-medium text-[#2f2f2d]">Name</span>
+                      <input
+                        value={draft.name}
+                        onChange={(e) => updateSemesterDraft(semester.id, { name: e.target.value })}
+                        className="h-[42px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2">
+                      <span className="text-[13px] font-medium text-[#2f2f2d]">Start</span>
+                      <input
+                        type="date"
+                        value={draft.startsOn}
+                        onChange={(e) => updateSemesterDraft(semester.id, { startsOn: e.target.value })}
+                        className="h-[42px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2">
+                      <span className="text-[13px] font-medium text-[#2f2f2d]">End</span>
+                      <input
+                        type="date"
+                        value={draft.endsOn}
+                        onChange={(e) => updateSemesterDraft(semester.id, { endsOn: e.target.value })}
+                        className="h-[42px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={Boolean(semesterSavingId)}
+                        onClick={() => void saveSemester(semester.id)}
+                        className="inline-flex h-[42px] items-center justify-center rounded-[6px] bg-white px-4 text-sm font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 transition-colors hover:bg-[#ecfdff] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {saving ? "Saving..." : "Save"}
+                      </button>
+                      {!semester.isCurrent ? (
+                        <button
+                          type="button"
+                          disabled={Boolean(semesterSavingId)}
+                          onClick={() => void saveSemester(semester.id, true)}
+                          className="inline-flex h-[42px] items-center justify-center rounded-[6px] bg-[#14c1d5] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#12aebd] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Make current
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <section className="rounded-[12px] border border-[#eef0f3] bg-white p-6 shadow-sm">

@@ -12,9 +12,12 @@ import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-re
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
+import { fetchCurrentSemesterResolved } from "@/lib/data/repositories/semesters";
+import { formatClassScheduleLabel } from "@/lib/schedule-slots";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ClassReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
+type ClassQueryOptions = { semesterId?: string | null };
 
 function formatStudentsLabel(row: Record<string, unknown>): string {
   const direct = row.students_label ?? row.students;
@@ -42,8 +45,24 @@ function formatAvailabilityLabel(seatsRemaining: number, capacity: number): stri
   return `${seatsRemaining} seats left`;
 }
 
+const CLASS_SELECT_BASE = `
+  *,
+  teachers (
+    profiles (
+      display_name
+    )
+  )
+`;
+
 const CLASS_SELECT = `
   *,
+  semesters (
+    id,
+    name,
+    starts_on,
+    ends_on,
+    is_current
+  ),
   teachers (
     profiles (
       display_name
@@ -68,6 +87,7 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
   if (row.id == null || String(row.id) === "") return null;
 
   const id = String(row.id);
+  const semester = firstRel<Record<string, unknown>>(row.semesters);
   const capacity = numberField(row, "capacity") ?? numberField(row, "max_students") ?? 1;
   const reservedCount = numberField(row, "reserved_count") ?? numberField(row, "reserved") ?? 0;
   const enrolledCount = numberField(row, "enrolled_count") ?? numberField(row, "enrolled") ?? 0;
@@ -92,16 +112,24 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
         ? Math.max(0, Math.floor(Number(waitRaw)))
         : 0;
 
+  const block = String(row.block ?? row.block_label ?? "").trim();
+  const level = String(row.level ?? row.level_label ?? "").trim();
+  const scheduleSummary = row.schedule ?? row.schedule_label ?? row.schedule_summary ?? "";
+
   return {
     id,
+    semesterId: String(semester?.id ?? row.semester_id ?? ""),
+    semesterName: String(semester?.name ?? row.semester_name ?? ""),
+    semesterStartsOn: String(semester?.starts_on ?? row.semester_starts_on ?? "").slice(0, 10),
+    semesterEndsOn: String(semester?.ends_on ?? row.semester_ends_on ?? "").slice(0, 10),
     name: String(row.name ?? row.title ?? ""),
     teacher: String(row.teacher_name ?? row.teacher ?? ""),
     students: formatStudentsLabel(row),
-    schedule: String(row.schedule ?? row.schedule_label ?? row.schedule_summary ?? ""),
+    schedule: formatClassScheduleLabel({ block, level, scheduleSummary }),
     status,
     program: normalizeProgram(row.program ?? row.track),
-    level: String(row.level ?? row.level_label ?? "").trim(),
-    block: String(row.block ?? row.block_label ?? "").trim(),
+    level,
+    block,
     location: String(row.location ?? "").trim(),
     description: String(row.description ?? "").trim(),
     prerequisites: String(row.prerequisites ?? "").trim(),
@@ -162,22 +190,41 @@ function availabilityByClassId(rows: Record<string, unknown>[] | null | undefine
   return byClassId;
 }
 
-async function loadClassesResolved(client?: ClassReadClient): Promise<ResolvedList<SchoolClassRow>> {
+async function resolveSemesterFilter(client: ClassReadClient, options?: ClassQueryOptions): Promise<string | null> {
+  const explicit = options?.semesterId?.trim();
+  if (explicit) return explicit;
+  const { semester } = await fetchCurrentSemesterResolved(client);
+  return semester?.id ?? null;
+}
+
+async function loadClassesResolved(client?: ClassReadClient, options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
   if (!isSupabaseConfigured()) {
     return unavailableList();
   }
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
-    const [classesResult, availabilityResult] = await Promise.all([
-      supabase
-        .from("classes")
-        .select(CLASS_SELECT)
-        .order("created_at", { ascending: true }),
+    const semesterId = await resolveSemesterFilter(supabase, options);
+    let classesQuery = supabase
+      .from("classes")
+      .select(CLASS_SELECT)
+      .order("created_at", { ascending: true });
+    if (semesterId) {
+      classesQuery = classesQuery.eq("semester_id", semesterId);
+    }
+    const [initialClassesResult, availabilityResult] = await Promise.all([
+      classesQuery,
       supabase
         .from("class_catalog_availability")
         .select("class_id, enrolled_count, pending_count, waitlist_count, reserved_count, seats_remaining, availability_label"),
     ]);
+    let classesResult = initialClassesResult;
+    if (classesResult.error && !semesterId) {
+      classesResult = await supabase
+        .from("classes")
+        .select(CLASS_SELECT_BASE)
+        .order("created_at", { ascending: true });
+    }
 
     if (classesResult.error) {
       return unavailableList();
@@ -222,40 +269,62 @@ export async function fetchClasses(): Promise<SchoolClassRow[]> {
   return items;
 }
 
-export async function fetchClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
-  return loadClassesResolved();
+export async function fetchClassesResolved(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
+  return loadClassesResolved(undefined, options);
 }
 
-export async function fetchAdminClassesResolved(): Promise<ResolvedList<SchoolClassRow>> {
+export async function fetchAdminClassesResolved(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
-  return loadClassesResolved(access.client);
+  return loadClassesResolved(access.client, options);
 }
 
 function mapClassOptionRow(row: Record<string, unknown>): SchoolClassOptionRow | null {
   if (row.id == null || String(row.id) === "") return null;
+  const semester = firstRel<Record<string, unknown>>(row.semesters);
+  const block = String(row.block ?? "").trim();
+  const level = String(row.level ?? "").trim();
   return {
     id: String(row.id),
+    semesterId: String(semester?.id ?? row.semester_id ?? ""),
+    semesterName: String(semester?.name ?? row.semester_name ?? ""),
+    semesterStartsOn: String(semester?.starts_on ?? row.semester_starts_on ?? "").slice(0, 10),
+    semesterEndsOn: String(semester?.ends_on ?? row.semester_ends_on ?? "").slice(0, 10),
     name: String(row.name ?? ""),
     program: normalizeProgram(row.program),
     capacity: numberField(row, "capacity") ?? 0,
-    block: String(row.block ?? "").trim(),
-    level: String(row.level ?? "").trim(),
-    schedule: String(row.schedule_summary ?? ""),
+    block,
+    level,
+    schedule: formatClassScheduleLabel({ block, level, scheduleSummary: row.schedule_summary }),
   };
 }
 
-async function loadClassOptionsResolved(client?: ClassReadClient): Promise<ResolvedList<SchoolClassOptionRow>> {
+async function loadClassOptionsResolved(client?: ClassReadClient, options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassOptionRow>> {
   if (!isSupabaseConfigured()) return unavailableList();
   try {
     const supabase = client ?? await createSupabaseServerClient();
-    const { data, error } = await supabase
+    const semesterId = await resolveSemesterFilter(supabase, options);
+    let query = supabase
       .from("classes")
-      .select("id, name, program, capacity, block, level, schedule_summary")
+      .select("id, semester_id, name, program, capacity, block, level, schedule_summary, semesters ( id, name, starts_on, ends_on, is_current )")
       .order("created_at", { ascending: true });
+    if (semesterId) {
+      query = query.eq("semester_id", semesterId);
+    }
+    const initial = await query;
+    let data = initial.data as unknown as Record<string, unknown>[] | null;
+    let error = initial.error;
+    if (error && !semesterId) {
+      const fallback = await supabase
+        .from("classes")
+        .select("id, name, program, capacity, block, level, schedule_summary")
+        .order("created_at", { ascending: true });
+      data = fallback.data as unknown as Record<string, unknown>[] | null;
+      error = fallback.error;
+    }
     if (error) return unavailableList();
     return {
-      items: ((data ?? []) as unknown as Record<string, unknown>[])
+      items: (data ?? [])
         .map(mapClassOptionRow)
         .filter((row): row is SchoolClassOptionRow => row !== null),
       source: "remote",
@@ -265,10 +334,10 @@ async function loadClassOptionsResolved(client?: ClassReadClient): Promise<Resol
   }
 }
 
-export async function fetchAdminClassOptionsResolved(): Promise<ResolvedList<SchoolClassOptionRow>> {
+export async function fetchAdminClassOptionsResolved(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassOptionRow>> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
-  return loadClassOptionsResolved(access.client);
+  return loadClassOptionsResolved(access.client, options);
 }
 
 function unavailableRoster(): ResolvedList<ClassRosterStudent> {

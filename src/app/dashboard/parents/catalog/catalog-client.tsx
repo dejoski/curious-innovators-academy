@@ -7,10 +7,12 @@ import { ArrowRight, Info, Lightbulb } from "lucide-react";
 
 import { ParentCatalogStatusBanner } from "@/components/parent-catalog-status-banner";
 import {
+  ParentClassDetailsDrawer,
   ParentClassSelectionDrawer,
   type ParentClassChoiceKind,
   type ParentClassOption,
   type ParentClassSlotContext,
+  type ScheduleDisplayParts,
 } from "@/components/parent-class-drawers";
 import {
   fallbackParentClassOption,
@@ -40,7 +42,6 @@ import {
   changedParentCatalogRequests,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
-  hasParentCatalogChoices,
   mergedParentCatalogScheduleBadgeOverrides,
   mergeParentCatalogRequests,
   normalizeParentCatalogRequests,
@@ -131,6 +132,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
   const [studentScheduleLoading, setStudentScheduleLoading] = useState(true);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
+  const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -385,6 +387,7 @@ function ParentClassesEnrichmentCatalogContent() {
     setOverlayOpen(false);
     setEditingRequests(null);
     setOpenChoice(null);
+    setDetailClass(null);
   }
 
   function openScheduleSlot(slot: ParentScheduleSlotKey) {
@@ -645,6 +648,7 @@ function ParentClassesEnrichmentCatalogContent() {
           }}
           onSelectChoice={selectChoice}
           onClose={closeSelectionDrawer}
+          onOpenClassDetails={(option, scheduleDisplay) => setDetailClass({ option, scheduleDisplay })}
           onSaveDraft={saveDraftSelections}
           onSubmit={submitSelections}
           saveDraftDisabled={!drawerHasChoices}
@@ -652,6 +656,17 @@ function ParentClassesEnrichmentCatalogContent() {
           submitting={submitting}
           secondChoiceDisabled={!firstChoice}
           optionsLoading={catalogLoading}
+        />
+      ) : null}
+      {detailClass ? (
+        <ParentClassDetailsDrawer
+          option={detailClass.option}
+          scheduleDisplay={detailClass.scheduleDisplay}
+          classListHref={withParentStudentParam(
+            detailClass.option.program === "core" ? "/dashboard/parents/classes/core" : "/dashboard/parents/classes/enrichment",
+            activeStudent?.id,
+          )}
+          onClose={() => setDetailClass(null)}
         />
       ) : null}
     </div>

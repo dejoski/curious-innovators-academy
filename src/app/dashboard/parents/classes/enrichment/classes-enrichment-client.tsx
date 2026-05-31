@@ -8,7 +8,7 @@ import {
   selectedParentStudentIdFromSearchParams,
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
-import { splitScheduleLabel } from "@/lib/schedule-slots";
+import { classSchedulePartsFromFields } from "@/lib/schedule-slots";
 import {
   catalogSnapshotFromEnrichmentRequests,
   catalogChoiceReviews,
@@ -47,7 +47,11 @@ type DraftChoiceWithLocalId = ParentCatalogChoice & {
 };
 
 function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
-  const { day, time } = splitScheduleLabel(row.schedule);
+  const { day, time } = classSchedulePartsFromFields({
+    block: row.block,
+    level: row.level,
+    scheduleSummary: row.schedule,
+  });
   return {
     id: row.id,
     name: row.name,

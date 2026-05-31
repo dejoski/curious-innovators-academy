@@ -1,10 +1,19 @@
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { CalendarEventType, ProgramTrack, ScheduleCalendarEvent } from "@/lib/data/types";
+import type { CalendarEventType, ProgramTrack, ScheduleCalendarEvent, SemesterRow } from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured } from "@/lib/data/env";
+import { fetchSemestersResolved } from "@/lib/data/repositories/semesters";
+import {
+  classSchedulePartsFromFields,
+  scheduleSlotForClassFields,
+  SLOT_START_TIME,
+  SLOT_TO_WEEKDAY,
+  type ParentScheduleSlotKey,
+} from "@/lib/schedule-slots";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ScheduleReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
+type ScheduleQueryOptions = { semesterId?: string | null };
 
 const DAY_INDEX: Record<string, number> = {
   sunday: 0,
@@ -48,13 +57,15 @@ function addDays(d: Date, days: number): Date {
   return next;
 }
 
-function defaultScheduleWindow(): { start: Date; end: Date } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return {
-    start: addDays(today, -35),
-    end: addDays(today, 180),
-  };
+function dateOnlyToLocalDate(raw: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function nextDateOnly(raw: string): string {
+  const d = dateOnlyToLocalDate(raw);
+  return d ? toDateKey(addDays(d, 1)) : raw;
 }
 
 function appendEvent(
@@ -80,20 +91,33 @@ function parseScheduleSummary(summary: unknown): { dayIndex: number; time: strin
   const raw = String(summary ?? "").trim();
   if (!raw) return null;
   const lower = raw.toLowerCase();
-  const dayName = Object.keys(DAY_INDEX)
-    .sort((a, b) => b.length - a.length)
-    .find((day) => new RegExp(`\\b${day}\\b`, "i").test(lower));
-  if (!dayName) return null;
+  const dayNumber = Number(lower.match(/\bday\s*([1-3])\b/)?.[1]);
+  const dayIndexFromNumber = dayNumber === 1 ? 2 : dayNumber === 2 ? 3 : dayNumber === 3 ? 4 : null;
+  const dayName = dayIndexFromNumber == null
+    ? Object.keys(DAY_INDEX)
+      .sort((a, b) => b.length - a.length)
+      .find((day) => new RegExp(`\\b${day}\\b`, "i").test(lower))
+    : null;
+  const dayIndex = dayIndexFromNumber ?? (dayName ? DAY_INDEX[dayName] : null);
+  if (dayIndex == null) return null;
   const afterSeparator = raw.split(/[·|,]/).slice(1).join(" ").trim() || raw;
   const firstTimeRange = afterSeparator.split(/\s+-\s+|–|—/)[0]?.trim() || afterSeparator;
+  const canonical = classSchedulePartsFromFields({ scheduleSummary: raw });
   return {
-    dayIndex: DAY_INDEX[dayName],
-    time: normalizeTimeLabel(firstTimeRange),
+    dayIndex,
+    time: canonical.time === "Time not set" ? normalizeTimeLabel(firstTimeRange) : canonical.time,
   };
 }
 
 function classEventType(program: unknown): ScheduleCalendarEvent["type"] {
   return program === "core" ? "core" : "enrichment-approved";
+}
+
+function scheduleSlotsForClass(row: Record<string, unknown>): ParentScheduleSlotKey[] {
+  return [scheduleSlotForClassFields({
+    block: row.block,
+    scheduleSummary: row.schedule_summary,
+  })];
 }
 
 const EVENT_TYPES: CalendarEventType[] = [
@@ -112,23 +136,29 @@ function scheduleEventTypeFromDb(value: unknown): CalendarEventType {
   return isCalendarEventType(s) ? s : "event";
 }
 
-function buildClassScheduleEvents(rows: Record<string, unknown>[]): Record<string, ScheduleCalendarEvent[]> {
-  const { start, end } = defaultScheduleWindow();
+function buildClassScheduleEvents(
+  rows: Record<string, unknown>[],
+  semester: SemesterRow,
+): Record<string, ScheduleCalendarEvent[]> {
+  const start = dateOnlyToLocalDate(semester.startsOn);
+  const end = dateOnlyToLocalDate(semester.endsOn);
+  if (!start || !end) return {};
   const acc: Record<string, ScheduleCalendarEvent[]> = {};
   for (const row of rows) {
     const parsed = parseScheduleSummary(row.schedule_summary);
-    if (!parsed) continue;
     const classId = String(row.id ?? "");
     const name = String(row.name ?? "").trim();
     if (!classId || !name) continue;
     const location = String(row.location ?? "").trim();
     const program = String(row.program ?? "") as ProgramTrack;
+    const slots = scheduleSlotsForClass(row);
     for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
-      if (d.getDay() !== parsed.dayIndex) continue;
+      const matchingSlot = slots.find((slot) => SLOT_TO_WEEKDAY[slot].includes(d.getDay()));
+      if (!matchingSlot) continue;
       const dateKey = toDateKey(d);
       appendEvent(acc, dateKey, {
-        id: `class-${classId}-${dateKey}`,
-        time: parsed.time,
+        id: `class-${classId}-${matchingSlot}-${dateKey}`,
+        time: SLOT_START_TIME[matchingSlot] ?? parsed?.time ?? "",
         title: name,
         type: classEventType(program),
         description: location
@@ -207,6 +237,7 @@ function mapScheduleRow(row: Record<string, unknown>): {
 
 export type ScheduleExtrasResolved = {
   extrasByDate: Record<string, ScheduleCalendarEvent[]>;
+  semester: SemesterRow | null;
   source: DataSource;
 };
 
@@ -221,24 +252,46 @@ export async function fetchScheduleExtrasByDate(): Promise<
   return extrasByDate;
 }
 
-export async function fetchScheduleExtrasResolved(client?: ScheduleReadClient): Promise<ScheduleExtrasResolved> {
+async function resolveSemester(client: ScheduleReadClient, options?: ScheduleQueryOptions): Promise<SemesterRow | null> {
+  const { semesters, currentSemester } = await fetchSemestersResolved(client);
+  const explicit = options?.semesterId?.trim();
+  if (explicit) return semesters.find((semester) => semester.id === explicit) ?? null;
+  return currentSemester;
+}
+
+export async function fetchScheduleExtrasResolved(
+  client?: ScheduleReadClient,
+  options?: ScheduleQueryOptions,
+): Promise<ScheduleExtrasResolved> {
   if (!isSupabaseConfigured()) {
     return {
       extrasByDate: {},
+      semester: null,
       source: "unavailable",
     };
   }
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
+    const semester = await resolveSemester(supabase, options);
+    if (!semester) {
+      return {
+        extrasByDate: {},
+        semester: null,
+        source: "unavailable",
+      };
+    }
     const { data, error } = await supabase
       .from("schedule_events")
       .select("id, title, starts_at, ends_at, location, class_id")
+      .gte("starts_at", `${semester.startsOn}T00:00:00.000Z`)
+      .lt("starts_at", `${nextDateOnly(semester.endsOn)}T00:00:00.000Z`)
       .order("starts_at", { ascending: true });
 
     if (error) {
       return {
         extrasByDate: {},
+        semester: null,
         source: "unavailable",
       };
     }
@@ -253,28 +306,32 @@ export async function fetchScheduleExtrasResolved(client?: ScheduleReadClient): 
 
     const { data: classes } = await supabase
       .from("classes")
-      .select("id, name, program, schedule_summary, location, status")
-      .eq("status", "active");
+      .select("id, name, program, block, schedule_summary, location, status")
+      .eq("status", "active")
+      .eq("semester_id", semester.id);
 
     return {
-      extrasByDate: mergeByDate(buildClassScheduleEvents((classes ?? []) as Record<string, unknown>[]), scheduleEvents),
+      extrasByDate: mergeByDate(buildClassScheduleEvents((classes ?? []) as Record<string, unknown>[], semester), scheduleEvents),
+      semester,
       source: "remote",
     };
   } catch {
     return {
       extrasByDate: {},
+      semester: null,
       source: "unavailable",
     };
   }
 }
 
-export async function fetchAdminScheduleExtrasResolved(): Promise<ScheduleExtrasResolved> {
+export async function fetchAdminScheduleExtrasResolved(options?: ScheduleQueryOptions): Promise<ScheduleExtrasResolved> {
   const access = await requireAdminReadClient();
   if (!access) {
     return {
       extrasByDate: {},
+      semester: null,
       source: "unavailable",
     };
   }
-  return fetchScheduleExtrasResolved(access.client);
+  return fetchScheduleExtrasResolved(access.client, options);
 }

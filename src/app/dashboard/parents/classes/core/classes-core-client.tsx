@@ -8,7 +8,7 @@ import {
   selectedParentStudentIdFromSearchParams,
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
-import { splitScheduleLabel } from "@/lib/schedule-slots";
+import { PARENT_SCHEDULE_DAYS, classSchedulePartsFromFields } from "@/lib/schedule-slots";
 import type { SchoolClassRow } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
@@ -30,7 +30,11 @@ type ParentClassRow = {
 };
 
 function toParentClassRow(row: SchoolClassRow): ParentClassRow {
-  const { day, time } = splitScheduleLabel(row.schedule);
+  const { day, time } = classSchedulePartsFromFields({
+    block: row.block,
+    level: row.level,
+    scheduleSummary: row.schedule,
+  });
   return {
     id: row.id,
     name: row.name,
@@ -252,7 +256,7 @@ export default function ParentClassesCoreClient() {
               </button>
               {isFilterOpen && (
                 <div className="absolute top-full left-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
-                  {["All", "Tuesday", "Wednesday", "Thursday"].map((day) => (
+                  {["All", ...PARENT_SCHEDULE_DAYS].map((day) => (
                     <button
                       key={day}
                       onClick={() => { setFilterDay(day); setIsFilterOpen(false); }}

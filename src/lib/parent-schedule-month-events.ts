@@ -1,4 +1,4 @@
-import type { SchoolClassRow, StudentScheduleRow } from "@/lib/data/types";
+import type { SchoolClassRow, SemesterRow, StudentScheduleRow } from "@/lib/data/types";
 import type { CalendarEvent } from "@/lib/dashboard/schedule-calendar-shared";
 import {
   CATALOG_SLOT_META,
@@ -15,11 +15,16 @@ function dateKey(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function monthFromDate(baseDate: Date) {
-  return {
-    year: baseDate.getFullYear(),
-    monthIndex: baseDate.getMonth(),
-  };
+function dateOnlyToLocalDate(raw: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(`${raw}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 function addEvent(target: Record<string, CalendarEvent[]>, key: string, event: CalendarEvent) {
@@ -60,24 +65,24 @@ function slotLabel(slot: ParentScheduleSlotKey): string {
 export function studentScheduleToMonthEvents(
   row: StudentScheduleRow | null,
   classes: SchoolClassRow[] = [],
-  baseDate: Date = new Date(),
+  semester?: SemesterRow | null,
 ): Record<string, CalendarEvent[]> {
   if (!row) return {};
+  const start = semester ? dateOnlyToLocalDate(semester.startsOn) : null;
+  const end = semester ? dateOnlyToLocalDate(semester.endsOn) : null;
+  if (!start || !end) return {};
   const events: Record<string, CalendarEvent[]> = {};
   const byClassName = classMap(classes);
-  const scheduleMonth = monthFromDate(baseDate);
-  const daysInMonth = new Date(scheduleMonth.year, scheduleMonth.monthIndex + 1, 0).getDate();
   for (const [slot, weekdays] of Object.entries(SLOT_TO_WEEKDAY) as [ParentScheduleSlotKey, number[]][]) {
     const badges = row[slot].filter((badge) => badge.tone !== "empty" && badge.label !== "--");
     if (!badges.length) continue;
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const d = new Date(scheduleMonth.year, scheduleMonth.monthIndex, day);
+    for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
       if (!weekdays.includes(d.getDay())) continue;
       for (const [index, badge] of badges.entries()) {
         const className = cleanClassName(badge.label);
         const details = byClassName.get(normalizedClassName(badge.label));
-        addEvent(events, dateKey(scheduleMonth.year, scheduleMonth.monthIndex, day), {
-          id: `${row.id}-${slot}-${day}-${index}`,
+        addEvent(events, dateKey(d.getFullYear(), d.getMonth(), d.getDate()), {
+          id: `${row.id}-${slot}-${dateKey(d.getFullYear(), d.getMonth(), d.getDate())}-${index}`,
           time: SLOT_START_TIME[slot],
           title: className || badge.label,
           type: eventTypeFromBadgeTone(badge.tone),
