@@ -163,5 +163,58 @@ export async function updateRecoveredPassword(password: string): Promise<Passwor
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { ok: false, message: error.message };
+  await supabase.auth.signOut();
   return { ok: true };
+}
+
+function cleanRecoveryUrl() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("code");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
+export async function preparePasswordRecoveryFromUrl(): Promise<PasswordResetResult> {
+  if (!isSupabaseConfigured()) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: "Password setup is not ready yet. Ask an administrator to finish account setup." }
+      : { ok: true };
+  }
+
+  if (typeof window === "undefined") {
+    return { ok: false, message: "Open the password setup link in your browser." };
+  }
+
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const code = url.searchParams.get("code");
+  const accessToken = hash.get("access_token");
+  const refreshToken = hash.get("refresh_token");
+
+  const supabase = getBrowserSupabase();
+  if (!supabase) {
+    return { ok: false, message: "Password setup is temporarily unavailable." };
+  }
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) return { ok: false, message: error.message };
+    cleanRecoveryUrl();
+    return { ok: true };
+  }
+
+  if (accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) return { ok: false, message: error.message };
+    cleanRecoveryUrl();
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    message: "Open the latest password setup link from your email before choosing a new password.",
+  };
 }

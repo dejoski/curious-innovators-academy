@@ -101,7 +101,7 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="relative min-h-dvh w-full overflow-x-hidden overflow-y-auto bg-white font-sans xl:h-screen xl:overflow-hidden">
+    <div className="relative min-h-dvh w-full overflow-x-hidden overflow-y-auto bg-white font-sans">
       <div className="absolute left-[696px] top-[-80px] hidden h-[460px] w-[833px] xl:block">
         <div className="absolute inset-[-63.91%_-35.29%]">
           <img alt="" className="block size-full max-w-none" src={imgEllipse2731} />
@@ -124,9 +124,9 @@ export default function LoginClient() {
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-64px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-8 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] xl:absolute xl:left-[821px] xl:top-[252px] xl:h-[520px] xl:min-h-0 xl:w-[423px] xl:py-[42px]">
-        <div className="flex w-full flex-col gap-[24px] sm:w-[339px]">
-          <div className="relative h-[44px] w-[196px] overflow-clip">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-56px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-6 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] sm:py-8 xl:absolute xl:left-[821px] xl:top-1/2 xl:h-auto xl:max-h-[calc(100dvh-96px)] xl:min-h-0 xl:w-[423px] xl:-translate-y-1/2 xl:justify-start xl:overflow-y-auto xl:py-8 [@media(max-height:760px)]:xl:py-5">
+        <div className="flex w-full flex-col gap-[20px] sm:w-[339px] [@media(max-height:760px)]:xl:gap-[14px]">
+          <div className="relative h-[44px] w-[196px] shrink-0 overflow-clip [@media(max-height:760px)]:xl:h-[36px] [@media(max-height:760px)]:xl:w-[170px]">
             <div className="absolute left-[47.07px] top-[5.47px] h-[31.659px] w-[132.782px]">
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <img
@@ -144,7 +144,7 @@ export default function LoginClient() {
           </div>
 
           <div className="flex w-full flex-col gap-[2px] sm:w-[261px]">
-            <h1 className="text-[22px] font-semibold leading-[1.1] text-[#05080b]">
+            <h1 className="text-[22px] font-semibold leading-[1.1] text-[#05080b] [@media(max-height:760px)]:xl:text-[20px]">
               Log in to the school
             </h1>
             <p className="text-[14px] font-normal leading-[1.5] text-[#87888a]">
@@ -152,12 +152,12 @@ export default function LoginClient() {
             </p>
           </div>
 
-          <form className="flex w-full flex-col gap-[14px]" onSubmit={handleSubmit}>
-            <div className="flex h-[81px] w-full flex-col gap-[8px] overflow-clip">
+          <form className="flex w-full flex-col gap-[14px] [@media(max-height:760px)]:xl:gap-[10px]" onSubmit={handleSubmit}>
+            <div className="flex w-full flex-col gap-[8px] overflow-clip">
               <label className="text-[14px] font-medium leading-[1.5] tracking-[0.28px] text-[#2f2f2d]">
                 E-mail
               </label>
-              <div className="flex h-[52px] w-full items-center gap-[8px] rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px]">
+              <div className="flex h-[52px] w-full items-center gap-[8px] rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px] [@media(max-height:760px)]:xl:h-[46px]">
                 <div className="relative size-[24px] shrink-0 overflow-clip">
                   <img alt="" className="absolute inset-0 block size-full max-w-none" src={imgGroup} />
                 </div>
@@ -172,11 +172,11 @@ export default function LoginClient() {
               </div>
             </div>
 
-            <div className="flex h-[81px] w-full flex-col gap-[8px] overflow-clip">
+            <div className="flex w-full flex-col gap-[8px] overflow-clip">
               <label className="text-[14px] font-medium leading-[1.5] tracking-[0.28px] text-[#2f2f2d]">
                 Password
               </label>
-              <div className="flex h-[52px] w-full items-center rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px]">
+              <div className="flex h-[52px] w-full items-center rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px] [@media(max-height:760px)]:xl:h-[46px]">
                 <input
                   type={showPassword ? "text" : "password"}
                   required
@@ -211,7 +211,7 @@ export default function LoginClient() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#a8e7ef]"
+              className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#a8e7ef] [@media(max-height:760px)]:xl:h-[38px]"
             >
               <span className="font-inter-tight text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
                 {submitting ? "Signing in..." : "Sign in"}
@@ -231,14 +231,14 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={() => continueAsDemo("admin")}
-                className="flex h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 text-[14px] font-semibold text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
+                className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
               >
                 Continue as Admin
               </button>
               <button
                 type="button"
                 onClick={() => continueAsDemo("parent")}
-                className="flex h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 text-[14px] font-semibold text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
+                className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
               >
                 Continue as Parent
               </button>
@@ -256,7 +256,7 @@ export default function LoginClient() {
         </p>
       </div>
 
-      <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4 text-[12px] text-[#666d80] xl:bottom-6">
+      <div className="relative z-10 flex justify-center gap-4 pb-4 text-[12px] text-[#666d80] xl:absolute xl:bottom-6 xl:left-0 xl:right-0 xl:pb-0">
         <Link href="/privacy" className="hover:text-[#14c1d5] hover:underline">
           Privacy
         </Link>

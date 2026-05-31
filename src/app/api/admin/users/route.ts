@@ -72,6 +72,7 @@ export async function POST(req: Request) {
   const role = normalizeRole(body.role);
   const password = String(body.password ?? "");
   const sendInvite = body.sendInvite !== false;
+  const origin = new URL(req.url).origin;
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
   const userResult = sendInvite
     ? await admin.auth.admin.inviteUserByEmail(email, {
         data: { full_name: displayName },
+        redirectTo: `${origin}/reset-password`,
       })
     : await admin.auth.admin.createUser({
         email,
