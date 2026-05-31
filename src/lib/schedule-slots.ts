@@ -2,7 +2,13 @@ import type { CalendarEventType, StudentScheduleBadge, StudentScheduleRow } from
 
 export type ParentScheduleSlotKey =
   | "b1"
+  | "b1Tue"
+  | "b1Wed"
+  | "b1Thu"
   | "b2"
+  | "b2Tue"
+  | "b2Wed"
+  | "b2Thu"
   | "b3Tue"
   | "b3Wed"
   | "b3Thu"
@@ -12,7 +18,20 @@ export type ParentScheduleSlotKey =
 
 export type ParentScheduleBadges = Partial<Record<ParentScheduleSlotKey, StudentScheduleBadge[]>>;
 
-export const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = ["b1", "b2", "b3Tue", "b3Wed", "b3Thu", "b4Tue", "b4Wed", "b4Thu"];
+export const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = [
+  "b1Tue",
+  "b1Wed",
+  "b1Thu",
+  "b2Tue",
+  "b2Wed",
+  "b2Thu",
+  "b3Tue",
+  "b3Wed",
+  "b3Thu",
+  "b4Tue",
+  "b4Wed",
+  "b4Thu",
+];
 
 export const CATALOG_SLOT_IDS = [
   "block3_day1",
@@ -32,8 +51,8 @@ export const PARENT_SCHEDULE_ROWS: {
   time: string;
   slots: [ParentScheduleSlotKey, ParentScheduleSlotKey, ParentScheduleSlotKey];
 }[] = [
-  { label: "Block 1", time: "9:00 - 10:30 am", slots: ["b1", "b1", "b1"] },
-  { label: "Block 2", time: "10:30 am - 12:00 pm", slots: ["b2", "b2", "b2"] },
+  { label: "Block 1", time: "9:00 - 10:30 am", slots: ["b1Tue", "b1Wed", "b1Thu"] },
+  { label: "Block 2", time: "10:30 am - 12:00 pm", slots: ["b2Tue", "b2Wed", "b2Thu"] },
   { label: "Block 3", time: "12:30 - 2:00 pm", slots: ["b3Tue", "b3Wed", "b3Thu"] },
   { label: "Block 4", time: "2:00 - 3:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
@@ -96,7 +115,13 @@ export function formatClassScheduleLabel(input: {
 
 export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
   b1: [2, 3, 4],
+  b1Tue: [2],
+  b1Wed: [3],
+  b1Thu: [4],
   b2: [2, 3, 4],
+  b2Tue: [2],
+  b2Wed: [3],
+  b2Thu: [4],
   b3Tue: [2],
   b3Wed: [3],
   b3Thu: [4],
@@ -107,7 +132,13 @@ export const SLOT_TO_WEEKDAY: Record<ParentScheduleSlotKey, number[]> = {
 
 export const SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
   b1: "9:00 am",
+  b1Tue: "9:00 am",
+  b1Wed: "9:00 am",
+  b1Thu: "9:00 am",
   b2: "10:30 am",
+  b2Tue: "10:30 am",
+  b2Wed: "10:30 am",
+  b2Thu: "10:30 am",
   b3Tue: "12:30 pm",
   b3Wed: "12:30 pm",
   b3Thu: "12:30 pm",
@@ -118,7 +149,13 @@ export const SLOT_START_TIME: Record<ParentScheduleSlotKey, string> = {
 
 export const PARENT_SCHEDULE_SLOT_DISPLAY_ORDER: Record<ParentScheduleSlotKey, number> = {
   b1: 10,
+  b1Tue: 10,
+  b1Wed: 10,
+  b1Thu: 10,
   b2: 20,
+  b2Tue: 20,
+  b2Wed: 20,
+  b2Thu: 20,
   b3Tue: 30,
   b3Wed: 30,
   b3Thu: 30,
@@ -209,7 +246,13 @@ export const EMPTY_SCHEDULE_BADGE: StudentScheduleBadge = { label: "--", tone: "
 export function emptyScheduleBadgesBySlot(): Record<ParentScheduleSlotKey, StudentScheduleBadge[]> {
   return {
     b1: [{ ...EMPTY_SCHEDULE_BADGE }],
+    b1Tue: [{ ...EMPTY_SCHEDULE_BADGE }],
+    b1Wed: [{ ...EMPTY_SCHEDULE_BADGE }],
+    b1Thu: [{ ...EMPTY_SCHEDULE_BADGE }],
     b2: [{ ...EMPTY_SCHEDULE_BADGE }],
+    b2Tue: [{ ...EMPTY_SCHEDULE_BADGE }],
+    b2Wed: [{ ...EMPTY_SCHEDULE_BADGE }],
+    b2Thu: [{ ...EMPTY_SCHEDULE_BADGE }],
     b3Tue: [{ ...EMPTY_SCHEDULE_BADGE }],
     b3Wed: [{ ...EMPTY_SCHEDULE_BADGE }],
     b3Thu: [{ ...EMPTY_SCHEDULE_BADGE }],
@@ -258,7 +301,7 @@ export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): Student
 
   const core = real.filter((badge) => badge.tone === "core");
   if (core.length > 0) {
-    return [core[0]];
+    return core;
   }
 
   const approved = real.filter((badge) => badge.tone === "approved");
@@ -333,8 +376,8 @@ export function scheduleSlotForClassFields(input: {
   const daySlot = dayNumber === 1 ? "Tue" : dayNumber === 2 ? "Wed" : dayNumber === 3 ? "Thu" : null;
   const index = input.fallbackIndex ?? 0;
 
-  if (blockNumber === 1) return "b1";
-  if (blockNumber === 2) return "b2";
+  if (blockNumber === 1) return daySlot ? (`b1${daySlot}` as ParentScheduleSlotKey) : "b1";
+  if (blockNumber === 2) return daySlot ? (`b2${daySlot}` as ParentScheduleSlotKey) : "b2";
   if (blockNumber === 4) return daySlot ? (`b4${daySlot}` as ParentScheduleSlotKey) : index % 3 === 0 ? "b4Tue" : index % 3 === 1 ? "b4Wed" : "b4Thu";
   if (blockNumber === 3) return daySlot ? (`b3${daySlot}` as ParentScheduleSlotKey) : index % 3 === 0 ? "b3Tue" : index % 3 === 1 ? "b3Wed" : "b3Thu";
   return index % 3 === 0 ? "b3Tue" : index % 3 === 1 ? "b3Wed" : "b3Thu";
@@ -343,7 +386,13 @@ export function scheduleSlotForClassFields(input: {
 export function studentScheduleSlots(row: StudentScheduleRow): Record<ParentScheduleSlotKey, StudentScheduleBadge[]> {
   return {
     b1: row.b1,
+    b1Tue: row.b1Tue,
+    b1Wed: row.b1Wed,
+    b1Thu: row.b1Thu,
     b2: row.b2,
+    b2Tue: row.b2Tue,
+    b2Wed: row.b2Wed,
+    b2Thu: row.b2Thu,
     b3Tue: row.b3Tue,
     b3Wed: row.b3Wed,
     b3Thu: row.b3Thu,

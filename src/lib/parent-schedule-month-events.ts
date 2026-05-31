@@ -57,8 +57,8 @@ function classMap(classes: SchoolClassRow[] = []) {
 function slotLabel(slot: ParentScheduleSlotKey): string {
   const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
   if (catalogSlot) return CATALOG_SLOT_META[catalogSlot].label;
-  if (slot === "b1") return "Block 1";
-  if (slot === "b2") return "Block 2";
+  if (slot.startsWith("b1")) return "Block 1";
+  if (slot.startsWith("b2")) return "Block 2";
   return slot;
 }
 

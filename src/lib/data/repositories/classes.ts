@@ -190,6 +190,21 @@ function availabilityByClassId(rows: Record<string, unknown>[] | null | undefine
   return byClassId;
 }
 
+function classQueryNeedsSchemaFallback(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const row = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
+  const text = [row.code, row.message, row.details, row.hint].map((value) => String(value ?? "").toLowerCase()).join(" ");
+  return (
+    text.includes("semester") ||
+    text.includes("schema cache") ||
+    text.includes("relationship") ||
+    text.includes("column") ||
+    text.includes("42703") ||
+    text.includes("pgrst200") ||
+    text.includes("pgrst205")
+  );
+}
+
 async function resolveSemesterFilter(client: ClassReadClient, options?: ClassQueryOptions): Promise<string | null> {
   const explicit = options?.semesterId?.trim();
   if (explicit) return explicit;
@@ -219,7 +234,7 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
         .select("class_id, enrolled_count, pending_count, waitlist_count, reserved_count, seats_remaining, availability_label"),
     ]);
     let classesResult = initialClassesResult;
-    if (classesResult.error && !semesterId) {
+    if (classesResult.error && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
       classesResult = await supabase
         .from("classes")
         .select(CLASS_SELECT_BASE)
@@ -273,6 +288,13 @@ export async function fetchClassesResolved(options?: ClassQueryOptions): Promise
   return loadClassesResolved(undefined, options);
 }
 
+export async function fetchClassesForClientResolved(
+  client: ClassReadClient,
+  options?: ClassQueryOptions,
+): Promise<ResolvedList<SchoolClassRow>> {
+  return loadClassesResolved(client, options);
+}
+
 export async function fetchAdminClassesResolved(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
@@ -314,7 +336,7 @@ async function loadClassOptionsResolved(client?: ClassReadClient, options?: Clas
     const initial = await query;
     let data = initial.data as unknown as Record<string, unknown>[] | null;
     let error = initial.error;
-    if (error && !semesterId) {
+    if (error && (!semesterId || classQueryNeedsSchemaFallback(error))) {
       const fallback = await supabase
         .from("classes")
         .select("id, name, program, capacity, block, level, schedule_summary")

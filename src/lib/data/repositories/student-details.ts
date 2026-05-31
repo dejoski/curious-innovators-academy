@@ -82,6 +82,7 @@ async function resolveSemesterFilter(client: StudentReadClient, options?: Studen
 function rowMatchesSemester(row: Record<string, unknown>, semesterId: string | null): boolean {
   if (!semesterId) return true;
   const classRow = firstRel<Record<string, unknown>>(row.classes);
+  if (!("semester_id" in (classRow ?? {}))) return true;
   return String(classRow?.semester_id ?? "") === semesterId;
 }
 
@@ -161,7 +162,13 @@ function emptyScheduleRow(input: {
     parent: input.parent,
     avatar: input.avatar || "/images/avatars/student-1.png",
     b1: empty.b1,
+    b1Tue: empty.b1Tue,
+    b1Wed: empty.b1Wed,
+    b1Thu: empty.b1Thu,
     b2: empty.b2,
+    b2Tue: empty.b2Tue,
+    b2Wed: empty.b2Wed,
+    b2Thu: empty.b2Thu,
     b3Tue: empty.b3Tue,
     b3Wed: empty.b3Wed,
     b3Thu: empty.b3Thu,
@@ -192,6 +199,22 @@ function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge 
 }
 
 function pushBadge(row: StudentScheduleRow, slot: ParentScheduleSlotKey, badge: StudentScheduleBadge) {
+  if (slot === "b1") {
+    pushBadge(row, "b1Tue", badge);
+    pushBadge(row, "b1Wed", badge);
+    pushBadge(row, "b1Thu", badge);
+    row.b1 = row.b1.filter((item) => item.tone !== "empty");
+    row.b1.push(badge);
+    return;
+  }
+  if (slot === "b2") {
+    pushBadge(row, "b2Tue", badge);
+    pushBadge(row, "b2Wed", badge);
+    pushBadge(row, "b2Thu", badge);
+    row.b2 = row.b2.filter((item) => item.tone !== "empty");
+    row.b2.push(badge);
+    return;
+  }
   const current = row[slot];
   const next = current.filter((item) => item.tone !== "empty");
   next.push(badge);
@@ -226,12 +249,12 @@ export async function fetchStudentProfileResolved(
     const [enrollmentsResult, classRequestsResult, recordsResult] = await Promise.all([
       supabase
         .from("enrollments")
-        .select("id, status, classes ( id, name, program, semester_id )")
+        .select("id, status, classes ( id, name, program )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
         .from("class_requests")
-        .select("id, status, classes ( id, name, program, semester_id )")
+        .select("id, status, classes ( id, name, program )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
@@ -329,7 +352,6 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
   try {
     const supabase = access.client;
     const semesterId = await resolveSemesterFilter(supabase, options);
-    if (!semesterId) return unavailableSchedule();
     const { data: students, error: studentsError } = await supabase
       .from("students")
       .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
@@ -351,7 +373,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
 
     const { data: enrollments, error: enrollmentsError } = await supabase
       .from("enrollments")
-      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary, semester_id )")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
       .order("created_at", { ascending: true });
     if (enrollmentsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "enrollments", enrollmentsError);
@@ -360,7 +382,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
 
     const { data: classRequests, error: classRequestsError } = await supabase
       .from("class_requests")
-      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary, semester_id )")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
       .order("created_at", { ascending: true });
     if (classRequestsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "class_requests", classRequestsError);
@@ -388,7 +410,13 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
 
     rows.forEach((row) => {
       row.b1 = normalizeScheduleBadges(row.b1);
+      row.b1Tue = normalizeScheduleBadges(row.b1Tue);
+      row.b1Wed = normalizeScheduleBadges(row.b1Wed);
+      row.b1Thu = normalizeScheduleBadges(row.b1Thu);
       row.b2 = normalizeScheduleBadges(row.b2);
+      row.b2Tue = normalizeScheduleBadges(row.b2Tue);
+      row.b2Wed = normalizeScheduleBadges(row.b2Wed);
+      row.b2Thu = normalizeScheduleBadges(row.b2Thu);
       row.b3Tue = normalizeScheduleBadges(row.b3Tue);
       row.b3Wed = normalizeScheduleBadges(row.b3Wed);
       row.b3Thu = normalizeScheduleBadges(row.b3Thu);
@@ -415,7 +443,6 @@ export async function fetchStudentScheduleResolved(
   try {
     const supabase = client ?? await createSupabaseServerClient();
     const semesterId = await resolveSemesterFilter(supabase, options);
-    if (!semesterId) return unavailableSchedule();
     const { data: student, error } = await supabase
       .from("students")
       .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
@@ -430,12 +457,12 @@ export async function fetchStudentScheduleResolved(
     const [enrollmentsResult, classRequestsResult] = await Promise.all([
       supabase
         .from("enrollments")
-        .select("id, status, classes ( id, name, program, block, schedule_summary, semester_id )")
+        .select("id, status, classes ( id, name, program, block, schedule_summary )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
         .from("class_requests")
-        .select("id, status, classes ( id, name, program, block, schedule_summary, semester_id )")
+        .select("id, status, classes ( id, name, program, block, schedule_summary )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
     ]);
@@ -472,7 +499,13 @@ export async function fetchStudentScheduleResolved(
       if (badge) pushBadge(row, scheduleSlotForClass(request, index), badge);
     });
     row.b1 = normalizeScheduleBadges(row.b1);
+    row.b1Tue = normalizeScheduleBadges(row.b1Tue);
+    row.b1Wed = normalizeScheduleBadges(row.b1Wed);
+    row.b1Thu = normalizeScheduleBadges(row.b1Thu);
     row.b2 = normalizeScheduleBadges(row.b2);
+    row.b2Tue = normalizeScheduleBadges(row.b2Tue);
+    row.b2Wed = normalizeScheduleBadges(row.b2Wed);
+    row.b2Thu = normalizeScheduleBadges(row.b2Thu);
     row.b3Tue = normalizeScheduleBadges(row.b3Tue);
     row.b3Wed = normalizeScheduleBadges(row.b3Wed);
     row.b3Thu = normalizeScheduleBadges(row.b3Thu);

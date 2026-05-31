@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { isParentRole, resolveParentAccess } from "@/lib/api/parent-access";
+import { loadCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteClass,
   serverInsertClass,
   serverUpdateClass,
 } from "@/lib/data/server-writes";
-import { fetchClassesResolved } from "@/lib/data/repositories/classes";
+import { fetchClassesForClientResolved, fetchClassesResolved } from "@/lib/data/repositories/classes";
 
 function plannerFields(body: Record<string, unknown>) {
   return {
@@ -31,13 +32,34 @@ function capacityField(body: Record<string, unknown>) {
 }
 
 export async function GET(request: Request) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
+  const current = await loadCurrentApiUser();
+  if (current.error || !current.user || !current.supabase) {
+    return NextResponse.json(
+      { error: current.error ?? "Sign in required." },
+      { status: current.status ?? 401 },
+    );
+  }
 
   const { searchParams } = new URL(request.url);
-  const { items: classes, source } = await fetchClassesResolved({
+  const options = {
     semesterId: searchParams.get("semesterId"),
-  });
+  };
+  const { data: profile } = await current.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", current.user.id)
+    .maybeSingle();
+
+  if (isParentRole(profile?.role)) {
+    const access = await resolveParentAccess(current.user.id);
+    if ("error" in access) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+    const { items: classes, source } = await fetchClassesForClientResolved(access.client, options);
+    return NextResponse.json({ classes, source });
+  }
+
+  const { items: classes, source } = await fetchClassesResolved(options);
   return NextResponse.json({ classes, source });
 }
 

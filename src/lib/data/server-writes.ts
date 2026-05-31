@@ -39,10 +39,34 @@ type SupabaseMutationClient =
 
 type PlacementClassRow = {
   id?: unknown;
+  name?: unknown;
   program?: unknown;
   block?: unknown;
   schedule_summary?: unknown;
+  semester_id?: unknown;
 };
+
+function isSemesterSchemaError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as Record<string, unknown>;
+  const code = String(record.code ?? "");
+  const message = String(record.message ?? record.details ?? record.hint ?? "").toLowerCase();
+  return (
+    code === "42703" ||
+    code === "PGRST200" ||
+    code === "PGRST205" ||
+    message.includes("semester_id") ||
+    message.includes("semesters") ||
+    message.includes("schema cache") ||
+    message.includes("relationship")
+  );
+}
+
+function classBelongsToSemester(row: Record<string, unknown> | null | undefined, semesterId: string | null): boolean {
+  if (!semesterId) return true;
+  if (!row || !("semester_id" in row)) return true;
+  return String(row.semester_id ?? "") === semesterId;
+}
 
 function cleanContactEmail(raw: string | null | undefined): string {
   return cleanAccountEmail(raw);
@@ -98,19 +122,21 @@ function normalizeDateOnly(raw: string): string | null {
 }
 
 async function resolveCurrentSemesterId(supabase: SupabaseMutationClient): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("semesters")
     .select("id")
     .eq("is_current", true)
     .maybeSingle();
+  if (isSemesterSchemaError(error)) return null;
   if (data && "id" in data) return String((data as { id: unknown }).id);
 
-  const { data: first } = await supabase
+  const { data: first, error: firstError } = await supabase
     .from("semesters")
     .select("id")
     .order("starts_on", { ascending: true })
     .limit(1)
     .maybeSingle();
+  if (isSemesterSchemaError(firstError)) return null;
   return first && "id" in first ? String((first as { id: unknown }).id) : null;
 }
 
@@ -1548,7 +1574,7 @@ async function ensureClassCapacityForChoices(
   choices: {
     classId: string;
   }[],
-  options: { semesterId: string },
+  options: { semesterId: string | null },
 ): Promise<WriteFail | { ok: true }> {
   const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
     next.set(choice.classId, (next.get(choice.classId) ?? 0) + 1);
@@ -1557,31 +1583,38 @@ async function ensureClassCapacityForChoices(
   const classIds = [...requestedByClass.keys()];
   if (classIds.length === 0) return { ok: true };
 
-  const [{ data: availability, error: availabilityError }, { data: classes, error: classesError }] = await Promise.all([
-    supabase
-      .from("class_catalog_availability")
-      .select("class_id, seats_remaining, availability_label")
-      .in("class_id", classIds),
-    supabase
-      .from("classes")
-      .select("id, name, semester_id")
-      .in("id", classIds),
-  ]);
-
+  const { data: availability, error: availabilityError } = await supabase
+    .from("class_catalog_availability")
+    .select("class_id, seats_remaining, availability_label")
+    .in("class_id", classIds);
   if (availabilityError) return { ok: false, message: availabilityError.message };
+
+  let { data: classes, error: classesError } = await supabase
+    .from("classes")
+    .select("id, name, semester_id")
+    .in("id", classIds);
+  if (classesError && isSemesterSchemaError(classesError)) {
+    const fallback = await supabase
+      .from("classes")
+      .select("id, name")
+      .in("id", classIds);
+    classes = fallback.data as typeof classes;
+    classesError = fallback.error;
+  }
   if (classesError) return { ok: false, message: classesError.message };
 
+  const classRows = (classes ?? []) as unknown as Record<string, unknown>[];
   const availabilityByClassId = new Map(
     ((availability ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.class_id), row]),
   );
   const classNamesById = new Map(
-    ((classes ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.id), String(row.name ?? "Selected class")]),
+    classRows.map((row) => [String(row.id), String(row.name ?? "Selected class")]),
   );
   for (const classId of classIds) {
     const row = availabilityByClassId.get(classId);
     if (!row || !classNamesById.has(classId)) return { ok: false, message: "Selected class was not found" };
-    const classRow = ((classes ?? []) as unknown as Record<string, unknown>[]).find((candidate) => String(candidate.id) === classId);
-    if (String(classRow?.semester_id ?? "") !== options.semesterId) {
+    const classRow = classRows.find((candidate) => String(candidate.id) === classId);
+    if (!classBelongsToSemester(classRow, options.semesterId)) {
       return { ok: false, message: "Selected class is not available in the current semester." };
     }
 
@@ -1607,38 +1640,29 @@ async function ensureOpenSlotsForRequestChoices(
   input: {
     studentId: string;
     choices: { classId: string; block: string; level: string }[];
-    semesterId: string;
+    semesterId: string | null;
   },
 ): Promise<WriteFail | { ok: true }> {
   const classIds = [...new Set(input.choices.map((choice) => choice.classId).filter(Boolean))];
   if (classIds.length === 0) return { ok: true };
 
-  const [{ data: requestedClasses, error: classError }, { data: enrollments, error: enrollmentError }] = await Promise.all([
-    supabase
-      .from("classes")
-      .select("id, block, schedule_summary, semester_id")
-      .in("id", classIds),
-    supabase
-      .from("enrollments")
-      .select("class_id, status, classes ( id, program, block, schedule_summary, semester_id )")
-      .eq("student_id", input.studentId)
-      .in("status", ["approved", "waitlisted"]),
-  ]);
-
-  if (classError) return { ok: false, message: classError.message };
-  if (enrollmentError) return { ok: false, message: enrollmentError.message };
+  const placementRows = await fetchRequestPlacementRows(supabase, {
+    classIds,
+    studentId: input.studentId,
+  });
+  if (!placementRows.ok) return placementRows;
 
   const requestedSlots = new Map(
-    ((requestedClasses ?? []) as unknown as PlacementClassRow[])
-      .filter((row) => String((row as Record<string, unknown>).semester_id ?? "") === input.semesterId)
+    placementRows.requestedClasses
+      .filter((row) => classBelongsToSemester(row as Record<string, unknown>, input.semesterId))
       .map((row) => [String(row.id ?? ""), classPlacementSlot(row)])
       .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])),
   );
   const occupiedSlots = new Set<string>();
-  for (const row of (enrollments ?? []) as unknown as Record<string, unknown>[]) {
+  for (const row of placementRows.enrollments) {
     if (String(row.status ?? "").toLowerCase() !== "approved") continue;
     const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
-    if (String((classRow as Record<string, unknown> | null)?.semester_id ?? "") !== input.semesterId) continue;
+    if (!classBelongsToSemester((classRow ?? {}) as Record<string, unknown>, input.semesterId)) continue;
     const slot = classPlacementSlot((classRow ?? {}) as PlacementClassRow);
     if (slot) occupiedSlots.add(slot);
   }
@@ -1662,24 +1686,46 @@ async function clearSameSlotAlternativesAfterApproval(
     decidedByProfileId?: string | null;
   },
 ): Promise<WriteFail | { ok: true }> {
-  const { data: approvedClass, error: approvedClassError } = await supabase
+  let { data: approvedClass, error: approvedClassError } = await supabase
     .from("classes")
     .select("id, program, block, schedule_summary, semester_id")
     .eq("id", input.approvedClassId)
     .maybeSingle();
+  if (approvedClassError && isSemesterSchemaError(approvedClassError)) {
+    const fallback = await supabase
+      .from("classes")
+      .select("id, program, block, schedule_summary")
+      .eq("id", input.approvedClassId)
+      .maybeSingle();
+    approvedClass = fallback.data as typeof approvedClass;
+    approvedClassError = fallback.error;
+  }
   if (approvedClassError) return { ok: false, message: approvedClassError.message };
   if (!approvedClass) return { ok: false, message: "Approved class was not found" };
 
   const approved = approvedClass as PlacementClassRow;
-  const semesterId = String((approvedClass as Record<string, unknown>).semester_id ?? "");
+  const semesterId = "semester_id" in ((approvedClass ?? {}) as Record<string, unknown>)
+    ? String((approvedClass as Record<string, unknown>).semester_id ?? "")
+    : null;
   if (String(approved.program ?? "").toLowerCase() !== "enrichment") return { ok: true };
 
   const approvedSlot = classPlacementSlot(approved);
-  const { data: classRows, error: classesError } = await supabase
+  let classQuery = supabase
     .from("classes")
     .select("id, program, block, schedule_summary")
-    .eq("program", "enrichment")
-    .eq("semester_id", semesterId);
+    .eq("program", "enrichment");
+  if (semesterId) {
+    classQuery = classQuery.eq("semester_id", semesterId);
+  }
+  let { data: classRows, error: classesError } = await classQuery;
+  if (classesError && semesterId && isSemesterSchemaError(classesError)) {
+    const fallback = await supabase
+      .from("classes")
+      .select("id, program, block, schedule_summary")
+      .eq("program", "enrichment");
+    classRows = fallback.data as typeof classRows;
+    classesError = fallback.error;
+  }
   if (classesError) return { ok: false, message: classesError.message };
 
   const sameSlotClassIds = ((classRows ?? []) as PlacementClassRow[])
@@ -1777,7 +1823,7 @@ async function clearPendingEnrichmentRequestChoices(
   supabase: SupabaseMutationClient,
   input: {
     studentId: string;
-    semesterId: string;
+    semesterId: string | null;
     choices: {
       block: string;
       level: string;
@@ -1794,7 +1840,7 @@ async function clearPendingEnrichmentRequestChoices(
 
     let query = supabase
       .from("class_requests")
-      .select("id, classes ( semester_id )")
+      .select(input.semesterId ? "id, classes ( semester_id )" : "id")
       .eq("student_id", input.studentId)
       .eq("status", "pending");
 
@@ -1804,12 +1850,32 @@ async function clearPendingEnrichmentRequestChoices(
       query = query.eq("option_label", choice.option);
     }
 
-    const { data, error } = await query;
+    const { data, error: queryError } = await query;
+    let error = queryError;
+    let requestRows: unknown = data;
+    if (error && input.semesterId && isSemesterSchemaError(error)) {
+      let fallbackQuery = supabase
+        .from("class_requests")
+        .select("id")
+        .eq("student_id", input.studentId)
+        .eq("status", "pending");
+
+      fallbackQuery = choice.block ? fallbackQuery.eq("block", choice.block) : fallbackQuery.is("block", null);
+      fallbackQuery = choice.level ? fallbackQuery.eq("level", choice.level) : fallbackQuery.is("level", null);
+      if (input.submitScope === "choice") {
+        fallbackQuery = fallbackQuery.eq("option_label", choice.option);
+      }
+
+      const fallback = await fallbackQuery;
+      requestRows = fallback.data;
+      error = fallback.error;
+    }
     if (error) return { ok: false, message: error.message };
-    const ids = ((data ?? []) as unknown as Record<string, unknown>[])
+    const ids = ((requestRows ?? []) as unknown as Record<string, unknown>[])
       .filter((row) => {
+        if (!input.semesterId) return true;
         const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
-        return String((cls as Record<string, unknown> | null)?.semester_id ?? "") === input.semesterId;
+        return classBelongsToSemester((cls ?? {}) as Record<string, unknown>, input.semesterId);
       })
       .map((row) => String(row.id ?? ""))
       .filter(Boolean);
@@ -1823,6 +1889,57 @@ async function clearPendingEnrichmentRequestChoices(
   }
 
   return { ok: true };
+}
+
+async function fetchRequestPlacementRows(
+  supabase: SupabaseMutationClient,
+  input: {
+    classIds: string[];
+    studentId: string;
+  },
+): Promise<
+  | {
+      ok: true;
+      requestedClasses: PlacementClassRow[];
+      enrollments: Record<string, unknown>[];
+    }
+  | WriteFail
+> {
+  let { data: requestedClasses, error: classError } = await supabase
+    .from("classes")
+    .select("id, block, schedule_summary, semester_id")
+    .in("id", input.classIds);
+  if (classError && isSemesterSchemaError(classError)) {
+    const fallback = await supabase
+      .from("classes")
+      .select("id, block, schedule_summary")
+      .in("id", input.classIds);
+    requestedClasses = fallback.data as typeof requestedClasses;
+    classError = fallback.error;
+  }
+  if (classError) return { ok: false, message: classError.message };
+
+  let { data: enrollments, error: enrollmentError } = await supabase
+    .from("enrollments")
+    .select("class_id, status, classes ( id, program, block, schedule_summary, semester_id )")
+    .eq("student_id", input.studentId)
+    .in("status", ["approved", "waitlisted"]);
+  if (enrollmentError && isSemesterSchemaError(enrollmentError)) {
+    const fallback = await supabase
+      .from("enrollments")
+      .select("class_id, status, classes ( id, program, block, schedule_summary )")
+      .eq("student_id", input.studentId)
+      .in("status", ["approved", "waitlisted"]);
+    enrollments = fallback.data as typeof enrollments;
+    enrollmentError = fallback.error;
+  }
+  if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+  return {
+    ok: true,
+    requestedClasses: (requestedClasses ?? []) as unknown as PlacementClassRow[],
+    enrollments: (enrollments ?? []) as unknown as Record<string, unknown>[],
+  };
 }
 
 export async function serverInsertEnrichmentRequests(input: {
@@ -1861,7 +1978,6 @@ export async function serverInsertEnrichmentRequests(input: {
 
       const admin = createSupabaseAdminClient();
       const semesterId = await resolveCurrentSemesterId(admin);
-      if (!semesterId) return { ok: false, message: "Choose a current semester before submitting class selections" };
       const studentExists = await ensureStudentExists(admin, studentId);
       if (!studentExists) return { ok: false, message: "Selected student was not found" };
 
@@ -1896,7 +2012,6 @@ export async function serverInsertEnrichmentRequests(input: {
 
     const capacityClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
     const semesterId = await resolveCurrentSemesterId(capacityClient);
-    if (!semesterId) return { ok: false, message: "Choose a current semester before submitting class selections" };
     const cleared = await clearPendingEnrichmentRequestChoices(capacityClient, {
       studentId,
       semesterId,

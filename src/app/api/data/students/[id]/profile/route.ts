@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
+import { isParentRole, requireParentStudentAccess } from "@/lib/api/parent-access";
+import { loadCurrentApiUser, requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import {
   fetchAdminStudentProfileResolved,
   fetchStudentProfileResolved,
@@ -38,8 +39,28 @@ function normalizeCategory(value: unknown): StudentProfileTimelineEventType {
 
 export async function GET(req: Request, context: RouteContext) {
   const { id } = await context.params;
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
+  const current = await loadCurrentApiUser();
+  if (current.error || !current.user || !current.supabase) {
+    return NextResponse.json(
+      { error: current.error ?? "Sign in required." },
+      { status: current.status ?? 401 },
+    );
+  }
+
+  const { data: profileRow } = await current.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", current.user.id)
+    .maybeSingle();
+
+  if (isParentRole(profileRow?.role)) {
+    const access = await requireParentStudentAccess(current.user.id, id);
+    if ("error" in access) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+    const { profile, source } = await fetchStudentProfileResolved(id, access.client);
+    return NextResponse.json({ profile, source });
+  }
 
   const adminRead = await fetchAdminStudentProfileResolved(id);
   if (adminRead.source !== "unavailable") {

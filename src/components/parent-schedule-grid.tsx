@@ -71,6 +71,7 @@ function SlotCell({
   const isEmpty = visible.every((badge) => badge.tone === "empty");
   const catalogSlotId = catalogSlotIdFromScheduleSlot(slot);
   const clickable = Boolean(onSlotClick) && Boolean(catalogSlotId);
+  const pendingSchoolAssignment = !catalogSlotId && isEmpty;
   const content = (
     <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-1.5 min-[1100px]:gap-2" : ""}`}>
       {visible.map((badge, index) => (
@@ -104,6 +105,11 @@ function SlotCell({
             <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">+ Choose class</p>
           </div>
         </button>
+      ) : pendingSchoolAssignment ? (
+        <div className={`flex h-full flex-col justify-center rounded-[6px] border px-2 min-[1100px]:px-3 ${badgeClasses("empty", false)}`}>
+          <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">Core assignment pending</p>
+          <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">School assigned</p>
+        </div>
       ) : clickable && !onBadgeClick ? (
         <button type="button" onClick={() => onSlotClick?.(slot)} className="block h-full w-full rounded-[6px] text-left transition hover:ring-2 hover:ring-[#14c1d5]/35">
           {content}

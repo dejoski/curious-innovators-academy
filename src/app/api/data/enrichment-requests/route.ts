@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireRemoteApiSession } from "@/lib/api/require-auth";
+import { isParentRole, resolveParentAccess } from "@/lib/api/parent-access";
+import { loadCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiError, apiWriteError } from "@/lib/api/responses";
 import {
+  fetchEnrichmentDecisionSummaryForClientResolved,
   fetchEnrichmentDecisionSummaryResolved,
+  fetchEnrichmentRequestsForClientResolved,
   fetchEnrichmentRequestsResolved,
 } from "@/lib/data/repositories/requests";
 import {
@@ -13,12 +16,39 @@ import {
 import type { EnrichmentRequestRow } from "@/lib/data/types";
 
 export async function GET(request: Request) {
-  const authError = await requireRemoteApiSession();
-  if (authError) return authError;
+  const current = await loadCurrentApiUser();
+  if (current.error || !current.user || !current.supabase) {
+    return NextResponse.json(
+      { error: current.error ?? "Sign in required." },
+      { status: current.status ?? 401 },
+    );
+  }
 
   const { searchParams } = new URL(request.url);
+  const options = { semesterId: searchParams.get("semesterId") };
+  const { data: profile } = await current.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", current.user.id)
+    .maybeSingle();
+
+  if (isParentRole(profile?.role)) {
+    const access = await resolveParentAccess(current.user.id);
+    if ("error" in access) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+    const [{ items: requests, source }, decisionSummary] = await Promise.all([
+      fetchEnrichmentRequestsForClientResolved(access.client, {
+        ...options,
+        studentIds: access.studentIds,
+      }),
+      fetchEnrichmentDecisionSummaryForClientResolved(access.client, access.studentIds),
+    ]);
+    return NextResponse.json({ requests, source, decisionSummary });
+  }
+
   const [{ items: requests, source }, decisionSummary] = await Promise.all([
-    fetchEnrichmentRequestsResolved({ semesterId: searchParams.get("semesterId") }),
+    fetchEnrichmentRequestsResolved(options),
     fetchEnrichmentDecisionSummaryResolved(),
   ]);
   return NextResponse.json({ requests, source, decisionSummary });

@@ -50,17 +50,6 @@ export const STUDENT_SELECT = `
   )
 `;
 
-const PARENT_STUDENT_SELECT = `
-  id,
-  display_name,
-  guardian_label,
-  avatar_url,
-  level,
-  track,
-  profile_id,
-  support_notes
-`;
-
 function parentIdsFromStudentRow(row: Record<string, unknown>): string[] {
   return parentContactFromStudentRow(row).parentIds;
 }
@@ -250,7 +239,7 @@ export async function fetchParentStudentsResolved(
 
     const { data, error } = await client
       .from("students")
-      .select(PARENT_STUDENT_SELECT)
+      .select(STUDENT_SELECT)
       .in("id", studentIds)
       .order("display_name", { ascending: true });
 

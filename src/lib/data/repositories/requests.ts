@@ -12,7 +12,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type RequestReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
-type RequestQueryOptions = { semesterId?: string | null };
+type RequestQueryOptions = { semesterId?: string | null; studentIds?: readonly string[] };
 
 export type EnrichmentDecisionSummary = {
   approved: number;
@@ -111,15 +111,17 @@ function mapEnrollmentDecisionRequestRow(row: Record<string, unknown>): Enrichme
 }
 
 async function loadRequestsResolved(client?: RequestReadClient, options?: RequestQueryOptions): Promise<ResolvedList<EnrichmentRequestRow>> {
-  void options;
   if (!isSupabaseConfigured()) {
     return unavailableList();
+  }
+  const studentIds = options?.studentIds?.map((id) => id.trim()).filter(Boolean);
+  if (studentIds && studentIds.length === 0) {
+    return { items: [], source: "remote" };
   }
 
   try {
     const supabase = client ?? await createSupabaseServerClient();
-    const [requestsResult, enrollmentsResult] = await Promise.all([
-      supabase
+    let requestsQuery = supabase
       .from("class_requests")
       .select(
         `
@@ -135,21 +137,30 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
         requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
       `,
       )
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("enrollments")
-        .select(
-          `
-          id,
-          student_id,
-          class_id,
-          status,
-          created_at,
-          students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
-          classes ( name, program, block, level, schedule_summary )
-        `,
-        )
-        .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: true });
+    let enrollmentsQuery = supabase
+      .from("enrollments")
+      .select(
+        `
+        id,
+        student_id,
+        class_id,
+        status,
+        created_at,
+        students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
+        classes ( name, program, block, level, schedule_summary )
+      `,
+      )
+      .order("created_at", { ascending: false });
+
+    if (studentIds) {
+      requestsQuery = requestsQuery.in("student_id", studentIds);
+      enrollmentsQuery = enrollmentsQuery.in("student_id", studentIds);
+    }
+
+    const [requestsResult, enrollmentsResult] = await Promise.all([
+      requestsQuery,
+      enrollmentsQuery,
     ]);
 
     if (requestsResult.error || enrollmentsResult.error) {
@@ -189,6 +200,13 @@ export async function fetchAdminEnrichmentRequestsResolved(options?: RequestQuer
   return loadRequestsResolved(access.client, options);
 }
 
+export async function fetchEnrichmentRequestsForClientResolved(
+  client: RequestReadClient,
+  options?: RequestQueryOptions,
+): Promise<ResolvedList<EnrichmentRequestRow>> {
+  return loadRequestsResolved(client, options);
+}
+
 function isEnrichmentClass(row: Record<string, unknown>): boolean {
   const cls = firstRel<Record<string, unknown>>(row.classes);
   return String(cls?.program ?? "").toLowerCase() === "enrichment";
@@ -219,12 +237,21 @@ function formatSchoolTimestamp(raw: unknown): string {
   });
 }
 
-async function loadEnrichmentDecisionSummaryResolved(client?: RequestReadClient): Promise<EnrichmentDecisionSummary> {
+async function loadEnrichmentDecisionSummaryResolved(
+  client?: RequestReadClient,
+  studentIds?: readonly string[],
+): Promise<EnrichmentDecisionSummary> {
   if (!isSupabaseConfigured()) return { ...EMPTY_DECISION_SUMMARY };
+  const normalizedStudentIds = studentIds?.map((id) => id.trim()).filter(Boolean);
+  if (normalizedStudentIds && normalizedStudentIds.length === 0) return { ...EMPTY_DECISION_SUMMARY };
   const supabase = client ?? await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("enrollments")
     .select("status, classes ( program )");
+  if (normalizedStudentIds) {
+    query = query.in("student_id", normalizedStudentIds);
+  }
+  const { data, error } = await query;
   if (error || !data?.length) return { ...EMPTY_DECISION_SUMMARY };
 
   return (data as unknown as Record<string, unknown>[]).reduce<EnrichmentDecisionSummary>(
@@ -248,6 +275,13 @@ export async function fetchAdminEnrichmentDecisionSummaryResolved(): Promise<Enr
   const access = await requireAdminReadClient();
   if (!access) return { ...EMPTY_DECISION_SUMMARY };
   return loadEnrichmentDecisionSummaryResolved(access.client);
+}
+
+export async function fetchEnrichmentDecisionSummaryForClientResolved(
+  client: RequestReadClient,
+  studentIds: readonly string[],
+): Promise<EnrichmentDecisionSummary> {
+  return loadEnrichmentDecisionSummaryResolved(client, studentIds);
 }
 
 function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {

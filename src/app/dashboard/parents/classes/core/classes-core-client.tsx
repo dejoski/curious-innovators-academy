@@ -9,7 +9,7 @@ import {
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
 import { PARENT_SCHEDULE_DAYS, classSchedulePartsFromFields } from "@/lib/schedule-slots";
-import type { SchoolClassRow } from "@/lib/data/types";
+import type { SchoolClassRow, StudentProfileBundle } from "@/lib/data/types";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -55,13 +55,39 @@ function dataHintFromSource(source?: string) {
   return null;
 }
 
-function readCachedCoreClasses() {
+function profileCoreClassKeys(profile?: StudentProfileBundle | null) {
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  for (const cls of profile?.coreClasses ?? []) {
+    if (cls.id) ids.add(cls.id);
+    if (cls.name) names.add(cls.name);
+  }
+  return { ids, names };
+}
+
+function coreRowsForProfile(rows: SchoolClassRow[], profile?: StudentProfileBundle | null) {
+  const keys = profileCoreClassKeys(profile);
+  if (keys.ids.size === 0 && keys.names.size === 0) return [];
+  const coreRows: ParentClassRow[] = [];
+  for (const row of rows) {
+    if (row.program !== "core") continue;
+    if (!keys.ids.has(row.id) && !keys.names.has(row.name)) continue;
+    coreRows.push(toParentClassRow(row));
+  }
+  return coreRows;
+}
+
+function readCachedCoreClasses(studentId: string | null) {
   const body = peekCachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
+  const profile = studentId
+    ? peekCachedJson<{ profile?: StudentProfileBundle | null }>(
+      `/api/data/students/${encodeURIComponent(studentId)}/profile`,
+    )?.profile
+    : null;
   return {
     body,
-    rows: (body?.classes ?? [])
-      .filter((row) => row.program === "core")
-      .map(toParentClassRow),
+    profile,
+    rows: coreRowsForProfile(body?.classes ?? [], profile),
   };
 }
 
@@ -80,8 +106,8 @@ export default function ParentClassesCoreClient() {
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
-      const cached = readCachedCoreClasses();
-      if (cached.body) {
+      const cached = readCachedCoreClasses(selectedParentStudentId);
+      if (cached.body && (cached.profile || !selectedParentStudentId)) {
         setClasses(cached.rows);
         setDataHint(dataHintFromSource(cached.body.source));
         setIsLoading(false);
@@ -89,10 +115,15 @@ export default function ParentClassesCoreClient() {
         setIsLoading(true);
       }
       try {
-        const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
-        const rows = (body.classes ?? [])
-          .filter((row) => row.program === "core")
-          .map(toParentClassRow);
+        const [body, profileBody] = await Promise.all([
+          cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes"),
+          selectedParentStudentId
+            ? cachedJson<{ profile?: StudentProfileBundle | null; source?: string }>(
+              `/api/data/students/${encodeURIComponent(selectedParentStudentId)}/profile`,
+            )
+            : Promise.resolve<{ profile?: StudentProfileBundle | null }>({ profile: null }),
+        ]);
+        const rows = coreRowsForProfile(body.classes ?? [], profileBody.profile ?? null);
         if (cancelled) return;
         setClasses(rows);
         setDataHint(dataHintFromSource(body.source));
@@ -112,7 +143,7 @@ export default function ParentClassesCoreClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedParentStudentId]);
 
   const filteredAndSortedClasses = useMemo(() => {
     let result = [...classes];
@@ -235,6 +266,7 @@ export default function ParentClassesCoreClient() {
               <img alt="Search" className="size-full" src={imgMaterialSymbolsSearch} />
             </div>
             <input
+              aria-label="Search core classes"
               type="text"
               placeholder="Search..."
               value={searchQuery}
@@ -245,6 +277,7 @@ export default function ParentClassesCoreClient() {
           <div className="flex flex-wrap gap-[16px] items-center">
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className="bg-[#fafafa] flex gap-[4px] items-center p-[8px] rounded-[8px] hover:bg-gray-100 transition-colors"
               >
@@ -258,6 +291,7 @@ export default function ParentClassesCoreClient() {
                 <div className="absolute top-full left-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
                   {["All", ...PARENT_SCHEDULE_DAYS].map((day) => (
                     <button
+                      type="button"
                       key={day}
                       onClick={() => { setFilterDay(day); setIsFilterOpen(false); }}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
@@ -271,6 +305,7 @@ export default function ParentClassesCoreClient() {
 
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setIsSortOpen(!isSortOpen)}
                 className="bg-[#fafafa] flex gap-[4px] items-center p-[8px] rounded-[8px] hover:bg-gray-100 transition-colors"
               >
@@ -286,6 +321,7 @@ export default function ParentClassesCoreClient() {
                 <div className="absolute top-full left-0 mt-1 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-10 w-32">
                   {["name", "teacher", "level"].map((sortOption) => (
                     <button
+                      type="button"
                       key={sortOption}
                       onClick={() => { setSortBy(sortOption); setIsSortOpen(false); }}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
@@ -416,15 +452,15 @@ export default function ParentClassesCoreClient() {
         {/* Pagination */}
         {filteredAndSortedClasses.length > 0 && (
           <div className="flex items-center justify-center py-4 border-t border-[#f0f0f0] gap-3">
-            <button className="size-[18px] flex items-center justify-center hover:opacity-70" aria-label="Previous page">
+            <button type="button" className="size-[18px] flex items-center justify-center hover:opacity-70" aria-label="Previous page">
               <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex items-center gap-1">
-              <button className="bg-[#14c1d5] text-white font-['Inter:Semi_Bold',sans-serif] text-[12px] size-[24px] rounded-[6px] flex items-center justify-center">
+              <button type="button" className="bg-[#14c1d5] text-white font-['Inter:Semi_Bold',sans-serif] text-[12px] size-[24px] rounded-[6px] flex items-center justify-center">
                 1
               </button>
             </div>
-            <button className="size-[18px] flex items-center justify-center hover:opacity-70" aria-label="Next page">
+            <button type="button" className="size-[18px] flex items-center justify-center hover:opacity-70" aria-label="Next page">
               <ChevronRight className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
           </div>

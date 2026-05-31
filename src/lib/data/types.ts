@@ -170,7 +170,13 @@ export type StudentScheduleRow = {
   parent: string;
   avatar: string;
   b1: StudentScheduleBadge[];
+  b1Tue: StudentScheduleBadge[];
+  b1Wed: StudentScheduleBadge[];
+  b1Thu: StudentScheduleBadge[];
   b2: StudentScheduleBadge[];
+  b2Tue: StudentScheduleBadge[];
+  b2Wed: StudentScheduleBadge[];
+  b2Thu: StudentScheduleBadge[];
   b3Tue: StudentScheduleBadge[];
   b3Wed: StudentScheduleBadge[];
   b3Thu: StudentScheduleBadge[];
