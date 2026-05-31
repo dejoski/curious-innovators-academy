@@ -4,6 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { TeacherRow } from "@/lib/data/types";
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
+import EntityAvatar from "@/components/entity-avatar";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import {
@@ -500,7 +501,7 @@ export default function TeachersTeacherList({
                             )}
                           </button>
                           <div className="flex gap-[6px] items-center min-w-0">
-                            <img alt={teacher.name} className="size-[32px] rounded-full object-cover shrink-0" height="32" src={teacher.avatar} width="32" />
+                            <EntityAvatar name={teacher.name} src={teacher.avatar} className="size-8" />
                             <p className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px] truncate">{teacher.name}</p>
                           </div>
                         </div>

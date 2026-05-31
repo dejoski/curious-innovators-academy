@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { Filter } from "lucide-react";
+import { Camera, Filter } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import type {
@@ -10,7 +10,8 @@ import type {
   StudentProfileBundle,
   StudentProfileTimelineEvent,
 } from "@/lib/data";
-import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
+import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
+import { readApiError } from "@/lib/client-api-errors";
 import { PARENT_CATALOG_PENDING_KEY } from "@/lib/parent-dashboard-storage";
 import { selectedParentStudentIdFromSearchParams } from "@/lib/parent-student-selection";
 
@@ -157,6 +158,8 @@ function ParentStudentsProfileContent() {
   const [profileSource, setProfileSource] = useState<DataSource | null>(null);
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [urgency, setUrgency] = useState<UrgencyFilter>("Urgent");
   const [pendingSlots, setPendingSlots] = useState<number>(0);
@@ -251,6 +254,41 @@ function ParentStudentsProfileContent() {
     ? peekCachedJson<{ profile?: StudentProfileBundle | null }>(`/api/data/students/${encodeURIComponent(selectedStudentId)}/profile`)?.profile
     : null;
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = "";
+    if (!file || !selectedStudentId || isSavingAvatar) return;
+    setAvatarError(null);
+    setIsSavingAvatar(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const res = await fetch(`/api/data/students/${encodeURIComponent(selectedStudentId)}/avatar`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        setAvatarError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { avatarUrl?: string };
+      if (!body.avatarUrl) {
+        setAvatarError("Student photo could not be saved.");
+        return;
+      }
+      setProfile((current) => current ? { ...current, avatar: body.avatarUrl ?? current.avatar } : current);
+      invalidateDashboardData([
+        "/api/data/students",
+        "/api/data/student-schedules",
+        ...studentDetailDataUrls(selectedStudentId),
+      ]);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Student photo could not be saved.");
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-[1104px] flex-col pb-6 pt-8 font-['Inter:Regular',sans-serif]">
       <div className="flex w-[503px] max-w-full flex-col gap-1" style={{ marginBottom: "23px" }}>
@@ -267,6 +305,11 @@ function ParentStudentsProfileContent() {
           {hint}
         </div>
       )}
+      {avatarError ? (
+        <div className="mb-4 rounded-xl border border-[#f6c8c8] bg-[#fff1f1] px-4 py-3 text-sm font-medium text-[#8c1f1f]" role="alert">
+          {avatarError}
+        </div>
+      ) : null}
 
       {isLoading && !warmProfile ? (
         <div className="grid gap-4">
@@ -295,6 +338,22 @@ function ParentStudentsProfileContent() {
                     className="absolute inset-0 h-full w-full rounded-full object-cover"
                     src={profile.avatar}
                   />
+                  <label
+                    className={`absolute bottom-0 right-0 flex size-[30px] items-center justify-center rounded-full border border-[rgba(20,193,213,0.2)] bg-[#14c1d5] text-white transition-colors hover:bg-[#12aebd] ${
+                      isSavingAvatar ? "cursor-wait opacity-70" : "cursor-pointer"
+                    }`}
+                    title="Change student photo"
+                  >
+                    <Camera className="size-[15px]" aria-hidden strokeWidth={2} />
+                    <span className="sr-only">Change student photo</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="sr-only"
+                      disabled={isSavingAvatar}
+                      onChange={handleAvatarUpload}
+                    />
+                  </label>
                 </div>
 
                 <div className="flex min-w-0 flex-col gap-[6px] md:w-[547px]">

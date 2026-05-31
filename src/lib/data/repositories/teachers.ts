@@ -40,6 +40,10 @@ export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
     p && typeof p === "object" && p !== null
       ? String((p as { email?: unknown }).email ?? "")
       : "";
+  const avatarUrl =
+    p && typeof p === "object" && p !== null
+      ? String((p as { avatar_url?: unknown }).avatar_url ?? "")
+      : "";
 
   return {
     id,
@@ -51,7 +55,7 @@ export function mapTeacherRow(row: Record<string, unknown>): TeacherRow | null {
     enrichmentClassCount,
     email: String(row.email ?? email ?? ""),
     phone: String(row.phone ?? ""),
-    avatar: String(row.avatar_url ?? row.avatar ?? ""),
+    avatar: avatarUrl || String(row.avatar_url ?? row.avatar ?? ""),
     program,
   };
 }
@@ -66,7 +70,7 @@ async function loadTeachersResolved(client?: TeacherReadClient): Promise<Resolve
     const [teachersResult, classesResult] = await Promise.all([
       supabase
         .from("teachers")
-        .select("id, subjects, phone, program, profiles ( display_name, email )")
+        .select("id, subjects, phone, program, profiles ( display_name, email, avatar_url )")
         .order("created_at", { ascending: true }),
       supabase
         .from("classes")

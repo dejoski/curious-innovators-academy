@@ -15,7 +15,7 @@ export function fallbackQueueBannerText(): string {
 }
 
 export function fallbackInboxBannerText(): string {
-  return "Showing starter messages while notifications finish loading.";
+  return "Notifications are temporarily unavailable.";
 }
 
 export function fallbackClassesStripText(): string {

@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { readApiError } from "@/lib/client-api-errors";
+import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { ClassRosterStudent, SchoolClassRow, StudentRosterRow, StudentRosterStatus } from "@/lib/data/types";
@@ -100,13 +101,21 @@ export default function StudentClassRoster() {
     async function loadRoster() {
       setIsLoading(true);
       try {
-        const [classesRes, rosterRes] = await Promise.all([
-          fetch("/api/data/classes", { cache: "no-store" }),
-          fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, { cache: "no-store" }),
+        const classRowsUrl = "/api/data/classes";
+        const rosterUrl = `/api/data/classes/${encodeURIComponent(classId)}/roster`;
+        const cachedClasses = peekCachedJson<{ classes?: SchoolClassRow[] }>(classRowsUrl);
+        const cachedRoster = peekCachedJson<{ students?: ClassRosterStudent[]; source?: DataSource }>(rosterUrl);
+        const cachedClassRows = Array.isArray(cachedClasses?.classes) ? cachedClasses.classes : [];
+        const cachedClassInfo = cachedClassRows.find((row) => row.id === classId) ?? null;
+        if (Array.isArray(cachedRoster?.students)) {
+          setStudents(mapClassRosterRows(classId, cachedClassInfo, cachedRoster.students));
+          setSource(cachedRoster.source ?? "remote");
+        }
+
+        const [classesPayload, rosterPayload] = await Promise.all([
+          cachedJson<{ classes?: SchoolClassRow[] }>(classRowsUrl),
+          cachedJson<{ students?: ClassRosterStudent[]; source?: DataSource }>(rosterUrl),
         ]);
-        if (!classesRes.ok || !rosterRes.ok) throw new Error("Class roster API failed");
-        const classesPayload = (await classesRes.json()) as { classes?: SchoolClassRow[] };
-        const rosterPayload = (await rosterRes.json()) as { students?: ClassRosterStudent[]; source?: DataSource };
         if (cancelled) return;
         const classRows = Array.isArray(classesPayload.classes) ? classesPayload.classes : [];
         const classInfo = classRows.find((row) => row.id === classId) ?? null;
@@ -256,7 +265,7 @@ export default function StudentClassRoster() {
 
   const dataHint =
     source === "fallback"
-      ? "Showing a starter roster while class records finish loading."
+      ? "Class roster records are still syncing from the server."
       : source === "unavailable"
         ? "Class roster records are temporarily unavailable."
         : "";

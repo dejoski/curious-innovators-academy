@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { DASHBOARD_WORKSPACE_EVENT } from "@/lib/dashboard/workspace";
 
 type DashboardNavigationProgressValue = {
   pendingPath: string | null;
@@ -37,6 +38,47 @@ export function DashboardNavigationProgressProvider({
   React.useEffect(() => {
     setPendingPath(null);
   }, [pathname]);
+
+  React.useEffect(() => {
+    function handleDocumentClick(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
+      let next: URL;
+      try {
+        next = new URL(anchor.href);
+      } catch {
+        return;
+      }
+      if (next.origin !== window.location.origin || !next.pathname.startsWith("/dashboard")) return;
+      if (`${next.pathname}${next.search}` === `${window.location.pathname}${window.location.search}`) return;
+      setPendingPath(next.pathname);
+    }
+
+    document.addEventListener("click", handleDocumentClick, true);
+    window.addEventListener(DASHBOARD_WORKSPACE_EVENT, clearPending);
+    window.addEventListener("cia-classes-workspace-view", clearPending);
+    window.addEventListener("popstate", clearPending);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+      window.removeEventListener(DASHBOARD_WORKSPACE_EVENT, clearPending);
+      window.removeEventListener("cia-classes-workspace-view", clearPending);
+      window.removeEventListener("popstate", clearPending);
+    };
+
+    function clearPending() {
+      setPendingPath(null);
+    }
+  }, []);
 
   React.useEffect(() => {
     for (const route of DASHBOARD_PREFETCH_ROUTES) {
@@ -79,8 +121,7 @@ export function DashboardNavigationOverlay() {
       return;
     }
 
-    const timer = window.setTimeout(() => setShowSpinner(true), 120);
-    return () => window.clearTimeout(timer);
+    setShowSpinner(true);
   }, [pendingPath]);
 
   if (!pendingPath) return null;

@@ -2,12 +2,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Ellipsis } from "lucide-react";
+import { Bell, Ellipsis } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
+import EntityAvatar from "@/components/entity-avatar";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
@@ -23,11 +24,8 @@ import {
   DASHBOARD_MAIN_HEADER_ROW_CLASS,
   DASHBOARD_BORDER_SUBTLE_CLASS,
 } from "@/lib/dashboard-shell-classes";
-const imgAvatarsPeople = "/images/avatars-people-fresh.png";
 const imgSolarLogout2Outline = "/images/logout-icon.svg";
 const imgSolarLogout2OutlineParent = "/images/logout-icon-parent.svg";
-const imgContainer = "/images/icon-notification-bell.svg";
-const imgContainerParent = "/images/icon-notification-bell-parent.svg";
 const imgDivider = "/images/icon-divider.svg";
 const imgRiParentLine = "/images/icon-person-feedback.svg";
 
@@ -58,6 +56,7 @@ function measureHeaderText(text: string, font: string) {
 export default function DashboardHeader() {
   const {
     displayName,
+    avatarUrl,
     demoStudentId,
     isAccountResolved,
     persona,
@@ -68,7 +67,7 @@ export default function DashboardHeader() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUtilityMenuOpen, setIsUtilityMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>(() => readCachedNotifications().notifications);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsSource, setNotificationsSource] = useState<string | null>(null);
   const [notificationSyncHint, setNotificationSyncHint] = useState<string | null>(null);
@@ -82,7 +81,11 @@ export default function DashboardHeader() {
   const router = useRouter();
 
   const isParentDashboardPath = pathname.startsWith("/dashboard/parents");
-  const inParentShell = isAccountResolved && persona === "parent" && isParentDashboardPath;
+  const isParentAccountUtilityPath =
+    pathname.startsWith("/dashboard/settings") ||
+    pathname.startsWith("/dashboard/notifications") ||
+    pathname.startsWith("/dashboard/support");
+  const inParentShell = isAccountResolved && persona === "parent" && (isParentDashboardPath || isParentAccountUtilityPath);
   const selectedParentStudentId = inParentShell
     ? searchParams.get("student") ?? readStoredParentStudentId()
     : "";
@@ -102,7 +105,6 @@ export default function DashboardHeader() {
   );
 
   const parentUtilityOrder = inParentShell;
-  const notificationIconSrc = inParentShell ? imgContainerParent : imgContainer;
   const logoutIconSrc = inParentShell
     ? imgSolarLogout2OutlineParent
     : imgSolarLogout2Outline;
@@ -202,14 +204,13 @@ export default function DashboardHeader() {
   }, []);
 
   useEffect(() => {
-    if (!showNotificationDropdown) return;
     let cancelled = false;
     async function loadNotifications() {
       const cached = readCachedNotifications();
       if (cached.body) {
         setNotifications(cached.notifications);
         setNotificationsLoading(false);
-      } else {
+      } else if (showNotificationDropdown) {
         setNotificationsLoading(true);
       }
       try {
@@ -325,7 +326,7 @@ export default function DashboardHeader() {
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                   className={`relative shrink-0 size-[32px] cursor-pointer rounded-full transition-colors flex items-center justify-center p-1 group ${isNotificationsOpen ? "bg-gray-100" : "hover:bg-gray-100"}`}
                 >
-                  <img alt="Notifications" className="block max-w-none size-[24px] group-hover:opacity-70 transition-opacity" src={notificationIconSrc} />
+                  <Bell aria-hidden className="size-[22px] text-[#272932] transition-colors group-hover:text-[#14c1d5]" strokeWidth={1.8} />
                   {unreadCount > 0 && (
                     <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
                   )}
@@ -390,11 +391,10 @@ export default function DashboardHeader() {
                 className={`relative shrink-0 size-[32px] cursor-pointer flex items-center justify-center ${inParentShell ? "" : "rounded-full transition-colors p-1 group hover:bg-gray-100"}`}
                 aria-label="Notifications"
               >
-                <img
-                  alt=""
-                  className={`block max-w-none size-[24px] ${inParentShell ? "" : "group-hover:opacity-70 transition-opacity"}`}
-                  src={notificationIconSrc}
-                />
+                <Bell aria-hidden className={`size-[22px] ${inParentShell ? "text-[#272932]" : "text-[#272932] transition-colors group-hover:text-[#14c1d5]"}`} strokeWidth={1.8} />
+                {unreadCount > 0 ? (
+                  <span className="absolute right-1 top-1 block size-2 rounded-full bg-[#d80509] ring-2 ring-white" aria-hidden />
+                ) : null}
               </Link>
             )}
           </div>
@@ -417,13 +417,7 @@ export default function DashboardHeader() {
             >
               <div className="content-stretch flex items-center justify-center relative rounded-[1000px] shrink-0">
                 <div className="relative shrink-0 size-[32px]">
-                  <img
-                    alt="Profile"
-                    className="absolute block inset-0 max-w-none size-full rounded-full object-cover"
-                    height="32"
-                    src={imgAvatarsPeople}
-                    width="32"
-                  />
+                  <EntityAvatar name={headerDisplayName} src={avatarUrl} className="size-8" />
                 </div>
               </div>
               <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
@@ -487,11 +481,7 @@ export default function DashboardHeader() {
             {isUtilityMenuOpen ? (
               <div className={`absolute right-0 mt-2 w-64 ${DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS} px-0 py-1`}>
                 <div className="flex items-center gap-3 border-b border-[#f0f0f0] px-4 py-3">
-                  <img
-                    alt=""
-                    className="size-8 rounded-full object-cover"
-                    src={imgAvatarsPeople}
-                  />
+                  <EntityAvatar name={headerDisplayName} src={avatarUrl} className="size-8" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[#0d0d12]">
                       {headerDisplayName}

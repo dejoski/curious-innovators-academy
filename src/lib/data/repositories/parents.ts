@@ -35,8 +35,10 @@ export function mapParentRow(row: Record<string, unknown>): ParentSummary | null
     email: String(profile?.email ?? row.email ?? ""),
     phone: String(row.phone ?? ""),
     avatar:
-      row.avatar_url != null
-        ? String(row.avatar_url)
+      profile?.avatar_url != null
+        ? String(profile.avatar_url)
+        : row.avatar_url != null
+          ? String(row.avatar_url)
         : row.avatar != null
           ? String(row.avatar)
           : undefined,
@@ -66,7 +68,7 @@ async function loadParentsResolved(client?: ParentReadClient): Promise<ResolvedL
         `
         id,
         created_at,
-        profiles ( display_name, email ),
+        profiles ( display_name, email, avatar_url ),
         parent_students (
           students ( id, display_name )
         )

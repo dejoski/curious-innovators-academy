@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
+import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
@@ -10,6 +11,7 @@ type ClassStatus = "Active" | "Full";
 
 export default function EditClassPage() {
   const router = useRouter();
+  const { startNavigation } = useDashboardNavigationProgress();
   const params = useParams<{ segment: string; id: string }>();
   const rawSegment = typeof params?.segment === "string" ? params.segment : "";
   const id = typeof params?.id === "string" ? params.id : "";
@@ -118,7 +120,9 @@ export default function EditClassPage() {
         }),
       });
       if (res.ok) {
-        router.push(`/dashboard/classes/${segment}/${draft.id}`);
+        const href = `/dashboard/classes/${segment}/${draft.id}`;
+        startNavigation(href);
+        router.push(href);
         return;
       }
       setSyncHint(`Could not sync (${await readApiError(res)}).`);

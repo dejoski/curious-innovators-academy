@@ -3,13 +3,15 @@
 import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { Camera } from "lucide-react";
 import { useDashboardPersona } from "@/components/dashboard-persona";
+import EntityAvatar from "@/components/entity-avatar";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { cachedJson, invalidateClientDataCache, invalidateDashboardData } from "@/lib/client-data-cache";
 import type { SemesterRow } from "@/lib/data/types";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
-type ProvisionRole = "admin" | "parent" | "teacher" | "student";
+type ProvisionRole = "admin" | "parent" | "teacher";
 type AccountPreferences = {
   digestWeekly: boolean;
   classAlerts: boolean;
@@ -21,6 +23,7 @@ type AccountProfilePayload = {
   displayName: string;
   email: string;
   role: ProvisionRole;
+  avatarUrl: string;
   defaultStudentId: string | null;
   preferences: AccountPreferences;
 };
@@ -30,9 +33,12 @@ const SettingsQaTools = dynamic(() => import("@/components/settings-qa-tools"), 
 });
 
 export default function DashboardSettingsPage() {
-  const { displayName: accountDisplayName, roleLabel } = useDashboardPersona();
+  const { displayName: accountDisplayName, persona, roleLabel } = useDashboardPersona();
   const [displayName, setDisplayName] = useState(accountDisplayName);
   const [email, setEmail] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [digestWeekly, setDigestWeekly] = useState(true);
   const [classAlerts, setClassAlerts] = useState(true);
   const [requestAlerts, setRequestAlerts] = useState(false);
@@ -49,6 +55,7 @@ export default function DashboardSettingsPage() {
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [semesters, setSemesters] = useState<SemesterRow[]>([]);
   const [semesterDrafts, setSemesterDrafts] = useState<Record<string, SemesterRow>>({});
+  const [semestersLoading, setSemestersLoading] = useState(true);
   const [semesterStatus, setSemesterStatus] = useState<string | null>(null);
   const [semesterError, setSemesterError] = useState<string | null>(null);
   const [semesterSavingId, setSemesterSavingId] = useState<string | null>(null);
@@ -70,6 +77,7 @@ export default function DashboardSettingsPage() {
         if (cancelled || !body.profile) return;
         setDisplayName(body.profile.displayName?.trim() || accountDisplayName);
         setEmail(body.profile.email?.trim() ?? "");
+        setAvatarUrl(String(body.profile.avatarUrl ?? ""));
         if (body.profile.preferences) {
           setDigestWeekly(Boolean(body.profile.preferences.digestWeekly));
           setClassAlerts(Boolean(body.profile.preferences.classAlerts));
@@ -86,25 +94,32 @@ export default function DashboardSettingsPage() {
   }, [accountDisplayName]);
 
   useEffect(() => {
+    if (persona !== "admin") {
+      setSemestersLoading(false);
+      setSemesters([]);
+      setSemesterDrafts({});
+      return;
+    }
     let cancelled = false;
     async function loadSemesters() {
+      setSemestersLoading(true);
       try {
-        const res = await fetch("/api/data/semesters", { cache: "no-store" });
-        if (!res.ok) return;
-        const body = (await res.json()) as { semesters?: SemesterRow[] };
+        const body = await cachedJson<{ semesters?: SemesterRow[] }>("/api/data/semesters");
         if (cancelled) return;
         const rows = body.semesters ?? [];
         setSemesters(rows);
         setSemesterDrafts(Object.fromEntries(rows.map((semester) => [semester.id, semester])));
       } catch {
         if (!cancelled) setSemesterError("Could not load semester settings.");
+      } finally {
+        if (!cancelled) setSemestersLoading(false);
       }
     }
     void loadSemesters();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [persona]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +147,7 @@ export default function DashboardSettingsPage() {
       if (body.profile) {
         setDisplayName(body.profile.displayName);
         setEmail(body.profile.email);
+        setAvatarUrl(body.profile.avatarUrl);
         setDigestWeekly(body.profile.preferences.digestWeekly);
         setClassAlerts(body.profile.preferences.classAlerts);
         setRequestAlerts(body.profile.preferences.requestAlerts);
@@ -143,6 +159,39 @@ export default function DashboardSettingsPage() {
       setSaveError("Request failed.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = "";
+    if (!file || isSavingAvatar) return;
+    setAvatarError(null);
+    setIsSavingAvatar(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const res = await fetch("/api/data/me/avatar", { method: "POST", body: form });
+      if (!res.ok) {
+        setAvatarError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as { avatarUrl?: string };
+      if (!body.avatarUrl) {
+        setAvatarError("Profile photo could not be saved.");
+        return;
+      }
+      setAvatarUrl(body.avatarUrl);
+      invalidateClientDataCache("/api/data/me");
+      window.dispatchEvent(new CustomEvent("cia-account-profile-updated", {
+        detail: { displayName, role: persona, avatarUrl: body.avatarUrl },
+      }));
+      setSaveStatus("Profile photo was saved.");
+      window.setTimeout(() => setSaveStatus(null), 4500);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Profile photo could not be saved.");
+    } finally {
+      setIsSavingAvatar(false);
     }
   };
 
@@ -290,6 +339,21 @@ export default function DashboardSettingsPage() {
           </button>
         </div>
       ) : null}
+      {avatarError ? (
+        <div
+          role="alert"
+          className="mb-6 flex items-center justify-between gap-4 rounded-[10px] border border-[#f4cccc] bg-[#fff5f5] px-4 py-3 text-sm text-[#a33d3d]"
+        >
+          <span className="font-medium">{avatarError}</span>
+          <button
+            type="button"
+            onClick={() => setAvatarError(null)}
+            className="shrink-0 text-xs font-semibold text-[#a33d3d]/80 hover:text-[#a33d3d]"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <form onSubmit={handleSave} className="space-y-10">
         <section className="rounded-[12px] border border-[#eef0f3] bg-white p-6 shadow-sm">
@@ -297,6 +361,24 @@ export default function DashboardSettingsPage() {
           <p className="text-[#666d80] text-sm mb-6">Information shown to staff across the academy workspace.</p>
 
           <div className="grid gap-5 max-w-xl">
+            <div className="flex items-center gap-4">
+              <EntityAvatar name={displayName} src={avatarUrl} className="size-20" textClassName="text-[22px]" />
+              <label
+                className={`inline-flex h-[42px] items-center justify-center gap-2 rounded-[6px] bg-white px-4 text-sm font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 transition-colors hover:bg-[#ecfdff] ${
+                  isSavingAvatar ? "cursor-wait opacity-70" : "cursor-pointer"
+                }`}
+              >
+                <Camera className="size-4" aria-hidden strokeWidth={2} />
+                {isSavingAvatar ? "Uploading..." : "Change photo"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  disabled={isSavingAvatar}
+                  onChange={handleAvatarUpload}
+                />
+              </label>
+            </div>
             <div className="flex flex-col gap-2">
               <label htmlFor="settings-display" className="text-[14px] font-medium text-[#2f2f2d]">
                 Display name
@@ -323,7 +405,7 @@ export default function DashboardSettingsPage() {
                 className="h-[48px] rounded-[10px] border border-[#dfe1e7] bg-[#f7f8fa] px-3 text-[16px] text-[#525a6a] outline-none transition-colors"
               />
               <p id="settings-email-help" className="text-[12px] text-[#666d80]">
-                Email changes require the Supabase auth recovery flow or an administrator update.
+                Email changes require an account recovery flow or an administrator update.
               </p>
             </div>
             <div className="flex flex-col gap-2">
@@ -404,6 +486,7 @@ export default function DashboardSettingsPage() {
           </ul>
         </section>
 
+        {persona === "admin" ? (
         <section className="rounded-[12px] border border-[#eef0f3] bg-white p-6 shadow-sm">
           <h2 className="text-[#272932] text-lg font-semibold mb-1">Semesters</h2>
           <p className="text-[#666d80] text-sm mb-6">
@@ -422,7 +505,12 @@ export default function DashboardSettingsPage() {
           ) : null}
 
           <div className="grid gap-4">
-            {semesters.length === 0 ? (
+            {semestersLoading ? (
+              <p className="rounded-[10px] border border-[#d2f1f5] bg-[#ecfdff] px-4 py-3 text-sm font-medium text-[#155e66]">
+                Loading semester settings...
+              </p>
+            ) : null}
+            {!semestersLoading && semesters.length === 0 ? (
               <p className="rounded-[10px] border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 text-sm text-[#666d80]">
                 Semester settings are unavailable until the semester migration is applied.
               </p>
@@ -496,11 +584,13 @@ export default function DashboardSettingsPage() {
             })}
           </div>
         </section>
+        ) : null}
 
+        {persona === "admin" ? (
         <section className="rounded-[12px] border border-[#eef0f3] bg-white p-6 shadow-sm">
           <h2 className="text-[#272932] text-lg font-semibold mb-1">User provisioning</h2>
           <p className="text-[#666d80] text-sm mb-6">
-            Invite or create staff, parent, teacher, and student accounts without using the Supabase Dashboard.
+            Invite or create administrator, parent, and teacher accounts.
           </p>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -541,7 +631,6 @@ export default function DashboardSettingsPage() {
               >
                 <option value="parent">Parent</option>
                 <option value="teacher">Teacher</option>
-                <option value="student">Student</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -569,7 +658,7 @@ export default function DashboardSettingsPage() {
                 onChange={(e) => setSendInviteEmail(e.target.checked)}
                 className="size-4 accent-[#14c1d5]"
               />
-              Send Supabase invite email
+              Send account invite email
             </label>
             <button
               type="button"
@@ -581,7 +670,7 @@ export default function DashboardSettingsPage() {
             </button>
           </div>
           <p className="mt-3 text-[12px] text-[#666d80]">
-            Requires a signed-in admin and server-only <code className="rounded bg-[#f7f8fa] px-1 py-0.5 text-[#272932]">SUPABASE_SERVICE_ROLE_KEY</code>.
+            Only administrators can send invites and create staff or family accounts.
           </p>
           {provisionStatus ? (
             <p className="mt-3 rounded-[8px] border border-[#c8f4f0] bg-[#e8fafb] px-3 py-2 text-sm text-[#0d5c56]" role="status">
@@ -594,6 +683,7 @@ export default function DashboardSettingsPage() {
             </p>
           ) : null}
         </section>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-4">
           <button

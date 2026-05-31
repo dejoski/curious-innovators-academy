@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProgramTrack } from "@/lib/data/types";
+import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
 import { ChevronDown, Clock3 } from "lucide-react";
@@ -98,6 +99,7 @@ function FormSection({
 
 export default function AddClassForm() {
   const router = useRouter();
+  const { startNavigation } = useDashboardNavigationProgress();
   const searchParams = useSearchParams();
   const [trackTab, setTrackTab] = useState<ProgramTrack>(() =>
     searchParams.get("track") === "enrichment" ? "enrichment" : "core",
@@ -184,7 +186,9 @@ export default function AddClassForm() {
       if (res.ok) {
         const body = (await res.json()) as { class: { id: string } };
         invalidateDashboardData(["/api/data/classes", "/api/data/class-options", "/api/dashboard-presentation"]);
-        router.push(`/dashboard/classes/${segment}/${body.class.id}`);
+        const href = `/dashboard/classes/${segment}/${body.class.id}`;
+        startNavigation(href);
+        router.push(href);
         return;
       }
       setSyncHint(`Could not save (${await readApiError(res)}).`);

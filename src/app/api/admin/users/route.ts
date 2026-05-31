@@ -3,18 +3,18 @@ import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import {
   cleanAccountEmail,
   materializeProfileRole,
-  normalizeAccountRole,
 } from "@/lib/data/account-materialization";
 import { isSupabaseConfigured } from "@/lib/data/env";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const ROLES = ["admin", "parent", "teacher", "student"] as const;
+const ROLES = ["admin", "parent", "teacher"] as const;
 type AppRole = (typeof ROLES)[number];
 
-function normalizeRole(raw: unknown): AppRole {
-  return normalizeAccountRole(raw);
+function normalizeRole(raw: unknown): AppRole | null {
+  const role = String(raw ?? "").toLowerCase();
+  return ROLES.includes(role as AppRole) ? (role as AppRole) : null;
 }
 
 function cleanEmail(raw: unknown): string {
@@ -78,6 +78,9 @@ export async function POST(req: Request) {
   }
   if (!displayName) {
     return NextResponse.json({ error: "Display name is required." }, { status: 400 });
+  }
+  if (!role) {
+    return NextResponse.json({ error: "Choose administrator, parent, or teacher." }, { status: 400 });
   }
   if (!sendInvite && password.length < 8) {
     return NextResponse.json(

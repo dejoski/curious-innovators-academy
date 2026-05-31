@@ -1,5 +1,5 @@
-import AdminWorkspacePage from "../admin-workspace-page";
+import DashboardNotificationsPanel from "@/components/dashboard-notifications-panel";
 
 export default function NotificationsPage() {
-  return <AdminWorkspacePage initialView="notifications" />;
+  return <DashboardNotificationsPanel />;
 }

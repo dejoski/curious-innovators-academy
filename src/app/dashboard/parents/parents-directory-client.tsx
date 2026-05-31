@@ -4,6 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { ParentSummary, StudentListItem } from "@/lib/data/types";
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import EntityAvatar from "@/components/entity-avatar";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import {
@@ -21,8 +22,6 @@ import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-ca
 import { downloadCsv, mailtoHref } from "@/lib/client-directory-actions";
 import { fallbackDirectoryBannerText } from "@/lib/product-copy";
 
-const imgEllipse2735 = "/images/parent-female-dark-hair.png";
-const imgEllipse2736 = "/images/parent-female-dark-hair.png";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgWeuiMoreOutlined = "/images/icon-more.svg";
@@ -44,16 +43,8 @@ type ParentRow = {
   linkedStudents: { id: string; name: string }[];
 };
 
-function stableAvatarIndex(id: string): number {
-  let sum = 0;
-  for (const ch of id) sum += ch.charCodeAt(0);
-  return sum;
-}
-
 function toDisplayRow(p: ParentSummary): ParentRow {
-  const avatar =
-    p.avatar ??
-    (stableAvatarIndex(p.id) % 2 === 1 ? imgEllipse2735 : imgEllipse2736);
+  const avatar = p.avatar ?? "";
   const status =
     typeof p.status === "string" && p.status.trim() ? p.status.trim() : "Active";
   return {
@@ -608,7 +599,7 @@ export function ParentsAdminDirectory({
                 </div>
 
                 <div className="flex min-w-0 items-center gap-[8px]">
-                  <img alt="" className="size-[32px] shrink-0 rounded-full object-cover" src={parent.avatar} />
+                  <EntityAvatar name={parent.name} src={parent.avatar} className="size-8" />
                   <span
                     className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug"
                     title={parent.name}

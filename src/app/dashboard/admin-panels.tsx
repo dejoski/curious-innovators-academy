@@ -18,8 +18,7 @@ import AdminStudentRosterClient from "./students/admin-student-roster-client";
 import AdminStudentScheduleClient from "./students/admin-student-schedule-client";
 import TeachersTeacherList from "./teachers/teachers-client";
 import ParentsIndexClientGate from "./parents/parents-index-client";
-import DashboardNotificationsPage from "./notifications/notifications-client";
-import type { DashboardNotification } from "@/lib/data/types";
+import DashboardNotificationsPanel from "@/components/dashboard-notifications-panel";
 import type { SchoolClassRow, SemesterRow, StudentScheduleRow } from "@/lib/data/types";
 
 type TeacherRows = React.ComponentProps<typeof TeachersTeacherList>["initialTeachers"];
@@ -31,7 +30,6 @@ const CLASS_OPTIONS_URL = "/api/data/class-options";
 const CLASSES_URL = "/api/data/classes";
 const TEACHERS_URL = "/api/data/teachers";
 const PARENTS_URL = "/api/data/parents";
-const NOTIFICATIONS_URL = "/api/data/notifications";
 
 function sourceOrUnavailable(source: DataSource | undefined): DataSource {
   return source ?? "unavailable";
@@ -330,43 +328,5 @@ export function AdminParentsPanel() {
 }
 
 export function AdminNotificationsPanel() {
-  const cached = usablePayload(peekDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL));
-  const [notifications, setNotifications] = React.useState<DashboardNotification[]>(() => cached?.notifications ?? []);
-  const [source, setSource] = React.useState<DataSource>(() => sourceOrUnavailable(cached?.source));
-  const [status, setStatus] = React.useState<PanelStatus>(() => (cached ? "ready" : "loading"));
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    if (!cached) setStatus("loading");
-    void readDashboardData<{ notifications?: DashboardNotification[]; source?: DataSource }>(NOTIFICATIONS_URL)
-      .then((body) => {
-        if (cancelled) return;
-        if (isUnavailableSource(body.source)) {
-          setNotifications([]);
-          setSource("unavailable");
-          setError("Notifications are temporarily unavailable.");
-          setStatus("error");
-          return;
-        }
-        setNotifications(body.notifications ?? []);
-        setSource(sourceOrUnavailable(body.source));
-        setError(null);
-        setStatus("ready");
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setSource("unavailable");
-          setError(`Could not load notifications: ${err instanceof Error ? err.message : String(err)}.`);
-          setStatus("error");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (status === "loading") return <DashboardPanelLoading label="Loading notifications..." />;
-  if (status === "error") return <DashboardPanelError message={error ?? "Could not load notifications."} />;
-  return <DashboardNotificationsPage initialNotifications={notifications} dataSource={source} />;
+  return <DashboardNotificationsPanel />;
 }

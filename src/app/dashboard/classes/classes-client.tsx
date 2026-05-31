@@ -8,10 +8,11 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { useClassesDataCache } from "@/components/classes-data-cache";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { invalidateDashboardData, mutateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
 
@@ -229,6 +230,7 @@ export default function ClassesPageClient({
   onTrackChange,
 }: ClassesPageClientProps) {
   const router = useRouter();
+  const { startNavigation } = useDashboardNavigationProgress();
   const classesCache = useClassesDataCache();
   const [classes, setClasses] = useState<SchoolClassRow[]>(
     () => classesCache.classes.data ?? initialClasses,
@@ -632,7 +634,13 @@ export default function ClassesPageClient({
 
   const goToClassDetail = (row: SchoolClassRow) => {
     const segment = row.program === "enrichment" ? "enrichment" : "core";
-    router.push(`/dashboard/classes/${segment}/${row.id}`);
+    const href = `/dashboard/classes/${segment}/${row.id}`;
+    mutateDashboardData<{ classes: SchoolClassRow[]; source: DataSource }>("/api/data/classes", () => ({
+      classes,
+      source: dataSource,
+    }));
+    startNavigation(href);
+    router.push(href);
   };
 
   const toggleSelectAllFiltered = () => {
@@ -795,7 +803,11 @@ export default function ClassesPageClient({
               <button
                 type="button"
                 className="inline-flex h-[42px] min-w-0 flex-1 items-center justify-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[14px] py-[8px] font-inter-tight text-[14px] font-medium leading-[1.5] text-white sm:flex-none sm:text-[16px]"
-                onClick={() => router.push(`/dashboard/classes/new?track=${trackTab}`)}
+                onClick={() => {
+                  const href = `/dashboard/classes/new?track=${trackTab}`;
+                  startNavigation(href);
+                  router.push(href);
+                }}
               >
                 <img src={imgIcRoundPlus} alt="" className="size-[16px]" />
                 <span className="truncate">{trackTab === "enrichment" ? "Add Enrichment Class" : "Add Core Class"}</span>

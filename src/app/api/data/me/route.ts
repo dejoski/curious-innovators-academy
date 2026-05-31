@@ -87,7 +87,7 @@ export async function GET(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, email, display_name, role")
+    .select("id, email, display_name, role, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
     }
     const { data: createdProfile, error: createdProfileError } = await supabase
       .from("profiles")
-      .select("id, email, display_name, role")
+      .select("id, email, display_name, role, avatar_url")
       .eq("id", user.id)
       .maybeSingle();
     if (createdProfileError || !createdProfile) {
@@ -149,6 +149,7 @@ export async function GET(request: Request) {
       displayName,
       email,
       role,
+      avatarUrl: String(accountProfile?.avatar_url ?? ""),
       defaultStudentId,
       preferences: mapPreferenceRow((preferences ?? null) as Record<string, unknown> | null),
     },
@@ -184,7 +185,7 @@ export async function PATCH(req: Request) {
     .from("profiles")
     .update({ display_name: displayName })
     .eq("id", user.id)
-    .select("id, email, display_name, role")
+    .select("id, email, display_name, role, avatar_url")
     .maybeSingle();
 
   if (profileError || !profile) {
@@ -213,6 +214,7 @@ export async function PATCH(req: Request) {
       displayName: String(profile.display_name ?? displayName),
       email: String(profile.email ?? user.email ?? ""),
       role,
+      avatarUrl: String(profile.avatar_url ?? ""),
       defaultStudentId,
       preferences: mapPreferenceRow((savedPreferences ?? null) as Record<string, unknown> | null),
     },

@@ -30,6 +30,7 @@ import {
   DASHBOARD_CACHE_INVALIDATED_EVENT,
   invalidateClientDataCache,
   invalidateDashboardData,
+  peekCachedJson,
   readDashboardData,
 } from "@/lib/client-data-cache";
 import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
@@ -299,9 +300,20 @@ function ParentHomeDashboardContent() {
       setLoadError(null);
       setIsStudentDataLoading(true);
       try {
-        const [studentsBody, notificationsBody, classesBody] = await Promise.all([
+        const cachedNotifications = peekCachedJson<{ notifications?: DashboardNotification[]; source?: DataSource }>("/api/data/notifications");
+        if (!cancelled && cachedNotifications) {
+          setNotifications(Array.isArray(cachedNotifications.notifications) ? cachedNotifications.notifications.slice(0, 3) : []);
+        }
+        void cachedJson<{ notifications?: DashboardNotification[]; source?: DataSource }>("/api/data/notifications")
+          .then((body) => {
+            if (!cancelled) setNotifications(Array.isArray(body.notifications) ? body.notifications.slice(0, 3) : []);
+          })
+          .catch(() => {
+            if (!cancelled) setNotifications([]);
+          });
+
+        const [studentsBody, classesBody] = await Promise.all([
           cachedJson<{ students?: StudentListItem[]; source?: DataSource }>("/api/data/students"),
-          cachedJson<{ notifications?: DashboardNotification[]; source?: DataSource }>("/api/data/notifications"),
           cachedJson<{ classes?: SchoolClassRow[]; source?: DataSource }>("/api/data/classes"),
         ]);
         const rows = Array.isArray(studentsBody.students) ? studentsBody.students : [];
@@ -319,7 +331,6 @@ function ParentHomeDashboardContent() {
           setEditingCatalogDraft(null);
           setLocalRequestState(null);
           setLocalReviewStatuses({});
-          setNotifications(Array.isArray(notificationsBody.notifications) ? notificationsBody.notifications.slice(0, 3) : []);
           setClassOptions(classRows.map(parentClassOptionFromRow));
         }
 
@@ -341,9 +352,9 @@ function ParentHomeDashboardContent() {
         setProfile(profileBody.profile ?? null);
         setSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
         setDataSource(
-          profileBody.source === "fallback" || scheduleBody.source === "fallback" || notificationsBody.source === "fallback" || classesBody.source === "fallback"
+          profileBody.source === "fallback" || scheduleBody.source === "fallback" || classesBody.source === "fallback"
             ? "fallback"
-            : (profileBody.source ?? scheduleBody.source ?? studentsBody.source ?? notificationsBody.source ?? classesBody.source ?? null),
+            : (profileBody.source ?? scheduleBody.source ?? studentsBody.source ?? classesBody.source ?? null),
         );
       } catch (err) {
         if (!cancelled) setLoadError(`Could not load parent dashboard: ${err instanceof Error ? err.message : String(err)}.`);

@@ -6,11 +6,12 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
-import { invalidateDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
+import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type {
   ClassRosterStatus,
@@ -100,12 +101,14 @@ function splitBlockLevelLabel(label: string): { block: string; level: string } {
 
 export default function ClassDetailsPage() {
   const router = useRouter();
+  const { startNavigation } = useDashboardNavigationProgress();
   const params = useParams();
   const classId = typeof params?.id === "string" ? params.id : "";
   const [students, setStudents] = useState<Student[]>([]);
   const [classMeta, setClassMeta] = useState<ClassMeta>(EMPTY_CLASS_META);
   const [classMetaDraft, setClassMetaDraft] = useState<ClassMeta>(EMPTY_CLASS_META);
   const [dataHint, setDataHint] = useState<string | null>(null);
+  const [isLoadingRoster, setIsLoadingRoster] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"All" | Status>("All");
   const [sortOption, setSortOption] = useState<SortOption>("None");
@@ -141,21 +144,24 @@ export default function ClassDetailsPage() {
     if (!classId) return;
     let cancelled = false;
     async function loadClassData() {
+      setIsLoadingRoster(true);
       try {
-        const [classesRes, rosterRes] = await Promise.all([
-          fetch("/api/data/classes", { cache: "no-store" }),
-          fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, { cache: "no-store" }),
+        const classRowsUrl = "/api/data/classes";
+        const rosterUrl = `/api/data/classes/${encodeURIComponent(classId)}/roster`;
+        const cachedClasses = peekCachedJson<{ classes?: SchoolClassRow[] }>(classRowsUrl);
+        const cachedRoster = peekCachedJson<{ students?: ClassRosterStudent[] }>(rosterUrl);
+        const cachedRow = (cachedClasses?.classes ?? []).find((item) => item.id === classId);
+        if (cachedRow) {
+          const nextMeta = classMetaFromRow(cachedRow);
+          setClassMeta(nextMeta);
+          setClassMetaDraft(nextMeta);
+        }
+        if (Array.isArray(cachedRoster?.students)) setStudents(cachedRoster.students);
+
+        const [classesBody, rosterBody] = await Promise.all([
+          cachedJson<{ classes?: SchoolClassRow[]; source?: string }>(classRowsUrl),
+          cachedJson<{ students?: ClassRosterStudent[]; source?: string }>(rosterUrl),
         ]);
-        if (!classesRes.ok) throw new Error(classesRes.statusText);
-        if (!rosterRes.ok) throw new Error(rosterRes.statusText);
-        const classesBody = (await classesRes.json()) as {
-          classes?: SchoolClassRow[];
-          source?: string;
-        };
-        const rosterBody = (await rosterRes.json()) as {
-          students?: ClassRosterStudent[];
-          source?: string;
-        };
         if (cancelled) return;
         const row = (classesBody.classes ?? []).find((item) => item.id === classId);
         if (row) {
@@ -172,7 +178,7 @@ export default function ClassDetailsPage() {
             : "remote";
         setDataHint(
           source === "fallback"
-            ? "Showing a starter roster while class records finish loading."
+            ? "Class roster records are still syncing from the server."
             : source === "unavailable"
               ? "Class records are temporarily unavailable."
               : null,
@@ -186,6 +192,8 @@ export default function ClassDetailsPage() {
             }.`,
           );
         }
+      } finally {
+        if (!cancelled) setIsLoadingRoster(false);
       }
     }
     loadClassData();
@@ -491,6 +499,7 @@ export default function ClassDetailsPage() {
         return;
       }
       setIsRemoveClassModalOpen(false);
+      startNavigation("/dashboard/classes");
       router.push("/dashboard/classes");
     } catch (error) {
       setDeleteClassError(error instanceof Error ? error.message : "Class could not be removed.");
@@ -738,7 +747,7 @@ export default function ClassDetailsPage() {
                 {currentStudents.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-gray-500">
-                      No students found.
+                      {isLoadingRoster ? "Loading roster..." : "No students found."}
                     </td>
                   </tr>
                 ) : (

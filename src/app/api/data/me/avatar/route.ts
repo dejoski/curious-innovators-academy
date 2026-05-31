@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { isParentRole, requireParentStudentAccess } from "@/lib/api/parent-access";
 import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-type RouteContext = { params: Promise<{ id: string }> };
-
-const BUCKET = "student-avatars";
+const BUCKET = "profile-avatars";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ALLOWED_TYPES = new Map([
   ["image/jpeg", "jpg"],
@@ -15,36 +12,15 @@ const ALLOWED_TYPES = new Map([
   ["image/gif", "gif"],
 ]);
 
-export async function POST(req: Request, context: RouteContext) {
+export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
-
-  const { id } = await context.params;
-  const studentId = id.trim();
-  if (!studentId) {
-    return NextResponse.json({ error: "Missing student id." }, { status: 400 });
-  }
 
   const current = await requireCurrentApiUser();
   if (!current.ok) return current.response;
 
   if (!isSupabaseAdminConfigured()) {
     return NextResponse.json({ error: "Photo uploads are temporarily unavailable." }, { status: 503 });
-  }
-
-  const { data: profile } = await current.supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", current.user.id)
-    .maybeSingle();
-  const role = String(profile?.role ?? "").toLowerCase();
-  if (isParentRole(role)) {
-    const access = await requireParentStudentAccess(current.user.id, studentId);
-    if ("error" in access) {
-      return NextResponse.json({ error: access.error }, { status: access.status });
-    }
-  } else if (role !== "admin") {
-    return NextResponse.json({ error: "Only linked parents or administrators can update this student photo." }, { status: 403 });
   }
 
   const form = await req.formData();
@@ -70,7 +46,7 @@ export async function POST(req: Request, context: RouteContext) {
     return NextResponse.json({ error: bucketCreate.error.message }, { status: 400 });
   }
 
-  const path = `${studentId}/${crypto.randomUUID()}.${extension}`;
+  const path = `${current.user.id}/${crypto.randomUUID()}.${extension}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const upload = await admin.storage.from(BUCKET).upload(path, buffer, {
     contentType: file.type,
@@ -83,9 +59,9 @@ export async function POST(req: Request, context: RouteContext) {
   const { data: publicData } = admin.storage.from(BUCKET).getPublicUrl(path);
   const avatarUrl = publicData.publicUrl;
   const { error: updateError } = await admin
-    .from("students")
+    .from("profiles")
     .update({ avatar_url: avatarUrl })
-    .eq("id", studentId);
+    .eq("id", current.user.id);
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }

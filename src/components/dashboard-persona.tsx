@@ -32,6 +32,7 @@ const PRODUCTION_ACCOUNT_DEFAULT = {
   displayName: "Signed-in user",
   roleLabel: "User",
   avatarInitials: "U",
+  avatarUrl: "",
   studentId: "",
 };
 
@@ -41,6 +42,7 @@ type CurrentAccountProfile = {
   displayName?: string;
   role?: string;
   defaultStudentId?: string | null;
+  avatarUrl?: string | null;
 };
 
 type DashboardPersonaContextValue = {
@@ -56,6 +58,7 @@ type DashboardPersonaContextValue = {
   /** Header subtitle role */
   roleLabel: string;
   avatarInitials: string;
+  avatarUrl: string;
   demoStudentId: string;
 };
 
@@ -88,6 +91,7 @@ function productionAccountFromProfile(profile: CurrentAccountProfile): Productio
     displayName,
     roleLabel: roleToLabel(persona),
     avatarInitials: initialsFromDisplayName(displayName),
+    avatarUrl: profile.avatarUrl?.trim() || "",
     studentId: profile.defaultStudentId?.trim() || "",
   };
 }
@@ -235,6 +239,7 @@ export function DashboardPersonaProvider({
     const avatarInitials = qa
       ? initialsFromDisplayName(activeAccount.displayName)
       : productionAccount.avatarInitials;
+    const avatarUrl = qa ? "" : productionAccount.avatarUrl;
     const demoStudentId = qa
       ? activeAccount.studentId
       : productionAccount.studentId;
@@ -249,6 +254,7 @@ export function DashboardPersonaProvider({
       displayName,
       roleLabel,
       avatarInitials,
+      avatarUrl,
       demoStudentId,
     };
   }, [qa, demoAccountId, setPersona, setDemoAccount, productionAccount, isAccountResolved]);
