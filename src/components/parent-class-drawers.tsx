@@ -313,6 +313,9 @@ function ChoiceSelector({
 export function ParentClassSelectionDrawer({
   title,
   time,
+  description = "Choose an enrichment class available for this block.",
+  emptySlotMessage = "You are choosing a class for an empty slot.",
+  changeSlotMessage = "You are requesting a change from",
   slotContext,
   firstChoice,
   secondChoice,
@@ -326,6 +329,9 @@ export function ParentClassSelectionDrawer({
   onSaveDraft,
   onSubmit,
   onSubmitSlotChoices,
+  firstChoiceLabel = "Choose the first option",
+  secondChoiceLabel = "Choose the second option",
+  hideSecondChoice = false,
   saveDraftDisabled,
   submitDisabled,
   submitLabel = "Submit for Approval",
@@ -337,6 +343,9 @@ export function ParentClassSelectionDrawer({
 }: {
   title: string;
   time: string;
+  description?: string;
+  emptySlotMessage?: string;
+  changeSlotMessage?: string;
   slotContext?: ParentClassSlotContext;
   firstChoice: ParentClassOption | null;
   secondChoice: ParentClassOption | null;
@@ -350,6 +359,9 @@ export function ParentClassSelectionDrawer({
   onSaveDraft?: () => void;
   onSubmit: () => void;
   onSubmitSlotChoices?: () => void;
+  firstChoiceLabel?: string;
+  secondChoiceLabel?: string;
+  hideSecondChoice?: boolean;
   saveDraftDisabled?: boolean;
   submitDisabled: boolean;
   submitLabel?: string;
@@ -380,7 +392,7 @@ export function ParentClassSelectionDrawer({
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="select-class-title" className="text-[24px] font-bold leading-[1.1] text-[#272932]">Select a Class</h2>
-              <p className="mt-[8px] text-[14px] leading-[1.4] text-[#666d80]">Choose an enrichment class available for this block.</p>
+              <p className="mt-[8px] text-[14px] leading-[1.4] text-[#666d80]">{description}</p>
             </div>
             <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">
               <X className="size-5" aria-hidden />
@@ -395,12 +407,12 @@ export function ParentClassSelectionDrawer({
         <div className="min-h-0 flex-1 space-y-[24px] overflow-y-auto overscroll-contain px-[20px] py-[18px] sm:space-y-[30px] sm:px-[24px]">
           <div className={`rounded-[10px] border px-4 py-3 text-[13px] leading-[1.4] ${slotContext?.kind === "change" ? "border-[#84adff]/45 bg-[#eef4ff] text-[#3451a4]" : "border-[#d9eef1] bg-[#f6fcfd] text-[#155e66]"}`}>
             {slotContext?.kind === "change"
-              ? `You are requesting a change from ${slotContext.label}.`
-              : "You are choosing a class for an empty slot."}
+              ? `${changeSlotMessage} ${slotContext.label}.`
+              : emptySlotMessage}
           </div>
 
           <ChoiceSelector
-            label="Choose the first option"
+            label={firstChoiceLabel}
             value={firstChoice}
             classes={firstChoiceOptions}
             scheduleDisplay={selectedSlotSchedule}
@@ -418,19 +430,21 @@ export function ParentClassSelectionDrawer({
             loading={optionsLoading}
           />
 
-          <ChoiceSelector
-            label="Choose the second option"
-            value={secondChoice}
-            classes={secondChoiceOptions}
-            scheduleDisplay={selectedSlotSchedule}
-            open={!secondChoiceDisabled && openChoice === "secondChoice"}
-            onToggle={() => onToggleChoice("secondChoice")}
-            onSelect={(cls) => onSelectChoice(cls, "secondChoice")}
-            onOpenDetails={onOpenClassDetails}
-            disabled={secondChoiceDisabled}
-            helperText={secondChoiceDisabled ? "Choose a first option before adding a backup choice." : undefined}
-            loading={optionsLoading}
-          />
+          {hideSecondChoice ? null : (
+            <ChoiceSelector
+              label={secondChoiceLabel}
+              value={secondChoice}
+              classes={secondChoiceOptions}
+              scheduleDisplay={selectedSlotSchedule}
+              open={!secondChoiceDisabled && openChoice === "secondChoice"}
+              onToggle={() => onToggleChoice("secondChoice")}
+              onSelect={(cls) => onSelectChoice(cls, "secondChoice")}
+              onOpenDetails={onOpenClassDetails}
+              disabled={secondChoiceDisabled}
+              helperText={secondChoiceDisabled ? "Choose a first option before adding a backup choice." : undefined}
+              loading={optionsLoading}
+            />
+          )}
         </div>
 
         <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-[#f0f0f0] bg-white p-[20px] shadow-[0_-8px_24px_rgba(13,13,18,0.06)] sm:flex-row sm:p-[24px]">

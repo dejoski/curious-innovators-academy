@@ -60,18 +60,20 @@ function SlotCell({
   tall = false,
   onSlotClick,
   onBadgeClick,
+  clickableSlots,
 }: {
   slot: ParentScheduleSlotKey;
   badges: StudentScheduleBadge[];
   tall?: boolean;
   onSlotClick?: (slot: ParentScheduleSlotKey) => void;
   onBadgeClick?: ParentScheduleBadgeClick;
+  clickableSlots?: readonly ParentScheduleSlotKey[];
 }) {
   const visible = badges.length ? badges : [{ label: "Available slot", tone: "empty" as const }];
   const isEmpty = visible.every((badge) => badge.tone === "empty");
   const catalogSlotId = catalogSlotIdFromScheduleSlot(slot);
-  const clickable = Boolean(onSlotClick) && Boolean(catalogSlotId);
-  const pendingSchoolAssignment = !catalogSlotId && isEmpty;
+  const clickable = Boolean(onSlotClick) && (Boolean(catalogSlotId) || Boolean(clickableSlots?.includes(slot)));
+  const pendingSchoolAssignment = !clickable && !catalogSlotId && isEmpty;
   const content = (
     <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-1.5 min-[1100px]:gap-2" : ""}`}>
       {visible.map((badge, index) => (
@@ -101,7 +103,7 @@ function SlotCell({
       {clickable && isEmpty ? (
         <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[6px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-2 hover:ring-[#14c1d5]/35"}`}>
           <div className="flex h-full flex-col justify-center px-2 min-[1100px]:px-3">
-            <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">Available slot</p>
+            <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">{catalogSlotId ? "Available slot" : "Core assignment pending"}</p>
             <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">+ Choose class</p>
           </div>
         </button>
@@ -123,12 +125,14 @@ export function ParentScheduleGrid({
   badgesBySlot,
   onSlotClick,
   onBadgeClick,
+  clickableSlots,
   className = "",
   footer,
 }: {
   badgesBySlot?: ParentScheduleBadges;
   onSlotClick?: (slot: ParentScheduleSlotKey) => void;
   onBadgeClick?: ParentScheduleBadgeClick;
+  clickableSlots?: readonly ParentScheduleSlotKey[];
   className?: string;
   footer?: ReactNode;
 }) {
@@ -167,6 +171,7 @@ export function ParentScheduleGrid({
                     tall={tall}
                     onSlotClick={onSlotClick}
                     onBadgeClick={onBadgeClick}
+                    clickableSlots={clickableSlots}
                   />
                 ))}
               </div>

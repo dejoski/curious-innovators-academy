@@ -9,6 +9,14 @@ import {
   type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
+import {
+  ParentClassDetailsDrawer,
+  ParentClassSelectionDrawer,
+  type ParentClassChoiceKind,
+  type ParentClassOption,
+  type ParentClassSlotContext,
+  type ScheduleDisplayParts,
+} from "@/components/parent-class-drawers";
 import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { mutateDashboardData, readDashboardData } from "@/lib/client-data-cache";
@@ -17,10 +25,19 @@ import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 import {
+  parentClassOptionFromRow,
+  parentClassOptionsForCatalogSlot,
+} from "@/lib/parent-class-options";
+import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromRow,
 } from "@/lib/parent-schedule-status";
-import { scheduleSlotForClassFields, studentScheduleSlots } from "@/lib/schedule-slots";
+import {
+  CATALOG_SLOT_META,
+  catalogSlotIdFromScheduleSlot,
+  scheduleSlotForClassFields,
+  studentScheduleSlots,
+} from "@/lib/schedule-slots";
 
 type RowData = StudentScheduleRow;
 
@@ -32,8 +49,12 @@ type SlotDetail = {
 };
 
 const SLOT_DETAILS: SlotDetail[] = [
-  { slot: "b1", day: "Day 1-3", block: "Block 1", time: "9:00 - 10:30 am" },
-  { slot: "b2", day: "Day 1-3", block: "Block 2", time: "10:30 am - 12:00 pm" },
+  { slot: "b1Tue", day: "Day 1", block: "Block 1", time: "9:00 - 10:30 am" },
+  { slot: "b1Wed", day: "Day 2", block: "Block 1", time: "9:00 - 10:30 am" },
+  { slot: "b1Thu", day: "Day 3", block: "Block 1", time: "9:00 - 10:30 am" },
+  { slot: "b2Tue", day: "Day 1", block: "Block 2", time: "10:30 am - 12:00 pm" },
+  { slot: "b2Wed", day: "Day 2", block: "Block 2", time: "10:30 am - 12:00 pm" },
+  { slot: "b2Thu", day: "Day 3", block: "Block 2", time: "10:30 am - 12:00 pm" },
   { slot: "b3Tue", day: "Day 1", block: "Block 3", time: "12:30 - 2:00 pm" },
   { slot: "b3Wed", day: "Day 2", block: "Block 3", time: "12:30 - 2:00 pm" },
   { slot: "b3Thu", day: "Day 3", block: "Block 3", time: "12:30 - 2:00 pm" },
@@ -43,6 +64,12 @@ const SLOT_DETAILS: SlotDetail[] = [
 ];
 
 const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = [
+  "b1Tue",
+  "b1Wed",
+  "b1Thu",
+  "b2Tue",
+  "b2Wed",
+  "b2Thu",
   "b3Tue",
   "b3Wed",
   "b3Thu",
@@ -121,9 +148,10 @@ function SlotChoiceList({
 }) {
   const visible = realBadges(badges);
   if (visible.length === 0) {
+    const emptyLabel = slot.startsWith("b1") || slot.startsWith("b2") ? "Core assignment pending" : "Open enrichment slot";
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[13px] text-[#667085]">{slot === "b1" || slot === "b2" ? "No core assignment" : "Open enrichment slot"}</span>
+        <span className="text-[13px] text-[#667085]">{emptyLabel}</span>
         <button type="button" onClick={onManage} className="text-[12px] font-semibold text-[#0b7180] hover:underline">
           Add class
         </button>
@@ -158,6 +186,19 @@ function classSlot(row: SchoolClassRow): ParentScheduleSlotKey {
   });
 }
 
+function slotContextFromBadges(badges: StudentScheduleBadge[] | undefined): ParentClassSlotContext {
+  const current = realBadges(badges)[0];
+  return current ? { kind: "change", label: current.label } : { kind: "empty" };
+}
+
+function slotScheduleDisplay(slot: SlotDetail): ScheduleDisplayParts {
+  return { day: slot.day, time: slot.time };
+}
+
+function slotOverlayTitle(slot: SlotDetail): string {
+  return `${slot.block} ${slot.day}`;
+}
+
 export default function StudentScheduleClient({
   studentId,
   initialRows,
@@ -173,8 +214,11 @@ export default function StudentScheduleClient({
   const [isLoading, setIsLoading] = useState(initialRows.length === 0 && initialSource !== "remote");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [classes, setClasses] = useState<SchoolClassRow[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
   const [assignmentSlot, setAssignmentSlot] = useState<ParentScheduleSlotKey | null>(null);
-  const [assignmentClassId, setAssignmentClassId] = useState("");
+  const [assignmentClass, setAssignmentClass] = useState<ParentClassOption | null>(null);
+  const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
+  const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
 
@@ -216,6 +260,14 @@ export default function StudentScheduleClient({
   );
   const slots = useMemo(() => (schedule ? studentScheduleSlots(schedule) : null), [schedule]);
   const finality = useMemo(() => parentScheduleFinalityFromRow(schedule), [schedule]);
+  const assignedSlotDetails = useMemo(
+    () =>
+      SLOT_DETAILS.map((slot) => ({
+        ...slot,
+        badges: realBadges(badgesBySlot[slot.slot]),
+      })).filter((slot) => slot.badges.length > 0),
+    [badgesBySlot],
+  );
 
   const summary = useMemo(() => {
     const badges = slots ? Object.values(slots).flatMap((slotBadges) => realBadges(slotBadges)) : [];
@@ -234,22 +286,36 @@ export default function StudentScheduleClient({
   const hint = sourceHint(source);
   const assignmentBadges = assignmentSlot ? realBadges(badgesBySlot[assignmentSlot]) : [];
   const replaceableClassId = assignmentBadges.find((badge) => badge.classId && (badge.tone === "core" || badge.tone === "approved"))?.classId ?? "";
+  const assignmentSlotDetail = assignmentSlot ? SLOT_DETAILS.find((slot) => slot.slot === assignmentSlot) ?? null : null;
+  const assignmentScheduleDisplay = assignmentSlotDetail ? slotScheduleDisplay(assignmentSlotDetail) : undefined;
+  const classOptions = useMemo(() => classes.map(parentClassOptionFromRow), [classes]);
   const assignmentOptions = useMemo(() => {
     if (!assignmentSlot) return [];
     const matching = classes.filter((row) => classSlot(row) === assignmentSlot);
-    return matching.length ? matching : classes;
-  }, [assignmentSlot, classes]);
+    if (matching.length) return matching.map(parentClassOptionFromRow);
+    const catalogSlot = catalogSlotIdFromScheduleSlot(assignmentSlot);
+    if (catalogSlot) {
+      return parentClassOptionsForCatalogSlot(classOptions, CATALOG_SLOT_META[catalogSlot]);
+    }
+    return [];
+  }, [assignmentSlot, classOptions, classes]);
+  const assignmentSlotContext = assignmentSlot ? slotContextFromBadges(badgesBySlot[assignmentSlot]) : { kind: "empty" as const };
 
   const openAssignmentModal = async (slot: ParentScheduleSlotKey) => {
     setAssignmentSlot(slot);
-    setAssignmentClassId("");
+    setAssignmentClass(null);
+    setOpenChoice("firstChoice");
     setAssignmentError(null);
+    setDetailClass(null);
     if (classes.length > 0) return;
+    setClassesLoading(true);
     try {
       const body = await readDashboardData<ClassesBody>("/api/data/classes");
       setClasses(body.classes ?? []);
     } catch (error) {
       setAssignmentError(error instanceof Error ? error.message : "Classes could not be loaded.");
+    } finally {
+      setClassesLoading(false);
     }
   };
 
@@ -264,22 +330,22 @@ export default function StudentScheduleClient({
   };
 
   const saveAssignment = async () => {
-    if (!assignmentSlot || !assignmentClassId || isSavingAssignment) return;
+    if (!assignmentSlot || !assignmentClass?.id || isSavingAssignment) return;
     setIsSavingAssignment(true);
     setAssignmentError(null);
     try {
-      if (replaceableClassId && replaceableClassId === assignmentClassId) {
+      if (replaceableClassId && replaceableClassId === assignmentClass.id) {
         setAssignmentSlot(null);
         return;
       }
-      if (replaceableClassId && replaceableClassId !== assignmentClassId) {
+      if (replaceableClassId && replaceableClassId !== assignmentClass.id) {
         const removeRes = await fetch(
           `/api/data/classes/${encodeURIComponent(replaceableClassId)}/roster?studentId=${encodeURIComponent(studentId)}`,
           { method: "DELETE" },
         );
         if (!removeRes.ok) throw new Error(await readApiError(removeRes));
       }
-      const addRes = await fetch(`/api/data/classes/${encodeURIComponent(assignmentClassId)}/roster`, {
+      const addRes = await fetch(`/api/data/classes/${encodeURIComponent(assignmentClass.id)}/roster`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId, status: "Approved" }),
@@ -287,6 +353,8 @@ export default function StudentScheduleClient({
       if (!addRes.ok) throw new Error(await readApiError(addRes));
       await refreshSchedule();
       setAssignmentSlot(null);
+      setAssignmentClass(null);
+      setOpenChoice(null);
     } catch (error) {
       setAssignmentError(error instanceof Error ? error.message : "Schedule assignment could not be saved.");
     } finally {
@@ -396,44 +464,55 @@ export default function StudentScheduleClient({
                 <LegendItem tone="draft" label="Draft" />
               </div>
             </div>
-            <ParentScheduleGrid badgesBySlot={badgesBySlot} className="border-[#eef0f3] shadow-none" />
+            <ParentScheduleGrid
+              badgesBySlot={badgesBySlot}
+              onSlotClick={(slot) => void openAssignmentModal(slot)}
+              clickableSlots={SELECTABLE_SLOTS}
+              className="border-[#eef0f3] shadow-none"
+            />
           </section>
 
           <section className={`${DASHBOARD_PANEL_CLASS} overflow-hidden`}>
             <div className="border-b border-[#eef0f3] px-4 py-4 md:px-5">
-              <h2 className="text-[18px] font-bold leading-tight text-[#272932]">Block details</h2>
+              <h2 className="text-[18px] font-bold leading-tight text-[#272932]">Assigned blocks</h2>
               <p className="mt-1 text-[14px] text-[#666d80]">
-                One row per real schedule slot. Open rows are available for enrichment placement.
+                Each row shows a real day and block with an assigned class.
               </p>
             </div>
-            <div className="divide-y divide-[#eef0f3]">
-              {SLOT_DETAILS.map((slot) => (
-                <div key={slot.slot} className="grid gap-3 px-4 py-4 md:grid-cols-[120px_130px_150px_minmax(0,1fr)] md:px-5">
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Day</p>
-                    <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.day}</p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Block</p>
-                    <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.block}</p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Time</p>
-                    <p className="mt-1 text-[14px] text-[#344054]">{slot.time}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Classes</p>
-                    <div className="mt-2">
-                      <SlotChoiceList
-                        badges={badgesBySlot[slot.slot] ?? []}
-                        slot={slot.slot}
-                        onManage={() => void openAssignmentModal(slot.slot)}
-                      />
+            {assignedSlotDetails.length > 0 ? (
+              <div className="divide-y divide-[#eef0f3]">
+                {assignedSlotDetails.map((slot) => (
+                  <div key={slot.slot} className="grid gap-3 px-4 py-4 md:grid-cols-[120px_130px_150px_minmax(0,1fr)] md:px-5">
+                    <div>
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Day</p>
+                      <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.day}</p>
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Block</p>
+                      <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.block}</p>
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Time</p>
+                      <p className="mt-1 text-[14px] text-[#344054]">{slot.time}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Classes</p>
+                      <div className="mt-2">
+                        <SlotChoiceList
+                          badges={slot.badges}
+                          slot={slot.slot}
+                          onManage={() => void openAssignmentModal(slot.slot)}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-6 text-[14px] text-[#667085] md:px-5">
+                No assigned classes yet. Use the schedule grid above to add a class to a specific day and block.
+              </div>
+            )}
           </section>
         </>
       ) : (
@@ -444,69 +523,53 @@ export default function StudentScheduleClient({
           </p>
         </div>
       )}
-      {assignmentSlot ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-[520px] rounded-[18px] bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-bold text-[#272932]">Edit schedule assignment</h3>
-                <p className="mt-1 text-sm text-[#666d80]">
-                  Choose a class for {SLOT_DETAILS.find((slot) => slot.slot === assignmentSlot)?.block}.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAssignmentSlot(null)}
-                className="rounded-full px-2 py-1 text-xl font-bold text-[#667085] hover:bg-[#f5f7fa]"
-                aria-label="Close assignment editor"
-              >
-                &times;
-              </button>
-            </div>
-            {assignmentBadges.length > 0 ? (
-              <div className="mt-4 rounded-[10px] border border-[#eef0f3] bg-[#fafafa] p-3 text-sm text-[#344054]">
-                Current: {assignmentBadges.map((badge) => badge.label).join("; ")}
-              </div>
-            ) : null}
-            {assignmentError ? (
-              <div role="alert" className="mt-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
-                {assignmentError}
-              </div>
-            ) : null}
-            <label className="mt-5 flex flex-col gap-2">
-              <span className="text-sm font-semibold text-[#272932]">Class</span>
-              <select
-                value={assignmentClassId}
-                onChange={(event) => setAssignmentClassId(event.target.value)}
-                className="h-11 rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-sm text-[#272932] outline-none focus:border-[#14c1d5]"
-              >
-                <option value="">Select a class</option>
-                {assignmentOptions.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.name} - {row.program} - {row.block || "Block not set"} {row.level || ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setAssignmentSlot(null)}
-                className="rounded-[8px] px-4 py-2 text-sm font-semibold text-[#666d80] hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveAssignment()}
-                disabled={!assignmentClassId || isSavingAssignment}
-                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#11a9bb] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
-              >
-                {isSavingAssignment ? "Saving..." : "Save assignment"}
-              </button>
-            </div>
-          </div>
+      {assignmentSlot && assignmentSlotDetail ? (
+        <ParentClassSelectionDrawer
+          title={slotOverlayTitle(assignmentSlotDetail)}
+          time={assignmentSlotDetail.time}
+          description="Choose a class to add directly to this student's approved schedule."
+          emptySlotMessage="This slot is open. The selected class will be added as approved."
+          changeSlotMessage="This will replace"
+          slotContext={assignmentSlotContext}
+          firstChoice={assignmentClass}
+          secondChoice={null}
+          firstChoiceOptions={assignmentOptions}
+          secondChoiceOptions={[]}
+          openChoice={openChoice}
+          onToggleChoice={(kind) => setOpenChoice((open) => (open === kind ? null : kind))}
+          onSelectChoice={(cls) => {
+            setAssignmentClass(cls);
+            setAssignmentError(null);
+            setOpenChoice(null);
+          }}
+          onClose={() => {
+            setAssignmentSlot(null);
+            setAssignmentClass(null);
+            setOpenChoice(null);
+            setDetailClass(null);
+          }}
+          onOpenClassDetails={(option, scheduleDisplay) => setDetailClass({ option, scheduleDisplay })}
+          onSubmit={() => void saveAssignment()}
+          firstChoiceLabel="Choose class"
+          hideSecondChoice
+          submitDisabled={!assignmentClass || isSavingAssignment}
+          submitLabel="Add approved class"
+          submitting={isSavingAssignment}
+          optionsLoading={classesLoading}
+        />
+      ) : null}
+      {assignmentError && assignmentSlot ? (
+        <div role="alert" className="fixed bottom-4 left-1/2 z-[210] w-[calc(100vw-32px)] max-w-[620px] -translate-x-1/2 rounded-[8px] border border-[#f6c8c8] bg-[#fff1f1] px-4 py-3 text-sm text-[#8c1f1f] shadow-lg">
+          {assignmentError}
         </div>
+      ) : null}
+      {detailClass ? (
+        <ParentClassDetailsDrawer
+          option={detailClass.option}
+          scheduleDisplay={detailClass.scheduleDisplay ?? assignmentScheduleDisplay}
+          statusLabel={detailClass.option.program === "core" ? "School assigned" : detailClass.option.status}
+          onClose={() => setDetailClass(null)}
+        />
       ) : null}
     </div>
   );
