@@ -7,9 +7,12 @@ import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
 import {
+  authUserIdForEmail,
   cleanAccountEmail,
   ensureParentAccountForEmail,
   isValidAccountEmail,
+  normalizeAccountDisplayName,
+  temporaryAccountPassword,
 } from "@/lib/data/account-materialization";
 import { isSupabaseConfigured } from "@/lib/data/env";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
@@ -683,6 +686,93 @@ async function fetchMappedParent(
   return { ok: true, row: mapped };
 }
 
+export async function serverUpdateParent(input: {
+  parentId: string;
+  name: string;
+  email: string;
+}): Promise<WriteOk<ParentSummary> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const parentId = input.parentId.trim();
+  const displayName = normalizeAccountDisplayName(input.name);
+  const email = cleanAccountEmail(input.email);
+  if (!parentId) return { ok: false, message: "Missing parent id" };
+  if (!displayName) return { ok: false, message: "Parent name is required" };
+  if (!isValidAccountEmail(email)) return { ok: false, message: "Enter a valid parent email address" };
+
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+
+  const { data: parent, error: parentError } = await access.client
+    .from("parents")
+    .select("id, profile_id")
+    .eq("id", parentId)
+    .maybeSingle();
+  if (parentError) return { ok: false, message: parentError.message };
+  const originalProfileId = String(parent?.profile_id ?? "").trim();
+  if (!originalProfileId) return { ok: false, message: "Parent account profile was not found" };
+
+  let profileId = originalProfileId;
+  if (isSupabaseAdminConfigured()) {
+    const admin = createSupabaseAdminClient();
+    const existingAuthId = await authUserIdForEmail(admin, email);
+    if (existingAuthId && existingAuthId !== originalProfileId) {
+      profileId = existingAuthId;
+    } else {
+      const { error: updateAuthError } = await admin.auth.admin.updateUserById(originalProfileId, {
+        email,
+        email_confirm: true,
+        user_metadata: { full_name: displayName },
+      });
+      if (updateAuthError) {
+        const fallbackAuthId = await authUserIdForEmail(admin, email);
+        if (fallbackAuthId) {
+          profileId = fallbackAuthId;
+        } else {
+          const { data: created, error: createAuthError } = await admin.auth.admin.createUser({
+            email,
+            password: temporaryAccountPassword(),
+            email_confirm: true,
+            user_metadata: { full_name: displayName },
+          });
+          if (createAuthError || !created.user?.id) {
+            return { ok: false, message: createAuthError?.message ?? updateAuthError.message };
+          }
+          profileId = created.user.id;
+        }
+      }
+    }
+  }
+
+  const { error: profileError } = await access.client.from("profiles").upsert(
+    {
+      id: profileId,
+      role: "parent",
+      display_name: displayName,
+      email,
+    },
+    { onConflict: "id" },
+  );
+  if (profileError) return { ok: false, message: profileError.message };
+
+  if (profileId !== originalProfileId) {
+    const { error: relinkError } = await access.client
+      .from("parents")
+      .update({ profile_id: profileId })
+      .eq("id", parentId);
+    if (relinkError) return { ok: false, message: relinkError.message };
+  }
+
+  const mapped = await fetchMappedParent(access.client, parentId);
+  if (!mapped.ok) return mapped;
+  await writeAuditEvent(access.auditClient, {
+    action: "parent.update",
+    entityType: "parent",
+    entityId: parentId,
+    metadata: { name: displayName, email },
+  });
+  return mapped;
+}
+
 export async function serverSetParentStudentLinks(input: {
   parentId: string;
   studentIds: string[];
@@ -753,6 +843,11 @@ export async function serverCreateParentInviteLink(input: {
   if (!parent.ok) return parent;
   const email = cleanContactEmail(parent.row.email);
   if (!isValidContactEmail(email)) return { ok: false, message: "Parent needs a valid email before inviting" };
+  const ensured = await ensureParentAccountForEmail(access.client, {
+    displayName: parent.row.name,
+    email,
+  });
+  if (!ensured.ok) return ensured;
 
   const admin = createSupabaseAdminClient();
   const redirectTo = `${input.origin.replace(/\/$/, "")}/reset-password`;

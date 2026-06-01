@@ -16,6 +16,21 @@ export type PasswordResetResult = { ok: true } | { ok: false; message: string };
 const SUPABASE_AUTH_REQUIRED_MSG =
   "Sign-in is not ready yet. Ask an administrator to finish account setup.";
 
+async function loginCredentialMessage(email: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/account-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { message?: string };
+    return typeof body.message === "string" && body.message.trim() ? body.message : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Sign in with email/password when Supabase env is set; otherwise no-op success
  * when remote auth is intentionally unavailable.
@@ -40,7 +55,8 @@ export async function signInWithEmailPassword(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     const message = error.message.toLowerCase().includes("invalid login credentials")
-      ? "Email or password does not match an active account. Create an account, reset the password, or ask an admin to create the user."
+      ? await loginCredentialMessage(email)
+        ?? "Email or password does not match an active account. Create an account, reset the password, or ask an admin to create the user."
       : error.message;
     return { ok: false, message };
   }

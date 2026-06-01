@@ -300,12 +300,17 @@ export function ParentsAdminDirectory({
       setSpreadsheetBanner(`Could not create invite link: ${await readApiError(res)}.`);
       return;
     }
-    const body = (await res.json()) as { inviteUrl?: string };
+    const body = (await res.json()) as { parent?: ParentSummary; inviteUrl?: string };
     if (!body.inviteUrl) {
       setSpreadsheetBanner("Could not create invite link.");
       return;
     }
-    setInviteDraft({ parent, inviteUrl: body.inviteUrl, copied: false });
+    const savedParent = body.parent ? toDisplayRow(body.parent) : parent;
+    if (body.parent) {
+      setParents((prev) => prev.map((p) => (p.id === body.parent?.id ? body.parent : p)));
+      invalidateDashboardData(["/api/data/parents", "/api/dashboard-presentation"]);
+    }
+    setInviteDraft({ parent: savedParent, inviteUrl: body.inviteUrl, copied: false });
   };
 
   const importParents = async (rows: ParsedImportRow[]) => {
@@ -335,22 +340,30 @@ export function ParentsAdminDirectory({
     return { created: created.length, errors };
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editDraft) return;
     const name = editDraft.name.trim();
     if (!name) return;
-    setParents((prev) =>
-      prev.map((p) =>
-        p.id === editDraft.id
-          ? {
-              ...p,
-              name,
-              email: editDraft.email.trim() || p.email,
-              phone: editDraft.phone.trim() || p.phone,
-            }
-          : p,
-      ),
-    );
+    const res = await fetch("/api/data/parents", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update-parent",
+        parentId: editDraft.id,
+        name,
+        email: editDraft.email,
+      }),
+    });
+    if (!res.ok) {
+      setSpreadsheetBanner(`Could not save parent: ${await readApiError(res)}.`);
+      return;
+    }
+    const body = (await res.json()) as { parent?: ParentSummary };
+    if (body.parent) {
+      setParents((prev) => prev.map((p) => (p.id === body.parent?.id ? body.parent : p)));
+      invalidateDashboardData(["/api/data/parents", "/api/dashboard-presentation"]);
+      setSpreadsheetBanner(`Saved parent ${body.parent.name}.`);
+    }
     setEditDraft(null);
   };
 
@@ -824,7 +837,7 @@ export function ParentsAdminDirectory({
               <button
                 type="button"
                 className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
-                onClick={saveEdit}
+                onClick={() => void saveEdit()}
               >
                 Save
               </button>

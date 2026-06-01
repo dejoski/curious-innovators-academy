@@ -469,7 +469,7 @@ function ParentClassesEnrichmentCatalogContent() {
     } catch {
       /* Browser storage can be unavailable in privacy modes. */
     }
-    setSubmitBanner({ tone: "success", message: "Draft saved. You can discard it to restore the approved schedule." });
+    setSubmitBanner({ tone: "success", message: "Draft saved on this device. Submit it to send changes for review." });
     closeSelectionDrawer();
   }
 

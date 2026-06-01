@@ -31,11 +31,11 @@ export function isValidAccountEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function temporaryAccountPassword(): string {
+export function temporaryAccountPassword(): string {
   return `Cia-${crypto.randomUUID()}-Aa1!`;
 }
 
-async function authUserIdForEmail(
+export async function authUserIdForEmail(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   email: string,
 ): Promise<string | null> {
@@ -124,13 +124,18 @@ export async function ensureParentAccountForEmail(
   if (profileReadError) return { ok: false, message: profileReadError.message };
 
   let profileId = String(existingProfile?.id ?? "");
-  if (!profileId) {
-    if (!isSupabaseAdminConfigured()) {
-      return { ok: false, message: "Parent account setup is temporarily unavailable." };
-    }
+  let staleProfileId = "";
+  if (!isSupabaseAdminConfigured() && !profileId) {
+    return { ok: false, message: "Parent account setup is temporarily unavailable." };
+  }
+
+  if (isSupabaseAdminConfigured()) {
     const admin = createSupabaseAdminClient();
-    profileId = (await authUserIdForEmail(admin, email)) ?? "";
-    if (!profileId) {
+    const authProfileId = (await authUserIdForEmail(admin, email)) ?? "";
+    if (authProfileId) {
+      if (profileId && profileId !== authProfileId) staleProfileId = profileId;
+      profileId = authProfileId;
+    } else {
       const { data, error } = await admin.auth.admin.createUser({
         email,
         password: temporaryAccountPassword(),
@@ -140,6 +145,7 @@ export async function ensureParentAccountForEmail(
       if (error || !data.user?.id) {
         return { ok: false, message: error?.message ?? "Could not create parent account" };
       }
+      if (profileId && profileId !== data.user.id) staleProfileId = profileId;
       profileId = data.user.id;
     }
   }
@@ -154,6 +160,14 @@ export async function ensureParentAccountForEmail(
     { onConflict: "id" },
   );
   if (profileWriteError) return { ok: false, message: profileWriteError.message };
+
+  if (staleProfileId) {
+    const { error: parentRelinkError } = await client
+      .from("parents")
+      .update({ profile_id: profileId })
+      .eq("profile_id", staleProfileId);
+    if (parentRelinkError) return { ok: false, message: parentRelinkError.message };
+  }
 
   const materialized = await materializeProfileRole(client, { profileId, role: "parent" });
   if (!materialized.ok) return materialized;

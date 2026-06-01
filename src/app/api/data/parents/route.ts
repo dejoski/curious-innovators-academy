@@ -6,6 +6,7 @@ import {
   serverCreateParentInviteLink,
   serverInsertParent,
   serverSetParentStudentLinks,
+  serverUpdateParent,
 } from "@/lib/data/server-writes";
 
 export async function GET() {
@@ -38,6 +39,16 @@ export async function PATCH(req: Request) {
   const body = (await req.json()) as Record<string, unknown>;
   const action = String(body.action ?? "");
   const parentId = String(body.parentId ?? "");
+
+  if (action === "update-parent") {
+    const result = await serverUpdateParent({
+      parentId,
+      name: String(body.name ?? ""),
+      email: String(body.email ?? ""),
+    });
+    if (!result.ok) return apiWriteError(result.message, 400);
+    return NextResponse.json({ parent: result.row });
+  }
 
   if (action === "set-students") {
     const studentIds = Array.isArray(body.studentIds) ? body.studentIds.map((id) => String(id)) : [];
