@@ -19,6 +19,8 @@ import {
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
 import type { EnrichmentRequestRow, SchoolClassRow } from "@/lib/data/types";
+import { ParentClassDetailsDrawer, type ParentClassOption, type ScheduleDisplayParts } from "@/components/parent-class-drawers";
+import { parentClassOptionFromRow } from "@/lib/parent-class-options";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -38,6 +40,7 @@ type ParentEnrichmentRow = {
   status: string;
   current: boolean;
   requestSource?: "catalog-request";
+  option: ParentClassOption;
 };
 
 type DraftChoiceWithLocalId = ParentCatalogChoice & {
@@ -64,6 +67,7 @@ function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
     availability: row.status === "Full" ? "Full" : "Open",
     status: row.pendingCount > 0 ? "Pending" : "--",
     current: row.pendingCount === 0 && row.status === "Active",
+    option: parentClassOptionFromRow(row),
   };
 }
 
@@ -99,7 +103,11 @@ export default function ParentClassesEnrichmentClient() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [toolbarBanner, setToolbarBanner] = useState<string | null>(null);
+  const [selectedClassDetails, setSelectedClassDetails] = useState<{
+    option: ParentClassOption;
+    statusLabel: string;
+    scheduleDisplay: ScheduleDisplayParts;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -240,12 +248,6 @@ export default function ParentClassesEnrichmentClient() {
   }, [classes, draftOnlyCatalogRequests, searchQuery, filterStatus, sortBy, serverCatalogRequests, serverReviewStatuses]);
 
   useEffect(() => {
-    if (!toolbarBanner) return;
-    const t = window.setTimeout(() => setToolbarBanner(null), 4000);
-    return () => window.clearTimeout(t);
-  }, [toolbarBanner]);
-
-  useEffect(() => {
     function handleDown(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
@@ -311,30 +313,24 @@ export default function ParentClassesEnrichmentClient() {
         <div className="flex items-center gap-2">
           <Link
             href={withParentStudentParam("/dashboard/parents/classes/core", selectedParentStudentId)}
-            className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
+            className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] text-[14px] leading-[1.25] text-center"
           >
             Core
           </Link>
           <Link
             href={withParentStudentParam("/dashboard/parents/classes/enrichment", selectedParentStudentId)}
-            className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
+            className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] text-[14px] leading-[1.25] text-center"
           >
             Enrichment
           </Link>
         </div>
         <div className="flex items-center gap-[6px] pb-2 sm:pb-0">
           <div className="bg-[#d2f1f5] border border-[#14c1d5] rounded-[4px] shrink-0 size-[17px]" />
-          <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] leading-[1.25]">
+          <span className="text-[#0d0d12] text-[12px] leading-[1.25]">
             Current classes
           </span>
         </div>
       </div>
-
-      {toolbarBanner && (
-        <div className="rounded-[12px] border border-[rgba(0,77,8,0.25)] bg-[rgba(0,77,8,0.06)] px-4 py-3 text-sm text-[#004d08] font-medium">
-          {toolbarBanner}
-        </div>
-      )}
 
       {dataHint && (
         <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
@@ -513,28 +509,16 @@ export default function ParentClassesEnrichmentClient() {
                               type="button"
                               className="block w-full px-4 py-2 text-left text-sm text-[#0d0d12] hover:bg-gray-50"
                               onClick={() => {
-                                setToolbarBanner(
-                                  `Class summary: ${cls.name} · ${cls.block} · ${cls.day}`
-                                );
+                                setSelectedClassDetails({
+                                  option: cls.option,
+                                  statusLabel: cls.status,
+                                  scheduleDisplay: { day: cls.day, time: cls.time },
+                                });
                                 setOpenMenuId(null);
                               }}
                             >
-                              View class summary
+                              View Class
                             </button>
-                            <Link
-                              href={withParentStudentParam("/dashboard/parents/catalog", selectedParentStudentId)}
-                              className="block w-full px-4 py-2 text-sm font-medium text-[#14c1d5] hover:bg-gray-50"
-                              onClick={() => setOpenMenuId(null)}
-                            >
-                              Open class catalog
-                            </Link>
-                            <Link
-                              href={withParentStudentParam("/dashboard/parents/students", selectedParentStudentId)}
-                              className="block w-full px-4 py-2 text-sm text-[#0d0d12] hover:bg-gray-50"
-                              onClick={() => setOpenMenuId(null)}
-                            >
-                              Student profile
-                            </Link>
                           </div>
                         )}
                       </div>
@@ -546,6 +530,14 @@ export default function ParentClassesEnrichmentClient() {
           </table>
         </div>
       </div>
+      {selectedClassDetails ? (
+        <ParentClassDetailsDrawer
+          option={selectedClassDetails.option}
+          statusLabel={selectedClassDetails.statusLabel}
+          scheduleDisplay={selectedClassDetails.scheduleDisplay}
+          onClose={() => setSelectedClassDetails(null)}
+        />
+      ) : null}
     </div>
   );
 }

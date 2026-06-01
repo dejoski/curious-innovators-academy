@@ -335,7 +335,7 @@ export default function DashboardHeader() {
                 {isNotificationsOpen && (
               <div className={`absolute right-0 mt-2 w-80 ${DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS} px-0 overflow-hidden`}>
                 <div className={`px-4 py-2 flex justify-between items-center border-b ${DASHBOARD_BORDER_SUBTLE_CLASS}`}>
-                  <h3 className="font-['Inter',sans-serif] font-semibold text-sm text-gray-900">Notifications</h3>
+                  <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
                   {unreadCount > 0 && (
                     <button
                       type="button"
@@ -361,7 +361,7 @@ export default function DashboardHeader() {
                           index < previewNotifications.length - 1 ? "border-b border-gray-50" : ""
                         }`}
                       >
-                        <p className="text-sm text-gray-800 font-['Inter',sans-serif]">{item.title}</p>
+                        <p className="text-sm text-gray-800">{item.title}</p>
                         <p className="text-xs text-gray-500 mt-1">{item.detail}</p>
                         <p className="text-xs text-gray-400 mt-1">{item.time}</p>
                       </Link>
@@ -378,7 +378,7 @@ export default function DashboardHeader() {
                   </div>
                 ) : null}
                 <div className="px-4 py-2 border-t border-[#f0f0f0] text-center">
-                  <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className="text-sm text-gray-600 hover:text-gray-900 font-['Inter',sans-serif] block w-full">
+                  <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className="text-sm text-gray-600 hover:text-gray-900 block w-full">
                     View all notifications
                   </Link>
                 </div>
@@ -421,10 +421,10 @@ export default function DashboardHeader() {
                 </div>
               </div>
               <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
-                <p className="font-['Inter',sans-serif] font-semibold relative shrink-0 text-[#0d0d12]">
+                <p className="font-semibold relative shrink-0 text-[#0d0d12]">
                   {headerDisplayName}
                 </p>
-                <p className="font-['Inter',sans-serif] font-normal relative shrink-0 text-[#818898]">
+                <p className="font-normal relative shrink-0 text-[#818898]">
                   {headerRoleLine}
                 </p>
               </div>

@@ -17,6 +17,7 @@ import {
 import { readApiError } from "@/lib/client-api-errors";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
+import { PARENT_SCHEDULE_ROWS, scheduleStartLabelForBlock } from "@/lib/schedule-slots";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
 
@@ -43,18 +44,10 @@ const EVENT_TYPE_STYLES = {
   },
 } satisfies Record<CalendarEventType, { surface: string; dot: string; text: string }>;
 
-const WEEK_TIME_ROWS = [
-  { label: "7:00 am", minutes: 7 * 60 },
-  { label: "8:30 am", minutes: 8 * 60 + 30 },
-  { label: "10:00 am", minutes: 10 * 60 },
-  { label: "11:30 am", minutes: 11 * 60 + 30 },
-  { label: "1:00 pm", minutes: 13 * 60 },
-  { label: "2:30 pm", minutes: 14 * 60 + 30 },
-  { label: "4:00 pm", minutes: 16 * 60 },
-  { label: "5:30 pm", minutes: 17 * 60 + 30 },
-  { label: "7:30 pm", minutes: 19 * 60 + 30 },
-  { label: "9:00 pm", minutes: 21 * 60 },
-] as const;
+const WEEK_TIME_ROWS = PARENT_SCHEDULE_ROWS.map((row) => {
+  const label = scheduleStartLabelForBlock(row.label) ?? row.time;
+  return { label, minutes: timeLabelToMinutes(label) };
+});
 
 const FULL_DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
@@ -250,11 +243,6 @@ function EventDetailsModal({
   const preparedBy = details?.teacher?.trim();
   const grade = details?.level?.trim();
   const status = event.statusLabel ?? typeLabel(event.type);
-  const teacherGuideRows = [
-    ["Objectives", details?.teacherGuideObjectives?.trim()],
-    ["Information", details?.teacherGuideInformation?.trim()],
-    ["Summary", details?.teacherGuideSummary?.trim()],
-  ].filter((row): row is [string, string] => Boolean(row[1]));
   const studentGuideRows = [
     ["Objectives", details?.studentGuideObjectives?.trim()],
     ["Information", details?.studentGuideInformation?.trim()],
@@ -300,12 +288,6 @@ function EventDetailsModal({
           <PlannerRow label="Time">{event.time}</PlannerRow>
           {event.scheduleSlotLabel ? <PlannerRow label="Block">{event.scheduleSlotLabel}</PlannerRow> : null}
         </div>
-
-        {teacherGuideRows.length ? (
-          <PlannerSection title="Teacher's Guide">
-            {teacherGuideRows.map(([label, value]) => <PlannerRow key={label} label={label}>{value}</PlannerRow>)}
-          </PlannerSection>
-        ) : null}
 
         {studentGuideRows.length ? (
           <PlannerSection title="Students' Guide">

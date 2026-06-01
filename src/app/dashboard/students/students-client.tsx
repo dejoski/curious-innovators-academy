@@ -814,7 +814,7 @@ export default function StudentsStudentsList({
                   />
                 ))
               ) : (
-                <div className="py-[32px] text-center text-[#666d80] ">
+                <div className="py-[32px] text-center text-[#666d80]">
                   {searchQuery.trim()
                     ? `No students found matching "${searchQuery}"`
                     : "No students match the current filters."}

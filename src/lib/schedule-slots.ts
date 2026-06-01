@@ -72,6 +72,32 @@ export function scheduleTimeForBlock(block: unknown): string | null {
   return PARENT_SCHEDULE_ROWS[blockNumber - 1]?.time ?? null;
 }
 
+export function scheduleStartLabelForBlock(block: unknown): string | null {
+  const time = scheduleTimeForBlock(block);
+  return time?.split(/\s+-\s+/)[0]?.trim() || null;
+}
+
+export function scheduleTimePartsForBlock(block: unknown): { start: string; end: string } | null {
+  const time = scheduleTimeForBlock(block);
+  if (!time) return null;
+  const [rawStart, rawEnd] = time.split(/\s+-\s+/);
+  const start = rawStart?.trim();
+  const end = rawEnd?.trim();
+  if (!start || !end) return null;
+  const endMeridiem = end.match(/\b(am|pm)\b/i)?.[1]?.toLowerCase();
+  const startWithMeridiem = /\b(am|pm)\b/i.test(start) || !endMeridiem ? start : `${start} ${endMeridiem}`;
+  return { start: startWithMeridiem, end };
+}
+
+export function canonicalScheduleSummaryForBlockDay(block: unknown, day: unknown): string {
+  const blockNumber = blockNumberFromText(block);
+  const dayNumber = dayNumberFromText(day) ?? dayNumberFromText(block);
+  const blockLabel = blockNumber ? `Block ${blockNumber}` : String(block ?? "").trim();
+  const dayLabel = dayNumber ? `Day ${dayNumber}` : String(day ?? "").trim();
+  const time = scheduleTimeForBlock(block);
+  return [dayLabel, blockLabel, time].filter(Boolean).join(" \u00b7 ");
+}
+
 export function classSchedulePartsFromFields(input: {
   block?: unknown;
   level?: unknown;
@@ -318,7 +344,11 @@ export function splitScheduleLabel(schedule: string): { day: string; time: strin
 
 function blockNumberFromText(value: unknown): number | null {
   const text = String(value ?? "").toLowerCase();
-  const parsed = Number(text.match(/\bblock\s*([1-4])\b/)?.[1] ?? text.match(/\bb([1-4])\b/)?.[1]);
+  const parsed = Number(
+    text.match(/\bblock\s*([1-4])\b/)?.[1] ??
+      text.match(/\bb([1-4])\b/)?.[1] ??
+      text.match(/^\s*([1-4])\s*$/)?.[1],
+  );
   return Number.isFinite(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null;
 }
 

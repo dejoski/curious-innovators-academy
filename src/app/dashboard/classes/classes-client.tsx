@@ -1186,7 +1186,7 @@ export default function ClassesPageClient({
           { key: "name", label: "Name", required: true, sample: "New Class" },
           { key: "teacher", label: "Teacher", required: true, sample: "Emily Carter" },
           { key: "capacity", label: "Capacity", required: true, sample: "30" },
-          { key: "schedule", label: "Schedule", sample: "Day 1/2/3 - Block 1 - 9:00 - 10:30 AM" },
+          { key: "schedule", label: "Schedule", sample: "Day 1 · Block 1 · 9:00 - 10:30 am" },
           { key: "status", label: "Status", sample: "Active" },
           { key: "track", label: "Track", sample: trackTab },
           { key: "level", label: "Level", sample: "3" },

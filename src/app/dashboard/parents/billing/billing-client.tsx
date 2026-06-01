@@ -147,7 +147,7 @@ export default function ParentBillingClient() {
   const canShowBillingFacts = hasResolved && !error;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-6 px-4 pb-10 pt-8 font-['Inter',sans-serif] sm:px-0">
+    <div className="mx-auto flex w-full max-w-[1104px] flex-col gap-6 px-4 pb-10 pt-8 sm:px-0">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex max-w-[720px] flex-col gap-1">
           <h1 className="text-[28px] font-bold leading-[1.1] text-[#272932]">

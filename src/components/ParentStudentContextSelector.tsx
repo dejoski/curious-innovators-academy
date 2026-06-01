@@ -186,7 +186,7 @@ export default function ParentStudentContextSelector({
           value={studentPickerValue}
           onChange={(e) => setStudentQuery(e.target.value)}
           disabled={isLoading || students.length === 0}
-          className={`absolute inset-0 h-full w-full cursor-pointer rounded-[10px] border-0 bg-transparent py-[8px] pl-[56px] pr-[42px] font-['Inter:Regular',sans-serif] ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[16px] leading-[1.6] tracking-[-0.32px] outline-none disabled:cursor-not-allowed disabled:text-[#818898] [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden`}
+          className={`absolute inset-0 h-full w-full cursor-pointer rounded-[10px] border-0 bg-transparent py-[8px] pl-[56px] pr-[42px]  ${DASHBOARD_TEXT_PRIMARY_CLASS} text-[16px] leading-[1.6] tracking-[-0.32px] outline-none disabled:cursor-not-allowed disabled:text-[#818898] [-webkit-appearance:none] [appearance:none] [&::-ms-expand]:hidden`}
           aria-describedby={source === "fallback" ? "parent-student-picker-source" : undefined}
           aria-busy={false}
         >

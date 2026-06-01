@@ -4,6 +4,12 @@ import type { ProgramTrack } from "@/lib/data/types";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
+import { PageBackLink } from "@/components/page-back-link";
+import {
+  PARENT_SCHEDULE_ROWS,
+  canonicalScheduleSummaryForBlockDay,
+  scheduleTimePartsForBlock,
+} from "@/lib/schedule-slots";
 import { ChevronDown, Clock3 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,15 +21,12 @@ type BlockOption = "1" | "2" | "3" | "4";
 
 const DEFAULT_TEACHER_NAME = "Unassigned Teacher";
 
-const BLOCK_TIMES: Record<BlockOption, { label: string; start: string; end: string }> = {
-  "1": { label: "Block 1", start: "9:00 AM", end: "10:30 AM" },
-  "2": { label: "Block 2", start: "10:30 AM", end: "12:00 PM" },
-  "3": { label: "Block 3", start: "12:30 PM", end: "2:00 PM" },
-  "4": { label: "Block 4", start: "2:00 PM", end: "3:30 PM" },
-};
-
 const DAY_OPTIONS: DayOption[] = ["1", "2", "3"];
 const BLOCK_OPTIONS: BlockOption[] = ["1", "2", "3", "4"];
+
+function blockLabelForOption(value: BlockOption): string {
+  return PARENT_SCHEDULE_ROWS[Number(value) - 1]?.label ?? `Block ${value}`;
+}
 
 function requiredLabel(label: string) {
   return (
@@ -116,11 +119,6 @@ export default function AddClassForm() {
   const [block, setBlock] = useState<BlockOption>("1");
   const [status, setStatus] = useState<ClassStatus>("Active");
   const [capacity, setCapacity] = useState("");
-  const [plannerSubject, setPlannerSubject] = useState("");
-  const [plannerSummary, setPlannerSummary] = useState("");
-  const [teacherGuideObjectives, setTeacherGuideObjectives] = useState("");
-  const [teacherGuideInformation, setTeacherGuideInformation] = useState("");
-  const [teacherGuideSummary, setTeacherGuideSummary] = useState("");
   const [studentGuideObjectives, setStudentGuideObjectives] = useState("");
   const [studentGuideInformation, setStudentGuideInformation] = useState("");
   const [studentGuideSummary, setStudentGuideSummary] = useState("");
@@ -128,9 +126,10 @@ export default function AddClassForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const segment = trackTab === "enrichment" ? "enrichment" : "core";
-  const blockTime = BLOCK_TIMES[block];
-  const scheduleText = `Day ${day} · ${blockTime.label} · ${blockTime.start} - ${blockTime.end}`;
-  const blockText = `${blockTime.label} Day ${day}`;
+  const blockTime = scheduleTimePartsForBlock(block) ?? { start: "", end: "" };
+  const blockLabel = blockLabelForOption(block);
+  const scheduleText = canonicalScheduleSummaryForBlockDay(block, day);
+  const blockText = `${blockLabel} Day ${day}`;
   const capacityNumber = Number.parseInt(capacity, 10);
   const canSubmit = useMemo(
     () =>
@@ -173,11 +172,6 @@ export default function AddClassForm() {
           track: segment,
           description: description.trim(),
           block: blockText,
-          plannerSubject: plannerSubject.trim(),
-          plannerSummary: plannerSummary.trim(),
-          teacherGuideObjectives: teacherGuideObjectives.trim(),
-          teacherGuideInformation: teacherGuideInformation.trim(),
-          teacherGuideSummary: teacherGuideSummary.trim(),
           studentGuideObjectives: studentGuideObjectives.trim(),
           studentGuideInformation: studentGuideInformation.trim(),
           studentGuideSummary: studentGuideSummary.trim(),
@@ -200,7 +194,8 @@ export default function AddClassForm() {
   return (
     <div className="w-full bg-[#fafafa] px-5 py-6 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-[1220px] flex-col gap-7">
-        <div className="border-t border-[#dfe1e7] pt-8">
+        <div className="flex flex-col gap-4 border-t border-[#dfe1e7] pt-8">
+          <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
           <h1 className="font-sans text-[34px] font-bold leading-[1.1] text-[#272932]">Create Class</h1>
         </div>
 
@@ -256,22 +251,31 @@ export default function AddClassForm() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                role="switch"
-                aria-checked={status === "Active"}
-                onClick={() => setStatus((current) => (current === "Active" ? "Full" : "Active"))}
-                className="mt-auto flex w-fit items-center gap-4 pt-4 font-sans text-[19px] font-medium text-[#0d0d12]"
-              >
-                <span className={`relative h-7 w-12 rounded-full transition-colors ${status === "Active" ? "bg-[#14c1d5]" : "bg-[#dfe1e7]"}`}>
+              <div className="mt-auto flex max-w-[280px] flex-col gap-3 rounded-[10px] border border-[#eef0f3] bg-[#fbfcfd] p-4">
+                <FieldLabel>Status</FieldLabel>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={status === "Active"}
+                  aria-label={`Class status is ${status}`}
+                  onClick={() => setStatus((current) => (current === "Active" ? "Full" : "Active"))}
+                  className="flex h-10 w-full items-center justify-between rounded-[8px] text-left font-sans text-[16px] font-semibold text-[#272932] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#14c1d5]/35"
+                >
+                  <span>{status}</span>
                   <span
-                    className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition-transform ${
-                      status === "Active" ? "translate-x-[22px]" : "translate-x-1"
+                    aria-hidden
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                      status === "Active" ? "bg-[#14c1d5]" : "bg-[#c8ced8]"
                     }`}
-                  />
-                </span>
-                Status: {status}
-              </button>
+                  >
+                    <span
+                      className={`absolute left-1 top-1 size-4 rounded-full bg-white shadow-sm transition-transform ${
+                        status === "Active" ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </FormSection>
@@ -290,7 +294,7 @@ export default function AddClassForm() {
               <FieldLabel>{requiredLabel("Block")}</FieldLabel>
               <SelectInput value={block} onChange={(e) => setBlock(e.target.value as BlockOption)}>
                 {BLOCK_OPTIONS.map((value) => (
-                  <option key={value} value={value}>{BLOCK_TIMES[value].label}</option>
+                  <option key={value} value={value}>{blockLabelForOption(value)}</option>
                 ))}
               </SelectInput>
             </label>
@@ -309,48 +313,20 @@ export default function AddClassForm() {
           </div>
         </FormSection>
 
-        <FormSection title="Daily Planner">
-          <div className="grid gap-5 md:grid-cols-2">
-            <label className="flex flex-col gap-3 md:col-span-2">
-              <FieldLabel>Subject</FieldLabel>
-              <TextAreaInput value={plannerSubject} onChange={(e) => setPlannerSubject(e.target.value)} />
+        <FormSection title="Students&apos; Guide">
+          <div className="flex flex-col gap-5">
+            <label className="flex flex-col gap-3">
+              <FieldLabel>Objectives</FieldLabel>
+              <TextAreaInput value={studentGuideObjectives} onChange={(e) => setStudentGuideObjectives(e.target.value)} />
             </label>
-            <label className="flex flex-col gap-3 md:col-span-2">
+            <label className="flex flex-col gap-3">
+              <FieldLabel>Information</FieldLabel>
+              <TextAreaInput value={studentGuideInformation} onChange={(e) => setStudentGuideInformation(e.target.value)} />
+            </label>
+            <label className="flex flex-col gap-3">
               <FieldLabel>Summary</FieldLabel>
-              <TextAreaInput value={plannerSummary} onChange={(e) => setPlannerSummary(e.target.value)} />
+              <TextAreaInput value={studentGuideSummary} onChange={(e) => setStudentGuideSummary(e.target.value)} />
             </label>
-          </div>
-          <div className="mt-7 grid gap-5 md:grid-cols-2">
-            <div className="flex flex-col gap-5">
-              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Teacher&apos;s Guide</h3>
-              <label className="flex flex-col gap-3">
-                <FieldLabel>Objectives</FieldLabel>
-                <TextAreaInput value={teacherGuideObjectives} onChange={(e) => setTeacherGuideObjectives(e.target.value)} />
-              </label>
-              <label className="flex flex-col gap-3">
-                <FieldLabel>Information</FieldLabel>
-                <TextAreaInput value={teacherGuideInformation} onChange={(e) => setTeacherGuideInformation(e.target.value)} />
-              </label>
-              <label className="flex flex-col gap-3">
-                <FieldLabel>Summary</FieldLabel>
-                <TextAreaInput value={teacherGuideSummary} onChange={(e) => setTeacherGuideSummary(e.target.value)} />
-              </label>
-            </div>
-            <div className="flex flex-col gap-5">
-              <h3 className="font-sans text-[18px] font-bold text-[#272932]">Students&apos; Guide</h3>
-              <label className="flex flex-col gap-3">
-                <FieldLabel>Objectives</FieldLabel>
-                <TextAreaInput value={studentGuideObjectives} onChange={(e) => setStudentGuideObjectives(e.target.value)} />
-              </label>
-              <label className="flex flex-col gap-3">
-                <FieldLabel>Information</FieldLabel>
-                <TextAreaInput value={studentGuideInformation} onChange={(e) => setStudentGuideInformation(e.target.value)} />
-              </label>
-              <label className="flex flex-col gap-3">
-                <FieldLabel>Summary</FieldLabel>
-                <TextAreaInput value={studentGuideSummary} onChange={(e) => setStudentGuideSummary(e.target.value)} />
-              </label>
-            </div>
           </div>
         </FormSection>
 

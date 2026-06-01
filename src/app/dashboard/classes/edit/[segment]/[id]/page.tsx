@@ -6,6 +6,7 @@ import { readApiError } from "@/lib/client-api-errors";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import { PageBackLink } from "@/components/page-back-link";
 
 type ClassStatus = "Active" | "Full";
 
@@ -65,9 +66,7 @@ export default function EditClassPage() {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4 p-8">
         <p className="text-[#a00408]">{loadError}</p>
-        <Link href="/dashboard/classes" className="font-medium text-[#14c1d5] hover:underline">
-          Back to Class Setup
-        </Link>
+        <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
       </div>
     );
   }
@@ -135,13 +134,7 @@ export default function EditClassPage() {
     <div className="w-full p-[24px] md:p-[32px]">
       <div className="mx-auto flex max-w-[560px] flex-col gap-[24px]">
         <div className="flex flex-col gap-[8px]">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="w-fit bg-transparent border-0 p-0 font-sans text-[14px] font-medium text-[#666d80] hover:text-[#0d0d12] cursor-pointer"
-          >
-            ← Back
-          </button>
+          <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
           <h1 className="font-sans text-[26px] font-bold leading-tight text-[#0d0d12] md:text-[28px]">
             Edit class
           </h1>
@@ -224,19 +217,11 @@ export default function EditClassPage() {
                 <textarea value={draft.plannerSummary ?? ""} onChange={(e) => setRow({ ...draft, plannerSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
               </label>
             </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-3">
-                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Teacher&apos;s Guide</h3>
-                <textarea aria-label="Teacher guide objectives" value={draft.teacherGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
-                <textarea aria-label="Teacher guide information" value={draft.teacherGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
-                <textarea aria-label="Teacher guide summary" value={draft.teacherGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, teacherGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
-              </div>
-              <div className="flex flex-col gap-3">
-                <h3 className="font-sans text-[15px] font-bold text-[#272932]">Students&apos; Guide</h3>
-                <textarea aria-label="Student guide objectives" value={draft.studentGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, studentGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
-                <textarea aria-label="Student guide information" value={draft.studentGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, studentGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
-                <textarea aria-label="Student guide summary" value={draft.studentGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, studentGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
-              </div>
+            <div className="mt-4 flex flex-col gap-3">
+              <h3 className="font-sans text-[15px] font-bold text-[#272932]">Students&apos; Guide</h3>
+              <textarea aria-label="Student guide objectives" value={draft.studentGuideObjectives ?? ""} onChange={(e) => setRow({ ...draft, studentGuideObjectives: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+              <textarea aria-label="Student guide information" value={draft.studentGuideInformation ?? ""} onChange={(e) => setRow({ ...draft, studentGuideInformation: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
+              <textarea aria-label="Student guide summary" value={draft.studentGuideSummary ?? ""} onChange={(e) => setRow({ ...draft, studentGuideSummary: e.target.value })} className="min-h-[80px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]" />
             </div>
           </div>
 

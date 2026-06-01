@@ -393,10 +393,10 @@ export function ParentsAdminDirectory({
   return (
     <div className="flex flex-col w-full min-h-full px-[32px] py-[32px] gap-[24px] font-sans relative">
       <div className="flex flex-col gap-[8px]">
-        <h1 className="font-['Inter:Bold',sans-serif] font-bold leading-[1.1] text-[#272932] text-[28px]">
+        <h1 className="font-bold leading-[1.1] text-[#272932] text-[28px]">
           Parents
         </h1>
-        <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] text-[#666d80] text-[16px] max-w-3xl">
+        <p className="font-normal leading-[1.4] text-[#666d80] text-[16px] max-w-3xl">
           Directory of parent and guardian contacts with quick links to students.
         </p>
         {dataSource === "fallback" ? (
@@ -413,10 +413,10 @@ export function ParentsAdminDirectory({
               <img alt="" className="size-[20px]" src={imgHugeiconsFamilies} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Total families
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.total}
               </p>
             </div>
@@ -428,10 +428,10 @@ export function ParentsAdminDirectory({
               <UserCheck aria-hidden className="size-5 text-[#004d08]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Active
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.active}
               </p>
             </div>
@@ -443,10 +443,10 @@ export function ParentsAdminDirectory({
               <UserPlus aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Need students
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.needsStudents}
               </p>
             </div>
@@ -458,10 +458,10 @@ export function ParentsAdminDirectory({
               <Users aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Students needing parents
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.orphanStudents == null ? "Loading" : stats.orphanStudents}
               </p>
             </div>
@@ -488,7 +488,7 @@ export function ParentsAdminDirectory({
               placeholder="Search parents…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="outline-none text-[14px] w-full text-[#0d0d12] font-['Inter:Regular',sans-serif] bg-transparent placeholder:text-[#666d80]"
+              className="outline-none text-[14px] w-full text-[#0d0d12] bg-transparent placeholder:text-[#666d80]"
             />
           </div>
           <div className="flex flex-wrap gap-[16px] items-center w-full sm:w-auto justify-start sm:justify-end">
@@ -507,7 +507,7 @@ export function ParentsAdminDirectory({
                 <div className="size-[14px] flex items-center justify-center">
                   <img alt="" className="size-full" src={imgVector} />
                 </div>
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
+                <span className="text-[#0d0d12] text-[12px]">
                   Status: {statusFilter === "All" ? "All" : statusFilter}
                 </span>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
@@ -546,7 +546,7 @@ export function ParentsAdminDirectory({
                   : "bg-[#fafafa] text-[#0d0d12] hover:bg-gray-100"
               }`}
             >
-              <p className="font-['Inter:Regular',sans-serif] text-[12px]">
+              <p className="text-[12px]">
                 {selectedIds.length > 0 ? `Clear selected (${selectedIds.length})` : "Select visible"}
               </p>
             </button>
@@ -575,19 +575,19 @@ export function ParentsAdminDirectory({
           className="grid gap-x-2 border-t border-[#f0f0f0] py-[16px] px-[18px] w-full items-center"
         >
           <div aria-hidden className="min-w-0" />
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Parent
           </div>
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Students
           </div>
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Email
           </div>
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Phone
           </div>
-          <div className="min-w-0 text-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-center text-[#0d0d12] font-semibold text-[14px]">
             Action
           </div>
         </div>
@@ -595,7 +595,7 @@ export function ParentsAdminDirectory({
         <div className="flex min-h-[300px] w-full flex-col overflow-visible pb-4">
           {paginatedData.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-[32px] px-[18px]">
-              <span className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] text-center leading-snug max-w-lg">
+              <span className="text-[#666d80] text-[14px] text-center leading-snug max-w-lg">
                 {parents.length === 0 && dataSource === "remote"
                   ? "No parent contacts yet. Add guardians to the parents roster."
                   : searchQuery.trim()
@@ -637,7 +637,7 @@ export function ParentsAdminDirectory({
                 <div className="flex min-w-0 items-center gap-[8px]">
                   <EntityAvatar name={parent.name} src={parent.avatar} className="size-8" />
                   <span
-                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug"
+                    className="min-w-0 truncate text-[#0d0d12] text-[14px] leading-snug"
                     title={parent.name}
                   >
                     {parent.name}
@@ -645,14 +645,14 @@ export function ParentsAdminDirectory({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-start">
-                  <span className="line-clamp-2 min-w-0 text-left font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug">
+                  <span className="line-clamp-2 min-w-0 text-left text-[#0d0d12] text-[14px] leading-snug">
                     {parent.studentsLabel}
                   </span>
                 </div>
 
                 <div className="flex min-w-0 items-center justify-start">
                   <span
-                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px]"
+                    className="min-w-0 truncate text-[#0d0d12] text-[14px]"
                     title={parent.email}
                   >
                     {parent.email}
@@ -660,7 +660,7 @@ export function ParentsAdminDirectory({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-start">
-                  <span className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px]">
+                  <span className="min-w-0 truncate text-[#0d0d12] text-[14px]">
                     {parent.phone}
                   </span>
                 </div>
@@ -782,7 +782,7 @@ export function ParentsAdminDirectory({
                 }`}
               >
                 <span
-                  className={`font-['Inter:Semi_Bold',sans-serif] font-semibold text-[12px] leading-[0] ${
+                  className={`font-semibold text-[12px] leading-[0] ${
                     currentPage === pageNum ? "text-white" : "text-[#666d80]"
                   }`}
                 >
@@ -809,7 +809,7 @@ export function ParentsAdminDirectory({
 
       <div className="flex justify-end w-full flex-col items-end gap-2">
         {spreadsheetBanner && (
-          <p className="text-xs text-[#3d5a45] bg-[#f0f7f2] px-3 py-1.5 rounded-md border border-[#c5ddcc] max-w-md text-right font-['Inter:Regular',sans-serif]">
+          <p className="text-xs text-[#3d5a45] bg-[#f0f7f2] px-3 py-1.5 rounded-md border border-[#c5ddcc] max-w-md text-right">
             {spreadsheetBanner}
           </p>
         )}
@@ -818,7 +818,7 @@ export function ParentsAdminDirectory({
           onClick={exportParents}
           className="bg-[#d2f1f5] shadow-sm flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#bce6ec] transition-colors cursor-pointer"
         >
-          <p className="font-['Inter_Tight:Medium',sans-serif] text-[#14c1d5] text-[16px] tracking-[0.32px]">
+          <p className="font-inter-tight font-medium text-[#14c1d5] text-[16px] tracking-[0.32px]">
             Download CSV
           </p>
         </button>
@@ -833,7 +833,7 @@ export function ParentsAdminDirectory({
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#272932]">Edit parent</h2>
             <div className="mt-4 flex flex-col gap-3">
-              <label className="text-sm text-gray-700 font-['Inter:Regular',sans-serif]">
+              <label className="text-sm text-gray-700">
                 Name
                 <input
                   className="mt-1 w-full rounded-md border border-gray-200 p-2 outline-none focus:border-[#14c1d5] focus:ring-1 focus:ring-[#14c1d5] font-normal"
@@ -841,7 +841,7 @@ export function ParentsAdminDirectory({
                   onChange={(e) => setEditDraft((d) => (d ? { ...d, name: e.target.value } : d))}
                 />
               </label>
-              <label className="text-sm text-gray-700 font-['Inter:Regular',sans-serif]">
+              <label className="text-sm text-gray-700">
                 Email
                 <input
                   type="email"
@@ -850,7 +850,7 @@ export function ParentsAdminDirectory({
                   onChange={(e) => setEditDraft((d) => (d ? { ...d, email: e.target.value } : d))}
                 />
               </label>
-              <label className="text-sm text-gray-700 font-['Inter:Regular',sans-serif]">
+              <label className="text-sm text-gray-700">
                 Phone
                 <input
                   className="mt-1 w-full rounded-md border border-gray-200 p-2 outline-none focus:border-[#14c1d5] focus:ring-1 focus:ring-[#14c1d5] font-normal"

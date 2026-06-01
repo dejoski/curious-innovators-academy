@@ -184,10 +184,10 @@ function AlertRow({ item, studentId }: { item: DashboardNotification; studentId?
     <Link href={href} className="block w-full hover:opacity-90 transition-opacity">
       <div className="flex gap-6 items-center w-full">
         <div className="flex flex-col gap-1 flex-1 min-w-0">
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#2f2f2d] text-[14px] leading-snug truncate">
+          <p className="font-semibold text-[#2f2f2d] text-[14px] leading-snug truncate">
             {alert.title}
           </p>
-          <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] leading-snug line-clamp-2">
+          <p className="text-[#666d80] text-[14px] leading-snug line-clamp-2">
             {alert.detail}
           </p>
         </div>
@@ -202,10 +202,10 @@ function QuickRow({ title, body, href }: { title: string; body: string; href: st
     <Link href={href} className="flex flex-col gap-3 w-full hover:opacity-90 transition-opacity">
       <div className="flex gap-6 items-center w-full">
         <div className="flex flex-col gap-1 flex-1 min-w-0">
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#2f2f2d] text-[14px]">
+          <p className="font-semibold text-[#2f2f2d] text-[14px]">
             {title}
           </p>
-          <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] leading-snug">
+          <p className="text-[#666d80] text-[14px] leading-snug">
             {body}
           </p>
         </div>
@@ -253,7 +253,7 @@ function StudentDashboardLoading({ studentName }: { studentName?: string }) {
           className="size-8 animate-spin rounded-full border-[3px] border-[#14c1d5]/25 border-t-[#14c1d5]"
           aria-hidden
         />
-        <p className="font-['Inter:Semi_Bold',sans-serif] text-[15px] font-semibold text-[#155e66]">
+        <p className="font-semibold text-[15px] text-[#155e66]">
           Loading {studentName ? `${studentName}'s dashboard` : "student dashboard"}...
         </p>
         <p className="max-w-[360px] text-sm text-[#666d80]">
@@ -868,10 +868,10 @@ function ParentHomeDashboardContent() {
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
               <UserRound className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
-            <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
+            <p className="font-bold text-[#272932] text-[32px] leading-[1.1]">
               {attendance}
             </p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+            <p className="font-medium text-[#666d80] text-[16px]">
               Attendance
             </p>
           </div>
@@ -881,10 +881,10 @@ function ParentHomeDashboardContent() {
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
               <ListChecks className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
-            <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
+            <p className="font-bold text-[#272932] text-[32px] leading-[1.1]">
               {pendingRequests}
             </p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+            <p className="font-medium text-[#666d80] text-[16px]">
               Pending requests
             </p>
           </div>
@@ -896,7 +896,7 @@ function ParentHomeDashboardContent() {
           <div>
             <div className="mb-4 flex flex-col gap-3 min-[760px]:flex-row min-[760px]:items-start min-[760px]:justify-between">
               <div className="min-w-0">
-                <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[16px] font-semibold text-[#0d0d12]">
+                <h2 className="font-semibold text-[16px] text-[#0d0d12]">
                   {student ? `${student.name}'s schedule` : "Student schedule"}
                 </h2>
                 <p className="mt-1 text-sm text-[#666d80]">{scheduleFinality.description}</p>
@@ -923,7 +923,7 @@ function ParentHomeDashboardContent() {
               <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
                 <Bell className="size-5 text-[#0d0d12]" strokeWidth={1.75} aria-hidden />
               </div>
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px]">
+              <p className="font-semibold text-[#0d0d12] text-[16px]">
                 System Alerts
               </p>
             </div>
@@ -943,7 +943,7 @@ function ParentHomeDashboardContent() {
               <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
                 <CalendarDays className="size-5 text-[#0d0d12]" strokeWidth={1.75} aria-hidden />
               </div>
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px]">
+              <p className="font-semibold text-[#0d0d12] text-[16px]">
                 Quick Actions
               </p>
             </div>

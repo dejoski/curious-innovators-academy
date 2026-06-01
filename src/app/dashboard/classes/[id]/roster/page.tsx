@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { RemoveEnrollmentConfirmationModal } from "@/components/remove-enrollment-confirmation-modal";
+import { PageBackLink } from "@/components/page-back-link";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
@@ -363,12 +364,9 @@ export default function StudentClassRoster() {
           <div className="flex flex-wrap items-center gap-3">
             {classId ? (
               <>
-                <Link
-                  href={`/dashboard/classes/core/${classId}`}
-                  className="text-sm font-medium text-[#14c1d5] hover:text-[#12aebd] transition-colors w-fit"
-                >
-                  ← Back to class profile
-                </Link>
+                <PageBackLink href={`/dashboard/classes/core/${classId}`} className="min-w-[174px] justify-center">
+                  Back to Class Profile
+                </PageBackLink>
                 <span className="text-[#e5e5e5]">|</span>
               </>
             ) : null}

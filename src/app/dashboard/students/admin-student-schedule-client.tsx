@@ -16,14 +16,21 @@ import type { DataSource, StudentScheduleBadge, StudentScheduleRow } from "@/lib
 type ScheduleFilter = "all" | "pending" | "approved";
 
 type ScheduleColumn = {
-  key: keyof Pick<StudentScheduleRow, "b1" | "b2" | "b3Tue" | "b3Wed" | "b3Thu" | "b4Tue" | "b4Wed" | "b4Thu">;
+  key: keyof Pick<
+    StudentScheduleRow,
+    "b1Tue" | "b1Wed" | "b1Thu" | "b2Tue" | "b2Wed" | "b2Thu" | "b3Tue" | "b3Wed" | "b3Thu" | "b4Tue" | "b4Wed" | "b4Thu"
+  >;
   label: string;
   sublabel: string;
 };
 
 const COLUMNS: ScheduleColumn[] = [
-  { key: "b1", label: "B1", sublabel: "Tue Wed Thu" },
-  { key: "b2", label: "B2", sublabel: "Tue Wed Thu" },
+  { key: "b1Tue", label: "B1", sublabel: "Tue" },
+  { key: "b1Wed", label: "B1", sublabel: "Wed" },
+  { key: "b1Thu", label: "B1", sublabel: "Thu" },
+  { key: "b2Tue", label: "B2", sublabel: "Tue" },
+  { key: "b2Wed", label: "B2", sublabel: "Wed" },
+  { key: "b2Thu", label: "B2", sublabel: "Thu" },
   { key: "b3Tue", label: "B3", sublabel: "Tue" },
   { key: "b3Wed", label: "B3", sublabel: "Wed" },
   { key: "b3Thu", label: "B3", sublabel: "Thu" },
@@ -261,7 +268,7 @@ export default function AdminStudentScheduleClient({
         </DashboardBulkSelectionBar>
 
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
-          <table className="min-w-[1120px] table-fixed border-collapse">
+          <table className="min-w-[1920px] table-fixed border-collapse">
             <thead>
               <tr className="border-y border-[#f0f0f0] text-left text-[14px] font-semibold text-[#0d0d12]">
                 <th className="w-[220px] px-3 py-5">Student</th>
@@ -324,7 +331,7 @@ export default function AdminStudentScheduleClient({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-[15px] text-[#666d80]">
+                  <td colSpan={COLUMNS.length + 3} className="px-4 py-12 text-center text-[15px] text-[#666d80]">
                     No student schedules match your filters.
                   </td>
                 </tr>

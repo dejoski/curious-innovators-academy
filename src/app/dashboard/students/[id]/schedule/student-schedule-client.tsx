@@ -32,8 +32,11 @@ import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromRow,
 } from "@/lib/parent-schedule-status";
+import { PageBackLink } from "@/components/page-back-link";
 import {
   CATALOG_SLOT_META,
+  PARENT_SCHEDULE_DAYS,
+  PARENT_SCHEDULE_ROWS,
   catalogSlotIdFromScheduleSlot,
   scheduleSlotForClassFields,
   studentScheduleSlots,
@@ -48,35 +51,16 @@ type SlotDetail = {
   time: string;
 };
 
-const SLOT_DETAILS: SlotDetail[] = [
-  { slot: "b1Tue", day: "Day 1", block: "Block 1", time: "9:00 - 10:30 am" },
-  { slot: "b1Wed", day: "Day 2", block: "Block 1", time: "9:00 - 10:30 am" },
-  { slot: "b1Thu", day: "Day 3", block: "Block 1", time: "9:00 - 10:30 am" },
-  { slot: "b2Tue", day: "Day 1", block: "Block 2", time: "10:30 am - 12:00 pm" },
-  { slot: "b2Wed", day: "Day 2", block: "Block 2", time: "10:30 am - 12:00 pm" },
-  { slot: "b2Thu", day: "Day 3", block: "Block 2", time: "10:30 am - 12:00 pm" },
-  { slot: "b3Tue", day: "Day 1", block: "Block 3", time: "12:30 - 2:00 pm" },
-  { slot: "b3Wed", day: "Day 2", block: "Block 3", time: "12:30 - 2:00 pm" },
-  { slot: "b3Thu", day: "Day 3", block: "Block 3", time: "12:30 - 2:00 pm" },
-  { slot: "b4Tue", day: "Day 1", block: "Block 4", time: "2:00 - 3:30 pm" },
-  { slot: "b4Wed", day: "Day 2", block: "Block 4", time: "2:00 - 3:30 pm" },
-  { slot: "b4Thu", day: "Day 3", block: "Block 4", time: "2:00 - 3:30 pm" },
-];
+const SLOT_DETAILS: SlotDetail[] = PARENT_SCHEDULE_ROWS.flatMap((row) =>
+  row.slots.map((slot, index) => ({
+    slot,
+    day: PARENT_SCHEDULE_DAYS[index] ?? `Day ${index + 1}`,
+    block: row.label,
+    time: row.time,
+  })),
+);
 
-const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = [
-  "b1Tue",
-  "b1Wed",
-  "b1Thu",
-  "b2Tue",
-  "b2Wed",
-  "b2Thu",
-  "b3Tue",
-  "b3Wed",
-  "b3Thu",
-  "b4Tue",
-  "b4Wed",
-  "b4Thu",
-];
+const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = PARENT_SCHEDULE_ROWS.flatMap((row) => row.slots);
 
 function realBadges(badges: StudentScheduleBadge[] | undefined): StudentScheduleBadge[] {
   return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");
@@ -386,7 +370,8 @@ export default function StudentScheduleClient({
   return (
     <div className="relative flex min-h-full w-full flex-col gap-6 px-4 py-6 font-sans md:px-8 md:py-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
+        <div className="min-w-0 flex flex-col gap-4">
+          <PageBackLink href="/dashboard/students/schedule">Back to Student Schedules</PageBackLink>
           <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#667085]">
             Student schedule
           </p>
@@ -401,12 +386,6 @@ export default function StudentScheduleClient({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/dashboard/students/schedule"
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
-          >
-            ← Student Schedules
-          </Link>
           <Link
             href={`/dashboard/students/${encodeURIComponent(studentId)}`}
             className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"

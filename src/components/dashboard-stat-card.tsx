@@ -16,10 +16,10 @@ export default function DashboardStatCard({ count, label, icon: Icon, loading = 
           <Icon aria-hidden="true" className="size-[20px] text-[#00bad3]" strokeWidth={1.8} />
         </div>
         <div className="flex w-full shrink-0 flex-col items-start gap-[10px]">
-          <p className="w-full font-['Inter:Bold',sans-serif] text-[32px] font-bold leading-[1.1] text-[#272932]">
+          <p className="w-full font-bold text-[32px] leading-[1.1] text-[#272932]">
             {loading ? <DashboardValueSkeleton className="h-8 w-12" /> : count}
           </p>
-          <p className="w-full font-['Inter:Medium',sans-serif] text-[16px] font-medium leading-[1.4] text-[#666d80]">
+          <p className="w-full font-medium text-[16px] leading-[1.4] text-[#666d80]">
             {label}
           </p>
         </div>

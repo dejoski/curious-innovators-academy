@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
@@ -13,6 +13,7 @@ import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
+import { PageBackLink } from "@/components/page-back-link";
 import type {
   ClassRosterStudent,
   ClassRosterStatus,
@@ -630,12 +631,9 @@ export default function EnrichmentClassDetail() {
   }
 
   return (
-    <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto font-['Inter',sans-serif]">
+    <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto">
       {/* Back Link */}
-      <Link href="/dashboard/classes" className="flex items-center gap-4 w-fit">
-        <ArrowLeft className="size-[18px] text-[#666d80]" aria-hidden strokeWidth={1.8} />
-        <span className="font-medium text-[#666d80] text-[14px]">Back to class setup</span>
-      </Link>
+      <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
 
       {/* Alert Banner */}
       <div className="flex items-center gap-2 bg-white border border-[#f0f0f0] rounded-[18px] p-3 shadow-sm">
@@ -1084,19 +1082,11 @@ export default function EnrichmentClassDetail() {
                 onChange={(e) => setEditClassDraft((d) => ({ ...d, description: e.target.value }))}
                 className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5] resize-none h-24"
               />
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-[#272932] text-[14px]">Teacher&apos;s Guide</p>
-                  <textarea value={editClassDraft.teacherGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide objectives" />
-                  <textarea value={editClassDraft.teacherGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide information" />
-                  <textarea value={editClassDraft.teacherGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide summary" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-[#272932] text-[14px]">Students&apos; Guide</p>
-                  <textarea value={editClassDraft.studentGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide objectives" />
-                  <textarea value={editClassDraft.studentGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide information" />
-                  <textarea value={editClassDraft.studentGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide summary" />
-                </div>
+              <div className="flex flex-col gap-2">
+                <p className="font-semibold text-[#272932] text-[14px]">Students&apos; Guide</p>
+                <textarea value={editClassDraft.studentGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide objectives" />
+                <textarea value={editClassDraft.studentGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide information" />
+                <textarea value={editClassDraft.studentGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide summary" />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">

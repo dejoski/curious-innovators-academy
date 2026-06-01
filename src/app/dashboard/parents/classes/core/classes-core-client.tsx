@@ -10,6 +10,8 @@ import {
 } from "@/lib/parent-student-selection";
 import { PARENT_SCHEDULE_DAYS, classSchedulePartsFromFields } from "@/lib/schedule-slots";
 import type { SchoolClassRow, StudentProfileBundle } from "@/lib/data/types";
+import { ParentClassDetailsDrawer, type ParentClassOption, type ScheduleDisplayParts } from "@/components/parent-class-drawers";
+import { parentClassOptionFromRow } from "@/lib/parent-class-options";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -27,6 +29,7 @@ type ParentClassRow = {
   location: string;
   status: string;
   current: boolean;
+  option: ParentClassOption;
 };
 
 function toParentClassRow(row: SchoolClassRow): ParentClassRow {
@@ -46,6 +49,7 @@ function toParentClassRow(row: SchoolClassRow): ParentClassRow {
     location: row.location || "Room not assigned",
     status: "School Assigned",
     current: row.status === "Active",
+    option: parentClassOptionFromRow(row),
   };
 }
 
@@ -102,6 +106,11 @@ export default function ParentClassesCoreClient() {
   const [sortBy, setSortBy] = useState<string>("name");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [selectedClassDetails, setSelectedClassDetails] = useState<{
+    option: ParentClassOption;
+    statusLabel: string;
+    scheduleDisplay: ScheduleDisplayParts;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,14 +188,7 @@ export default function ParentClassesCoreClient() {
   }, [classes, searchQuery, filterDay, sortBy]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [toolbarBanner, setToolbarBanner] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!toolbarBanner) return;
-    const t = window.setTimeout(() => setToolbarBanner(null), 4000);
-    return () => window.clearTimeout(t);
-  }, [toolbarBanner]);
 
   useEffect(() => {
     function handleDown(event: MouseEvent) {
@@ -202,10 +204,10 @@ export default function ParentClassesCoreClient() {
     <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-8 font-sans">
       {/* Header */}
       <div className="flex flex-col gap-[4px] items-start w-full">
-        <h1 className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[28px] leading-[1.1]">
+        <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
           Core classes
         </h1>
-        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#666d80] text-[16px] leading-[1.4]">
+        <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
           View your child’s core academic classes assigned by the school. These classes are fixed and cannot be modified by parents.
         </p>
       </div>
@@ -215,30 +217,24 @@ export default function ParentClassesCoreClient() {
         <div className="flex items-center gap-2">
           <Link
             href={withParentStudentParam("/dashboard/parents/classes/core", selectedParentStudentId)}
-            className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
+            className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] text-[14px] leading-[1.25] text-center"
           >
             Core
           </Link>
           <Link
             href={withParentStudentParam("/dashboard/parents/classes/enrichment", selectedParentStudentId)}
-            className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
+            className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] text-[14px] leading-[1.25] text-center"
           >
             Enrichment
           </Link>
         </div>
         <div className="flex items-center gap-[6px] pb-2 sm:pb-0">
           <div className="bg-[#d2f1f5] border border-[#14c1d5] rounded-[4px] shrink-0 size-[17px]" />
-          <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] leading-[1.25]">
+          <span className="text-[#0d0d12] text-[12px] leading-[1.25]">
             Current classes
           </span>
         </div>
       </div>
-
-      {toolbarBanner && (
-        <div className="rounded-[12px] border border-[rgba(0,77,8,0.25)] bg-[rgba(0,77,8,0.06)] px-4 py-3 text-sm text-[#004d08] font-medium">
-          {toolbarBanner}
-        </div>
-      )}
 
       {dataHint && (
         <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
@@ -271,7 +267,7 @@ export default function ParentClassesCoreClient() {
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] bg-transparent outline-none placeholder:text-[#0d0d12] min-w-[200px]"
+              className="text-[#0d0d12] text-[12px] bg-transparent outline-none placeholder:text-[#0d0d12] min-w-[200px]"
             />
           </div>
           <div className="flex flex-wrap gap-[16px] items-center">
@@ -284,7 +280,7 @@ export default function ParentClassesCoreClient() {
                 <div className="size-[14px] flex items-center justify-center">
                   <img alt="Filter" className="size-full" src={imgVector3} />
                 </div>
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">Filter by: {filterDay}</span>
+                <span className="text-[#0d0d12] text-[12px]">Filter by: {filterDay}</span>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {isFilterOpen && (
@@ -312,7 +308,7 @@ export default function ParentClassesCoreClient() {
                 <div className="size-[14px] flex items-center justify-center">
                   <img alt="Sort" className="size-full" src={imgFlowbiteSortOutline} />
                 </div>
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
+                <span className="text-[#0d0d12] text-[12px]">
                   Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}
                 </span>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
@@ -337,7 +333,7 @@ export default function ParentClassesCoreClient() {
               href={withParentStudentParam("/dashboard/parents/schedule", selectedParentStudentId)}
               className="bg-[#fafafa] flex items-center p-[8px] rounded-[8px] hover:bg-gray-100 transition-colors"
             >
-              <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
+              <span className="text-[#0d0d12] text-[12px]">
                 View schedule
               </span>
             </Link>
@@ -349,14 +345,14 @@ export default function ParentClassesCoreClient() {
           <div className="min-w-[880px]">
             {/* Table Header Columns */}
             <div className="grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[16px] px-4 w-full items-center gap-x-2">
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif]">Class Name</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif]">Teacher</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Level</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Block</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Schedule</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Location</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Status</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] font-['Inter:Semi_Bold',sans-serif] text-center">Action</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px]">Class Name</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px]">Teacher</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Level</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Block</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Schedule</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Location</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Status</div>
+              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Action</div>
             </div>
 
             {/* Table Rows */}
@@ -377,28 +373,28 @@ export default function ParentClassesCoreClient() {
                       cls.current ? "bg-[rgba(208,243,247,0.29)] hover:bg-[rgba(208,243,247,0.4)]" : "bg-white hover:bg-gray-50"
                     }`}
                   >
-                    <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px] pr-2">
+                    <div className="text-[#0d0d12] text-[16px] pr-2">
                       {cls.name}
                     </div>
-                    <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px]">
+                    <div className="text-[#0d0d12] text-[16px]">
                       {cls.teacher}
                     </div>
-                    <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px] text-center">
+                    <div className="text-[#0d0d12] text-[16px] text-center">
                       {cls.level}
                     </div>
-                    <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px] text-center">
+                    <div className="text-[#0d0d12] text-[16px] text-center">
                       {cls.block}
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                      <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px]">{cls.day}</span>
-                      <span className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[11px]">{cls.time}</span>
+                      <span className="text-[#0d0d12] text-[16px]">{cls.day}</span>
+                      <span className="text-[#666d80] text-[11px]">{cls.time}</span>
                     </div>
-                    <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[16px] text-center">
+                    <div className="text-[#0d0d12] text-[16px] text-center">
                       {cls.location}
                     </div>
                     <div className="flex justify-center">
                       <div className="bg-[#d2f1f5] border border-[rgba(20,193,213,0.5)] px-[8px] py-[2px] rounded-[6px]">
-                        <span className="font-['Inter:Regular',sans-serif] text-[#1392a0] text-[10px] whitespace-nowrap">
+                        <span className="text-[#1392a0] text-[10px] whitespace-nowrap">
                           {cls.status}
                         </span>
                       </div>
@@ -424,21 +420,16 @@ export default function ParentClassesCoreClient() {
                             type="button"
                             className="w-full px-4 py-2 text-sm text-[#0d0d12] hover:bg-gray-50 text-left"
                             onClick={() => {
-                              setToolbarBanner(
-                                `Schedule: ${cls.name} · ${cls.day} ${cls.time} · ${cls.location}`
-                              );
+                              setSelectedClassDetails({
+                                option: cls.option,
+                                statusLabel: cls.status,
+                                scheduleDisplay: { day: cls.day, time: cls.time },
+                              });
                               setOpenMenuId(null);
                             }}
                           >
-                            View schedule detail
+                            View Class
                           </button>
-                          <Link
-                            href={withParentStudentParam("/dashboard/parents/catalog", selectedParentStudentId)}
-                            className="block w-full px-4 py-2 text-sm text-[#14c1d5] hover:bg-gray-50 font-medium"
-                            onClick={() => setOpenMenuId(null)}
-                          >
-                            Request enrichment change
-                          </Link>
                         </div>
                       )}
                     </div>
@@ -456,7 +447,7 @@ export default function ParentClassesCoreClient() {
               <ChevronLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
             </button>
             <div className="flex items-center gap-1">
-              <button type="button" className="bg-[#14c1d5] text-white font-['Inter:Semi_Bold',sans-serif] text-[12px] size-[24px] rounded-[6px] flex items-center justify-center">
+              <button type="button" className="bg-[#14c1d5] text-white font-semibold text-[12px] size-[24px] rounded-[6px] flex items-center justify-center">
                 1
               </button>
             </div>
@@ -466,6 +457,14 @@ export default function ParentClassesCoreClient() {
           </div>
         )}
       </div>
+      {selectedClassDetails ? (
+        <ParentClassDetailsDrawer
+          option={selectedClassDetails.option}
+          statusLabel={selectedClassDetails.statusLabel}
+          scheduleDisplay={selectedClassDetails.scheduleDisplay}
+          onClose={() => setSelectedClassDetails(null)}
+        />
+      ) : null}
     </div>
   );
 }

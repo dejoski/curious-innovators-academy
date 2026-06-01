@@ -63,7 +63,7 @@ function StarRow({
 }) {
   return (
     <div className="flex w-full items-center justify-between border-b border-[#f0f0f0] pb-[14px]">
-      <span className="font-['Inter:Regular',sans-serif] text-[16px] leading-[1.6] tracking-[-0.32px] text-[#0d0d12]">{label}</span>
+      <span className="text-[16px] leading-[1.6] tracking-[-0.32px] text-[#0d0d12]">{label}</span>
       <div className="flex items-center gap-[7px]">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -156,7 +156,7 @@ export default function ParentFeedback() {
         className={`${activeClass} flex items-center gap-[4px] rounded-[8px] p-[8px] transition-colors`}
       >
         <img alt={alt} className="size-[24px]" src={icon} />
-        <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{text}</span>
+        <span className="px-[2px] text-[12px] leading-[1.4]">{text}</span>
       </button>
     );
   };
@@ -227,12 +227,12 @@ export default function ParentFeedback() {
 
   return (
     <div
-      className="relative mx-auto flex min-h-[1757px] w-full max-w-[1104px] flex-col gap-0 pb-[0px] pt-0 font-['Inter:Regular',sans-serif]"
+      className="relative mx-auto flex min-h-[1757px] w-full max-w-[1104px] flex-col gap-0 pb-[0px] pt-0"
       style={{ paddingTop: "32px" }}
     >
       <div className="flex w-[503px] max-w-full flex-col gap-[4px]" style={{ marginBottom: "23px" }}>
-        <h1 className="font-['Inter:Bold',sans-serif] text-[28px] font-bold leading-[1.1] text-[#272932]">Share Your Feedback</h1>
-        <p className="font-['Inter:Regular',sans-serif] text-[16px] leading-[1.4] text-[#666d80]">Help us improve your child&apos;s learning experience this period.</p>
+        <h1 className="font-bold text-[28px] leading-[1.1] text-[#272932]">Share Your Feedback</h1>
+        <p className="text-[16px] leading-[1.4] text-[#666d80]">Help us improve your child&apos;s learning experience this period.</p>
       </div>
 
       {studentSource === "fallback" ? (
@@ -278,7 +278,7 @@ export default function ParentFeedback() {
       <section className="mb-[16px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <label
           htmlFor="feedback-student"
-          className="mb-[8px] block font-['Inter:Semi_Bold',sans-serif] text-[14px] font-semibold text-[#272932]"
+          className="mb-[8px] block font-semibold text-[14px] text-[#272932]"
         >
           Student
         </label>
@@ -305,7 +305,7 @@ export default function ParentFeedback() {
 
       <section className="h-[150px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <div className="flex flex-col gap-[16px]">
-          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">How would you rate your overall experience?</p>
+          <p className="font-bold text-[20px] leading-[1.1] text-[#272932]">How would you rate your overall experience?</p>
           <div className="flex w-[405px] items-center justify-between">
             {moodButton("angry", imgGroup1, "Angry", "Angry")}
             {moodButton("average", imgHealthiconsNeutralOutline24Px, "Average", "Average")}
@@ -317,7 +317,7 @@ export default function ParentFeedback() {
 
       <section className="h-[353px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <div className="flex flex-col gap-[16px]">
-          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Tell us more</p>
+          <p className="font-bold text-[20px] leading-[1.1] text-[#272932]">Tell us more</p>
           <div className="flex w-[480px] flex-col gap-[14px]">
             {STAR_ROW_KEYS.map((key) => (
               <StarRow
@@ -329,7 +329,7 @@ export default function ParentFeedback() {
               />
             ))}
           </div>
-          <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.6] tracking-[-0.24px] text-[#666d80]">
+          <p className="text-[12px] leading-[1.6] tracking-[-0.24px] text-[#666d80]">
             Your feedback helps us understand what&apos;s working and what can improve.
           </p>
         </div>
@@ -337,7 +337,7 @@ export default function ParentFeedback() {
 
       <section className="h-[268px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <div className="flex flex-col gap-[16px]">
-          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">What stood out this semester?</p>
+          <p className="font-bold text-[20px] leading-[1.1] text-[#272932]">What stood out this semester?</p>
           <div className="flex w-[432px] flex-col gap-[12px]">
             <div className="flex items-center gap-[12px]">
               {CHIP_DEFS.slice(0, 3).map((c) => (
@@ -347,7 +347,7 @@ export default function ParentFeedback() {
                   onClick={() => toggleChip(c.id)}
                   className={`${selectedChips.has(c.id) ? "bg-[#14c1d5] text-white" : "bg-[#fafafa] text-[#0d0d12]"} rounded-[8px] p-[8px]`}
                 >
-                  <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{c.label}</span>
+                  <span className="px-[2px] text-[12px] leading-[1.4]">{c.label}</span>
                 </button>
               ))}
             </div>
@@ -359,7 +359,7 @@ export default function ParentFeedback() {
                   onClick={() => toggleChip(c.id)}
                   className={`${selectedChips.has(c.id) ? "bg-[#14c1d5] text-white" : "bg-[#fafafa] text-[#0d0d12]"} rounded-[8px] p-[8px]`}
                 >
-                  <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{c.label}</span>
+                  <span className="px-[2px] text-[12px] leading-[1.4]">{c.label}</span>
                 </button>
               ))}
             </div>
@@ -371,18 +371,18 @@ export default function ParentFeedback() {
                   onClick={() => toggleChip(c.id)}
                   className={`${selectedChips.has(c.id) ? "bg-[#14c1d5] text-white" : "bg-[#fafafa] text-[#0d0d12]"} rounded-[8px] p-[8px]`}
                 >
-                  <span className="px-[2px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4]">{c.label}</span>
+                  <span className="px-[2px] text-[12px] leading-[1.4]">{c.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.6] tracking-[-0.24px] text-[#666d80]">Select multiple options</p>
+          <p className="text-[12px] leading-[1.6] tracking-[-0.24px] text-[#666d80]">Select multiple options</p>
         </div>
       </section>
 
       <section className="h-[260px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <div className="flex w-[824px] flex-col gap-[16px]">
-          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Share your thoughts</p>
+          <p className="font-bold text-[20px] leading-[1.1] text-[#272932]">Share your thoughts</p>
           <textarea
             value={thoughts}
             onChange={(e) => setThoughts(e.target.value)}
@@ -394,7 +394,7 @@ export default function ParentFeedback() {
 
       <section className="h-[260px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <div className="flex w-[824px] flex-col gap-[16px]">
-          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Anything you&apos;d like to highlight about your child&apos;s experience?</p>
+          <p className="font-bold text-[20px] leading-[1.1] text-[#272932]">Anything you&apos;d like to highlight about your child&apos;s experience?</p>
           <textarea
             value={highlight}
             onChange={(e) => setHighlight(e.target.value)}
@@ -406,22 +406,22 @@ export default function ParentFeedback() {
 
       <section className="h-[151px] rounded-[18px] border border-[#f0f0f0] bg-white p-[24px]">
         <div className="flex flex-col gap-[16px]">
-          <p className="font-['Inter:Bold',sans-serif] text-[20px] font-bold leading-[1.1] text-[#272932]">Would you recommend our program to other parents?</p>
+          <p className="font-bold text-[20px] leading-[1.1] text-[#272932]">Would you recommend our program to other parents?</p>
           <div className="flex items-center gap-[13px]">
-            <span className="rounded-[8px] bg-[#fafafa] p-[8px] font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#0d0d12]">Not Likely</span>
+            <span className="rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] leading-[1.4] text-[#0d0d12]">Not Likely</span>
             <div className="flex items-center gap-[8px]">
               {NPS_NUMBERS.map((num) => (
                 <button
                   key={num}
                   type="button"
                   onClick={() => setNps(num)}
-                  className={`${nps === num ? "bg-[#14c1d5] text-white font-['Inter:Semi_Bold',sans-serif] font-semibold" : "bg-[#fafafa] text-[#0d0d12] font-['Inter:Regular',sans-serif]"} flex w-[33px] items-center justify-center rounded-[8px] p-[8px] text-[12px] leading-[1.4]`}
+                  className={`${nps === num ? "bg-[#14c1d5] text-white font-semibold" : "bg-[#fafafa] text-[#0d0d12] "} flex w-[33px] items-center justify-center rounded-[8px] p-[8px] text-[12px] leading-[1.4]`}
                 >
                   {num}
                 </button>
               ))}
             </div>
-            <span className="rounded-[8px] bg-[#14c1d5] p-[8px] font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold leading-[1.4] text-white">Very likely</span>
+            <span className="rounded-[8px] bg-[#14c1d5] p-[8px] font-semibold text-[12px] leading-[1.4] text-white">Very likely</span>
           </div>
         </div>
       </section>
@@ -433,7 +433,7 @@ export default function ParentFeedback() {
           disabled={submitState.status === "submitting"}
           className="flex h-[42px] w-[180px] items-center justify-center rounded-[6px] border border-[#14c1d5] bg-[#14c1d5] px-[16px] py-[8px] disabled:cursor-not-allowed disabled:border-[#8fdce5] disabled:bg-[#8fdce5]"
         >
-          <span className="font-['Inter_Tight:Medium',sans-serif] text-[16px] tracking-[0.32px] text-white">
+          <span className="font-inter-tight font-medium text-[16px] tracking-[0.32px] text-white">
             {submitState.status === "submitting" ? "Submitting..." : "Submit"}
           </span>
         </button>

@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Camera } from "lucide-react";
+import { PageBackLink } from "@/components/page-back-link";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import EntityAvatar from "@/components/entity-avatar";
 import { readApiError } from "@/lib/client-api-errors";
@@ -693,9 +694,7 @@ export default function DashboardSettingsPage() {
           >
             {isSaving ? "Saving..." : "Save changes"}
           </button>
-          <Link href="/dashboard" className="text-[#14c1d5] text-sm font-medium hover:underline">
-            ← Back to dashboard
-          </Link>
+          <PageBackLink href="/dashboard">Back to Dashboard</PageBackLink>
         </div>
       </form>
 

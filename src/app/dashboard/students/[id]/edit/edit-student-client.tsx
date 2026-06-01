@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentListItem } from "@/lib/data/types";
-import { ArrowLeft, Save, AlertCircle } from "lucide-react";
+import { Save, AlertCircle } from "lucide-react";
+import { PageBackLink } from "@/components/page-back-link";
 
 const imgMaskGroup = "/images/icon-settings.svg";
 
@@ -66,13 +67,7 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
           <AlertCircle className="size-5 text-[#d80509] shrink-0 mt-0.5" />
           <p className="text-[#d80509] text-sm">Student not found</p>
         </div>
-        <Link
-          href={`/dashboard/students/${studentId}`}
-          className="inline-flex items-center gap-2 text-[#14c1d5] hover:opacity-80 transition-opacity"
-        >
-          <ArrowLeft className="size-4" />
-          Back to student
-        </Link>
+        <PageBackLink href="/dashboard/students">Back to Student List</PageBackLink>
       </div>
     );
   }
@@ -80,22 +75,16 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
   return (
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4">
+        <PageBackLink href={`/dashboard/students/${studentId}`}>Back to Student Profile</PageBackLink>
         <div className="flex flex-col gap-[4px]">
-          <h1 className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[28px] leading-[1.1]">
+          <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
             Edit Student
           </h1>
-          <p className="font-['Inter:Regular',sans-serif] font-normal text-[#666d80] text-[16px] leading-[1.4]">
+          <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
             Update {student.name}&apos;s profile and learning information.
           </p>
         </div>
-        <Link
-          href={`/dashboard/students/${studentId}`}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#f0f0f0] hover:bg-[#fafafa] transition-colors"
-        >
-          <ArrowLeft className="size-4 text-[#666d80]" />
-          <span className="text-[#0d0d12] font-medium text-sm">Back</span>
-        </Link>
       </div>
 
       {/* Error Message */}
@@ -121,12 +110,12 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
         {/* Basic Info Section */}
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 flex flex-col gap-6">
           <div>
-            <h2 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px] mb-4">
+            <h2 className="font-semibold text-[#272932] text-[16px] mb-4">
               Basic Information
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
-                <label htmlFor="name" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
+                <label htmlFor="name" className="font-medium text-[#272932] text-[13px]">
                   Full Name
                 </label>
                 <input
@@ -140,7 +129,7 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label htmlFor="level" className="font-['Inter:Medium',sans-serif] text-[#272932] text-[13px]">
+                <label htmlFor="level" className="font-medium text-[#272932] text-[13px]">
                   Level
                 </label>
                 <input

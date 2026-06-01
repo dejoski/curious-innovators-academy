@@ -4,12 +4,13 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
 import { RemoveEnrollmentConfirmationModal } from "@/components/remove-enrollment-confirmation-modal";
+import { PageBackLink } from "@/components/page-back-link";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
@@ -549,10 +550,9 @@ export default function ClassDetailsPage() {
       {/* Header Section */}
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-2">
-          <Link href="/dashboard/classes" className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors mb-4">
-            <ArrowLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
-            <span className="text-sm font-medium">Back to class setup</span>
-          </Link>
+          <PageBackLink href="/dashboard/classes" className="mb-2">
+            Back to Class List
+          </PageBackLink>
           <h1 className="text-3xl font-bold text-gray-900">{classMeta.title}</h1>
           <p className="text-gray-500 text-base">{classMeta.description}</p>
         </div>
@@ -998,37 +998,20 @@ export default function ClassDetailsPage() {
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm font-bold text-[#272932]">Teacher&apos;s Guide</p>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Objectives
-                    <textarea value={classMetaDraft.teacherGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Information
-                    <textarea value={classMetaDraft.teacherGuideInformation} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideInformation: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Summary
-                    <textarea value={classMetaDraft.teacherGuideSummary} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideSummary: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm font-bold text-[#272932]">Students&apos; Guide</p>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Objectives
-                    <textarea value={classMetaDraft.studentGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Information
-                    <textarea value={classMetaDraft.studentGuideInformation} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Summary
-                    <textarea value={classMetaDraft.studentGuideSummary} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                </div>
+              <div className="flex flex-col gap-3">
+                <p className="text-sm font-bold text-[#272932]">Students&apos; Guide</p>
+                <label className="text-xs font-semibold text-gray-600">
+                  Objectives
+                  <textarea value={classMetaDraft.studentGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                </label>
+                <label className="text-xs font-semibold text-gray-600">
+                  Information
+                  <textarea value={classMetaDraft.studentGuideInformation} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                </label>
+                <label className="text-xs font-semibold text-gray-600">
+                  Summary
+                  <textarea value={classMetaDraft.studentGuideSummary} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                </label>
               </div>
               <div className="flex gap-3">
                 <label className="text-xs font-semibold text-gray-600 flex-1">

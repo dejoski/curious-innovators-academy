@@ -665,7 +665,7 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       )}
                     </div>
                     <p
-                      className={`flex-[1_0_0] min-w-px text-left font-['Inter',sans-serif] font-medium text-[14px] leading-[1.4] ${
+                      className={`flex-[1_0_0] min-w-px text-left  font-medium text-[14px] leading-[1.4] ${
                         parentClassesHeaderAccent
                           ? "text-[#14c1d5]"
                           : parentClassesNavActive

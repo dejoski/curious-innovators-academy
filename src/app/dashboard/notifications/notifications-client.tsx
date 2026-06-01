@@ -4,6 +4,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDashboardPersona } from "@/components/dashboard-persona";
+import { PageBackLink } from "@/components/page-back-link";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
 import {
@@ -206,11 +207,9 @@ export default function DashboardNotificationsPage({
         )}
       </ul>
 
-      <p className="mt-8">
-        <Link href={backHref} className="text-[#14c1d5] text-sm font-medium hover:underline">
-          ← Back to dashboard
-        </Link>
-      </p>
+      <div className="mt-8">
+        <PageBackLink href={backHref}>Back to Dashboard</PageBackLink>
+      </div>
     </div>
   );
 }

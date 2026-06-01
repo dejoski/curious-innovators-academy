@@ -223,10 +223,10 @@ export function ClassesApprovalHistory() {
       
       {/* Header */}
       <div className="flex flex-col gap-[4px] items-start w-full">
-        <h1 className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[28px] leading-[1.1]">
+        <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
           Approval history
         </h1>
-        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#666d80] text-[16px] leading-[1.4]">
+        <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
           Review completed enrichment decisions: outcome, reviewer, and notes for each request.
         </p>
       </div>
@@ -300,7 +300,7 @@ export function ClassesApprovalHistory() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] bg-transparent outline-none placeholder:text-[#0d0d12] min-w-[200px]"
+              className="text-[#0d0d12] text-[12px] bg-transparent outline-none placeholder:text-[#0d0d12] min-w-[200px]"
             />
           </div>
           <div className="flex flex-wrap gap-[16px] items-center">
@@ -314,7 +314,7 @@ export function ClassesApprovalHistory() {
                 }}
               >
                 <img alt="Filter" className="size-[14px]" src={imgVector3} />
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">Filter by: {filter}</span>
+                <span className="text-[#0d0d12] text-[12px]">Filter by: {filter}</span>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {filterOpen && (
@@ -323,7 +323,7 @@ export function ClassesApprovalHistory() {
                     <button
                       key={opt}
                       type="button"
-                      className="w-full px-3 py-2 text-left font-['Inter:Regular',sans-serif] text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                      className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
                       onClick={() => {
                         setFilter(opt);
                         setFilterOpen(false);
@@ -346,7 +346,7 @@ export function ClassesApprovalHistory() {
                 }}
               >
                 <img alt="Sort" className="size-[14px]" src={imgFlowbiteSortOutline} />
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">Sort</span>
+                <span className="text-[#0d0d12] text-[12px]">Sort</span>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
               {sortOpen && (
@@ -355,7 +355,7 @@ export function ClassesApprovalHistory() {
                     <button
                       key={key}
                       type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 text-left font-['Inter:Regular',sans-serif] text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
                       onClick={() => {
                         if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                         else {
@@ -379,7 +379,7 @@ export function ClassesApprovalHistory() {
               className="bg-[#fafafa] flex items-center p-[8px] rounded-[8px] hover:bg-gray-100 transition-colors"
               onClick={toggleSelectAllPage}
             >
-              <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
+              <span className="text-[#0d0d12] text-[12px]">
                 {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
               </span>
             </button>
@@ -400,16 +400,16 @@ export function ClassesApprovalHistory() {
           <div className="min-w-[1080px]">
             {/* Table Header Columns */}
             <div className="grid grid-cols-[13fr_10fr_14fr_9fr_8fr_10fr_11fr_13fr_12fr_5fr] border-t border-[#f0f0f0] py-3 px-4 w-full items-center">
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif]">Student</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif]">Parent</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif]">Class</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Block</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Option</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Final status</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Reviewed by</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Reviewed at</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center">Reason</div>
-              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide font-['Inter:Semi_Bold',sans-serif] text-center"> </div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide">Student</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide">Parent</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide">Class</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center">Block</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center">Option</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center">Final status</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center">Reviewed by</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center">Reviewed at</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center">Reason</div>
+              <div className="text-[#8b919f] font-semibold text-[11px] uppercase tracking-wide text-center"> </div>
             </div>
 
             {/* Table Rows */}
@@ -427,28 +427,28 @@ export function ClassesApprovalHistory() {
                       onClick={() => toggleSelect(row.id)}
                       aria-pressed={selectedIds.has(row.id)}
                     />
-                    <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px]">
+                    <span className="text-[#0d0d12] text-[13px]">
                       {row.student}
                     </span>
                   </div>
                   
                   {/* Parent */}
-                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px]">
+                  <div className="text-[#0d0d12] text-[13px]">
                     {row.parent}
                   </div>
                   
                   {/* Class */}
-                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px]">
+                  <div className="text-[#0d0d12] text-[13px]">
                     {row.className}
                   </div>
                   
                   {/* Block */}
-                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px] text-center">
+                  <div className="text-[#0d0d12] text-[13px] text-center">
                     {row.block}
                   </div>
                   
                   {/* Option */}
-                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px] text-center">
+                  <div className="text-[#0d0d12] text-[13px] text-center">
                     {row.option}
                   </div>
 
@@ -456,31 +456,31 @@ export function ClassesApprovalHistory() {
                   <div className="flex justify-center">
                     {row.status === "Approved" ? (
                       <div className="bg-[rgba(0,77,8,0.2)] border border-[rgba(0,77,8,0.5)] px-[8px] py-[2px] rounded-[6px]">
-                        <span className="font-['Inter:Regular',sans-serif] text-[#004d08] text-[10px]">Approved</span>
+                        <span className="text-[#004d08] text-[10px]">Approved</span>
                       </div>
                     ) : row.status === "Waitlisted" ? (
                       <div className="bg-[#fff8e6] border border-[#cfa500]/50 px-[8px] py-[2px] rounded-[6px]">
-                        <span className="font-['Inter:Regular',sans-serif] text-[#7a5b00] text-[10px]">Waitlisted</span>
+                        <span className="text-[#7a5b00] text-[10px]">Waitlisted</span>
                       </div>
                     ) : (
                       <div className="bg-[#ffd9d9] border border-[rgba(216,5,9,0.5)] px-[8px] py-[2px] rounded-[6px]">
-                        <span className="font-['Inter:Regular',sans-serif] text-[#d80509] text-[10px]">Rejected</span>
+                        <span className="text-[#d80509] text-[10px]">Rejected</span>
                       </div>
                     )}
                   </div>
 
                   {/* Reviewed by */}
-                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[13px] text-center">
+                  <div className="text-[#0d0d12] text-[13px] text-center">
                     {row.reviewedBy}
                   </div>
 
                   {/* Reviewed at */}
-                  <div className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] text-center">
+                  <div className="text-[#0d0d12] text-[12px] text-center">
                     {row.reviewedAt}
                   </div>
 
                   {/* Reason */}
-                  <div className="font-['Inter:Italic',sans-serif] italic text-[#666d80] text-[13px] text-center">
+                  <div className="italic text-[#666d80] text-[13px] text-center">
                     {row.reason}
                   </div>
                   
@@ -508,7 +508,7 @@ export function ClassesApprovalHistory() {
                       >
                         <button
                           type="button"
-                          className="w-full px-3 py-2 text-left font-['Inter:Regular',sans-serif] text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                          className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
                           onClick={() => {
                             setDetailRow(row);
                             setRowMenuId(null);
@@ -518,7 +518,7 @@ export function ClassesApprovalHistory() {
                         </button>
                         <button
                           type="button"
-                          className="w-full px-3 py-2 text-left font-['Inter:Regular',sans-serif] text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                          className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
                           onClick={() => {
                             void exportRow(row);
                             setRowMenuId(null);
@@ -537,7 +537,7 @@ export function ClassesApprovalHistory() {
         </div>
 
         {pageRows.length === 0 && (
-          <div className="border-t border-[#f0f0f0] py-8 text-center font-['Inter:Regular',sans-serif] text-[14px] text-[#666d80]">
+          <div className="border-t border-[#f0f0f0] py-8 text-center text-[14px] text-[#666d80]">
             {isInitialApprovalsLoad ? "Loading approvals..." : "No approvals match your filters."}
           </div>
         )}
@@ -557,7 +557,7 @@ export function ClassesApprovalHistory() {
             <div className="flex gap-[3px] items-center">
               {visiblePages.map((item, i) =>
                 item === "ellipsis" ? (
-                  <span key={`e-${i}`} className="px-1 font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold text-[#666d80]">
+                  <span key={`e-${i}`} className="px-1 font-semibold text-[12px] text-[#666d80]">
                     ...
                   </span>
                 ) : (
@@ -565,7 +565,7 @@ export function ClassesApprovalHistory() {
                     key={item}
                     type="button"
                     onClick={() => setPage(item)}
-                    className={`rounded-[9px] size-[24px] flex items-center justify-center font-['Inter:Semi_Bold',sans-serif] text-[12px] font-semibold ${
+                    className={`rounded-[9px] size-[24px] flex items-center justify-center font-semibold text-[12px] font-semibold ${
                       item === safePage
                         ? "bg-[#14c1d5] text-white"
                         : "text-[#666d80] hover:bg-gray-100"
