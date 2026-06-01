@@ -81,16 +81,17 @@ export function studentScheduleToMonthEvents(
       for (const [index, badge] of badges.entries()) {
         const className = cleanClassName(badge.label);
         const details = byClassName.get(normalizedClassName(badge.label));
+        const displaySlot = slotLabel(slot);
         addEvent(events, dateKey(d.getFullYear(), d.getMonth(), d.getDate()), {
           id: `${row.id}-${slot}-${dateKey(d.getFullYear(), d.getMonth(), d.getDate())}-${index}`,
           time: SLOT_START_TIME[slot],
           title: className || badge.label,
           type: eventTypeFromBadgeTone(badge.tone),
-          description: details?.description || `${row.name} · ${slotLabel(slot)}`,
+          description: `${displaySlot} · ${SLOT_START_TIME[slot]} · ${row.name}`,
           sortOrder: PARENT_SCHEDULE_SLOT_DISPLAY_ORDER[slot] + index,
           classDetails: details,
           statusLabel: scheduleBadgeStatusLabel(badge, "calendar"),
-          scheduleSlotLabel: slotLabel(slot),
+          scheduleSlotLabel: displaySlot,
         });
       }
     }

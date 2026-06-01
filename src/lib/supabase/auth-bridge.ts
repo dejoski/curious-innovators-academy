@@ -161,6 +161,17 @@ export async function updateRecoveredPassword(password: string): Promise<Passwor
     };
   }
 
+  if (typeof window !== "undefined") {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) return { ok: false, message: error.message };
+      url.searchParams.delete("code");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
+
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { ok: false, message: error.message };
   await supabase.auth.signOut();

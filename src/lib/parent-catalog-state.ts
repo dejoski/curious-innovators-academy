@@ -406,6 +406,7 @@ export function catalogBadgesForSlot(
           : row.choice === "2nd"
             ? `2nd: ${row.name}`
             : row.name,
+    classId: row.classId,
     tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : row.status === "Waitlisted" ? "waitlisted" : "pending",
   }));
 }

@@ -99,16 +99,16 @@ function TableRow({
           </div>
           <Link
             href={`/dashboard/students/${studentId}`}
-            className="text-[#0d0d12] text-[16px] hover:text-[#14c1d5] transition-colors"
+            className="text-[13px] text-[#0d0d12] transition-colors hover:text-[#14c1d5]"
           >
             {studentName}
           </Link>
         </div>
       </div>
-      <div className="w-[175.333px] pt-[8px] text-[#0d0d12] text-[16px]">
+      <div className="w-[175.333px] pt-[8px] text-[13px] text-[#0d0d12]">
         {parentName}
       </div>
-      <div className="w-[98px] pt-[8px] text-[#0d0d12] text-[16px] text-center">
+      <div className="w-[98px] pt-[8px] text-center text-[13px] text-[#0d0d12]">
         {level}
       </div>
       <div className="w-[175.333px] flex justify-center pt-[8px]">
@@ -118,7 +118,7 @@ function TableRow({
           <p className="text-[10px] leading-[1.4]">{coreStatus}</p>
         </div>
       </div>
-      <div className="w-[140px] pt-[8px] text-[#0d0d12] text-[16px] text-center">
+      <div className="w-[140px] pt-[8px] text-center text-[13px] text-[#0d0d12]">
         {enrichment}
       </div>
       <div className="w-[175.333px] pt-[8px] pr-[10px] italic text-[#666d80] text-[12px] leading-[1.25]">

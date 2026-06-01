@@ -157,6 +157,7 @@ export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "waitli
 export type StudentScheduleBadge = {
   label: string;
   tone: StudentScheduleBadgeTone;
+  classId?: string;
   draftKind?: "choice" | "change";
   draftOf?: {
     label: string;

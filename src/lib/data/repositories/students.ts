@@ -132,7 +132,7 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
 
   const scheduleCounts = scheduleCountsFromStudentRow(row);
   const status: StudentListItem["status"] =
-    scheduleCounts.openScheduleBlocks === 0 && scheduleCounts.enrichmentPendingCount === 0
+    scheduleCounts.coreAssignedCount >= scheduleCounts.coreRequiredCount
       ? "Completed"
       : "Incomplete";
   const studentsLabel = `${scheduleCounts.enrichmentApprovedCount}/${scheduleCounts.enrichmentRequiredCount}`;

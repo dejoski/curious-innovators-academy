@@ -20,7 +20,7 @@ import type {
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-group.svg";
-const imgGroup3 = "/images/icon-generic2.svg";
+const imgGroup3 = "/images/icon-calendar-linear.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
@@ -289,6 +289,11 @@ export default function EnrichmentClassDetail() {
     () => students.filter((student) => selectedStudentIds.has(student.id)),
     [students, selectedStudentIds],
   );
+  const approvedRosterCount = useMemo(
+    () => students.filter((student) => student.status === "Approved").length,
+    [students],
+  );
+  const displayedCapacityEnrolled = Math.max(classMeta.capacityEnrolled, approvedRosterCount);
 
   // Selection Logic
   const handleSelectAll = () => {
@@ -471,6 +476,16 @@ export default function EnrichmentClassDetail() {
   async function handleSaveAddStudent(input: { studentIds: string[]; status: Exclude<StudentStatus, "Pending"> }) {
     const studentIds = [...new Set(input.studentIds)].filter(Boolean);
     if (studentIds.length === 0) return;
+    if (input.status === "Approved") {
+      const seatsLeft = Math.max(0, classMeta.capacityMax - displayedCapacityEnrolled);
+      if (studentIds.length > seatsLeft) {
+        throw new Error(
+          seatsLeft === 0
+            ? "This class is full. Add students as waitlisted or increase capacity first."
+            : `Only ${seatsLeft} approved seat${seatsLeft === 1 ? "" : "s"} left. Add fewer students or use waitlist.`,
+        );
+      }
+    }
     const added: Student[] = [];
     const errors: string[] = [];
     try {
@@ -494,6 +509,10 @@ export default function EnrichmentClassDetail() {
 
       if (added.length > 0) {
         setStudents((prev) => [...prev, ...added]);
+        const approvedAdded = added.filter((student) => student.status === "Approved").length;
+        if (approvedAdded > 0) {
+          setClassMeta((prev) => ({ ...prev, capacityEnrolled: prev.capacityEnrolled + approvedAdded }));
+        }
         invalidateDashboardData([
           `/api/data/classes/${encodeURIComponent(classId)}/roster`,
           "/api/data/students",
@@ -539,9 +558,16 @@ export default function EnrichmentClassDetail() {
       }
       const body = (await res.json()) as { student?: Student };
       const saved = body.student ?? editStudentDraft;
+      const previous = students.find((s) => s.id === saved.id);
       setStudents((prev) =>
         prev.map((s) => (s.id === saved.id ? saved : s)),
       );
+      if (previous?.status !== saved.status) {
+        const delta = saved.status === "Approved" ? 1 : previous?.status === "Approved" ? -1 : 0;
+        if (delta !== 0) {
+          setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled + delta) }));
+        }
+      }
       setEditingStudentId(null);
       setEditStudentDraft(null);
     } catch (error) {
@@ -552,6 +578,8 @@ export default function EnrichmentClassDetail() {
   }
 
   async function removeStudentById(studentId: string) {
+    const target = students.find((student) => student.id === studentId);
+    if (!window.confirm(`Remove ${target?.name ?? "this student"} from ${classTitle}?`)) return;
     setRowActionError(null);
     setActiveActionDropdown(null);
     try {
@@ -563,7 +591,11 @@ export default function EnrichmentClassDetail() {
         setRowActionError(await readApiError(res));
         return;
       }
+      const removed = students.find((s) => s.id === studentId);
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      if (removed?.status === "Approved") {
+        setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
+      }
       setSelectedStudentIds((prev) => {
         const next = new Set(prev);
         next.delete(studentId);
@@ -610,8 +642,8 @@ export default function EnrichmentClassDetail() {
           <p className="font-semibold text-[#272932] text-[16px]">
             {classMeta.pendingCount} Requests waiting for approval for this class
           </p>
-          <Link
-            href="/dashboard/classes/requests"
+	          <Link
+	            href={`/dashboard/classes/requests?classId=${encodeURIComponent(classId)}`}
             className="flex items-center gap-2 font-semibold text-[#272932] text-[16px] hover:text-[#14c1d5] transition-colors"
           >
             Review Requests
@@ -632,8 +664,8 @@ export default function EnrichmentClassDetail() {
       )}
 
       {/* Header Info */}
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-2">
+	      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+	        <div className="flex min-w-0 flex-col gap-2">
           <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
             {classTitle}
           </h1>
@@ -641,18 +673,18 @@ export default function EnrichmentClassDetail() {
             {classDescription}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+	        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
           <button 
             type="button"
             onClick={openEditClassModal}
-            className="bg-[#d2f1f5] text-[#14c1d5] font-semibold text-[16px] px-4 py-2 rounded-[6px] tracking-[0.32px] hover:bg-[#bceef4] transition-colors"
+	            className="h-[42px] min-w-[86px] whitespace-nowrap rounded-[6px] bg-[#d2f1f5] px-4 text-[14px] font-semibold text-[#14c1d5] transition-colors hover:bg-[#bceef4]"
           >
             Edit Info
           </button>
           <button 
             type="button"
             onClick={() => setIsRemoveClassModalOpen(true)}
-            className="bg-[#ffd9d9] text-[#d80509] font-medium text-[16px] px-4 py-2 rounded-[6px] tracking-[0.32px] hover:bg-[#ffc2c2] transition-colors"
+	            className="h-[42px] min-w-[116px] whitespace-nowrap rounded-[6px] bg-[#ffd9d9] px-4 text-[14px] font-semibold text-[#d80509] transition-colors hover:bg-[#ffc2c2]"
           >
             Remove Class
           </button>
@@ -707,13 +739,13 @@ export default function EnrichmentClassDetail() {
                 style={{
                   width: `${Math.min(
                     100,
-                    Math.max(0, (classMeta.capacityEnrolled / Math.max(1, classMeta.capacityMax)) * 100),
+	                    Math.max(0, (displayedCapacityEnrolled / Math.max(1, classMeta.capacityMax)) * 100),
                   )}%`,
                 }}
               />
             </div>
             <span className="font-medium text-[#666d80] text-[16px] whitespace-nowrap">
-              {classMeta.capacityEnrolled}/{classMeta.capacityMax}
+	              {displayedCapacityEnrolled}/{classMeta.capacityMax}
             </span>
           </div>
         </div>
@@ -844,7 +876,7 @@ export default function EnrichmentClassDetail() {
                   <th className="py-4 px-3 font-semibold text-[14px] text-[#0d0d12] text-center whitespace-nowrap">Action</th>
                 </tr>
               </thead>
-              <tbody className="text-[16px] text-[#0d0d12]">
+	            <tbody className="text-[13px] text-[#0d0d12]">
                 {paginatedStudents.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-[#666d80]">
@@ -874,18 +906,18 @@ export default function EnrichmentClassDetail() {
                               </svg>
                             )}
                           </button>
-                          <span className="whitespace-nowrap">{student.name}</span>
+                          <span className="whitespace-nowrap text-[13px]">{student.name}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-3 whitespace-nowrap">{student.parent}</td>
-                      <td className="py-4 px-3 text-center whitespace-nowrap">{student.age} years</td>
-                      <td className="py-4 px-3 text-center">{student.level}</td>
+	                      <td className="whitespace-nowrap px-3 py-4 text-[13px]">{student.parent}</td>
+	                      <td className="whitespace-nowrap px-3 py-4 text-center text-[13px]">{student.age} years</td>
+	                      <td className="px-3 py-4 text-center text-[13px]">{student.level}</td>
                       <td className="py-4 px-3 text-center">
                         <span className={`inline-block border text-[10px] px-2 py-1 rounded-[6px] ${getStatusStyles(student.status)}`}>
                           {student.status}
                         </span>
                       </td>
-                      <td className="py-4 px-3 text-[#666d80] min-w-[200px]">{student.description}</td>
+	                      <td className="min-w-[200px] px-3 py-4 text-[13px] text-[#666d80]">{student.description}</td>
                       <td
                         data-student-action-root={student.id}
                         className="py-4 px-3 text-center"
@@ -1044,21 +1076,6 @@ export default function EnrichmentClassDetail() {
                 onChange={(e) => setEditClassDraft((d) => ({ ...d, description: e.target.value }))}
                 className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5] resize-none h-24"
               />
-              <div className="border-t border-[#f0f0f0] pt-3">
-                <p className="mb-2 font-semibold text-[#272932] text-[14px]">Daily Planner</p>
-                <textarea
-                  value={editClassDraft.plannerSubject}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, plannerSubject: e.target.value }))}
-                  className="mb-3 h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-                  aria-label="Daily planner subject"
-                />
-                <textarea
-                  value={editClassDraft.plannerSummary}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, plannerSummary: e.target.value }))}
-                  className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-                  aria-label="Daily planner summary"
-                />
-              </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <p className="font-semibold text-[#272932] text-[14px]">Teacher&apos;s Guide</p>

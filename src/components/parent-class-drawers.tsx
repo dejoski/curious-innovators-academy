@@ -36,9 +36,8 @@ function detailsStatusClasses(label: string): string {
 }
 
 function detailsProgramClasses(option: ParentClassOption, status: string): string {
-  if (option.program === "core") return "bg-[#14c1d5] text-white";
-  if (/assigned|approved/i.test(status)) return "bg-[#004d08] text-white";
-  return "bg-[#d80509] text-white";
+  void status;
+  return option.program === "core" ? "bg-[#14c1d5] text-white" : "bg-[#004d08] text-white";
 }
 
 function detailsProgramLabel(option: ParentClassOption): string {

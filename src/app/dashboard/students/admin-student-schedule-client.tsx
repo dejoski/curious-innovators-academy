@@ -114,7 +114,7 @@ export default function AdminStudentScheduleClient({
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
-    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
+    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}/schedule`);
   }, [router]);
 
   const filteredRows = useMemo(() => {
@@ -293,7 +293,7 @@ export default function AdminStudentScheduleClient({
                           className={`size-[16px] shrink-0 rounded-[4px] border border-[#14c1d5] ${selectedIds.has(row.id) ? "bg-[#14c1d5]" : "bg-[#d2f1f5]/50"}`}
                         />
                         <img src={row.avatar} alt="" className="size-9 rounded-full object-cover" />
-                        <Link href={`/dashboard/students/${encodeURIComponent(row.id)}`} className="truncate hover:text-[#14c1d5]">
+                        <Link href={`/dashboard/students/${encodeURIComponent(row.id)}/schedule`} className="truncate hover:text-[#14c1d5]">
                           {row.name}
                         </Link>
                       </div>

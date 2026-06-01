@@ -12,14 +12,15 @@ import {
 import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { mutateDashboardData, readDashboardData } from "@/lib/client-data-cache";
+import { readApiError } from "@/lib/client-api-errors";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromRow,
 } from "@/lib/parent-schedule-status";
-import { studentScheduleSlots } from "@/lib/schedule-slots";
+import { scheduleSlotForClassFields, studentScheduleSlots } from "@/lib/schedule-slots";
 
 type RowData = StudentScheduleRow;
 
@@ -109,14 +110,29 @@ function LegendItem({ tone, label }: { tone: StudentScheduleBadge["tone"]; label
   );
 }
 
-function SlotChoiceList({ badges }: { badges: StudentScheduleBadge[] }) {
+function SlotChoiceList({
+  badges,
+  slot,
+  onManage,
+}: {
+  badges: StudentScheduleBadge[];
+  slot: ParentScheduleSlotKey;
+  onManage: () => void;
+}) {
   const visible = realBadges(badges);
   if (visible.length === 0) {
-    return <span className="text-[13px] text-[#667085]">Open enrichment slot</span>;
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-[13px] text-[#667085]">{slot === "b1" || slot === "b2" ? "No core assignment" : "Open enrichment slot"}</span>
+        <button type="button" onClick={onManage} className="text-[12px] font-semibold text-[#0b7180] hover:underline">
+          Add class
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {visible.map((badge, index) => (
         <span
           key={`${badge.label}-${badge.tone}-${index}`}
@@ -126,8 +142,20 @@ function SlotChoiceList({ badges }: { badges: StudentScheduleBadge[] }) {
           <span className="font-medium opacity-80">{badgeStatusLabel(badge.tone)}</span>
         </span>
       ))}
+      <button type="button" onClick={onManage} className="text-[12px] font-semibold text-[#0b7180] hover:underline">
+        Edit
+      </button>
     </div>
   );
+}
+
+type ClassesBody = { classes?: SchoolClassRow[]; source?: DataSource };
+
+function classSlot(row: SchoolClassRow): ParentScheduleSlotKey {
+  return scheduleSlotForClassFields({
+    block: row.block,
+    scheduleSummary: row.schedule,
+  });
 }
 
 export default function StudentScheduleClient({
@@ -144,6 +172,11 @@ export default function StudentScheduleClient({
   const [source, setSource] = useState<DataSource>(initialSource);
   const [isLoading, setIsLoading] = useState(initialRows.length === 0 && initialSource !== "remote");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [classes, setClasses] = useState<SchoolClassRow[]>([]);
+  const [assignmentSlot, setAssignmentSlot] = useState<ParentScheduleSlotKey | null>(null);
+  const [assignmentClassId, setAssignmentClassId] = useState("");
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,6 +232,67 @@ export default function StudentScheduleClient({
   }, [slots]);
 
   const hint = sourceHint(source);
+  const assignmentBadges = assignmentSlot ? realBadges(badgesBySlot[assignmentSlot]) : [];
+  const replaceableClassId = assignmentBadges.find((badge) => badge.classId && (badge.tone === "core" || badge.tone === "approved"))?.classId ?? "";
+  const assignmentOptions = useMemo(() => {
+    if (!assignmentSlot) return [];
+    const matching = classes.filter((row) => classSlot(row) === assignmentSlot);
+    return matching.length ? matching : classes;
+  }, [assignmentSlot, classes]);
+
+  const openAssignmentModal = async (slot: ParentScheduleSlotKey) => {
+    setAssignmentSlot(slot);
+    setAssignmentClassId("");
+    setAssignmentError(null);
+    if (classes.length > 0) return;
+    try {
+      const body = await readDashboardData<ClassesBody>("/api/data/classes");
+      setClasses(body.classes ?? []);
+    } catch (error) {
+      setAssignmentError(error instanceof Error ? error.message : "Classes could not be loaded.");
+    }
+  };
+
+  const refreshSchedule = async () => {
+    const payload = await readDashboardData<{ rows?: RowData[]; source?: DataSource }>(
+      cacheKey,
+      undefined,
+      { force: true },
+    );
+    setRows(Array.isArray(payload.rows) ? payload.rows : []);
+    setSource(payload.source ?? "unavailable");
+  };
+
+  const saveAssignment = async () => {
+    if (!assignmentSlot || !assignmentClassId || isSavingAssignment) return;
+    setIsSavingAssignment(true);
+    setAssignmentError(null);
+    try {
+      if (replaceableClassId && replaceableClassId === assignmentClassId) {
+        setAssignmentSlot(null);
+        return;
+      }
+      if (replaceableClassId && replaceableClassId !== assignmentClassId) {
+        const removeRes = await fetch(
+          `/api/data/classes/${encodeURIComponent(replaceableClassId)}/roster?studentId=${encodeURIComponent(studentId)}`,
+          { method: "DELETE" },
+        );
+        if (!removeRes.ok) throw new Error(await readApiError(removeRes));
+      }
+      const addRes = await fetch(`/api/data/classes/${encodeURIComponent(assignmentClassId)}/roster`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, status: "Approved" }),
+      });
+      if (!addRes.ok) throw new Error(await readApiError(addRes));
+      await refreshSchedule();
+      setAssignmentSlot(null);
+    } catch (error) {
+      setAssignmentError(error instanceof Error ? error.message : "Schedule assignment could not be saved.");
+    } finally {
+      setIsSavingAssignment(false);
+    }
+  };
 
   const exportSchedule = () => {
     if (!schedule || !slots) return;
@@ -330,7 +424,11 @@ export default function StudentScheduleClient({
                   <div className="min-w-0">
                     <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Classes</p>
                     <div className="mt-2">
-                      <SlotChoiceList badges={slots?.[slot.slot] ?? []} />
+                      <SlotChoiceList
+                        badges={badgesBySlot[slot.slot] ?? []}
+                        slot={slot.slot}
+                        onManage={() => void openAssignmentModal(slot.slot)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -346,6 +444,70 @@ export default function StudentScheduleClient({
           </p>
         </div>
       )}
+      {assignmentSlot ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-[520px] rounded-[18px] bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#272932]">Edit schedule assignment</h3>
+                <p className="mt-1 text-sm text-[#666d80]">
+                  Choose a class for {SLOT_DETAILS.find((slot) => slot.slot === assignmentSlot)?.block}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignmentSlot(null)}
+                className="rounded-full px-2 py-1 text-xl font-bold text-[#667085] hover:bg-[#f5f7fa]"
+                aria-label="Close assignment editor"
+              >
+                &times;
+              </button>
+            </div>
+            {assignmentBadges.length > 0 ? (
+              <div className="mt-4 rounded-[10px] border border-[#eef0f3] bg-[#fafafa] p-3 text-sm text-[#344054]">
+                Current: {assignmentBadges.map((badge) => badge.label).join("; ")}
+              </div>
+            ) : null}
+            {assignmentError ? (
+              <div role="alert" className="mt-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {assignmentError}
+              </div>
+            ) : null}
+            <label className="mt-5 flex flex-col gap-2">
+              <span className="text-sm font-semibold text-[#272932]">Class</span>
+              <select
+                value={assignmentClassId}
+                onChange={(event) => setAssignmentClassId(event.target.value)}
+                className="h-11 rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-sm text-[#272932] outline-none focus:border-[#14c1d5]"
+              >
+                <option value="">Select a class</option>
+                {assignmentOptions.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} - {row.program} - {row.block || "Block not set"} {row.level || ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAssignmentSlot(null)}
+                className="rounded-[8px] px-4 py-2 text-sm font-semibold text-[#666d80] hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveAssignment()}
+                disabled={!assignmentClassId || isSavingAssignment}
+                className="rounded-[8px] bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#11a9bb] disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
+              >
+                {isSavingAssignment ? "Saving..." : "Save assignment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

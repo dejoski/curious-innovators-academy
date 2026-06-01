@@ -124,6 +124,8 @@ export default function ClassesEnrichmentRequests({
 }: ClassesEnrichmentRequestsProps) {
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
+  const classIdFromUrl = searchParams.get("classId")?.trim() ?? "";
+  const classNameFromUrl = searchParams.get("class")?.trim().toLowerCase() ?? "";
   const classesCache = useClassesDataCache();
 
   const [requests, setRequests] = useState<EnrichmentRequestRow[]>(
@@ -205,6 +207,8 @@ export default function ClassesEnrichmentRequests({
   const processed = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = requests.filter((r) => {
+      if (classIdFromUrl && r.classId !== classIdFromUrl) return false;
+      if (classNameFromUrl && r.class.trim().toLowerCase() !== classNameFromUrl) return false;
       if (filter !== "All" && r.status !== filter) return false;
       if (!q) return true;
       const hay = [r.student, r.parent, r.class, r.block, r.level, r.option, r.status].join(" ").toLowerCase();
@@ -222,7 +226,7 @@ export default function ClassesEnrichmentRequests({
       return sortDir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [requests, search, filter, sortKey, sortDir]);
+  }, [requests, classIdFromUrl, classNameFromUrl, search, filter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);

@@ -195,6 +195,7 @@ function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge 
   if (program === "enrichment" && status === "rejected") return null;
   return {
     label: classNameShort(String(classRow?.name ?? "")),
+    classId: String(classRow?.id ?? ""),
     tone: program === "core" ? "core" : status === "approved" ? "approved" : status === "waitlisted" || status === "waitlist" ? "waitlisted" : "pending",
   };
 }

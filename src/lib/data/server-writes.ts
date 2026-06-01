@@ -99,6 +99,60 @@ function classPlacementSlot(row: PlacementClassRow): string | null {
   });
 }
 
+async function ensureApprovedRosterPlacementAllowed(
+  supabase: SupabaseMutationClient,
+  input: {
+    classId: string;
+    studentId: string;
+    existingApprovedInClass?: boolean;
+  },
+): Promise<WriteFail | { ok: true }> {
+  if (input.existingApprovedInClass) return { ok: true };
+
+  const [{ data: targetClass, error: targetClassError }, { data: availability, error: availabilityError }] = await Promise.all([
+    supabase
+      .from("classes")
+      .select("id, name, program, block, schedule_summary")
+      .eq("id", input.classId)
+      .maybeSingle(),
+    supabase
+      .from("class_catalog_availability")
+      .select("class_id, seats_remaining, availability_label")
+      .eq("class_id", input.classId)
+      .maybeSingle(),
+  ]);
+  if (targetClassError) return { ok: false, message: targetClassError.message };
+  if (availabilityError) return { ok: false, message: availabilityError.message };
+  if (!targetClass) return { ok: false, message: "Class not found" };
+
+  const seatsRemaining = Math.max(0, Math.floor(Number((availability as Record<string, unknown> | null)?.seats_remaining ?? 0)));
+  if (seatsRemaining <= 0) {
+    return { ok: false, message: `${String((targetClass as Record<string, unknown>).name ?? "This class")} is full.` };
+  }
+
+  const targetSlot = classPlacementSlot(targetClass as PlacementClassRow);
+  if (!targetSlot) return { ok: true };
+
+  const { data: enrollments, error: enrollmentError } = await supabase
+    .from("enrollments")
+    .select("class_id, status, classes ( id, name, program, block, schedule_summary )")
+    .eq("student_id", input.studentId)
+    .eq("status", "approved");
+  if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+  for (const row of (enrollments ?? []) as unknown as Record<string, unknown>[]) {
+    const classId = String(row.class_id ?? "");
+    if (classId === input.classId) continue;
+    const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+    if (targetSlot === classPlacementSlot((classRow ?? {}) as PlacementClassRow)) {
+      const className = String((classRow as Record<string, unknown> | null)?.name ?? "another approved class");
+      return { ok: false, message: `Student already has ${className} in this schedule slot.` };
+    }
+  }
+
+  return { ok: true };
+}
+
 function normalizeCapacity(raw: unknown): number {
   const capacity = Number(raw);
   return Number.isFinite(capacity) && capacity > 0 ? Math.floor(capacity) : 30;
@@ -851,6 +905,21 @@ export async function serverPatchEnrollmentStatus(input: {
   try {
     const supabase = await createSupabaseServerClient();
     const dbStatus = workflowStatusForRoster(input.status);
+    if (dbStatus === "approved") {
+      const { data: existingEnrollment, error: existingEnrollmentError } = await supabase
+        .from("enrollments")
+        .select("status")
+        .eq("class_id", classId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      if (existingEnrollmentError) return { ok: false, message: existingEnrollmentError.message };
+      const allowed = await ensureApprovedRosterPlacementAllowed(supabase, {
+        classId,
+        studentId,
+        existingApprovedInClass: String(existingEnrollment?.status ?? "").toLowerCase() === "approved",
+      });
+      if (!allowed.ok) return allowed;
+    }
     const { error } = await supabase
       .from("enrollments")
       .update({ status: dbStatus })
@@ -930,7 +999,7 @@ export async function serverInsertRosterStudent(input: {
     const supabase = await createSupabaseServerClient();
     const { data: classRow, error: classError } = await supabase
       .from("classes")
-      .select("id, program")
+      .select("id, program, block, schedule_summary")
       .eq("id", classId)
       .maybeSingle();
     if (classError) return { ok: false, message: classError.message };
@@ -985,6 +1054,13 @@ export async function serverInsertRosterStudent(input: {
     }
 
     const dbStatus = workflowStatusForRoster(input.status);
+    if (dbStatus === "approved") {
+      const allowed = await ensureApprovedRosterPlacementAllowed(supabase, {
+        classId,
+        studentId: String(student.id),
+      });
+      if (!allowed.ok) return allowed;
+    }
     const { error: enrollmentError } = await supabase.from("enrollments").insert({
       class_id: classId,
       student_id: student.id,
@@ -1076,6 +1152,21 @@ export async function serverUpdateRosterStudent(input: {
     const status = input.status ?? "Pending";
     const dbStatus = workflowStatusForRoster(status);
     if (input.status != null) {
+      if (dbStatus === "approved") {
+        const { data: existingEnrollment, error: existingEnrollmentError } = await supabase
+          .from("enrollments")
+          .select("status")
+          .eq("class_id", classId)
+          .eq("student_id", studentId)
+          .maybeSingle();
+        if (existingEnrollmentError) return { ok: false, message: existingEnrollmentError.message };
+        const allowed = await ensureApprovedRosterPlacementAllowed(supabase, {
+          classId,
+          studentId,
+          existingApprovedInClass: String(existingEnrollment?.status ?? "").toLowerCase() === "approved",
+        });
+        if (!allowed.ok) return allowed;
+      }
       const { error } = await supabase
         .from("enrollments")
         .update({ status: dbStatus })
@@ -1707,13 +1798,10 @@ async function clearSameSlotAlternativesAfterApproval(
   const semesterId = "semester_id" in ((approvedClass ?? {}) as Record<string, unknown>)
     ? String((approvedClass as Record<string, unknown>).semester_id ?? "")
     : null;
-  if (String(approved.program ?? "").toLowerCase() !== "enrichment") return { ok: true };
-
   const approvedSlot = classPlacementSlot(approved);
   let classQuery = supabase
     .from("classes")
-    .select("id, program, block, schedule_summary")
-    .eq("program", "enrichment");
+    .select("id, program, block, schedule_summary");
   if (semesterId) {
     classQuery = classQuery.eq("semester_id", semesterId);
   }
@@ -1722,7 +1810,7 @@ async function clearSameSlotAlternativesAfterApproval(
     const fallback = await supabase
       .from("classes")
       .select("id, program, block, schedule_summary")
-      .eq("program", "enrichment");
+      .not("id", "is", null);
     classRows = fallback.data as typeof classRows;
     classesError = fallback.error;
   }
