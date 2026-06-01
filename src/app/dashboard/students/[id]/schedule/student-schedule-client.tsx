@@ -402,6 +402,12 @@ export default function StudentScheduleClient({
 
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/dashboard/students/schedule"
+            className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
+          >
+            ← Student Schedules
+          </Link>
+          <Link
             href={`/dashboard/students/${encodeURIComponent(studentId)}`}
             className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
           >

@@ -327,9 +327,9 @@ export default function StudentProfileClient({
           <div className="flex items-center gap-2">
             <Link
               href="/dashboard/students"
-              className="text-sm font-medium text-[#14c1d5] hover:underline px-2 py-1 rounded-md"
+              className="rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-sm font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
             >
-              ← All students
+              ← Student List
             </Link>
             <button
               onClick={openEditModal}

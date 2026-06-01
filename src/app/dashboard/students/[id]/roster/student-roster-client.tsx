@@ -263,10 +263,17 @@ export default function StudentRosterClient({
             {contextStudentId ? (
               <>
                 <Link
+                  href="/dashboard/students/roster"
+                  className="text-sm font-medium text-[#14c1d5] hover:text-[#12aebd] transition-colors w-fit"
+                >
+                  ← Student Roster
+                </Link>
+                <span className="text-[#e5e5e5]">|</span>
+                <Link
                   href={`/dashboard/students/${contextStudentId}`}
                   className="text-sm font-medium text-[#14c1d5] hover:text-[#12aebd] transition-colors w-fit"
                 >
-                  ← Back to student profile
+                  Student profile
                 </Link>
                 <span className="text-[#e5e5e5]">|</span>
                 <Link
