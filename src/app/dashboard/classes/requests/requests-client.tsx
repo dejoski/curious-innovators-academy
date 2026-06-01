@@ -3,6 +3,7 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
@@ -125,7 +126,8 @@ export default function ClassesEnrichmentRequests({
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
   const classIdFromUrl = searchParams.get("classId")?.trim() ?? "";
-  const classNameFromUrl = searchParams.get("class")?.trim().toLowerCase() ?? "";
+  const classNameParam = searchParams.get("class")?.trim() ?? "";
+  const classNameFromUrl = classNameParam.toLowerCase();
   const classesCache = useClassesDataCache();
 
   const [requests, setRequests] = useState<EnrichmentRequestRow[]>(
@@ -203,6 +205,24 @@ export default function ClassesEnrichmentRequests({
     () => new Set(requests.map((r) => r.class.trim()).filter(Boolean)).size,
     [requests],
   );
+  const isClassScoped = Boolean(classIdFromUrl || classNameFromUrl);
+  const classScopedRows = useMemo(
+    () =>
+      isClassScoped
+        ? requests.filter((request) => {
+            if (classIdFromUrl && request.classId === classIdFromUrl) return true;
+            return Boolean(classNameFromUrl && request.class.trim().toLowerCase() === classNameFromUrl);
+          })
+        : requests,
+    [requests, classIdFromUrl, classNameFromUrl, isClassScoped],
+  );
+  const activeClassLabel =
+    classScopedRows.find((request) => request.class.trim())?.class.trim() ||
+    classNameParam ||
+    "Selected class";
+  const activeClassMeta = classScopedRows[0]
+    ? [classScopedRows[0].block, classScopedRows[0].level].filter(Boolean).join(" · ")
+    : "";
 
   const processed = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -440,6 +460,32 @@ export default function ClassesEnrichmentRequests({
         <p className="text-[16px] text-[#666d80]">
           Review enrichment class requests, approve or reject enrollments, and track demand by class.
         </p>
+        {isClassScoped ? (
+          <div className="mt-2 flex max-w-4xl flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#14c1d5]/40 bg-[#ecfdff] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-[#087686]">
+                Viewing enrollment requests for
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="text-[18px] font-bold leading-tight text-[#272932]">{activeClassLabel}</p>
+                {activeClassMeta ? (
+                  <span className="rounded-[8px] bg-white px-2 py-1 text-[12px] font-semibold text-[#666d80]">
+                    {activeClassMeta}
+                  </span>
+                ) : null}
+                <span className="text-[13px] font-medium text-[#4f5665]">
+                  {classScopedRows.length} {classScopedRows.length === 1 ? "request" : "requests"}
+                </span>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/classes/requests"
+              className="rounded-[8px] bg-white px-3 py-2 text-[13px] font-semibold text-[#087686] hover:bg-[#d2f1f5]"
+            >
+              View all requests
+            </Link>
+          </div>
+        ) : null}
         {((classesCache.requests.source === "fallback" || dataSource === "fallback") || syncHint) && (
           <div className="flex flex-col gap-2 max-w-3xl">
             {(classesCache.requests.source === "fallback" || dataSource === "fallback") && (
