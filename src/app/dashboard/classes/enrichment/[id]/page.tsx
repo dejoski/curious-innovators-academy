@@ -126,6 +126,7 @@ export default function EnrichmentClassDetail() {
   const [isEditClassModalOpen, setIsEditClassModalOpen] = useState(false);
   const [isRemoveClassModalOpen, setIsRemoveClassModalOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [removeStudentDraft, setRemoveStudentDraft] = useState<Student | null>(null);
 
   const [editClassDraft, setEditClassDraft] = useState({
     title: "",
@@ -379,6 +380,7 @@ export default function EnrichmentClassDetail() {
     setIsRemoveClassModalOpen(false);
     setEditingStudentId(null);
     setEditStudentDraft(null);
+    setRemoveStudentDraft(null);
   }
 
   const openEditClassModal = () => {
@@ -455,7 +457,8 @@ export default function EnrichmentClassDetail() {
       isAddStudentModalOpen ||
       isEditClassModalOpen ||
       isRemoveClassModalOpen ||
-      editingStudentId !== null;
+      editingStudentId !== null ||
+      removeStudentDraft !== null;
 
     if (!anyOpen) return;
 
@@ -466,12 +469,13 @@ export default function EnrichmentClassDetail() {
         setIsRemoveClassModalOpen(false);
         setEditingStudentId(null);
         setEditStudentDraft(null);
+        setRemoveStudentDraft(null);
       }
     }
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId]);
+  }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId, removeStudentDraft]);
 
   async function handleSaveAddStudent(input: { studentIds: string[]; status: Exclude<StudentStatus, "Pending"> }) {
     const studentIds = [...new Set(input.studentIds)].filter(Boolean);
@@ -578,8 +582,6 @@ export default function EnrichmentClassDetail() {
   }
 
   async function removeStudentById(studentId: string) {
-    const target = students.find((student) => student.id === studentId);
-    if (!window.confirm(`Remove ${target?.name ?? "this student"} from ${classTitle}?`)) return;
     setRowActionError(null);
     setActiveActionDropdown(null);
     try {
@@ -593,6 +595,7 @@ export default function EnrichmentClassDetail() {
       }
       const removed = students.find((s) => s.id === studentId);
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setRemoveStudentDraft(null);
       if (removed?.status === "Approved") {
         setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
       }
@@ -958,7 +961,11 @@ export default function EnrichmentClassDetail() {
                             </button>
                             <button 
                               type="button"
-                              onClick={() => void removeStudentById(student.id)}
+                              onClick={() => {
+                                setRowActionError(null);
+                                setActiveActionDropdown(null);
+                                setRemoveStudentDraft(student);
+                              }}
                               className="w-full text-left px-4 py-2 text-[14px] text-[#d80509] hover:bg-gray-50"
                             >
                               Remove
@@ -1217,6 +1224,50 @@ export default function EnrichmentClassDetail() {
                 className="bg-[#14c1d5] text-white font-semibold text-[14px] px-4 py-2 rounded-[6px] hover:bg-[#11a9bb] transition-colors disabled:cursor-not-allowed disabled:bg-[#8fdce5]"
               >
                 {isSavingStudent ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {removeStudentDraft && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setRemoveStudentDraft(null);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-[12px] border border-[#e8e9ed] bg-white p-5 shadow-xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-2 text-[18px] font-semibold text-[#272932]">Remove enrollment</h2>
+            <p className="mb-5 text-sm leading-6 text-[#666d80]">
+              Remove {removeStudentDraft.name} from {classTitle}?
+            </p>
+            {rowActionError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {rowActionError}
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md px-4 py-2 text-sm text-[#666d80] hover:bg-[#f5f6f8]"
+                onClick={() => setRemoveStudentDraft(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-[#d80509] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b90408]"
+                onClick={() => void removeStudentById(removeStudentDraft.id)}
+              >
+                Remove
               </button>
             </div>
           </div>

@@ -124,6 +124,7 @@ export default function ClassDetailsPage() {
   const [isEditInfoModalOpen, setIsEditInfoModalOpen] = useState(false);
   const [isRemoveClassModalOpen, setIsRemoveClassModalOpen] = useState(false);
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
+  const [removeStudentDraft, setRemoveStudentDraft] = useState<Student | null>(null);
   const [classEditError, setClassEditError] = useState<string | null>(null);
   const [deleteClassError, setDeleteClassError] = useState<string | null>(null);
   const [editStudentError, setEditStudentError] = useState<string | null>(null);
@@ -458,8 +459,6 @@ export default function ClassDetailsPage() {
   };
 
   const removeStudentById = async (id: string) => {
-    const target = students.find((student) => student.id === id);
-    if (!window.confirm(`Remove ${target?.name ?? "this student"} from ${classMeta.title}?`)) return;
     setRowActionError(null);
     setOpenActionDropdownId(null);
     try {
@@ -473,6 +472,7 @@ export default function ClassDetailsPage() {
       }
       const removed = students.find((s) => s.id === id);
       setStudents((prev) => prev.filter((s) => s.id !== id));
+      setRemoveStudentDraft(null);
       if (removed?.status === "Approved") {
         setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
         setClassMetaDraft((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
@@ -852,7 +852,11 @@ export default function ClassDetailsPage() {
                             <button
                               type="button"
                               className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                              onClick={() => void removeStudentById(student.id)}
+                              onClick={() => {
+                                setRowActionError(null);
+                                setOpenActionDropdownId(null);
+                                setRemoveStudentDraft(student);
+                              }}
                             >
                               Remove
                             </button>
@@ -1201,6 +1205,38 @@ export default function ClassDetailsPage() {
                 className="px-4 py-2 text-sm font-semibold bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-cyan-200"
               >
                 {isSavingStudent ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {removeStudentDraft && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-[12px] border border-[#e8e9ed] bg-white p-5 shadow-xl">
+            <h2 className="mb-2 text-[18px] font-semibold text-[#272932]">Remove enrollment</h2>
+            <p className="mb-5 text-sm leading-6 text-[#666d80]">
+              Remove {removeStudentDraft.name} from {classMeta.title}?
+            </p>
+            {rowActionError ? (
+              <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {rowActionError}
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md px-4 py-2 text-sm text-[#666d80] hover:bg-[#f5f6f8]"
+                onClick={() => setRemoveStudentDraft(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-[#d80509] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b90408]"
+                onClick={() => void removeStudentById(removeStudentDraft.id)}
+              >
+                Remove
               </button>
             </div>
           </div>
