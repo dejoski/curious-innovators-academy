@@ -103,6 +103,11 @@ export function ParentsAdminDirectory({
     inviteUrl: string;
     copied: boolean;
   } | null>(null);
+  const [deleteDraft, setDeleteDraft] = useState<{
+    parent: ParentRow;
+    deleting: boolean;
+    error: string | null;
+  } | null>(null);
   const [allStudents, setAllStudents] = useState<StudentListItem[] | null>(null);
   const [studentsError, setStudentsError] = useState<string | null>(null);
   const [studentsForParent, setStudentsForParent] = useState<{
@@ -365,6 +370,24 @@ export function ParentsAdminDirectory({
       setSpreadsheetBanner(`Saved parent ${body.parent.name}.`);
     }
     setEditDraft(null);
+  };
+
+  const deleteParent = async () => {
+    if (!deleteDraft || deleteDraft.deleting) return;
+    const parent = deleteDraft.parent;
+    setDeleteDraft({ parent, deleting: true, error: null });
+    const res = await fetch(`/api/data/parents?parentId=${encodeURIComponent(parent.id)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      setDeleteDraft({ parent, deleting: false, error: await readApiError(res) });
+      return;
+    }
+    setParents((prev) => prev.filter((row) => row.id !== parent.id));
+    setSelectedIds((prev) => prev.filter((id) => id !== parent.id));
+    invalidateDashboardData(["/api/data/parents", "/api/data/students", "/api/dashboard-presentation"]);
+    setDeleteDraft(null);
+    setSpreadsheetBanner(`Deleted parent ${parent.name}.`);
   };
 
   return (
@@ -718,6 +741,16 @@ export function ParentsAdminDirectory({
                       >
                         View Students
                       </button>
+                      <button
+                        type="button"
+                        className="w-full text-left px-4 py-2 text-sm font-semibold text-[#d80509] hover:bg-[#fff1f1] transition-colors"
+                        onClick={() => {
+                          setDeleteDraft({ parent, deleting: false, error: null });
+                          setOpenActionId(null);
+                        }}
+                      >
+                        Delete parent
+                      </button>
                     </div>
                   )}
                 </div>
@@ -840,6 +873,44 @@ export function ParentsAdminDirectory({
                 onClick={() => void saveEdit()}
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteDraft && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-[#272932]">Delete parent</h2>
+            <p className="mt-2 text-sm leading-6 text-[#666d80]">
+              Delete <span className="font-semibold text-[#272932]">{deleteDraft.parent.name}</span>? This removes their parent record, student links, and parent login when it is only a parent account.
+            </p>
+            {deleteDraft.error ? (
+              <div role="alert" className="mt-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {deleteDraft.error}
+              </div>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                disabled={deleteDraft.deleting}
+                onClick={() => setDeleteDraft(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-[#d80509] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b90408] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleteDraft.deleting}
+                onClick={() => void deleteParent()}
+              >
+                {deleteDraft.deleting ? "Deleting..." : "Delete parent"}
               </button>
             </div>
           </div>

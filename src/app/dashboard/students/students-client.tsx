@@ -309,6 +309,14 @@ export default function StudentsStudentsList({
     (safePage - 1) * itemsPerPage,
     safePage * itemsPerPage,
   );
+  const programFilterLabel =
+    programFilter === "all"
+      ? "All Classes"
+      : programFilter === "core"
+        ? "Core Classes"
+        : "Enrichment Classes";
+  const visibleRangeStart = filteredStudents.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1;
+  const visibleRangeEnd = Math.min(safePage * itemsPerPage, filteredStudents.length);
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
@@ -602,11 +610,7 @@ export default function StudentsStudentsList({
                   />
                 </div>
                 <p className="text-[12px] text-[#0d0d12]">
-                  {programFilter === "all"
-                    ? "Core"
-                    : programFilter === "core"
-                      ? "Core"
-                      : "Enrichment"}
+                  {programFilterLabel}
                 </p>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
               </button>
@@ -733,6 +737,10 @@ export default function StudentsStudentsList({
             </button>
           </div>
         </div>
+        <p className="mb-3 text-[12px] text-[#666d80]">
+          Showing {visibleRangeStart}-{visibleRangeEnd} of {filteredStudents.length} students
+          {filteredStudents.length !== stats.total ? ` (${stats.total} total)` : ""}
+        </p>
         <DashboardBulkSelectionBar count={selectedStudents.length} noun="student" onClear={() => setSelectedStudents([])}>
           <button
             type="button"

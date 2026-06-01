@@ -3,6 +3,7 @@ import "server-only";
 import { mapClassRow } from "@/lib/data/repositories/classes";
 import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapParentRow } from "@/lib/data/repositories/parents";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
@@ -869,6 +870,63 @@ export async function serverCreateParentInviteLink(input: {
     metadata: { email },
   });
   return { ok: true, inviteUrl: link.data.properties.action_link, parent: parent.row };
+}
+
+export async function serverDeleteParent(parentId: string): Promise<{ ok: true } | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const id = parentId.trim();
+  if (!id) return { ok: false, message: "Missing parent id" };
+
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+  if (!access.actorId || !(await currentUserIsAdmin(access.auditClient, access.actorId))) {
+    return { ok: false, message: "Only administrators can delete parent records." };
+  }
+
+  const { data: parent, error: parentError } = await access.client
+    .from("parents")
+    .select("id, profile_id, profiles ( display_name, email, role )")
+    .eq("id", id)
+    .maybeSingle();
+  if (parentError) return { ok: false, message: parentError.message };
+  if (!parent) return { ok: false, message: "Parent not found" };
+
+  const profile = firstRel<Record<string, unknown>>((parent as { profiles?: unknown }).profiles);
+  const profileId = String((parent as { profile_id?: unknown }).profile_id ?? "").trim();
+  const email = String(profile?.email ?? "").trim();
+  const name = String(profile?.display_name ?? "").trim();
+  const role = String(profile?.role ?? "").trim();
+
+  const { error: linkDeleteError } = await access.client
+    .from("parent_students")
+    .delete()
+    .eq("parent_id", id);
+  if (linkDeleteError) return { ok: false, message: linkDeleteError.message };
+
+  const { error: parentDeleteError } = await access.client
+    .from("parents")
+    .delete()
+    .eq("id", id);
+  if (parentDeleteError) return { ok: false, message: parentDeleteError.message };
+
+  if (profileId && role === "parent" && isSupabaseAdminConfigured()) {
+    const { error: authDeleteError } = await createSupabaseAdminClient().auth.admin.deleteUser(profileId);
+    if (authDeleteError) return { ok: false, message: `Parent record was deleted, but auth cleanup failed: ${authDeleteError.message}` };
+  } else if (profileId && role === "parent") {
+    const { error: profileDeleteError } = await access.client
+      .from("profiles")
+      .delete()
+      .eq("id", profileId);
+    if (profileDeleteError) return { ok: false, message: `Parent record was deleted, but profile cleanup failed: ${profileDeleteError.message}` };
+  }
+
+  await writeAuditEvent(access.auditClient, {
+    action: "parent.delete",
+    entityType: "parent",
+    entityId: id,
+    metadata: { name, email, profileId },
+  });
+  return { ok: true };
 }
 
 export async function serverDeleteStudent(id: string): Promise<{ ok: true } | WriteFail> {

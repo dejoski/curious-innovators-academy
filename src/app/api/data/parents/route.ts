@@ -4,6 +4,7 @@ import { apiWriteError } from "@/lib/api/responses";
 import { fetchAdminParentsResolved } from "@/lib/data/repositories/parents";
 import {
   serverCreateParentInviteLink,
+  serverDeleteParent,
   serverInsertParent,
   serverSetParentStudentLinks,
   serverUpdateParent,
@@ -65,4 +66,15 @@ export async function PATCH(req: Request) {
   }
 
   return apiWriteError("Unsupported parent action", 400);
+}
+
+export async function DELETE(req: Request) {
+  const authError = await requireRemoteApiSession();
+  if (authError) return authError;
+
+  const { searchParams } = new URL(req.url);
+  const parentId = searchParams.get("parentId") ?? searchParams.get("id") ?? "";
+  const result = await serverDeleteParent(parentId);
+  if (!result.ok) return apiWriteError(result.message, 400);
+  return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
+import { RemoveEnrollmentConfirmationModal } from "@/components/remove-enrollment-confirmation-modal";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
@@ -774,30 +775,11 @@ export default function StudentClassRoster() {
         </div>
       </div>
       {removeConfirm ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-[12px] border border-[#e8e9ed] bg-white p-5 shadow-xl">
-            <h2 className="mb-2 text-[18px] font-semibold text-[#272932]">Remove enrollment</h2>
-            <p className="mb-5 text-sm leading-6 text-[#666d80]">
-              Remove {removeConfirm.name} from this roster view?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                className="rounded-md px-4 py-2 text-sm text-[#666d80] hover:bg-[#f5f6f8]"
-                onClick={() => setRemoveConfirm(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-[#d80509] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b90408]"
-                onClick={() => void removeStudentFromRoster(removeConfirm.id)}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
+        <RemoveEnrollmentConfirmationModal
+          studentName={removeConfirm.name}
+          onCancel={() => setRemoveConfirm(null)}
+          onConfirm={() => void removeStudentFromRoster(removeConfirm.id)}
+        />
       ) : null}
       {notePreview ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-4">
