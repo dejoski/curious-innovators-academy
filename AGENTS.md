@@ -18,7 +18,8 @@
 
 - Format school-facing history and schedule date behavior in `America/New_York`.
 - Verify thin/mobile viewports when layout is involved.
-- During active localhost iteration, keep checks scoped to the change and the running app. Do broad lint/build/typecheck/browser sweeps when the user asks, when shared types or data boundaries changed, or when work is moving toward push, deploy, issue closure, or production recovery.
+- During active localhost iteration, default to scoped coding and scoped verification in the running app, then end the turn with an exact proof level and optional validation offer.
+- Offer full lint/build/typecheck/browser/qa sweeps only when the user asks, when shared types or data boundaries changed, when work is moving toward push/deploy/issue closure, or when a focused check shows widening is the shortest safe next step.
 - Do not call production fixed until local checks plus Vercel Ready/health are confirmed.
 - This repo's deploy contract is Vercel-only: push to `main`, let Vercel build/deploy, and keep GitHub Actions workflow files out because inert workflow YAML creates false failed checks.
 - For GitHub issue fixes, include proof artifacts in comments when practical: red/green screenshots for UI regressions, production alias checks, Vercel commit status, and temporary-row write/cleanup evidence.

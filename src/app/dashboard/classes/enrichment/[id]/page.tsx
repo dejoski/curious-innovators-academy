@@ -13,7 +13,6 @@ import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
-import { PageBackLink } from "@/components/page-back-link";
 import type {
   ClassRosterStudent,
   ClassRosterStatus,
@@ -632,9 +631,6 @@ export default function EnrichmentClassDetail() {
 
   return (
     <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto">
-      {/* Back Link */}
-      <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
-
       {/* Alert Banner */}
       <div className="flex items-center gap-2 bg-white border border-[#f0f0f0] rounded-[18px] p-3 shadow-sm">
         <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] w-10 h-10 flex items-center justify-center shrink-0">

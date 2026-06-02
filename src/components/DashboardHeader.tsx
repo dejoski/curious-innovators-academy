@@ -9,6 +9,7 @@ import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import EntityAvatar from "@/components/entity-avatar";
+import { PageBackLink } from "@/components/page-back-link";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
@@ -36,6 +37,61 @@ type NotificationsBody = {
   notifications?: DashboardNotification[];
   source?: string;
 };
+
+type HeaderBackAction = {
+  href: string;
+  label: string;
+};
+
+function dashboardHeaderBackAction(pathname: string, searchParams: Pick<URLSearchParams, "has">): HeaderBackAction | null {
+  if (
+    pathname === "/dashboard/students/schedule" ||
+    pathname === "/dashboard/students/roster" ||
+    pathname === "/dashboard/students/new"
+  ) {
+    return null;
+  }
+
+  const studentScheduleMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/schedule\/?$/);
+  if (studentScheduleMatch) return { href: "/dashboard/students/schedule", label: "Back to Student Schedules" };
+
+  const studentEditMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/edit\/?$/);
+  if (studentEditMatch?.[1]) {
+    return {
+      href: `/dashboard/students/${encodeURIComponent(decodeURIComponent(studentEditMatch[1]))}`,
+      label: "Back to Student Profile",
+    };
+  }
+
+  const studentRosterDetailMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/roster\/?$/);
+  if (studentRosterDetailMatch) return { href: "/dashboard/students/roster", label: "Back to Student Roster" };
+
+  const studentProfileMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/?$/);
+  if (studentProfileMatch) return { href: "/dashboard/students", label: "Back to Student List" };
+
+  const classDetailMatch = pathname.match(/^\/dashboard\/classes\/(core|enrichment)\/([^/]+)\/?$/);
+  if (classDetailMatch) return { href: "/dashboard/classes", label: "Back to Class List" };
+
+  const classEditMatch = pathname.match(/^\/dashboard\/classes\/edit\/(core|enrichment)\/([^/]+)\/?$/);
+  if (classEditMatch) return { href: "/dashboard/classes", label: "Back to Class List" };
+
+  if (pathname === "/dashboard/classes/new") return { href: "/dashboard/classes", label: "Back to Class List" };
+  if (pathname === "/dashboard/teachers/new") return { href: "/dashboard/teachers", label: "Back to Teacher List" };
+
+  const classRosterMatch = pathname.match(/^\/dashboard\/classes\/([^/]+)\/roster\/?$/);
+  if (classRosterMatch?.[1]) {
+    return {
+      href: `/dashboard/classes/core/${encodeURIComponent(decodeURIComponent(classRosterMatch[1]))}`,
+      label: "Back to Class Profile",
+    };
+  }
+
+  if (pathname === "/dashboard/classes/requests" && searchParams.has("classId")) {
+    return { href: "/dashboard/classes/requests", label: "Back to enrichment requests" };
+  }
+
+  return null;
+}
 
 function readCachedNotifications() {
   const body = peekCachedJson<NotificationsBody>("/api/data/notifications");
@@ -92,6 +148,7 @@ export default function DashboardHeader() {
   const selectedParentStudentId = inParentShell
     ? searchParams.get("student") ?? readStoredParentStudentId()
     : "";
+  const headerBackAction = !inParentShell ? dashboardHeaderBackAction(pathname, searchParams) : null;
 
   const showNotificationDropdown = isNotificationDropdownEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
@@ -278,8 +335,13 @@ export default function DashboardHeader() {
               pickerWidthPx={parentHeaderLayout.pickerWidth}
             />
           ) : null}
+          {headerBackAction ? (
+            <PageBackLink href={headerBackAction.href} className="h-[40px] border-0 px-3 shadow-none sm:px-4">
+              {headerBackAction.label}
+            </PageBackLink>
+          ) : null}
           {!inParentShell ? (
-            <div className="min-w-[1px]" aria-hidden />
+            <div className={headerBackAction ? "hidden" : "min-w-[1px]"} aria-hidden />
           ) : null}
         </div>
         <div className={`content-stretch gap-[16px] items-center relative shrink-0 ${inParentShell && !canShowParentInlineActions ? "hidden" : "flex"}`}>

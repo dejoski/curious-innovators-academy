@@ -8,7 +8,6 @@ import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentRosterRow } from "@/lib/data/types";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
-import { PageBackLink } from "@/components/page-back-link";
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup1 = "/images/icon-search.svg";
@@ -263,12 +262,6 @@ export default function StudentRosterClient({
           <div className="flex flex-wrap items-center gap-3">
             {contextStudentId ? (
               <>
-                <PageBackLink
-                  href="/dashboard/students/roster"
-                >
-                  Back to Student Roster
-                </PageBackLink>
-                <span className="text-[#e5e5e5]">|</span>
                 <Link
                   href={`/dashboard/students/${contextStudentId}`}
                   className="text-sm font-medium text-[#14c1d5] hover:text-[#12aebd] transition-colors w-fit"

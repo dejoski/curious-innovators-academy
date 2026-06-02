@@ -8,7 +8,6 @@ import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { useClassesDataCache } from "@/components/classes-data-cache";
-import { PageBackLink } from "@/components/page-back-link";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, parentStudentDataUrls } from "@/lib/client-data-cache";
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
@@ -484,11 +483,6 @@ export default function ClassesEnrichmentRequests({
     <div className="flex h-full flex-col gap-6 bg-[#fafafa] p-4 md:p-8">
       <DashboardActionFeedback state={actionFeedback} />
       <div className="flex flex-col gap-2">
-        {compactView ? (
-          <PageBackLink href="/dashboard/classes/requests">
-            Back to enrichment requests
-          </PageBackLink>
-        ) : null}
         <h1 className="text-[28px] font-bold text-[#272932]">
           {compactView ? "Viewing requests" : "Enrichment requests"}
         </h1>

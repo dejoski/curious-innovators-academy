@@ -42,7 +42,6 @@ import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromRow,
 } from "@/lib/parent-schedule-status";
-import { PageBackLink } from "@/components/page-back-link";
 import {
   CATALOG_SLOT_META,
   PARENT_SCHEDULE_DAYS,
@@ -381,7 +380,6 @@ export default function StudentScheduleClient({
     <div className="relative flex min-h-full w-full flex-col gap-6 px-4 py-6 font-sans md:px-8 md:py-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex flex-col gap-4">
-          <PageBackLink href="/dashboard/students/schedule">Back to Student Schedules</PageBackLink>
           <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>
             Student schedule
           </p>

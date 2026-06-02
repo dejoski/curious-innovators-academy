@@ -12,7 +12,6 @@ import type {
   StudentProfileTimelineEvent,
   StudentProfileTimelineEventType,
 } from "@/lib/data/types";
-import { PageBackLink } from "@/components/page-back-link";
 import {
   STUDENT_PROFILE_TIMELINE_EVENT_TYPES,
   isStudentProfileTimelineEventType,
@@ -124,7 +123,6 @@ export default function StudentProfileClient({
         <p className="text-sm text-[#666d80] max-w-md">
           No student matches this id in the directory. Return to the list to open a valid profile.
         </p>
-        <PageBackLink href="/dashboard/students">Back to Student List</PageBackLink>
       </div>
     );
   }
@@ -319,8 +317,15 @@ export default function StudentProfileClient({
   return (
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       <div className="flex flex-col gap-[4px] items-start w-full">
-        <div className="flex items-start justify-between w-full flex-wrap gap-3">
-          <PageBackLink href="/dashboard/students">Back to Student List</PageBackLink>
+        <div className="flex w-full flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
+              Student Profile
+            </h1>
+            <p className="mt-1 font-normal text-[#666d80] text-[16px] leading-[1.4]">
+              View and manage the student’s profile, schedule, and notes.
+            </p>
+          </div>
           <button
             onClick={openEditModal}
             className="bg-[#d2f1f5] flex gap-[8px] h-[42px] items-center justify-center px-[16px] rounded-[6px] hover:bg-[#bce6ec] transition-colors"
@@ -330,12 +335,6 @@ export default function StudentProfileClient({
             </span>
           </button>
         </div>
-        <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
-          Student Profile
-        </h1>
-        <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
-          View and manage the student’s profile, schedule, and notes.
-        </p>
         {profileBanner ? (
           <div
             role={profileBanner.tone === "error" ? "alert" : "status"}

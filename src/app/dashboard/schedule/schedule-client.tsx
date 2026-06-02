@@ -758,7 +758,7 @@ export default function ScheduleMonth({
   };
 
   const renderDayView = () => {
-    const events = eventsForDate(currentDate);
+    const events = sortedEvents(eventsForDate(currentDate));
     const isToday = currentDate.toDateString() === new Date().toDateString();
 
     return (

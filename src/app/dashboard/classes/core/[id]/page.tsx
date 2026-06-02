@@ -10,7 +10,6 @@ import { useDashboardNavigationProgress } from "@/components/dashboard-navigatio
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
 import { RemoveEnrollmentConfirmationModal } from "@/components/remove-enrollment-confirmation-modal";
-import { PageBackLink } from "@/components/page-back-link";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
@@ -550,9 +549,6 @@ export default function ClassDetailsPage() {
       {/* Header Section */}
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-col gap-2">
-          <PageBackLink href="/dashboard/classes" className="mb-2">
-            Back to Class List
-          </PageBackLink>
           <h1 className="text-[28px] font-bold leading-[1.1] text-gray-900">{classMeta.title}</h1>
           <p className="text-gray-500 text-base">{classMeta.description}</p>
         </div>

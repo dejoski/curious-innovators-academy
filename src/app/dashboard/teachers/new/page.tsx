@@ -7,7 +7,6 @@ import { ChevronDown, ImagePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
-import { PageBackLink } from "@/components/page-back-link";
 import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 export type ProgramKind = "core" | "enrichment";
@@ -147,7 +146,6 @@ export default function CreateTeacherPage() {
     <div className="w-full bg-[#fafafa] px-5 py-6 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-[1220px] flex-col gap-7">
         <div className="flex flex-col gap-8 border-t border-[#dfe1e7] pt-5">
-          <PageBackLink href="/dashboard/teachers">Back to Teacher List</PageBackLink>
           <h1 className="font-sans text-[28px] font-bold leading-[1.1] text-[#272932]">Create Teacher</h1>
         </div>
 

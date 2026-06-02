@@ -4,7 +4,6 @@ import type { ProgramTrack } from "@/lib/data/types";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
-import { PageBackLink } from "@/components/page-back-link";
 import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import {
   PARENT_SCHEDULE_ROWS,
@@ -196,7 +195,6 @@ export default function AddClassForm() {
     <div className="w-full bg-[#fafafa] px-5 py-6 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-[1220px] flex-col gap-7">
         <div className="flex flex-col gap-4 border-t border-[#dfe1e7] pt-8">
-          <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
           <h1 className="font-sans text-[28px] font-bold leading-[1.1] text-[#272932]">Create Class</h1>
         </div>
 

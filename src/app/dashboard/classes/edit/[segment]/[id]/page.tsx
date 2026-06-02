@@ -6,7 +6,6 @@ import { readApiError } from "@/lib/client-api-errors";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { PageBackLink } from "@/components/page-back-link";
 
 type ClassStatus = "Active" | "Full";
 
@@ -66,7 +65,6 @@ export default function EditClassPage() {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4 p-8">
         <p className="text-[#a00408]">{loadError}</p>
-        <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
       </div>
     );
   }
@@ -134,7 +132,6 @@ export default function EditClassPage() {
     <div className="w-full p-[24px] md:p-[32px]">
       <div className="mx-auto flex max-w-[560px] flex-col gap-[24px]">
         <div className="flex flex-col gap-[8px]">
-          <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
           <h1 className="font-sans text-[28px] font-bold leading-[1.1] text-[#0d0d12]">
             Edit class
           </h1>

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentListItem } from "@/lib/data/types";
 import { Save, AlertCircle } from "lucide-react";
-import { PageBackLink } from "@/components/page-back-link";
 
 const imgMaskGroup = "/images/icon-settings.svg";
 
@@ -67,7 +66,6 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
           <AlertCircle className="size-5 text-[#d80509] shrink-0 mt-0.5" />
           <p className="text-[#d80509] text-sm">Student not found</p>
         </div>
-        <PageBackLink href="/dashboard/students">Back to Student List</PageBackLink>
       </div>
     );
   }
@@ -76,7 +74,6 @@ export default function EditStudentClient({ studentId, student, dataSource }: Ed
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <PageBackLink href={`/dashboard/students/${studentId}`}>Back to Student Profile</PageBackLink>
         <div className="flex flex-col gap-[4px]">
           <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
             Edit Student
