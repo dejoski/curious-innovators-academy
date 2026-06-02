@@ -319,27 +319,20 @@ export default function StudentProfileClient({
   return (
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       <div className="flex flex-col gap-[4px] items-start w-full">
-        <div className="flex items-center justify-between w-full flex-wrap gap-3">
-          <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
-            Student Profile
-          </h1>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard/students"
-              className="rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-sm font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
-            >
-              ← Student List
-            </Link>
-            <button
-              onClick={openEditModal}
-              className="bg-[#d2f1f5] flex gap-[8px] h-[42px] items-center justify-center px-[16px] rounded-[6px] hover:bg-[#bce6ec] transition-colors"
-            >
-              <span className="font-sans font-semibold text-[#14c1d5] text-[16px]">
-                Edit Profile
-              </span>
-            </button>
-          </div>
+        <div className="flex items-start justify-between w-full flex-wrap gap-3">
+          <PageBackLink href="/dashboard/students">Back to Student List</PageBackLink>
+          <button
+            onClick={openEditModal}
+            className="bg-[#d2f1f5] flex gap-[8px] h-[42px] items-center justify-center px-[16px] rounded-[6px] hover:bg-[#bce6ec] transition-colors"
+          >
+            <span className="font-sans font-semibold text-[#14c1d5] text-[16px]">
+              Edit Profile
+            </span>
+          </button>
         </div>
+        <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
+          Student Profile
+        </h1>
         <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
           View and manage the student’s profile, schedule, and notes.
         </p>

@@ -5,7 +5,7 @@ import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, PencilLine, Search, Trash2, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
@@ -105,10 +105,41 @@ function capacityFromImportValue(value: string): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
+function RowMenuActionButton({
+  icon,
+  label,
+  tone = "default",
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tone?: "default" | "danger";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      className={`flex w-full items-center gap-2 px-3 py-2.5 text-left font-sans text-[13px] leading-[1.25] transition-colors ${
+        tone === "danger" ? "text-[#d80509] hover:bg-[#fff5f5]" : "text-[#0d0d12] hover:bg-[#fafafa]"
+      }`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      <span className={`flex size-4 shrink-0 items-center justify-center ${tone === "danger" ? "text-[#d80509]" : "text-[#667085]"}`} aria-hidden>
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
 function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
   const r = triggerEl.getBoundingClientRect();
-  const MENU_W = 160;
-  const MENU_H = 132;
+  const MENU_W = 220;
+  const MENU_H = 196;
   let left = Math.max(8, r.right - MENU_W);
   if (left + MENU_W > window.innerWidth - 8) left = Math.max(8, window.innerWidth - MENU_W - 8);
   let top = r.bottom + 4;
@@ -632,9 +663,9 @@ export default function ClassesPageClient({
     setSyncHint(`Could not duplicate class (${await readApiError(res)}).`);
   };
 
-  const goToClassDetail = (row: SchoolClassRow) => {
+  const goToClassDetail = (row: SchoolClassRow, options?: { edit?: boolean }) => {
     const segment = row.program === "enrichment" ? "enrichment" : "core";
-    const href = `/dashboard/classes/${segment}/${row.id}`;
+    const href = `/dashboard/classes/${segment}/${row.id}${options?.edit ? "?edit=1" : ""}`;
     mutateDashboardData<{ classes: SchoolClassRow[]; source: DataSource }>("/api/data/classes", () => ({
       classes,
       source: dataSource,

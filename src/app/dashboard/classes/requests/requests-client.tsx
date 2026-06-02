@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { useClassesDataCache } from "@/components/classes-data-cache";
+import { PageBackLink } from "@/components/page-back-link";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, parentStudentDataUrls } from "@/lib/client-data-cache";
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
@@ -484,13 +485,9 @@ export default function ClassesEnrichmentRequests({
       <DashboardActionFeedback state={actionFeedback} />
       <div className="flex flex-col gap-2">
         {compactView ? (
-          <Link
-            href="/dashboard/classes/requests"
-            className="inline-flex w-fit items-center gap-2 rounded-[8px] px-0 py-0 text-[14px] font-medium text-[#666d80] hover:text-[#0d0d12]"
-          >
-            <ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
+          <PageBackLink href="/dashboard/classes/requests">
             Back to enrichment requests
-          </Link>
+          </PageBackLink>
         ) : null}
         <h1 className="text-[28px] font-bold text-[#272932]">
           {compactView ? "Viewing requests" : "Enrichment requests"}
