@@ -75,14 +75,6 @@ type ClassImportDraft = {
   description?: string;
   level?: string;
   block?: string;
-  plannerSubject?: string;
-  plannerSummary?: string;
-  teacherGuideObjectives?: string;
-  teacherGuideInformation?: string;
-  teacherGuideSummary?: string;
-  studentGuideObjectives?: string;
-  studentGuideInformation?: string;
-  studentGuideSummary?: string;
 };
 
 function dash(text: string): string {
@@ -180,14 +172,6 @@ function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassIm
     const description = firstCsvValue(row, headers, ["Description"]);
     const level = firstCsvValue(row, headers, ["Level"]);
     const block = firstCsvValue(row, headers, ["Block"]);
-    const plannerSubject = firstCsvValue(row, headers, ["Planner Subject", "Daily Planner Subject"]);
-    const plannerSummary = firstCsvValue(row, headers, ["Planner Summary", "Daily Planner Summary"]);
-    const teacherGuideObjectives = firstCsvValue(row, headers, ["Teacher Guide Objectives"]);
-    const teacherGuideInformation = firstCsvValue(row, headers, ["Teacher Guide Information"]);
-    const teacherGuideSummary = firstCsvValue(row, headers, ["Teacher Guide Summary"]);
-    const studentGuideObjectives = firstCsvValue(row, headers, ["Student Guide Objectives"]);
-    const studentGuideInformation = firstCsvValue(row, headers, ["Student Guide Information"]);
-    const studentGuideSummary = firstCsvValue(row, headers, ["Student Guide Summary"]);
     return {
       name,
       teacher,
@@ -198,14 +182,6 @@ function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassIm
       description,
       level,
       block,
-      plannerSubject,
-      plannerSummary,
-      teacherGuideObjectives,
-      teacherGuideInformation,
-      teacherGuideSummary,
-      studentGuideObjectives,
-      studentGuideInformation,
-      studentGuideSummary,
     };
   }).filter((row) => row.name || row.teacher || row.schedule || row.level || row.block);
 }
@@ -418,14 +394,6 @@ export default function ClassesPageClient({
             description: draft.description?.trim(),
             level: draft.level?.trim(),
             block: draft.block?.trim(),
-            plannerSubject: draft.plannerSubject?.trim(),
-            plannerSummary: draft.plannerSummary?.trim(),
-            teacherGuideObjectives: draft.teacherGuideObjectives?.trim(),
-            teacherGuideInformation: draft.teacherGuideInformation?.trim(),
-            teacherGuideSummary: draft.teacherGuideSummary?.trim(),
-            studentGuideObjectives: draft.studentGuideObjectives?.trim(),
-            studentGuideInformation: draft.studentGuideInformation?.trim(),
-            studentGuideSummary: draft.studentGuideSummary?.trim(),
           }),
         });
         if (res.ok) {
@@ -1152,14 +1120,6 @@ export default function ClassesPageClient({
           { key: "level", label: "Level", sample: "3" },
           { key: "block", label: "Block", sample: "Block 1 Day 1" },
           { key: "description", label: "Description", sample: "Optional class description" },
-          { key: "plannerSubject", label: "Planner Subject", sample: "" },
-          { key: "plannerSummary", label: "Planner Summary", sample: "" },
-          { key: "teacherGuideObjectives", label: "Teacher Guide Objectives", sample: "" },
-          { key: "teacherGuideInformation", label: "Teacher Guide Information", sample: "" },
-          { key: "teacherGuideSummary", label: "Teacher Guide Summary", sample: "" },
-          { key: "studentGuideObjectives", label: "Student Guide Objectives", sample: "" },
-          { key: "studentGuideInformation", label: "Student Guide Information", sample: "" },
-          { key: "studentGuideSummary", label: "Student Guide Summary", sample: "" },
         ]}
         onImport={importClassRows}
       />

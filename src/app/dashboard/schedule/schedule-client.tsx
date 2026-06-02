@@ -246,16 +246,9 @@ function EventDetailsModal({
 }) {
   const details = event.classDetails;
   const title = displayEventTitle(event.title);
-  const subject = details?.plannerSubject?.trim() || details?.description?.trim() || event.description?.trim();
-  const summary = details?.plannerSummary?.trim();
   const preparedBy = details?.teacher?.trim();
   const grade = details?.level?.trim();
   const status = event.statusLabel ?? typeLabel(event.type);
-  const studentGuideRows = [
-    ["Objectives", details?.studentGuideObjectives?.trim()],
-    ["Information", details?.studentGuideInformation?.trim()],
-    ["Summary", details?.studentGuideSummary?.trim()],
-  ].filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
     <div
@@ -273,7 +266,7 @@ function EventDetailsModal({
         <div className="mb-7 flex items-start justify-between gap-4">
           <div>
             <h3 id="daily-planner-title" className={`${DASHBOARD_PANEL_TITLE_CLASS} font-bold`}>
-              Daily Planner
+              Class Details
             </h3>
             <p className="mt-2 text-[15px] text-[#666d80]">{title}</p>
           </div>
@@ -288,20 +281,12 @@ function EventDetailsModal({
         </div>
 
         <div className="border-t border-[#e6e9ef]">
-          {subject ? <PlannerRow label="Subject">{subject}</PlannerRow> : null}
           {preparedBy ? <PlannerRow label="Prepared By">{preparedBy}</PlannerRow> : null}
           {grade ? <PlannerRow label="Grade">{grade}</PlannerRow> : null}
-          {summary ? <PlannerRow label="Summary">{summary}</PlannerRow> : null}
           <PlannerRow label="Status">{status}</PlannerRow>
           <PlannerRow label="Time">{event.time}</PlannerRow>
           {event.scheduleSlotLabel ? <PlannerRow label="Block">{event.scheduleSlotLabel}</PlannerRow> : null}
         </div>
-
-        {studentGuideRows.length ? (
-          <PlannerSection title="Students' Guide">
-            {studentGuideRows.map(([label, value]) => <PlannerRow key={label} label={label}>{value}</PlannerRow>)}
-          </PlannerSection>
-        ) : null}
       </section>
     </div>
   );

@@ -42,14 +42,6 @@ type ClassMeta = {
   schedule: string;
   capacityEnrolled: number;
   capacityMax: number;
-  plannerSubject: string;
-  plannerSummary: string;
-  teacherGuideObjectives: string;
-  teacherGuideInformation: string;
-  teacherGuideSummary: string;
-  studentGuideObjectives: string;
-  studentGuideInformation: string;
-  studentGuideSummary: string;
 };
 
 const EMPTY_CLASS_META: ClassMeta = {
@@ -60,14 +52,6 @@ const EMPTY_CLASS_META: ClassMeta = {
   schedule: "Schedule not set",
   capacityEnrolled: 0,
   capacityMax: 1,
-  plannerSubject: "",
-  plannerSummary: "",
-  teacherGuideObjectives: "",
-  teacherGuideInformation: "",
-  teacherGuideSummary: "",
-  studentGuideObjectives: "",
-  studentGuideInformation: "",
-  studentGuideSummary: "",
 };
 
 function classMetaFromRow(row: SchoolClassRow): ClassMeta {
@@ -79,14 +63,6 @@ function classMetaFromRow(row: SchoolClassRow): ClassMeta {
     schedule: row.schedule || "Schedule not set",
     capacityEnrolled: Math.max(0, row.enrolledCount ?? 0),
     capacityMax: Math.max(1, row.capacity ?? 1),
-    plannerSubject: row.plannerSubject || "",
-    plannerSummary: row.plannerSummary || "",
-    teacherGuideObjectives: row.teacherGuideObjectives || "",
-    teacherGuideInformation: row.teacherGuideInformation || "",
-    teacherGuideSummary: row.teacherGuideSummary || "",
-    studentGuideObjectives: row.studentGuideObjectives || "",
-    studentGuideInformation: row.studentGuideInformation || "",
-    studentGuideSummary: row.studentGuideSummary || "",
   };
 }
 
@@ -372,14 +348,6 @@ export default function ClassDetailsPage() {
           description: classMetaDraft.description,
           block,
           level,
-          plannerSubject: classMetaDraft.plannerSubject,
-          plannerSummary: classMetaDraft.plannerSummary,
-          teacherGuideObjectives: classMetaDraft.teacherGuideObjectives,
-          teacherGuideInformation: classMetaDraft.teacherGuideInformation,
-          teacherGuideSummary: classMetaDraft.teacherGuideSummary,
-          studentGuideObjectives: classMetaDraft.studentGuideObjectives,
-          studentGuideInformation: classMetaDraft.studentGuideInformation,
-          studentGuideSummary: classMetaDraft.studentGuideSummary,
         }),
       });
       if (!res.ok) {
@@ -994,21 +962,6 @@ export default function ClassDetailsPage() {
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
-              <div className="flex flex-col gap-3">
-                <p className="text-sm font-bold text-[#272932]">Students&apos; Guide</p>
-                <label className="text-xs font-semibold text-gray-600">
-                  Objectives
-                  <textarea value={classMetaDraft.studentGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                </label>
-                <label className="text-xs font-semibold text-gray-600">
-                  Information
-                  <textarea value={classMetaDraft.studentGuideInformation} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                </label>
-                <label className="text-xs font-semibold text-gray-600">
-                  Summary
-                  <textarea value={classMetaDraft.studentGuideSummary} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                </label>
-              </div>
               <div className="flex gap-3">
                 <label className="text-xs font-semibold text-gray-600 flex-1">
                   Enrolled (derived)

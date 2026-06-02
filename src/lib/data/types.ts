@@ -53,22 +53,6 @@ export type SchoolClassRow = {
   description?: string;
   /** Optional prerequisites used in parent catalog/details. */
   prerequisites?: string;
-  /** Optional daily planner subject/lesson focus shown in schedule details. */
-  plannerSubject?: string;
-  /** Optional daily planner summary shown in schedule details. */
-  plannerSummary?: string;
-  /** Optional teacher-facing guide objectives for the daily planner. */
-  teacherGuideObjectives?: string;
-  /** Optional teacher-facing guide information for the daily planner. */
-  teacherGuideInformation?: string;
-  /** Optional teacher-facing guide summary for the daily planner. */
-  teacherGuideSummary?: string;
-  /** Optional student-facing guide objectives for the daily planner. */
-  studentGuideObjectives?: string;
-  /** Optional student-facing guide information for the daily planner. */
-  studentGuideInformation?: string;
-  /** Optional student-facing guide summary for the daily planner. */
-  studentGuideSummary?: string;
   /** Pending enrollment workflow count (from enrollments with status pending). */
   pendingCount: number;
   /** Waitlist count — populated when backend provides it; otherwise 0. */

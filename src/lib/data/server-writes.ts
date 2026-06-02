@@ -370,14 +370,7 @@ export async function serverInsertClass(input: {
   description?: string;
   level?: string;
   block?: string;
-  plannerSubject?: string;
-  plannerSummary?: string;
-  teacherGuideObjectives?: string;
-  teacherGuideInformation?: string;
-  teacherGuideSummary?: string;
-  studentGuideObjectives?: string;
-  studentGuideInformation?: string;
-  studentGuideSummary?: string;
+
 }): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const capacity = normalizeCapacity(input.capacity);
@@ -405,14 +398,7 @@ export async function serverInsertClass(input: {
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
-    if (input.plannerSubject != null) payload.planner_subject = input.plannerSubject.trim();
-    if (input.plannerSummary != null) payload.planner_summary = input.plannerSummary.trim();
-    if (input.teacherGuideObjectives != null) payload.teacher_guide_objectives = input.teacherGuideObjectives.trim();
-    if (input.teacherGuideInformation != null) payload.teacher_guide_information = input.teacherGuideInformation.trim();
-    if (input.teacherGuideSummary != null) payload.teacher_guide_summary = input.teacherGuideSummary.trim();
-    if (input.studentGuideObjectives != null) payload.student_guide_objectives = input.studentGuideObjectives.trim();
-    if (input.studentGuideInformation != null) payload.student_guide_information = input.studentGuideInformation.trim();
-    if (input.studentGuideSummary != null) payload.student_guide_summary = input.studentGuideSummary.trim();
+
     const { data, error } = await supabase.from("classes").insert(payload).select("*").maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row returned" };
@@ -483,14 +469,7 @@ export async function serverUpdateClass(
     description?: string;
     level?: string;
     block?: string;
-    plannerSubject?: string;
-    plannerSummary?: string;
-    teacherGuideObjectives?: string;
-    teacherGuideInformation?: string;
-    teacherGuideSummary?: string;
-    studentGuideObjectives?: string;
-    studentGuideInformation?: string;
-    studentGuideSummary?: string;
+
   },
 ): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
@@ -513,14 +492,7 @@ export async function serverUpdateClass(
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
-    if (input.plannerSubject != null) payload.planner_subject = input.plannerSubject.trim();
-    if (input.plannerSummary != null) payload.planner_summary = input.plannerSummary.trim();
-    if (input.teacherGuideObjectives != null) payload.teacher_guide_objectives = input.teacherGuideObjectives.trim();
-    if (input.teacherGuideInformation != null) payload.teacher_guide_information = input.teacherGuideInformation.trim();
-    if (input.teacherGuideSummary != null) payload.teacher_guide_summary = input.teacherGuideSummary.trim();
-    if (input.studentGuideObjectives != null) payload.student_guide_objectives = input.studentGuideObjectives.trim();
-    if (input.studentGuideInformation != null) payload.student_guide_information = input.studentGuideInformation.trim();
-    if (input.studentGuideSummary != null) payload.student_guide_summary = input.studentGuideSummary.trim();
+
     const { data, error } = await supabase
       .from("classes")
       .update(payload)
