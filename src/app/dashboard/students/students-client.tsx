@@ -91,7 +91,7 @@ function TableRow({
             </svg>
           )}
         </button>
-        <div className="flex gap-[6px] items-center">
+        <div className="flex gap-[6px] items-start">
           <div className="relative shrink-0 size-[32px]">
             <img
               alt=""
