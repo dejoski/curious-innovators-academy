@@ -1,8 +1,13 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
+import {
+  DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import { cachedJson, peekCachedJson, readDashboardData } from "@/lib/client-data-cache";
 import {
   selectedParentStudentIdFromSearchParams,
@@ -25,7 +30,6 @@ import { parentClassOptionFromRow } from "@/lib/parent-class-options";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
-const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
 type ParentEnrichmentRow = {
   id: string;
@@ -108,7 +112,16 @@ export default function ParentClassesEnrichmentClient() {
     statusLabel: string;
     scheduleDisplay: ScheduleDisplayParts;
   } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function closeMenus(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-dashboard-row-actions]")) return;
+      setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", closeMenus);
+    return () => document.removeEventListener("mousedown", closeMenus);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -247,16 +260,6 @@ export default function ParentClassesEnrichmentClient() {
     return result;
   }, [classes, draftOnlyCatalogRequests, searchQuery, filterStatus, sortBy, serverCatalogRequests, serverReviewStatuses]);
 
-  useEffect(() => {
-    function handleDown(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleDown);
-    return () => document.removeEventListener("mousedown", handleDown);
-  }, []);
-
   const renderStatusBadge = (status: string) => {
     if (status === "Approved") {
       return (
@@ -293,7 +296,7 @@ export default function ParentClassesEnrichmentClient() {
         </div>
       );
     }
-    return <span className="text-[16px] text-[#0d0d12]">--</span>;
+    return <span>--</span>;
   };
 
   return (
@@ -428,16 +431,16 @@ export default function ParentClassesEnrichmentClient() {
           <table className="w-full text-left min-w-[900px]">
             {/* Headers */}
             <thead>
-              <tr className="border-t border-b border-[#f0f0f0]">
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Class Name</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Teacher</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Level</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Block</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Schedule</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Location</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Availability</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Status</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Action</th>
+              <tr className={DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS}>
+                <th className="py-4 px-2">Class Name</th>
+                <th className="py-4 px-2">Teacher</th>
+                <th className="py-4 px-2 text-center">Level</th>
+                <th className="py-4 px-2 text-center">Block</th>
+                <th className="py-4 px-2">Schedule</th>
+                <th className="py-4 px-2">Location</th>
+                <th className="py-4 px-2 text-center">Availability</th>
+                <th className="py-4 px-2 text-center">Status</th>
+                <th className="py-4 px-2 text-center">Action</th>
               </tr>
             </thead>
             {/* Body */}
@@ -456,71 +459,56 @@ export default function ParentClassesEnrichmentClient() {
                 filteredAndSortedClasses.map((cls) => (
                   <tr
                     key={cls.id}
-                    className={`border-b border-[#f0f0f0] transition-colors ${
+                    className={`transition-colors ${DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS} ${
                       cls.current ? "bg-[rgba(208,243,247,0.29)] hover:bg-[rgba(208,243,247,0.4)]" : "bg-white hover:bg-gray-50"
                     }`}
                   >
                     <td className="py-3 px-2">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.name}</span>
+                      <span>{cls.name}</span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.teacher}</span>
+                      <span>{cls.teacher}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.level}</span>
+                      <span>{cls.level}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.block}</span>
+                      <span>{cls.block}</span>
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex flex-col">
-                        <span className="text-[16px] text-[#0d0d12]">{cls.day}</span>
+                        <span>{cls.day}</span>
                         <span className="text-[11px] text-[#666d80]">{cls.time}</span>
                       </div>
                     </td>
                     <td className="py-3 px-2">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.location}</span>
+                      <span>{cls.location}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.availability}</span>
+                      <span>{cls.availability}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
                       {renderStatusBadge(cls.status)}
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <div className="relative inline-flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === cls.id ? null : cls.id);
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded-md inline-flex items-center justify-center"
-                        >
-                          <img src={imgWeuiMoreOutlined} className="w-6 h-6" alt="More" />
-                        </button>
-                        {openMenuId === cls.id && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-0 top-full mt-1 z-50 w-52 rounded-md border border-[#f0f0f0] bg-white py-1 shadow-lg text-left"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              className="block w-full px-4 py-2 text-left text-sm text-[#0d0d12] hover:bg-gray-50"
-                              onClick={() => {
+                      <div className="inline-flex justify-center">
+                        <DashboardRowActionsMenu
+                          label={`Actions for ${cls.name}`}
+                          isOpen={openMenuId === cls.id}
+                          onToggle={() => setOpenMenuId(openMenuId === cls.id ? null : cls.id)}
+                          onClose={() => setOpenMenuId(null)}
+                          actions={[
+                            {
+                              label: "View Class",
+                              onClick: () =>
                                 setSelectedClassDetails({
                                   option: cls.option,
                                   statusLabel: cls.status,
                                   scheduleDisplay: { day: cls.day, time: cls.time },
-                                });
-                                setOpenMenuId(null);
-                              }}
-                            >
-                              View Class
-                            </button>
-                          </div>
-                        )}
+                                }),
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>

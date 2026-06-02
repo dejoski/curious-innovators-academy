@@ -1,8 +1,13 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
+import {
+  DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import { cachedJson, peekCachedJson } from "@/lib/client-data-cache";
 import {
   selectedParentStudentIdFromSearchParams,
@@ -16,7 +21,6 @@ import { parentClassOptionFromRow } from "@/lib/parent-class-options";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
-const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
 type ParentClassRow = {
   id: string;
@@ -188,16 +192,15 @@ export default function ParentClassesCoreClient() {
   }, [classes, searchQuery, filterDay, sortBy]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleDown(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
+    function closeMenus(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-dashboard-row-actions]")) return;
+      setOpenMenuId(null);
     }
-    document.addEventListener("mousedown", handleDown);
-    return () => document.removeEventListener("mousedown", handleDown);
+    document.addEventListener("mousedown", closeMenus);
+    return () => document.removeEventListener("mousedown", closeMenus);
   }, []);
 
   return (
@@ -344,15 +347,15 @@ export default function ParentClassesCoreClient() {
         <div className="overflow-x-auto w-full">
           <div className="min-w-[880px]">
             {/* Table Header Columns */}
-            <div className="grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[16px] px-4 w-full items-center gap-x-2">
-              <div className="text-[#0d0d12] font-semibold text-[14px]">Class Name</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px]">Teacher</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Level</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Block</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Schedule</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Location</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Status</div>
-              <div className="text-[#0d0d12] font-semibold text-[14px] text-center">Action</div>
+            <div className={`grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] px-4 py-4 w-full items-center gap-x-2 ${DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS}`}>
+              <div>Class Name</div>
+              <div>Teacher</div>
+              <div className="text-center">Level</div>
+              <div className="text-center">Block</div>
+              <div className="text-center">Schedule</div>
+              <div className="text-center">Location</div>
+              <div className="text-center">Status</div>
+              <div className="text-center">Action</div>
             </div>
 
             {/* Table Rows */}
@@ -369,27 +372,27 @@ export default function ParentClassesCoreClient() {
                 filteredAndSortedClasses.map((cls) => (
                   <div
                     key={cls.id}
-                    className={`grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] border-t border-[#f0f0f0] py-[12px] px-4 w-full items-center gap-x-2 transition-colors ${
+                    className={`grid grid-cols-[14fr_12fr_6fr_6fr_15fr_12fr_12fr_6fr] px-4 py-4 w-full items-center gap-x-2 transition-colors ${DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS} ${
                       cls.current ? "bg-[rgba(208,243,247,0.29)] hover:bg-[rgba(208,243,247,0.4)]" : "bg-white hover:bg-gray-50"
                     }`}
                   >
-                    <div className="text-[#0d0d12] text-[16px] pr-2">
+                    <div className="pr-2">
                       {cls.name}
                     </div>
-                    <div className="text-[#0d0d12] text-[16px]">
+                    <div>
                       {cls.teacher}
                     </div>
-                    <div className="text-[#0d0d12] text-[16px] text-center">
+                    <div className="text-center">
                       {cls.level}
                     </div>
-                    <div className="text-[#0d0d12] text-[16px] text-center">
+                    <div className="text-center">
                       {cls.block}
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                      <span className="text-[#0d0d12] text-[16px]">{cls.day}</span>
+                      <span>{cls.day}</span>
                       <span className="text-[#666d80] text-[11px]">{cls.time}</span>
                     </div>
-                    <div className="text-[#0d0d12] text-[16px] text-center">
+                    <div className="text-center">
                       {cls.location}
                     </div>
                     <div className="flex justify-center">
@@ -399,39 +402,24 @@ export default function ParentClassesCoreClient() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex justify-center relative">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(openMenuId === cls.id ? null : cls.id);
-                        }}
-                        className="size-[24px] hover:opacity-70 transition-opacity"
-                      >
-                        <img alt="More" className="size-full" src={imgWeuiMoreOutlined} />
-                      </button>
-                      {openMenuId === cls.id && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-[28px] top-full mt-1 w-48 bg-white border border-[#f0f0f0] rounded-md shadow-lg z-50 py-1 text-left"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            className="w-full px-4 py-2 text-sm text-[#0d0d12] hover:bg-gray-50 text-left"
-                            onClick={() => {
+                    <div className="flex justify-center">
+                      <DashboardRowActionsMenu
+                        label={`Actions for ${cls.name}`}
+                        isOpen={openMenuId === cls.id}
+                        onToggle={() => setOpenMenuId(openMenuId === cls.id ? null : cls.id)}
+                        onClose={() => setOpenMenuId(null)}
+                        actions={[
+                          {
+                            label: "View Class",
+                            onClick: () =>
                               setSelectedClassDetails({
                                 option: cls.option,
                                 statusLabel: cls.status,
                                 scheduleDisplay: { day: cls.day, time: cls.time },
-                              });
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            View Class
-                          </button>
-                        </div>
-                      )}
+                              }),
+                          },
+                        ]}
+                      />
                     </div>
                   </div>
                 ))
