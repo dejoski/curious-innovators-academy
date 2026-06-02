@@ -124,7 +124,7 @@ export default function DashboardHeader() {
       return { canShowInlineActions: false, canShowProfileText: false, pickerWidth: 260 };
     }
 
-    const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 16px Inter, sans-serif");
+    const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 14px Inter, sans-serif");
     const profileNameWidth = measureHeaderText(headerDisplayName, "600 12px Inter, sans-serif");
     const profileRoleWidth = measureHeaderText(headerRoleLine, "400 12px Inter, sans-serif");
     const desiredPickerWidth = Math.min(420, Math.max(220, Math.ceil(studentNameWidth) + 116));

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
+import { DASHBOARD_METRIC_LABEL_CLASS } from "@/lib/dashboard-shell-classes";
 
 export type DashboardStatCardProps = {
   count: number;
@@ -19,7 +20,7 @@ export default function DashboardStatCard({ count, label, icon: Icon, loading = 
           <p className="w-full font-bold text-[32px] leading-[1.1] text-[#272932]">
             {loading ? <DashboardValueSkeleton className="h-8 w-12" /> : count}
           </p>
-          <p className="w-full font-medium text-[16px] leading-[1.4] text-[#666d80]">
+          <p className={`w-full ${DASHBOARD_METRIC_LABEL_CLASS}`}>
             {label}
           </p>
         </div>

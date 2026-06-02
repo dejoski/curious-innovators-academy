@@ -10,6 +10,8 @@ import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
+  DASHBOARD_TABLE_BODY_TEXT_CLASS,
+  DASHBOARD_TABLE_HEAD_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
@@ -761,25 +763,25 @@ export default function StudentsStudentsList({
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
           <div className="w-[1068px] flex flex-col">
             <div className="border-t border-[#f0f0f0] flex h-[64px] items-start pt-[20px]">
-              <div className="w-[194px] pl-[25px] font-semibold text-[#0d0d12] text-[14px] leading-[1.25]">
+              <div className={`w-[194px] pl-[25px] leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Student
               </div>
-              <div className="w-[175.333px] font-semibold text-[#0d0d12] text-[14px] leading-[1.25]">
+              <div className={`w-[175.333px] leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Parent
               </div>
-              <div className="w-[98px] font-semibold text-[#0d0d12] text-[14px] text-center leading-[1.25]">
+              <div className={`w-[98px] text-center leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Level
               </div>
-              <div className="w-[175.333px] font-semibold text-[#0d0d12] text-[14px] text-center leading-[1.25]">
+              <div className={`w-[175.333px] text-center leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Core Status
               </div>
-              <div className="w-[140px] font-semibold text-[#0d0d12] text-[14px] text-center leading-[1.25]">
+              <div className={`w-[140px] text-center leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Enrichment
               </div>
-              <div className="w-[175.333px] pl-[20px] font-semibold text-[#0d0d12] text-[14px] leading-[1.25]">
+              <div className={`w-[175.333px] pl-[20px] leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Notes
               </div>
-              <div className="w-[110px] font-semibold text-[#0d0d12] text-[14px] text-center leading-[1.25]">
+              <div className={`w-[110px] text-center leading-[1.25] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>
                 Action
               </div>
             </div>
@@ -814,7 +816,7 @@ export default function StudentsStudentsList({
                   />
                 ))
               ) : (
-                <div className="py-[32px] text-center text-[#666d80]">
+                <div className={`py-[32px] text-center ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>
                   {searchQuery.trim()
                     ? `No students found matching "${searchQuery}"`
                     : "No students match the current filters."}

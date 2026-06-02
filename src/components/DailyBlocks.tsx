@@ -3,6 +3,11 @@
 import React from "react";
 import Link from "next/link";
 import type { DashboardDailyBlockRow } from "@/lib/dashboard-metrics";
+import {
+  DASHBOARD_BODY_PRIMARY_TEXT_CLASS,
+  DASHBOARD_BODY_SECONDARY_TEXT_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "@/lib/dashboard-shell-classes";
 
 const imgGroup = "/images/icon-calendar-linear.svg";
 const imgArrowRightThin = "/images/icon-arrow-right-thin.svg";
@@ -33,31 +38,31 @@ function DailyBlockRow({
     >
       <div className="content-stretch flex gap-[24px] items-start relative shrink-0 w-full" data-node-id={firstRowNodeId}>
         <div className="content-stretch flex flex-[1_0_0] flex-col gap-[4px] h-[38px] items-start min-w-px relative">
-          <p className="font-medium leading-[1.4] not-italic relative shrink-0 text-[#0d0d12] text-[14px] whitespace-nowrap">
+          <p className={`font-medium leading-[1.4] not-italic relative shrink-0 whitespace-nowrap ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>
             {row.blockTitle}
           </p>
           <div className="content-stretch flex items-center relative shrink-0">
-            <p className="font-normal leading-[1.4] not-italic relative shrink-0 text-[#666d80] text-[14px] whitespace-nowrap">
+            <p className={`font-normal leading-[1.4] not-italic relative shrink-0 whitespace-nowrap ${DASHBOARD_BODY_SECONDARY_TEXT_CLASS}`}>
               {row.timeRange}
             </p>
           </div>
         </div>
         <div className="content-stretch flex flex-[1_0_0] flex-col gap-[4px] h-[38px] items-start min-w-px relative">
-          <p className="font-medium leading-[1.4] not-italic relative shrink-0 text-[#0d0d12] text-[14px] whitespace-nowrap">
+          <p className={`font-medium leading-[1.4] not-italic relative shrink-0 whitespace-nowrap ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>
             {row.trackType}
           </p>
           <div className="content-stretch flex items-center relative shrink-0">
-            <p className="font-normal leading-[1.4] not-italic relative shrink-0 text-[#666d80] text-[14px] whitespace-nowrap">
+            <p className={`font-normal leading-[1.4] not-italic relative shrink-0 whitespace-nowrap ${DASHBOARD_BODY_SECONDARY_TEXT_CLASS}`}>
               {occupancyLabel}
             </p>
           </div>
         </div>
         <div className="content-stretch flex flex-[1_0_0] flex-col gap-[4px] h-[38px] items-start min-w-px relative">
-          <p className="font-medium leading-[1.4] not-italic relative shrink-0 text-[#0d0d12] text-[14px] whitespace-nowrap">
+          <p className={`font-medium leading-[1.4] not-italic relative shrink-0 whitespace-nowrap ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>
             Students
           </p>
           <div className="content-stretch flex items-center relative shrink-0">
-            <p className="font-normal leading-[1.4] not-italic relative shrink-0 text-[#666d80] text-[14px] whitespace-nowrap">
+            <p className={`font-normal leading-[1.4] not-italic relative shrink-0 whitespace-nowrap ${DASHBOARD_BODY_SECONDARY_TEXT_CLASS}`}>
               {withoutLabel}
             </p>
           </div>
@@ -90,7 +95,7 @@ export default function DailyBlocks({ rows = [] }: DailyBlocksProps) {
               </div>
             </div>
             <div className="content-stretch flex flex-col gap-[2px] items-start leading-[1.4] not-italic relative shrink-0 whitespace-nowrap" data-node-id="11:4666" data-name="Text">
-              <p className="font-semibold relative shrink-0 text-[#0d0d12] text-[16px]" data-node-id="11:4667">
+              <p className={`font-semibold relative shrink-0 ${DASHBOARD_SECTION_TITLE_CLASS}`} data-node-id="11:4667">
                 Daily Blocks
               </p>
               <p className="font-normal relative shrink-0 text-[#6b6b6b] text-[12px]" data-node-id="11:4668">

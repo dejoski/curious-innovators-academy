@@ -19,6 +19,8 @@ import {
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
+  DASHBOARD_TABLE_BODY_TEXT_CLASS,
+  DASHBOARD_TABLE_HEAD_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
@@ -463,11 +465,11 @@ export default function TeachersTeacherList({
             <table className="w-full text-left min-w-[900px]">
               <thead>
                 <tr className="border-t border-[#f0f0f0]">
-                  <th className="font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Teacher</th>
-                  <th className="font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Subjects</th>
-                  <th className="font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Email</th>
-                  <th className="font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Phone</th>
-                  <th className="font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px] text-center">Action</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Teacher</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Subjects</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Email</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Phone</th>
+                  <th className={`py-[16px] px-[10px] text-center ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -500,34 +502,34 @@ export default function TeachersTeacherList({
                               </svg>
                             )}
                           </button>
-                          <div className="flex gap-[6px] items-center min-w-0">
-                            <EntityAvatar name={teacher.name} src={teacher.avatar} className="size-8" />
-                            <p className="font-normal text-[#0d0d12] text-[16px] truncate">{teacher.name}</p>
-                          </div>
+                        <div className="flex gap-[6px] items-center min-w-0">
+                          <EntityAvatar name={teacher.name} src={teacher.avatar} className="size-8" />
+                          <p className={`truncate ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>{teacher.name}</p>
                         </div>
-                      </td>
-                      <td className="py-[12px] px-[10px]">
+                      </div>
+                    </td>
+                    <td className="py-[12px] px-[10px]">
                         {assignedClassNames(teacher).length > MAX_CLASS_PREVIEW ? (
                           <button
                             type="button"
                             onClick={() => setViewTeacher(teacher)}
-                            className="max-w-[320px] text-left font-normal text-[#0d0d12] text-[16px] underline-offset-2 hover:text-[#14c1d5] hover:underline"
+                            className={`max-w-[320px] text-left underline-offset-2 hover:text-[#14c1d5] hover:underline ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}
                             title={teacher.subjects}
                           >
                             {assignedClassPreview(teacher)}
                           </button>
                         ) : (
-                          <p className="max-w-[320px] font-normal text-[#0d0d12] text-[16px]">
+                          <p className={`max-w-[320px] ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>
                             {assignedClassPreview(teacher)}
                           </p>
                         )}
                       </td>
-                      <td className="py-[12px] px-[10px]">
-                        <p className="font-normal text-[#0d0d12] text-[16px]">{teacher.email}</p>
-                      </td>
-                      <td className="py-[12px] px-[10px]">
-                        <p className="font-normal text-[#0d0d12] text-[16px]">{teacher.phone}</p>
-                      </td>
+                    <td className="py-[12px] px-[10px]">
+                      <p className={DASHBOARD_TABLE_BODY_TEXT_CLASS}>{teacher.email}</p>
+                    </td>
+                    <td className="py-[12px] px-[10px]">
+                      <p className={DASHBOARD_TABLE_BODY_TEXT_CLASS}>{teacher.phone}</p>
+                    </td>
                       <td className="py-[12px] px-[10px] relative">
                         <div className="flex justify-center">
                           <button
