@@ -5,6 +5,7 @@ import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteClass,
   serverInsertClass,
+  serverSetClassLifecycle,
   serverUpdateClass,
 } from "@/lib/data/server-writes";
 import { fetchClassesForClientResolved, fetchClassesResolved } from "@/lib/data/repositories/classes";
@@ -62,10 +63,17 @@ export async function POST(req: Request) {
     capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
+    isActive: body.isActive == null ? undefined : Boolean(body.isActive),
+    archivedAt: body.archivedAt == null ? undefined : String(body.archivedAt),
     track: body.track === "enrichment" ? "enrichment" : "core",
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
+    scheduleDays: Array.isArray(body.scheduleDays) ? body.scheduleDays.map(String) : undefined,
+    location: body.location != null ? String(body.location) : undefined,
+    room: body.room != null ? String(body.room) : undefined,
+    minAgeYears: body.minAgeYears == null ? undefined : Number(body.minAgeYears),
+    maxAgeYears: body.maxAgeYears == null ? undefined : Number(body.maxAgeYears),
   });
   if (!result.ok) {
     return apiWriteError(result.message);
@@ -82,6 +90,14 @@ export async function PATCH(req: Request) {
   if (!id) {
     return invalidIdResponse();
   }
+  if (body.lifecycle === "activate" || body.lifecycle === "deactivate" || body.lifecycle === "archive") {
+    const result = await serverSetClassLifecycle(id, {
+      isActive: body.lifecycle === "activate",
+      archived: body.lifecycle === "archive",
+    });
+    if (!result.ok) return apiWriteError(result.message);
+    return NextResponse.json({ class: result.row });
+  }
   const result = await serverUpdateClass(id, {
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
@@ -89,10 +105,17 @@ export async function PATCH(req: Request) {
     capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
+    isActive: body.isActive == null ? undefined : Boolean(body.isActive),
+    archivedAt: body.archivedAt == null ? undefined : String(body.archivedAt),
     track: body.track === "enrichment" ? "enrichment" : "core",
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
+    scheduleDays: Array.isArray(body.scheduleDays) ? body.scheduleDays.map(String) : undefined,
+    location: body.location != null ? String(body.location) : undefined,
+    room: body.room != null ? String(body.room) : undefined,
+    minAgeYears: body.minAgeYears == null ? undefined : Number(body.minAgeYears),
+    maxAgeYears: body.maxAgeYears == null ? undefined : Number(body.maxAgeYears),
   });
   if (!result.ok) {
     return apiWriteError(result.message);

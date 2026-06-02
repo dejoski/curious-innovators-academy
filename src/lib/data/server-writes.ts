@@ -179,6 +179,44 @@ function normalizeDateOnly(raw: string): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
 }
 
+function normalizeOptionalAge(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.floor(parsed);
+}
+
+function normalizeScheduleDays(raw: unknown): string[] {
+  const values = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,\n]/);
+  const allowed = new Set(["M", "T", "W", "TH", "F"]);
+  const normalized: string[] = [];
+  for (const value of values) {
+    const day = String(value ?? "").trim().toUpperCase();
+    if (!day) continue;
+    const mapped =
+      day === "MON" || day === "MONDAY" ? "M" :
+      day === "TUE" || day === "TUESDAY" ? "T" :
+      day === "WED" || day === "WEDNESDAY" ? "W" :
+      day === "THU" || day === "THURSDAY" ? "TH" :
+      day === "FRI" || day === "FRIDAY" ? "F" :
+      day;
+    if (allowed.has(mapped) && !normalized.includes(mapped)) normalized.push(mapped);
+  }
+  return normalized;
+}
+
+function validateClassScheduleInput(input: {
+  schedule: string;
+  block?: string;
+  scheduleDays?: string[];
+}): WriteFail | { ok: true } {
+  if (!input.block?.trim()) return { ok: false, message: "Choose a schedule block before saving the class." };
+  if (!input.scheduleDays?.length && !input.schedule.trim()) {
+    return { ok: false, message: "Choose at least one meeting day or schedule summary before saving the class." };
+  }
+  return { ok: true };
+}
+
 async function resolveCurrentSemesterId(supabase: SupabaseMutationClient): Promise<string | null> {
   const { data, error } = await supabase
     .from("semesters")
@@ -366,14 +404,29 @@ export async function serverInsertClass(input: {
   capacity?: number;
   schedule: string;
   status: SchoolClassRow["status"];
+  isActive?: boolean;
+  archivedAt?: string | null;
   track?: "core" | "enrichment";
   description?: string;
   level?: string;
   block?: string;
+  scheduleDays?: string[];
+  location?: string;
+  room?: string;
+  minAgeYears?: number | null;
+  maxAgeYears?: number | null;
 
 }): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const capacity = normalizeCapacity(input.capacity);
+  const scheduleDays = normalizeScheduleDays(input.scheduleDays);
+  const scheduleValid = validateClassScheduleInput({ schedule: input.schedule, block: input.block, scheduleDays });
+  if (!scheduleValid.ok) return scheduleValid;
+  const minAgeYears = normalizeOptionalAge(input.minAgeYears);
+  const maxAgeYears = normalizeOptionalAge(input.maxAgeYears);
+  if (minAgeYears != null && maxAgeYears != null && maxAgeYears < minAgeYears) {
+    return { ok: false, message: "Maximum age must be greater than or equal to minimum age." };
+  }
   try {
     const supabase = await createSupabaseServerClient();
     const teacherId = await resolveTeacherIdByDisplayName(supabase, input.teacher);
@@ -393,11 +446,21 @@ export async function serverInsertClass(input: {
       program: (input.track ?? "core") as "core" | "enrichment",
       capacity,
       schedule_summary: input.schedule.trim(),
+      schedule_days: scheduleDays,
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
+      is_active: input.isActive ?? true,
+      archived_at: input.archivedAt ?? null,
+      min_age_years: minAgeYears,
+      max_age_years: maxAgeYears,
     };
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
+    const room = String(input.room ?? input.location ?? "").trim();
+    if (room) {
+      payload.room = room;
+      payload.location = String(input.location ?? input.room ?? "").trim() || room;
+    }
 
     const { data, error } = await supabase.from("classes").insert(payload).select("*").maybeSingle();
     if (error) return { ok: false, message: error.message };
@@ -465,15 +528,30 @@ export async function serverUpdateClass(
     capacity?: number;
     schedule: string;
     status: SchoolClassRow["status"];
+    isActive?: boolean;
+    archivedAt?: string | null;
     track?: "core" | "enrichment";
     description?: string;
     level?: string;
     block?: string;
+    scheduleDays?: string[];
+    location?: string;
+    room?: string;
+    minAgeYears?: number | null;
+    maxAgeYears?: number | null;
 
   },
 ): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const capacity = normalizeCapacity(input.capacity);
+  const scheduleDays = normalizeScheduleDays(input.scheduleDays);
+  const scheduleValid = validateClassScheduleInput({ schedule: input.schedule, block: input.block, scheduleDays });
+  if (!scheduleValid.ok) return scheduleValid;
+  const minAgeYears = normalizeOptionalAge(input.minAgeYears);
+  const maxAgeYears = normalizeOptionalAge(input.maxAgeYears);
+  if (minAgeYears != null && maxAgeYears != null && maxAgeYears < minAgeYears) {
+    return { ok: false, message: "Maximum age must be greater than or equal to minimum age." };
+  }
   try {
     const supabase = await createSupabaseServerClient();
     const teacherId = await resolveTeacherIdByDisplayName(supabase, input.teacher);
@@ -486,12 +564,21 @@ export async function serverUpdateClass(
       program: (input.track ?? "core") as "core" | "enrichment",
       capacity,
       schedule_summary: input.schedule.trim(),
+      schedule_days: scheduleDays,
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
+      is_active: input.isActive ?? true,
+      archived_at: input.archivedAt ?? null,
+      min_age_years: minAgeYears,
+      max_age_years: maxAgeYears,
+      updated_at: new Date().toISOString(),
     };
     if (input.semesterId?.trim()) payload.semester_id = input.semesterId.trim();
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
+    const room = String(input.room ?? input.location ?? "").trim();
+    payload.room = room || null;
+    payload.location = String(input.location ?? input.room ?? "").trim() || room || null;
 
     const { data, error } = await supabase
       .from("classes")
@@ -522,14 +609,50 @@ export async function serverDeleteClass(id: string): Promise<{ ok: true } | Writ
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.from("classes").delete().eq("id", id);
+    const { error } = await supabase
+      .from("classes")
+      .update({ is_active: false, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) return { ok: false, message: error.message };
     await writeAuditEvent(supabase, {
-      action: "class.delete",
+      action: "class.archive",
       entityType: "class",
       entityId: id,
     });
     return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
+export async function serverSetClassLifecycle(
+  id: string,
+  input: { isActive: boolean; archived?: boolean },
+): Promise<WriteOk<SchoolClassRow> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  try {
+    const supabase = await createSupabaseServerClient();
+    const payload = input.archived
+      ? { is_active: false, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      : { is_active: input.isActive, archived_at: null, updated_at: new Date().toISOString() };
+    const { data, error } = await supabase
+      .from("classes")
+      .update(payload)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "No row updated" };
+    const mapped = mapClassRow(await flattenClassRowForMap(supabase, data as Record<string, unknown>));
+    if (!mapped) return { ok: false, message: "Could not map saved class" };
+    await writeAuditEvent(supabase, {
+      action: input.archived ? "class.archive" : input.isActive ? "class.activate" : "class.deactivate",
+      entityType: "class",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, isActive: mapped.isActive, archivedAt: mapped.archivedAt ?? null },
+    });
+    return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };
@@ -1790,7 +1913,7 @@ async function ensureClassCapacityForChoices(
   choices: {
     classId: string;
   }[],
-  options: { semesterId: string | null },
+  options: { semesterId: string | null; studentId: string },
 ): Promise<WriteFail | { ok: true }> {
   const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
     next.set(choice.classId, (next.get(choice.classId) ?? 0) + 1);
@@ -1807,12 +1930,12 @@ async function ensureClassCapacityForChoices(
 
   let { data: classes, error: classesError } = await supabase
     .from("classes")
-    .select("id, name, semester_id")
+    .select("id, name, semester_id, program, is_active, archived_at, min_age_years, max_age_years")
     .in("id", classIds);
   if (classesError && isSemesterSchemaError(classesError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, name")
+      .select("id, name, program")
       .in("id", classIds);
     classes = fallback.data as typeof classes;
     classesError = fallback.error;
@@ -1820,6 +1943,14 @@ async function ensureClassCapacityForChoices(
   if (classesError) return { ok: false, message: classesError.message };
 
   const classRows = (classes ?? []) as unknown as Record<string, unknown>[];
+  const { data: student, error: studentError } = await supabase
+    .from("students")
+    .select("id, age_years")
+    .eq("id", options.studentId)
+    .maybeSingle();
+  if (studentError) return { ok: false, message: studentError.message };
+  if (!student) return { ok: false, message: "Selected student was not found" };
+  const studentAge = Number((student as Record<string, unknown>).age_years);
   const availabilityByClassId = new Map(
     ((availability ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.class_id), row]),
   );
@@ -1832,6 +1963,23 @@ async function ensureClassCapacityForChoices(
     const classRow = classRows.find((candidate) => String(candidate.id) === classId);
     if (!classBelongsToSemester(classRow, options.semesterId)) {
       return { ok: false, message: "Selected class is not available in the current semester." };
+    }
+    if (String(classRow?.program ?? "").toLowerCase() !== "enrichment") {
+      return { ok: false, message: "Only enrichment classes can be requested by parents." };
+    }
+    if (classRow && "is_active" in classRow && !Boolean(classRow.is_active)) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is not currently available.` };
+    }
+    if (classRow && "archived_at" in classRow && classRow.archived_at) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} has been archived.` };
+    }
+    const minAge = Number(classRow?.min_age_years);
+    const maxAge = Number(classRow?.max_age_years);
+    if (Number.isFinite(studentAge) && Number.isFinite(minAge) && studentAge < minAge) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} requires students to be at least ${minAge}.` };
+    }
+    if (Number.isFinite(studentAge) && Number.isFinite(maxAge) && studentAge > maxAge) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is limited to students age ${maxAge} or younger.` };
     }
 
     const remaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
@@ -2207,7 +2355,7 @@ export async function serverInsertEnrichmentRequests(input: {
       });
       if (!cleared.ok) return cleared;
 
-      const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId });
+      const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId, studentId });
       if (!capacity.ok) return capacity;
 
       const openSlots = await ensureOpenSlotsForRequestChoices(admin, { studentId, choices, semesterId });
@@ -2233,7 +2381,7 @@ export async function serverInsertEnrichmentRequests(input: {
     });
     if (!cleared.ok) return cleared;
 
-    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId });
+    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId, studentId });
     if (!capacity.ok) return capacity;
 
     const openSlots = await ensureOpenSlotsForRequestChoices(capacityClient, { studentId, choices, semesterId });

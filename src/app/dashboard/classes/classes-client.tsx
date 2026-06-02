@@ -61,7 +61,7 @@ type VisibilityFilter = "all" | "active" | "full";
 
 const VISIBILITY_FILTER_LABELS: Record<VisibilityFilter, string> = {
   all: "All Classes",
-  active: "Active Classes",
+  active: "Parent-Visible Classes",
   full: "Full Classes",
 };
 
@@ -250,7 +250,7 @@ export default function ClassesPageClient({
     let rows = classes.filter((c) => c.program === trackTab);
 
     if (visibilityFilter === "active") {
-      rows = rows.filter((c) => c.status === "Active");
+      rows = rows.filter((c) => c.isActive && !c.archivedAt);
     } else if (visibilityFilter === "full") {
       rows = rows.filter((c) => c.status === "Full");
     }
@@ -394,6 +394,7 @@ export default function ClassesPageClient({
             description: draft.description?.trim(),
             level: draft.level?.trim(),
             block: draft.block?.trim(),
+            scheduleDays: draft.schedule ? undefined : ["M", "T", "W", "TH", "F"],
           }),
         });
         if (res.ok) {
@@ -469,6 +470,7 @@ export default function ClassesPageClient({
             description: draft.description?.trim(),
             level: draft.level?.trim(),
             block: draft.block?.trim(),
+            scheduleDays: draft.schedule ? undefined : ["M", "T", "W", "TH", "F"],
           }),
         });
         if (res.ok) {
@@ -515,24 +517,54 @@ export default function ClassesPageClient({
     });
   }, [trackTab, classes]);
 
-  const deleteClassById = async (id: string) => {
+  const archiveClassById = async (id: string) => {
     const removed = classes.find((c) => c.id === id);
-    const nextClasses = classes.filter((c) => c.id !== id);
+    const archivedAt = new Date().toISOString();
+    const nextClasses = classes.map((c) => c.id === id ? { ...c, isActive: false, archivedAt } : c);
     setClasses(nextClasses);
     classesCache.setClassesData(nextClasses);
     setPendingDeleteId(null);
     setRowMenuId(null);
-    const res = await fetch(`/api/data/classes?id=${encodeURIComponent(String(id))}`, {
-      method: "DELETE",
+    const res = await fetch("/api/data/classes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, lifecycle: "archive" }),
     });
     if (!res.ok && removed) {
-      const restored = [...nextClasses, removed].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      const restored = classes;
       setClasses(restored);
       classesCache.setClassesData(restored);
-      setSyncHint(`Could not delete (${await readApiError(res)}). Row restored here.`);
+      setSyncHint(`Could not archive (${await readApiError(res)}). Row restored here.`);
       return;
     }
     invalidateDashboardData(["/api/data/class-options", "/api/dashboard-presentation"]);
+    void classesCache.loadClasses(true);
+  };
+
+  const setClassLifecycleById = async (id: string, lifecycle: "activate" | "deactivate") => {
+    const previous = classes;
+    const nextClasses = classes.map((c) => c.id === id ? { ...c, isActive: lifecycle === "activate", archivedAt: undefined } : c);
+    setClasses(nextClasses);
+    classesCache.setClassesData(nextClasses);
+    setRowMenuId(null);
+    const res = await fetch("/api/data/classes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, lifecycle }),
+    });
+    if (!res.ok) {
+      setClasses(previous);
+      classesCache.setClassesData(previous);
+      setSyncHint(`Could not ${lifecycle} class (${await readApiError(res)}).`);
+      return;
+    }
+    const body = (await res.json()) as { class?: SchoolClassRow };
+    if (body.class) {
+      const refreshed = previous.map((c) => c.id === id ? body.class! : c);
+      setClasses(refreshed);
+      classesCache.setClassesData(refreshed);
+    }
+    invalidateDashboardData(["/api/data/classes", "/api/data/class-options", "/api/dashboard-presentation"]);
     void classesCache.loadClasses(true);
   };
 
@@ -546,10 +578,18 @@ export default function ClassesPageClient({
       body: JSON.stringify({
         name,
         teacher: row.teacher,
-        students: row.students,
+        capacity: row.capacity,
         schedule: row.schedule,
+        scheduleDays: row.scheduleDays,
         status: row.status,
         track: row.program,
+        description: row.description,
+        level: row.level,
+        block: row.block,
+        location: row.location,
+        room: row.room,
+        minAgeYears: row.minAgeYears,
+        maxAgeYears: row.maxAgeYears,
       }),
     });
     setRowMenuId(null);
@@ -827,6 +867,11 @@ export default function ClassesPageClient({
                           ) : null}
                         </span>
                         <span className="line-clamp-2 min-w-0 leading-[1.35]" title={cls.name}>{cls.name}</span>
+                        {!cls.isActive || cls.archivedAt ? (
+                          <span className="shrink-0 rounded-full border border-[#cfa500]/40 bg-[#fff8e6] px-2 py-0.5 text-[11px] font-semibold text-[#7a5b00]">
+                            {cls.archivedAt ? "Archived" : "Inactive"}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={cls.teacher}>
@@ -855,6 +900,9 @@ export default function ClassesPageClient({
                     <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.3] tabular-nums text-[#3f4350]">
                       <div className="flex flex-col items-center gap-1.5">
                         <span>{cls.students}</span>
+                        <span className="max-w-[96px] truncate text-[12px] leading-[1.25] text-[#818898]">
+                          {cls.isActive && !cls.archivedAt ? "Visible" : "Hidden"}
+                        </span>
                         {trackTab === "enrichment" && (
                           <span className="max-w-[96px] truncate text-[12px] italic leading-[1.25] text-[#818898]">
                             {cls.pendingCount > 0 ? `(${cls.pendingCount} pending)` : "No pending requests"}
@@ -889,6 +937,12 @@ export default function ClassesPageClient({
                             icon: <Copy className="size-5" aria-hidden strokeWidth={1.8} />,
                             onClick: () => {
                               void duplicateClassById(cls.id);
+                            },
+                          },
+                          {
+                            label: cls.isActive && !cls.archivedAt ? "Deactivate" : "Activate",
+                            onClick: () => {
+                              void setClassLifecycleById(cls.id, cls.isActive && !cls.archivedAt ? "deactivate" : "activate");
                             },
                           },
                           {
@@ -1079,11 +1133,11 @@ export default function ClassesPageClient({
               Delete class
             </h2>
             <p className="mt-2 font-sans text-sm text-[#666d80]">
-              Delete{" "}
+              Archive{" "}
               <span className="font-semibold text-[#0d0d12]">
                 {classes.find((c) => c.id === pendingDeleteId)?.name ?? "this class"}
               </span>
-              ? This removes the class from the directory for all administrators.
+              ? This hides the class from parents while preserving rosters and historical records.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -1096,9 +1150,9 @@ export default function ClassesPageClient({
               <button
                 type="button"
                 className="rounded-md bg-[#d80509] px-4 py-2 font-sans text-sm font-semibold text-white transition-colors hover:bg-[#c00408]"
-                onClick={() => deleteClassById(pendingDeleteId)}
+                onClick={() => archiveClassById(pendingDeleteId)}
               >
-                Delete
+                Archive
               </button>
             </div>
           </div>
