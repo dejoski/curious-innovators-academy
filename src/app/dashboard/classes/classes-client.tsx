@@ -2,15 +2,14 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, PencilLine, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { useClassesDataCache } from "@/components/classes-data-cache";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, mutateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
@@ -19,7 +18,6 @@ import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
-const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgFilterFunnel = "/images/icon-filter-funnel.svg";
 const imgCheckRounded = "/images/icon-check-rounded.svg";
 
@@ -104,48 +102,6 @@ function capacityFromImportValue(value: string): number {
   const raw = seatsMatch ? seatsMatch[1] : trimmed;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
-}
-
-function RowMenuActionButton({
-  icon,
-  label,
-  tone = "default",
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  tone?: "default" | "danger";
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left font-sans text-[14px] leading-none transition-colors ${
-        tone === "danger" ? "text-[#d80509] hover:bg-[#fff5f5]" : "text-[#0d0d12] hover:bg-[#fafafa]"
-      }`}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-    >
-      <span className="flex size-5 shrink-0 items-center justify-center text-current" aria-hidden>
-        {icon}
-      </span>
-      <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
-  const r = triggerEl.getBoundingClientRect();
-  const MENU_W = 210;
-  const MENU_H = 210;
-  let left = Math.max(8, r.right - MENU_W);
-  if (left + MENU_W > window.innerWidth - 8) left = Math.max(8, window.innerWidth - MENU_W - 8);
-  let top = r.bottom + 4;
-  if (top + MENU_H > window.innerHeight - 8) top = Math.max(8, r.top - MENU_H - 4);
-  return { top, left };
 }
 
 function parseCsv(text: string): string[][] {
@@ -276,10 +232,9 @@ export default function ClassesPageClient({
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [detailClass, setDetailClass] = useState<SchoolClassRow | null>(null);
-  const [mounted, setMounted] = useState(false);
   const [importing, setImporting] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -288,11 +243,7 @@ export default function ClassesPageClient({
 
   const sortRef = useRef<HTMLDivElement | null>(null);
   const filterRef = useRef<HTMLDivElement | null>(null);
-  const rowMenuPanelRef = useRef<HTMLDivElement | null>(null);
-  const rowMenuTriggerRef = useRef<HTMLElement | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (initialClasses.length > 0 && !classesCache.classes.data) {
@@ -381,33 +332,15 @@ export default function ClassesPageClient({
   useClickOutside(filterRef as React.RefObject<HTMLElement | null>, () => setFilterOpen(false), filterOpen);
   useClickOutside(sortRef as React.RefObject<HTMLElement | null>, () => setSortOpen(false), sortOpen);
 
-  useLayoutEffect(() => {
-    if (rowMenu === null) {
-      rowMenuTriggerRef.current = null;
-      return;
+  useEffect(() => {
+    function closeRowMenu(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-dashboard-row-actions]")) return;
+      setRowMenuId(null);
     }
-    rowMenuTriggerRef.current =
-      (document.querySelector(`[data-classes-row-trigger="${rowMenu.id}"]`) as HTMLElement | null) ?? null;
-
-    const onScrollResize = () => {
-      const t = rowMenuTriggerRef.current;
-      if (!t) return;
-      const pos = computeAnchoredMenuPosition(t);
-      setRowMenu((prev) => (prev ? { ...prev, ...pos } : null));
-    };
-    window.addEventListener("scroll", onScrollResize, true);
-    window.addEventListener("resize", onScrollResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollResize, true);
-      window.removeEventListener("resize", onScrollResize);
-    };
-  }, [rowMenu?.id]);
-
-  useClickOutside(
-    [rowMenuTriggerRef, rowMenuPanelRef as React.RefObject<HTMLElement | null>],
-    () => setRowMenu(null),
-    rowMenu !== null,
-  );
+    document.addEventListener("mousedown", closeRowMenu);
+    return () => document.removeEventListener("mousedown", closeRowMenu);
+  }, []);
 
   const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -620,7 +553,7 @@ export default function ClassesPageClient({
     setClasses(nextClasses);
     classesCache.setClassesData(nextClasses);
     setPendingDeleteId(null);
-    setRowMenu(null);
+    setRowMenuId(null);
     const res = await fetch(`/api/data/classes?id=${encodeURIComponent(String(id))}`, {
       method: "DELETE",
     });
@@ -651,7 +584,7 @@ export default function ClassesPageClient({
         track: row.program,
       }),
     });
-    setRowMenu(null);
+    setRowMenuId(null);
     if (res.ok) {
       const body = (await res.json()) as { class: SchoolClassRow };
       const nextClasses = [...classes, body.class];
@@ -710,11 +643,11 @@ export default function ClassesPageClient({
           </p>
         )}
 
-        <div className="flex w-full max-w-full overflow-hidden rounded-tl-[8px] rounded-tr-[8px] sm:inline-flex sm:w-auto">
+        <div className="flex w-full max-w-full items-end gap-2 border-b border-[#f0f0f0] sm:w-auto sm:self-start">
           <button
             type="button"
-            className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
-              trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
+            className={`flex-1 rounded-t-[8px] px-6 py-[12px] text-center text-[14px] leading-[1.25] transition-colors sm:flex-none sm:px-[50px] ${
+              trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[rgba(210,241,245,0.3)] text-[#0d0d12] hover:bg-[rgba(210,241,245,0.5)]"
             }`}
             onClick={() => changeTrack("core")}
           >
@@ -722,8 +655,8 @@ export default function ClassesPageClient({
           </button>
           <button
             type="button"
-            className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
-              trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
+            className={`flex-1 rounded-t-[8px] px-6 py-[12px] text-center text-[14px] leading-[1.25] transition-colors sm:flex-none sm:px-[50px] ${
+              trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[rgba(210,241,245,0.3)] text-[#0d0d12] hover:bg-[rgba(210,241,245,0.5)]"
             }`}
             onClick={() => changeTrack("enrichment")}
           >
@@ -731,7 +664,7 @@ export default function ClassesPageClient({
           </button>
         </div>
 
-        <div className="relative -mt-[6px] min-h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] shadow-sm sm:px-[18px]">
+        <div className="relative min-h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] shadow-sm sm:px-[18px]">
           <div className="mb-[16px] flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
             <div className="flex w-full min-w-0 items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 py-2 md:w-auto md:bg-transparent md:px-0 md:py-0">
               <div className="relative size-[14px]">
@@ -757,7 +690,7 @@ export default function ClassesPageClient({
                   onClick={() => {
                     setFilterOpen((open) => !open);
                     setSortOpen(false);
-                    setRowMenu(null);
+                    setRowMenuId(null);
                   }}
                   aria-expanded={filterOpen}
                 >
@@ -792,7 +725,7 @@ export default function ClassesPageClient({
                   className="flex items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
                   onClick={() => {
                     setSortOpen((o) => !o);
-                    setRowMenu(null);
+                    setRowMenuId(null);
                   }}
                   aria-expanded={sortOpen}
                 >
@@ -962,21 +895,43 @@ export default function ClassesPageClient({
                       </div>
                     </td>
                     <td className="relative px-3 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        data-classes-row-trigger={cls.id}
-                        className="text-[#8b919f] hover:text-[#0d0d12]"
-                        aria-expanded={rowMenu?.id === cls.id}
-                        aria-label={`Actions for ${cls.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                      <DashboardRowActionsMenu
+                        label={`Actions for ${cls.name}`}
+                        isOpen={rowMenuId === cls.id}
+                        onToggle={() => {
                           setSortOpen(false);
-                          if (rowMenu?.id === cls.id) setRowMenu(null);
-                          else setRowMenu({ id: cls.id, ...computeAnchoredMenuPosition(e.currentTarget) });
+                          setRowMenuId(rowMenuId === cls.id ? null : cls.id);
                         }}
-                      >
-                        <img src={imgWeuiMoreOutlined} alt="" className="inline-block size-[24px]" />
-                      </button>
+                        onClose={() => setRowMenuId(null)}
+                        actions={[
+                          {
+                            label: "View Class",
+                            onClick: () => {
+                              setDetailClass(cls);
+                            },
+                          },
+                          {
+                            label: "Edit Class",
+                            onClick: () => {
+                              goToClassDetail(cls, { edit: true });
+                            },
+                          },
+                          {
+                            label: "Duplicate",
+                            icon: <Copy className="size-5" aria-hidden strokeWidth={1.8} />,
+                            onClick: () => {
+                              void duplicateClassById(cls.id);
+                            },
+                          },
+                          {
+                            label: "Remove",
+                            tone: "danger",
+                            onClick: () => {
+                              setPendingDeleteId(cls.id);
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -1055,61 +1010,6 @@ export default function ClassesPageClient({
           </div>
         </div>
       </div>
-
-      {mounted &&
-        rowMenu !== null &&
-        document.body &&
-        createPortal(
-          (() => {
-            const row = classes.find((c) => c.id === rowMenu.id);
-            if (!row) return null;
-            return (
-              <div
-                ref={rowMenuPanelRef}
-                className="fixed z-[300] w-[210px] overflow-hidden rounded-[14px] border border-[#dfe1e7] bg-white font-sans text-left shadow-[0px_8px_22px_rgba(13,13,18,0.12)]"
-                role="menu"
-                style={{ top: rowMenu.top, left: rowMenu.left }}
-              >
-                <div className="border-b border-[#dfe1e7] px-4 py-3 text-[14px] font-semibold leading-none text-[#272932]">
-                  Action
-                </div>
-                <RowMenuActionButton
-                  icon={<Eye className="size-5" aria-hidden strokeWidth={1.8} />}
-                  label="View Class"
-                  onClick={() => {
-                    setDetailClass(row);
-                    setRowMenu(null);
-                  }}
-                />
-                <RowMenuActionButton
-                  icon={<PencilLine className="size-5" aria-hidden strokeWidth={1.8} />}
-                  label="Edit Class"
-                  onClick={() => {
-                    setRowMenu(null);
-                    goToClassDetail(row, { edit: true });
-                  }}
-                />
-                <RowMenuActionButton
-                  icon={<Copy className="size-5" aria-hidden strokeWidth={1.8} />}
-                  label="Duplicate"
-                  onClick={() => {
-                    void duplicateClassById(row.id);
-                  }}
-                />
-                <RowMenuActionButton
-                  icon={<Trash2 className="size-5" aria-hidden strokeWidth={1.8} />}
-                  label="Remove"
-                  tone="danger"
-                  onClick={() => {
-                    setPendingDeleteId(row.id);
-                    setRowMenu(null);
-                  }}
-                />
-              </div>
-            );
-          })(),
-          document.body,
-        )}
 
       {detailClass !== null && (
         <div

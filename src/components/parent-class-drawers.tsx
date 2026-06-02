@@ -62,6 +62,23 @@ function detailsAvailabilityLabel(option: ParentClassOption): string {
   return `${base} - ${remaining} remaining`;
 }
 
+const PARENT_CLASS_DIALOG_CLASS =
+  "fixed inset-0 z-50 m-0 h-[100dvh] max-h-none w-screen max-w-none overflow-hidden border-0 bg-black/20 p-0" as const;
+
+const PARENT_CLASS_MODAL_SHADOW_CLASS =
+  "shadow-[0_18px_48px_rgba(13,13,18,0.18)]" as const;
+
+function ClickAwayCloseButton({ label, onClose }: { label: string; onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      className="absolute inset-0 cursor-default"
+      aria-label={label}
+      onMouseDown={onClose}
+    />
+  );
+}
+
 export function ParentClassDetailsContent({
   option,
   statusLabel,
@@ -389,13 +406,13 @@ export function ParentClassSelectionDrawer({
   return (
     <dialog
       open
-      className="fixed inset-0 z-50 m-0 flex h-[100dvh] max-h-none w-screen max-w-none justify-end overflow-hidden border-0 bg-black/20 p-0"
+      className={`${PARENT_CLASS_DIALOG_CLASS} flex justify-end`}
       aria-modal="true"
       aria-labelledby="select-class-title"
     >
-      <button type="button" className="absolute inset-0 cursor-default" aria-label="Close class selection" onMouseDown={onClose} />
+      <ClickAwayCloseButton label="Close class selection" onClose={onClose} />
       <div
-        className="relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-l-[18px] bg-white shadow-2xl sm:w-[calc(100vw-72px)] lg:max-w-[1094px]"
+        className={`relative z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden rounded-l-[18px] bg-white ${PARENT_CLASS_MODAL_SHADOW_CLASS} sm:w-[calc(100vw-72px)] lg:max-w-[1094px]`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="shrink-0 p-[20px] pb-0 sm:p-[24px] sm:pb-0">
@@ -522,13 +539,13 @@ export function ParentClassDetailsDrawer({
   return (
     <dialog
       open
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      className={`${PARENT_CLASS_DIALOG_CLASS} flex items-center justify-center p-4`}
       aria-modal="true"
       aria-labelledby="class-details-title"
     >
-      <button type="button" className="absolute inset-0 cursor-default" aria-label="Close class details" onMouseDown={onClose} />
+      <ClickAwayCloseButton label="Close class details" onClose={onClose} />
       <div
-        className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[18px] bg-white px-6 py-6 shadow-2xl md:px-8 md:py-8"
+        className={`relative z-10 flex max-h-[calc(100dvh-32px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[18px] bg-white px-6 py-6 ${PARENT_CLASS_MODAL_SHADOW_CLASS} md:px-8 md:py-8`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button type="button" aria-label="Close" onClick={onClose} className="absolute right-5 top-5 z-10 rounded-full p-1 text-[#666d80] hover:bg-[#fafafa]">

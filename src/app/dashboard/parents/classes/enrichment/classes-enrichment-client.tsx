@@ -70,7 +70,7 @@ function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
     location: row.location || "Room not assigned",
     availability: row.status === "Full" ? "Full" : "Open",
     status: row.pendingCount > 0 ? "Pending" : "--",
-    current: row.pendingCount === 0 && row.status === "Active",
+    current: false,
     option: parentClassOptionFromRow(row),
   };
 }
