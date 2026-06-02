@@ -300,8 +300,12 @@ CREATE TABLE public.classes (
   block text,
   level text,
   location text,
+  room text,
   description text,
   prerequisites text,
+  min_age_years integer,
+  max_age_years integer,
+  schedule_days text[] NOT NULL DEFAULT '{}',
   planner_subject text,
   planner_summary text,
   teacher_guide_objectives text,
@@ -312,11 +316,21 @@ CREATE TABLE public.classes (
   student_guide_summary text,
   schedule_summary text NOT NULL DEFAULT '',
   status public.class_status NOT NULL DEFAULT 'active',
+  is_active boolean NOT NULL DEFAULT true,
+  archived_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
+  CONSTRAINT classes_age_range_order CHECK (
+    min_age_years IS NULL
+    OR max_age_years IS NULL
+    OR max_age_years >= min_age_years
+  )
 );
 
 CREATE INDEX classes_teacher_id_idx ON public.classes (teacher_id);
 CREATE INDEX classes_semester_id_idx ON public.classes (semester_id);
+CREATE INDEX classes_active_archive_idx ON public.classes (is_active, archived_at);
+CREATE INDEX classes_age_range_idx ON public.classes (min_age_years, max_age_years);
 
 CREATE TABLE public.enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -368,6 +382,26 @@ CREATE TABLE public.class_request_decisions (
 CREATE INDEX class_request_decisions_student_idx ON public.class_request_decisions (student_id, decided_at DESC);
 CREATE INDEX class_request_decisions_class_idx ON public.class_request_decisions (class_id, decided_at DESC);
 CREATE INDEX class_request_decisions_original_request_idx ON public.class_request_decisions (original_request_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_schedule_state') THEN
+    CREATE TYPE public.student_schedule_state AS ENUM ('draft', 'pending', 'finalized');
+  END IF;
+END$$;
+
+CREATE TABLE public.student_schedule_states (
+  student_id uuid NOT NULL REFERENCES public.students (id) ON DELETE CASCADE,
+  semester_id uuid NOT NULL REFERENCES public.semesters (id) ON DELETE CASCADE,
+  state public.student_schedule_state NOT NULL DEFAULT 'draft',
+  finalized_by uuid REFERENCES public.profiles (id) ON DELETE SET NULL,
+  finalized_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (student_id, semester_id)
+);
+
+CREATE INDEX student_schedule_states_state_idx ON public.student_schedule_states (state);
 
 CREATE TABLE public.schedule_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

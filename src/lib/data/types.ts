@@ -37,22 +37,31 @@ export type SchoolClassRow = {
   semesterStartsOn: string;
   semesterEndsOn: string;
   name: string;
+  teacherId?: string;
   teacher: string;
   students: string;
   schedule: string;
   status: "Active" | "Full";
+  isActive: boolean;
+  archivedAt?: string;
   /** Core vs enrichment track — drives tabs on Class Setup. */
   program: ProgramTrack;
   /** Grade band / level label when known (otherwise shown as em dash). */
   level: string;
   /** Scheduling block label when known. */
   block: string;
+  /** Normalized class meeting days when supplied by admin setup. */
+  scheduleDays: string[];
   /** Optional room/location shown in parent-facing class lists. */
   location?: string;
+  /** Explicit room field; falls back to location while legacy data is migrated. */
+  room?: string;
   /** Optional long description used in parent catalog/details. */
   description?: string;
   /** Optional prerequisites used in parent catalog/details. */
   prerequisites?: string;
+  minAgeYears?: number;
+  maxAgeYears?: number;
   /** Pending enrollment workflow count (from enrollments with status pending). */
   pendingCount: number;
   /** Waitlist count — populated when backend provides it; otherwise 0. */
@@ -71,7 +80,22 @@ export type SchoolClassRow = {
 
 export type SchoolClassOptionRow = Pick<
   SchoolClassRow,
-  "id" | "semesterId" | "semesterName" | "semesterStartsOn" | "semesterEndsOn" | "name" | "program" | "capacity" | "block" | "level" | "schedule"
+  | "id"
+  | "semesterId"
+  | "semesterName"
+  | "semesterStartsOn"
+  | "semesterEndsOn"
+  | "name"
+  | "program"
+  | "capacity"
+  | "block"
+  | "level"
+  | "schedule"
+  | "scheduleDays"
+  | "isActive"
+  | "archivedAt"
+  | "minAgeYears"
+  | "maxAgeYears"
 >;
 
 export type ClassRosterStatus = "Approved" | "Pending" | "Waitlisted" | "Rejected";
@@ -149,11 +173,18 @@ export type StudentScheduleBadge = {
   };
 };
 
+export type StudentScheduleState = "draft" | "pending" | "finalized";
+
 export type StudentScheduleRow = {
   id: string;
   name: string;
   parent: string;
   avatar: string;
+  scheduleState: StudentScheduleState;
+  finalizedBy?: string;
+  finalizedAt?: string;
+  hasConflicts?: boolean;
+  incompleteBlocks?: number;
   b1: StudentScheduleBadge[];
   b1Tue: StudentScheduleBadge[];
   b1Wed: StudentScheduleBadge[];
