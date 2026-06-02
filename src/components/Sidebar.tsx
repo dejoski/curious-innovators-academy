@@ -228,6 +228,11 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
       active ? "text-[#14c1d5]" : DASHBOARD_TEXT_SECONDARY_CLASS
     }`;
   }
+  function navIconActiveState(active: boolean): React.CSSProperties | undefined {
+    return active
+      ? ({ "--stroke-0": "#14c1d5", "--fill-0": "#14c1d5" } as React.CSSProperties)
+      : undefined;
+  }
   function subNavClass(on: boolean) {
     return `${DASHBOARD_SIDEBAR_SUB_LINK_BASE_CLASS} ${
       on
@@ -431,7 +436,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   data-name="menu"
                 >
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="8:2914" data-name="si:dashboard-line">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgSiDashboardLine}
+                      style={navIconActiveState(adminDashboardActive)}
+                    />
                   </div>
                   <p className={navLabel(adminDashboardActive)} data-node-id="8:1880">
                     Dashboard
@@ -544,7 +554,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </div>
                 <Link href="/dashboard/parents" className={navRow(adminParentsActive)} data-node-id="8:2775" data-name="menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3068" data-name="ri:parent-line">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgRiParentLine}
+                      style={navIconActiveState(adminParentsActive)}
+                    />
                   </div>
                   <p className={navLabel(adminParentsActive)} data-node-id="8:2777">
                     Parents
@@ -561,7 +576,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                     <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`} data-node-id="10:3086" data-name="streamline-plump:class-lesson">
                       <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]" data-node-id="10:3087" data-name="Group">
                         <div className="absolute inset-[-5%_-5%]">
-                          <img alt="" className="block max-w-none size-full" src={imgGroup1} />
+                          <img
+                            alt=""
+                            className="block max-w-none size-full"
+                            src={imgGroup1}
+                            style={navIconActiveState(adminTeachersActive)}
+                          />
                         </div>
                       </div>
                     </div>
@@ -592,7 +612,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`}>
                     <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]">
                       <div className="absolute inset-[-5%_-5%]">
-                        <img alt="" className="block max-w-none size-full" src={imgGroup1} />
+                        <img
+                          alt=""
+                          className="block max-w-none size-full"
+                          src={imgGroup1}
+                          style={navIconActiveState(teacherShellActive)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -610,7 +635,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <>
                 <Link href={parentRouteHref("/dashboard/parents/home")} className={navRow(parentOverviewActive)}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgSiDashboardLine}
+                      style={navIconActiveState(parentOverviewActive)}
+                    />
                   </div>
                   <p className={navLabel(parentOverviewActive)}>
                     Dashboard
@@ -759,7 +789,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-node-id="10:3178" data-name="Menu Items">
                 <Link href="/dashboard" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminDashboardActive)}`} data-node-id="10:3179" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3183" data-name="si:dashboard-line">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgSiDashboardLine}
+                      style={navIconActiveState(adminDashboardActive)}
+                    />
                   </div>
                 </Link>
                 <Link href="/dashboard/schedule" title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminScheduleActive)}`}>
@@ -783,14 +818,24 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href="/dashboard/parents" title="Parents" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminParentsActive)}`} data-node-id="10:3199" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3203" data-name="ri:parent-line">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgRiParentLine}
+                      style={navIconActiveState(adminParentsActive)}
+                    />
                   </div>
                 </Link>
                 <Link href="/dashboard/teachers" title="Teachers" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminTeachersActive)}`} data-node-id="10:3215" data-name="Icon menu">
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`} data-node-id="10:3219" data-name="streamline-plump:class-lesson">
                     <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]" data-node-id="10:3220" data-name="Group">
                       <div className="absolute inset-[-5%_-5%]">
-                        <img alt="" className="block max-w-none size-full" src={imgGroup1} />
+                        <img
+                          alt=""
+                          className="block max-w-none size-full"
+                          src={imgGroup1}
+                          style={navIconActiveState(adminTeachersActive)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -801,7 +846,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <div className="content-stretch flex flex-col gap-[6px] items-start relative shrink-0" data-name="Menu Items Parent">
                 <Link href={parentRouteHref("/dashboard/parents/home")} title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgSiDashboardLine}
+                      style={navIconActiveState(parentOverviewActive)}
+                    />
                   </div>
                 </Link>
                 <Link href={parentRouteHref(PARENT_SCHEDULE_HREF)} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
@@ -846,7 +896,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`}>
                     <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]">
                       <div className="absolute inset-[-5%_-5%]">
-                        <img alt="" className="block max-w-none size-full" src={imgGroup1} />
+                        <img
+                          alt=""
+                          className="block max-w-none size-full"
+                          src={imgGroup1}
+                          style={navIconActiveState(teacherShellActive)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -881,7 +936,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <>
                 <Link href="/dashboard" title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminDashboardActive)}`} data-node-id="8:2741" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="8:2919" data-name="si:dashboard-line">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgSiDashboardLine}
+                      style={navIconActiveState(adminDashboardActive)}
+                    />
                   </div>
                 </Link>
                 <Link href="/dashboard/schedule" title="Schedule" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminScheduleActive)}`}>
@@ -905,14 +965,24 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                 </Link>
                 <Link href="/dashboard/parents" title="Parents" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminParentsActive)}`} data-node-id="10:3142" data-name="Icon menu">
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="10:3149" data-name="ri:parent-line">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgRiParentLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgRiParentLine}
+                      style={navIconActiveState(adminParentsActive)}
+                    />
                   </div>
                 </Link>
                 <Link href="/dashboard/teachers" title="Teachers" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(adminTeachersActive)}`} data-node-id="10:3159" data-name="Icon menu">
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`} data-node-id="10:3173" data-name="streamline-plump:class-lesson">
                     <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]" data-node-id="10:3174" data-name="Group">
                       <div className="absolute inset-[-5%_-5%]">
-                        <img alt="" className="block max-w-none size-full" src={imgGroup1} />
+                        <img
+                          alt=""
+                          className="block max-w-none size-full"
+                          src={imgGroup1}
+                          style={navIconActiveState(adminTeachersActive)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -923,7 +993,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <>
                 <Link href={parentRouteHref("/dashboard/parents/home")} title="Dashboard" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentOverviewActive)}`}>
                   <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS}>
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgSiDashboardLine} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgSiDashboardLine}
+                      style={navIconActiveState(parentOverviewActive)}
+                    />
                   </div>
                 </Link>
                 <Link href={parentRouteHref(PARENT_SCHEDULE_HREF)} title="Schedule" data-name="parent-schedule-nav" className={`content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px] transition-colors ${collapsedIconWrap(parentScheduleActive)}`}>
@@ -987,7 +1062,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                   <div className={`${DASHBOARD_SIDEBAR_ICON_BOX_CLASS} overflow-clip`}>
                     <div className="absolute inset-[4.17%_4.17%_6.25%_4.22%]">
                       <div className="absolute inset-[-5%_-5%]">
-                        <img alt="" className="block max-w-none size-full" src={imgGroup1} />
+                        <img
+                          alt=""
+                          className="block max-w-none size-full"
+                          src={imgGroup1}
+                          style={navIconActiveState(teacherShellActive)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -1013,7 +1093,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
               <span className="content-stretch flex gap-[8px] items-center justify-center p-[4px] relative rounded-[8px] shrink-0 size-[32px]" id={isWTooltip ? "node-8_1156" : "node-8_1121"} data-name="Icon menu">
                 <span className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} id={isWTooltip ? "node-I8_1156-1195_92423" : "node-I8_1121-1195_92423"} data-name="vuesax/linear/setting-2">
                   <span className="absolute contents inset-0" id={isWTooltip ? "node-I8_1156-1195_92423-1_5606" : "node-I8_1121-1195_92423-1_5606"} data-name="vuesax/linear/setting-2">
-                    <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgVuesaxLinearSetting2} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgVuesaxLinearSetting2}
+                      style={navIconActiveState(adminSettingsActive)}
+                    />
                   </span>
                 </span>
               </span>
@@ -1023,7 +1108,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
             <Link href="/dashboard/settings" className={navRow(adminSettingsActive)} data-node-id="8:1086" data-name="menu">
               <div className={DASHBOARD_SIDEBAR_ICON_BOX_CLASS} data-node-id="I8:1086;1195:101206" data-name="vuesax/linear/setting-2">
                 <div className="absolute contents inset-0" data-node-id="I8:1086;1195:101206;1:5606" data-name="vuesax/linear/setting-2">
-                  <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgVuesaxLinearSetting2} />
+                    <img
+                      alt=""
+                      className="absolute block inset-0 max-w-none size-full"
+                      src={imgVuesaxLinearSetting2}
+                      style={navIconActiveState(adminSettingsActive)}
+                    />
                 </div>
               </div>
               <p className={navLabel(adminSettingsActive)} data-node-id="I8:1086;90:10110">
