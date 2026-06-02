@@ -121,7 +121,7 @@ function RowMenuActionButton({
     <button
       type="button"
       role="menuitem"
-      className={`flex w-full items-center gap-2 px-3 py-2.5 text-left font-sans text-[13px] leading-[1.25] transition-colors ${
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left font-sans text-[14px] leading-none transition-colors ${
         tone === "danger" ? "text-[#d80509] hover:bg-[#fff5f5]" : "text-[#0d0d12] hover:bg-[#fafafa]"
       }`}
       onClick={(event) => {
@@ -129,7 +129,7 @@ function RowMenuActionButton({
         onClick();
       }}
     >
-      <span className={`flex size-4 shrink-0 items-center justify-center ${tone === "danger" ? "text-[#d80509]" : "text-[#667085]"}`} aria-hidden>
+      <span className="flex size-5 shrink-0 items-center justify-center text-current" aria-hidden>
         {icon}
       </span>
       <span className="truncate">{label}</span>
@@ -139,8 +139,8 @@ function RowMenuActionButton({
 
 function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
   const r = triggerEl.getBoundingClientRect();
-  const MENU_W = 220;
-  const MENU_H = 196;
+  const MENU_W = 210;
+  const MENU_H = 210;
   let left = Math.max(8, r.right - MENU_W);
   if (left + MENU_W > window.innerWidth - 8) left = Math.max(8, window.innerWidth - MENU_W - 8);
   let top = r.bottom + 4;
@@ -1060,26 +1060,54 @@ export default function ClassesPageClient({
         rowMenu !== null &&
         document.body &&
         createPortal(
-          <div
-            ref={rowMenuPanelRef}
-            className="fixed z-[300] w-[160px] rounded-lg border border-[#ebecef] bg-white py-1 shadow-md"
-            role="menu"
-            style={{ top: rowMenu.top, left: rowMenu.left }}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="w-full px-3 py-2 text-left font-sans text-[13px] text-[#0d0d12] hover:bg-[#fafafa]"
-              onClick={(e) => {
-                e.stopPropagation();
-                const row = classes.find((c) => c.id === rowMenu.id);
-                if (row) setDetailClass(row);
-                setRowMenu(null);
-              }}
-            >
-              View Class
-            </button>
-          </div>,
+          (() => {
+            const row = classes.find((c) => c.id === rowMenu.id);
+            if (!row) return null;
+            return (
+              <div
+                ref={rowMenuPanelRef}
+                className="fixed z-[300] w-[210px] overflow-hidden rounded-[14px] border border-[#dfe1e7] bg-white font-sans text-left shadow-[0px_8px_22px_rgba(13,13,18,0.12)]"
+                role="menu"
+                style={{ top: rowMenu.top, left: rowMenu.left }}
+              >
+                <div className="border-b border-[#dfe1e7] px-4 py-3 text-[14px] font-semibold leading-none text-[#272932]">
+                  Action
+                </div>
+                <RowMenuActionButton
+                  icon={<Eye className="size-5" aria-hidden strokeWidth={1.8} />}
+                  label="View Class"
+                  onClick={() => {
+                    setDetailClass(row);
+                    setRowMenu(null);
+                  }}
+                />
+                <RowMenuActionButton
+                  icon={<PencilLine className="size-5" aria-hidden strokeWidth={1.8} />}
+                  label="Edit Class"
+                  onClick={() => {
+                    setRowMenu(null);
+                    goToClassDetail(row, { edit: true });
+                  }}
+                />
+                <RowMenuActionButton
+                  icon={<Copy className="size-5" aria-hidden strokeWidth={1.8} />}
+                  label="Duplicate"
+                  onClick={() => {
+                    void duplicateClassById(row.id);
+                  }}
+                />
+                <RowMenuActionButton
+                  icon={<Trash2 className="size-5" aria-hidden strokeWidth={1.8} />}
+                  label="Remove"
+                  tone="danger"
+                  onClick={() => {
+                    setPendingDeleteId(row.id);
+                    setRowMenu(null);
+                  }}
+                />
+              </div>
+            );
+          })(),
           document.body,
         )}
 

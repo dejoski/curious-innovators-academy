@@ -6,7 +6,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import EntityAvatar from "@/components/entity-avatar";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import {
   ChevronDown,
   ChevronLeft,
@@ -665,94 +665,49 @@ export function ParentsAdminDirectory({
                   </span>
                 </div>
 
-                <div
-                  className={`flex items-center justify-center relative ${openActionId === parent.id ? "z-[100]" : ""}`}
-                  ref={openActionId === parent.id ? actionRef : null}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                <div className={`flex items-center justify-center relative ${openActionId === parent.id ? "z-[100]" : ""}`} ref={openActionId === parent.id ? actionRef : null}>
+                  <DashboardRowActionsMenu
+                    label={`Actions for ${parent.name}`}
+                    isOpen={openActionId === parent.id}
+                    onToggle={() => {
                       setIsFilterDropdownOpen(false);
                       setOpenActionId(openActionId === parent.id ? null : parent.id);
                     }}
-                    className={`cursor-pointer relative size-[24px] hover:opacity-70 transition-opacity rounded-full p-1 ${openActionId === parent.id ? "bg-gray-200" : "hover:bg-gray-200"}`}
-                  >
-                    <img alt="" className="block size-full" src={imgWeuiMoreOutlined} />
-                  </button>
-
-                  {openActionId === parent.id && (
-                    <div
-                      className="absolute right-[32px] top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-[100]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          openLinkManager(parent);
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Manage students
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          void createInviteLink(parent);
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Create invite link
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
+                    onClose={() => setOpenActionId(null)}
+                    actions={[
+                      {
+                        label: "Manage students",
+                        onClick: () => openLinkManager(parent),
+                      },
+                      {
+                        label: "Create invite link",
+                        onClick: () => void createInviteLink(parent),
+                      },
+                      {
+                        label: "Edit contact",
+                        onClick: () =>
                           setEditDraft({
                             id: parent.id,
                             name: parent.name,
                             email: parent.email,
                             phone: parent.phone.replace(/^—$/, ""),
-                          });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Edit contact
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          setMessageFor({ id: parent.id, name: parent.name, email: parent.email });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Message
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          setStudentsForParent({ parentId: parent.id, parentName: parent.name, rows: parent.linkedStudents });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        View Students
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm font-semibold text-[#d80509] hover:bg-[#fff1f1] transition-colors"
-                        onClick={() => {
-                          setDeleteDraft({ parent, deleting: false, error: null });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Delete parent
-                      </button>
-                    </div>
-                  )}
+                          }),
+                      },
+                      {
+                        label: "Message",
+                        onClick: () => setMessageFor({ id: parent.id, name: parent.name, email: parent.email }),
+                      },
+                      {
+                        label: "View Students",
+                        onClick: () => setStudentsForParent({ parentId: parent.id, parentName: parent.name, rows: parent.linkedStudents }),
+                      },
+                      {
+                        label: "Delete parent",
+                        tone: "danger",
+                        onClick: () => setDeleteDraft({ parent, deleting: false, error: null }),
+                      },
+                    ]}
+                  />
                 </div>
               </div>
             ))

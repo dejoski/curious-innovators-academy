@@ -116,6 +116,28 @@ export const DASHBOARD_TINY_TEXT_CLASS =
 export const DASHBOARD_STATUS_PILL_TEXT_CLASS =
   "text-[11px] font-medium leading-[1.3]" as const;
 
+/* --- Directory tables: Student List is the source of truth --- */
+export const DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS =
+  `border-y ${DASHBOARD_BORDER_SUBTLE_CLASS} text-left ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}` as const;
+
+export const DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS =
+  `border-b ${DASHBOARD_BORDER_SUBTLE_CLASS} ${DASHBOARD_TABLE_BODY_TEXT_CLASS}` as const;
+
+export const DASHBOARD_DIRECTORY_TABLE_CELL_CLASS =
+  "px-3 py-5 align-middle" as const;
+
+export const DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS =
+  "px-3 py-4 align-middle" as const;
+
+export const DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS =
+  `h-[40px] rounded-[8px] bg-white px-3 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#0d0d12] shadow-[0_0_0_1px_#f0f0f0]` as const;
+
+export const DASHBOARD_DIRECTORY_TOOLBAR_SELECT_CLASS =
+  `flex w-full items-center justify-between text-left ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS}` as const;
+
+export const DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS =
+  `min-w-0 flex-1 bg-transparent ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#0d0d12] outline-none placeholder:text-[#818898]` as const;
+
 /* --- Sidebar (open state primary nav) --- */
 export const DASHBOARD_SIDEBAR_SURFACE_CLASS =
   `${DASHBOARD_SHELL_BG_CLASS} ${DASHBOARD_BORDER_SUBTLE_CLASS} border-r border-solid` as const;

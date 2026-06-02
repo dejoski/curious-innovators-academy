@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import EntityAvatar from "@/components/entity-avatar";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import {
   BookOpenCheck,
   ChevronDown,
@@ -530,71 +530,44 @@ export default function TeachersTeacherList({
                     <td className="py-[12px] px-[10px]">
                       <p className={DASHBOARD_TABLE_BODY_TEXT_CLASS}>{teacher.phone}</p>
                     </td>
-                      <td className="py-[12px] px-[10px] relative">
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdown(activeDropdown === teacher.id ? null : teacher.id);
-                            }}
-                            className={`block cursor-pointer size-[24px] hover:opacity-70 transition-opacity rounded-full p-1 ${
-                              activeDropdown === teacher.id ? "bg-gray-200" : "hover:bg-gray-200"
-                            }`}
-                          >
-                            <img alt="More" className="block size-full" src={imgWeuiMoreOutlined} />
-                          </button>
+                      <td className="py-[12px] px-[10px] text-center">
+                        <div ref={activeDropdown === teacher.id ? dropdownRef : null}>
+                          <DashboardRowActionsMenu
+                            label={`Actions for ${teacher.name}`}
+                            isOpen={activeDropdown === teacher.id}
+                            onToggle={() => setActiveDropdown(activeDropdown === teacher.id ? null : teacher.id)}
+                            onClose={() => setActiveDropdown(null)}
+                            actions={[
+                              {
+                                label: "View",
+                                onClick: () => {
+                                  setViewTeacher(teacher);
+                                  setActiveDropdown(null);
+                                },
+                              },
+                              { label: "View Schedule", href: "/dashboard/schedule" },
+                              {
+                                label: "Edit Teacher",
+                                onClick: () => openEdit(teacher),
+                              },
+                              {
+                                label: "Message",
+                                onClick: () => {
+                                  setMessageTeacher(teacher);
+                                  setActiveDropdown(null);
+                                },
+                              },
+                              {
+                                label: "Remove Teacher",
+                                tone: "danger",
+                                onClick: () => {
+                                  setRemoveTeacherId(teacher.id);
+                                  setActiveDropdown(null);
+                                },
+                              },
+                            ]}
+                          />
                         </div>
-
-                        {activeDropdown === teacher.id && (
-                          <div ref={dropdownRef} className="absolute right-10 top-10 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-30">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setViewTeacher(teacher);
-                                setActiveDropdown(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              View
-                            </button>
-                            <Link
-                              href="/dashboard/schedule"
-                              onClick={() => setActiveDropdown(null)}
-                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              View Schedule
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(teacher)}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              Edit Teacher
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMessageTeacher(teacher);
-                                setActiveDropdown(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              Message
-                            </button>
-                            <div className="border-t border-gray-100 my-1" />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRemoveTeacherId(teacher.id);
-                                setActiveDropdown(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              Remove Teacher
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))

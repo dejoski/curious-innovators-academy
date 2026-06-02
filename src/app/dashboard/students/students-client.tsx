@@ -6,9 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import {
   DASHBOARD_PANEL_CLASS,
+  DASHBOARD_STATUS_PILL_TEXT_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
   DASHBOARD_TABLE_BODY_TEXT_CLASS,
   DASHBOARD_TABLE_HEAD_TEXT_CLASS,
@@ -24,7 +25,6 @@ const imgGroup3 = "/images/icon-open-blocks.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
-const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
 function TableRow({
   studentId,
@@ -101,87 +101,57 @@ function TableRow({
           </div>
           <Link
             href={`/dashboard/students/${studentId}`}
-            className="text-[13px] text-[#0d0d12] transition-colors hover:text-[#14c1d5]"
+            className={`${DASHBOARD_TABLE_BODY_TEXT_CLASS} transition-colors hover:text-[#14c1d5]`}
           >
             {studentName}
           </Link>
         </div>
       </div>
-      <div className="w-[175.333px] pt-[8px] text-[13px] text-[#0d0d12]">
+      <div className={`w-[175.333px] pt-[8px] ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>
         {parentName}
       </div>
-      <div className="w-[98px] pt-[8px] text-center text-[13px] text-[#0d0d12]">
+      <div className={`w-[98px] pt-[8px] text-center ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>
         {level}
       </div>
       <div className="w-[175.333px] flex justify-center pt-[8px]">
         <div
           className={`border content-stretch flex h-[20px] items-center px-[8px] rounded-[6px] ${isCompleted ? "bg-[rgba(0,77,8,0.2)] border-[rgba(0,77,8,0.5)] text-[#004d08]" : "bg-[#ffd9d9] border-[rgba(216,5,9,0.5)] text-[#d80509]"}`}
         >
-          <p className="text-[10px] leading-[1.4]">{coreStatus}</p>
+          <p className={DASHBOARD_STATUS_PILL_TEXT_CLASS}>{coreStatus}</p>
         </div>
       </div>
-      <div className="w-[140px] pt-[8px] text-center text-[13px] text-[#0d0d12]">
+      <div className={`w-[140px] pt-[8px] text-center ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>
         {enrichment}
       </div>
       <div className="w-[175.333px] pt-[8px] pr-[10px] italic text-[#666d80] text-[12px] leading-[1.25]">
         {notes}
       </div>
-      <div className="w-[110px] flex justify-center pt-[8px]">
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveDropdown(
-                activeDropdown === studentId ? null : studentId,
-              );
-            }}
-            className={`cursor-pointer relative size-[24px] hover:opacity-70 transition-opacity rounded-full p-1 ${activeDropdown === studentId ? "bg-gray-200" : "hover:bg-gray-200"}`}
-          >
-            <img alt="" className="block size-full" src={imgWeuiMoreOutlined} />
-          </button>
-          {activeDropdown === studentId && (
-            <div
-              ref={dropdownRef}
-              className="absolute right-8 top-8 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-30"
-            >
-              <Link
-                href={`/dashboard/students/${studentId}`}
-                onClick={() => setActiveDropdown(null)}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                View profile
-              </Link>
-              <Link
-                href={`/dashboard/students/${studentId}/schedule`}
-                onClick={() => setActiveDropdown(null)}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                View Schedule
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDropdown(null);
-                  onOpenMessage();
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Message Parent
-              </button>
-              <div className="border-t border-gray-100 my-1"></div>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDropdown(null);
-                  onRequestRemove();
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Remove Student
-              </button>
-            </div>
-          )}
-        </div>
+      <div className="w-[110px] flex justify-center pt-[8px]" ref={activeDropdown === studentId ? dropdownRef : null}>
+        <DashboardRowActionsMenu
+          label={`Actions for ${studentName}`}
+          isOpen={activeDropdown === studentId}
+          onToggle={() => setActiveDropdown(activeDropdown === studentId ? null : studentId)}
+          onClose={() => setActiveDropdown(null)}
+          actions={[
+            { label: "View profile", href: `/dashboard/students/${studentId}` },
+            { label: "View Schedule", href: `/dashboard/students/${studentId}/schedule` },
+            {
+              label: "Message Parent",
+              onClick: () => {
+                setActiveDropdown(null);
+                onOpenMessage();
+              },
+            },
+            {
+              label: "Remove Student",
+              tone: "danger",
+              onClick: () => {
+                setActiveDropdown(null);
+                onRequestRemove();
+              },
+            },
+          ]}
+        />
       </div>
     </div>
   );
