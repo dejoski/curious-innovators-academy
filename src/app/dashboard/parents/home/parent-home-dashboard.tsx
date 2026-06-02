@@ -268,6 +268,15 @@ function StudentDashboardLoading({ studentName }: { studentName?: string }) {
   );
 }
 
+function ParentFirstAccessEmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-[14px] border border-[#d9eef1] bg-[#f7fdfe] px-4 py-5 text-sm leading-[1.5] text-[#155e66]">
+      <p className="font-semibold text-[#0d0d12]">{title}</p>
+      <p className="mt-1 text-[#4f6f75]">{body}</p>
+    </div>
+  );
+}
+
 function ParentHomeDashboardContent() {
   const searchParams = useSearchParams();
   const requestedStudentId = selectedParentStudentIdFromSearchParams(searchParams);
@@ -822,8 +831,10 @@ function ParentHomeDashboardContent() {
     }
   }
 
+  const firstAccessEmpty = !isStudentDataLoading && !student;
+
   return (
-    <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
+    <div className="w-full max-w-[1280px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
       {hint ? (
         <output className="rounded-xl border border-[#cfa500]/35 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00]">
           {hint}
@@ -895,7 +906,7 @@ function ParentHomeDashboardContent() {
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-6 items-start">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)] xl:items-start">
         <div className="w-full xl:flex-1 min-w-0 flex flex-col gap-6">
           <div>
             <div className="mb-4 flex flex-col gap-3 min-[760px]:flex-row min-[760px]:items-start min-[760px]:justify-between">
@@ -911,6 +922,13 @@ function ParentHomeDashboardContent() {
             </div>
             {isStudentDataLoading ? (
               <StudentDashboardLoading studentName={student?.name} />
+            ) : firstAccessEmpty ? (
+              <div className="rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-sm">
+                <ParentFirstAccessEmptyState
+                  title="Student information is being prepared"
+                  body="Your child's schedule, classes, and request history will appear here after the school registers and processes the student record."
+                />
+              </div>
             ) : (
               <ParentScheduleGrid
                 badgesBySlot={scheduleBadgesBySlot}
@@ -921,7 +939,7 @@ function ParentHomeDashboardContent() {
           </div>
         </div>
 
-        <div className="w-full xl:w-[355px] shrink-0 flex flex-col gap-6">
+        <div className="w-full min-w-0 flex flex-col gap-6">
           <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 flex flex-col gap-6 shadow-sm">
             <div className="flex items-center gap-2">
               <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
@@ -936,6 +954,11 @@ function ParentHomeDashboardContent() {
                 <p className="text-sm text-[#666d80]">Loading alerts&hellip;</p>
               ) : notifications.length ? (
                 notifications.map((item) => <AlertRow key={item.id} item={item} studentId={activeStudentId} />)
+              ) : firstAccessEmpty ? (
+                <ParentFirstAccessEmptyState
+                  title="No alerts yet"
+                  body="School updates and parent notifications will appear here after student information is registered and processed."
+                />
               ) : (
                 <p className="text-sm text-[#666d80]">No system alerts right now.</p>
               )}
@@ -952,10 +975,19 @@ function ParentHomeDashboardContent() {
               </p>
             </div>
             <div className="flex flex-col gap-6">
-              <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={studentScopedHref(PARENT_SCHEDULE_HREF, activeStudentId)} />
-              <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)} />
-              <QuickRow title="View Profile" body="Access your child's personal and academic information." href={studentScopedHref("/dashboard/parents/students", activeStudentId)} />
-              <QuickRow title="View Classes" body="Explore all enrolled classes and details." href={studentScopedHref("/dashboard/parents/classes/core", activeStudentId)} />
+              {firstAccessEmpty ? (
+                <ParentFirstAccessEmptyState
+                  title="Actions unlock after registration"
+                  body="Schedule, class selection, profile, and class links will have student-specific information once the school finishes processing the student record."
+                />
+              ) : (
+                <>
+                  <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={studentScopedHref(PARENT_SCHEDULE_HREF, activeStudentId)} />
+                  <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)} />
+                  <QuickRow title="View Profile" body="Access your child's personal and academic information." href={studentScopedHref("/dashboard/parents/students", activeStudentId)} />
+                  <QuickRow title="View Classes" body="Explore all enrolled classes and details." href={studentScopedHref("/dashboard/parents/classes/core", activeStudentId)} />
+                </>
+              )}
             </div>
           </div>
         </div>

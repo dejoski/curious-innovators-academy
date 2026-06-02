@@ -40,9 +40,16 @@ function detailsStatusLabel(option: ParentClassOption, statusLabel?: string): st
 
 function detailsStatusClasses(label: string): string {
   if (/assigned|approved/i.test(label)) return "text-[#004d08]";
-  if (/pending|waitlist|draft/i.test(label)) return "text-[#7a5b00]";
+  if (/pending/i.test(label)) return "text-[#8c1f1f]";
+  if (/waitlist|draft/i.test(label)) return "text-[#7a5b00]";
   if (/rejected|full/i.test(label)) return "text-[#a00408]";
   return "text-[#4f5665]";
+}
+
+function pendingStatusChipClasses(label: string): string {
+  return /pending/i.test(label)
+    ? "inline-flex w-fit items-center rounded-full border border-[#d80509]/25 bg-[#fff1f1] px-3 py-1 text-[12px] font-semibold leading-none text-[#8c1f1f]"
+    : "";
 }
 
 function detailsProgramClasses(option: ParentClassOption, status: string): string {
@@ -140,7 +147,7 @@ export function ParentClassDetailsContent({
           <p className={DASHBOARD_DETAIL_HEADING_CLASS}>Status</p>
           <p className={`mt-3 flex items-center gap-3 ${DASHBOARD_DETAIL_VALUE_CLASS} ${statusClasses}`}>
             <CheckCircle2 className="size-5 shrink-0" aria-hidden strokeWidth={2} />
-            <span>{status}</span>
+            <span className={pendingStatusChipClasses(status)}>{status}</span>
           </p>
         </div>
         {!isCore ? (
@@ -210,7 +217,10 @@ export function ParentClassSummaryCard({
         <p>Teacher: {option.teacher || "Teacher not assigned"}</p>
         <p>{scheduleLabel}</p>
       </div>
-      <p className={`pt-[12px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#4f5665]`}>Status: {status}</p>
+      <p className={`flex items-center gap-2 pt-[12px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#4f5665]`}>
+        <span>Status:</span>
+        <span className={pendingStatusChipClasses(status)}>{status}</span>
+      </p>
     </div>
   );
 }

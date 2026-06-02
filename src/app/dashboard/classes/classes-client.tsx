@@ -759,45 +759,45 @@ export default function ClassesPageClient({
           </DashboardBulkSelectionBar>
 
           <div className="w-full overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]">
-            <table className="min-w-[1160px] table-fixed border-collapse text-left">
+            <table className="min-w-[1240px] table-fixed border-separate border-spacing-0 text-left">
               <colgroup>
-                <col className="w-[300px]" />
-                <col className="w-[180px]" />
-                <col className="w-[130px]" />
-                <col className="w-[140px]" />
-                <col className="w-[210px]" />
-                <col className="w-[72px]" />
-                <col className="w-[76px]" />
-                <col className="w-[92px]" />
-                <col className="w-[52px]" />
+                <col className="w-[326px]" />
+                <col className="w-[188px]" />
+                <col className="w-[138px]" />
+                <col className="w-[150px]" />
+                <col className="w-[230px]" />
+                <col className="w-[84px]" />
+                <col className="w-[88px]" />
+                <col className="w-[104px]" />
+                <col className="w-[56px]" />
               </colgroup>
               <thead>
-                <tr className="border-b border-[#ebecef]">
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                <tr className="border-b border-[#ebecef] bg-[#fbfcfd]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888] first:rounded-tl-[10px]">
                     Class Name
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Teacher
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Level
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Block
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Schedule
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Pending
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Waitlist
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Seats
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888] last:rounded-tr-[10px]">
                     Action
                   </th>
                 </tr>
@@ -806,7 +806,7 @@ export default function ClassesPageClient({
                 {pageRows.map((cls, idx) => (
                   <tr
                     key={cls.id}
-                    className={`h-[68px] cursor-pointer border-b border-[#f0f0f0] transition-colors hover:bg-[#f6fbfc] ${
+                    className={`h-[82px] cursor-pointer transition-colors hover:bg-[#f6fbfc] ${
                       idx % 2 === 1 ? "bg-[rgba(250,250,250,0.4)]" : ""
                     }`}
                     onClick={() => goToClassDetail(cls)}
@@ -819,50 +819,50 @@ export default function ClassesPageClient({
                     tabIndex={0}
                     role="link"
                   >
-                    <td className="px-3 py-3 align-middle font-sans text-[14px] font-medium text-[#272932]">
-                      <div className="flex min-w-0 items-center gap-3">
+                    <td className="border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] font-medium text-[#272932]">
+                      <div className="flex min-w-0 items-center gap-3.5">
                         <span className="flex size-[14px] shrink-0 items-center justify-center rounded-[4px] border border-[#14c1d5] bg-[#d2f1f5] opacity-50">
                           {selectedIds.has(cls.id) ? (
                             <img src={imgCheckRounded} alt="" className="size-[12px]" />
                           ) : null}
                         </span>
-                        <span className="line-clamp-2 min-w-0 leading-[1.25]" title={cls.name}>{cls.name}</span>
+                        <span className="line-clamp-2 min-w-0 leading-[1.35]" title={cls.name}>{cls.name}</span>
                       </div>
                     </td>
-                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={cls.teacher}>
+                    <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={cls.teacher}>
                       {cls.teacher}
                     </td>
-                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={dash(cls.level)}>
+                    <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={dash(cls.level)}>
                       {dash(cls.level)}
                     </td>
-                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={dash(cls.block)}>
+                    <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={dash(cls.block)}>
                       {dash(cls.block)}
                     </td>
-                    <td className="px-3 py-3 align-middle font-sans text-[14px] text-[#272932]">
-                      <div className="flex min-w-0 flex-col gap-1">
-                        <span className="line-clamp-2 leading-[1.25]" title={cls.schedule}>{cls.schedule}</span>
-                        <span className="truncate text-[12px] leading-[1.2] text-[#818898]" title={cls.location || "Room not assigned"}>
+                    <td className="border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] text-[#3f4350]">
+                      <div className="flex min-w-0 flex-col gap-1.5">
+                        <span className="line-clamp-2 leading-[1.35]" title={cls.schedule}>{cls.schedule}</span>
+                        <span className="truncate text-[12px] leading-[1.3] text-[#818898]" title={cls.location || "Room not assigned"}>
                           {cls.location || "Room not assigned"}
                         </span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.35] tabular-nums text-[#272932]">
+                    <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.45] tabular-nums text-[#3f4350]">
                       {cls.pendingCount}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.35] tabular-nums text-[#272932]">
+                    <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.45] tabular-nums text-[#3f4350]">
                       {cls.waitlistCount}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.2] tabular-nums text-[#272932]">
-                      <div className="flex flex-col items-center gap-1">
+                    <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.3] tabular-nums text-[#3f4350]">
+                      <div className="flex flex-col items-center gap-1.5">
                         <span>{cls.students}</span>
                         {trackTab === "enrichment" && (
-                          <span className="max-w-[86px] truncate text-[12px] italic leading-[1.2] text-[#818898]">
+                          <span className="max-w-[96px] truncate text-[12px] italic leading-[1.25] text-[#818898]">
                             {cls.pendingCount > 0 ? `(${cls.pendingCount} pending)` : "No pending requests"}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="relative px-3 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="relative border-b border-[#f0f0f0] px-4 py-4 align-middle text-center" onClick={(e) => e.stopPropagation()}>
                       <DashboardRowActionsMenu
                         label={`Actions for ${cls.name}`}
                         isOpen={rowMenuId === cls.id}

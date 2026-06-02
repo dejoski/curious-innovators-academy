@@ -138,7 +138,7 @@ export default function LoginClient() {
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-56px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-6 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] sm:py-8 xl:absolute xl:left-[821px] xl:top-1/2 xl:h-auto xl:max-h-[calc(100dvh-96px)] xl:min-h-0 xl:w-[423px] xl:-translate-y-1/2 xl:justify-start xl:overflow-y-auto xl:py-8 [@media(max-height:760px)]:xl:py-5">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-56px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-6 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] sm:py-8 xl:absolute xl:left-1/2 xl:top-1/2 xl:h-auto xl:max-h-[calc(100dvh-96px)] xl:min-h-0 xl:w-[423px] xl:-translate-x-1/2 xl:-translate-y-1/2 xl:justify-start xl:overflow-y-auto xl:py-8 [@media(max-height:760px)]:xl:py-5">
         <div className="flex w-full flex-col gap-[20px] sm:w-[339px] [@media(max-height:760px)]:xl:gap-[14px]">
           <div className="relative h-[44px] w-[196px] shrink-0 overflow-clip [@media(max-height:760px)]:xl:h-[36px] [@media(max-height:760px)]:xl:w-[170px]">
             <div className="absolute left-[47.07px] top-[5.47px] h-[31.659px] w-[132.782px]">

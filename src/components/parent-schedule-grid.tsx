@@ -29,10 +29,16 @@ function meaningfulBadgeCount(badges: StudentScheduleBadge[]) {
 }
 
 function ScheduleBadgeFace({ badge, tall = false, compact = false, muted = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean; muted?: boolean }) {
+  const statusLabel = scheduleBadgeStatusLabel(badge, "grid");
+  const statusClass =
+    badge.tone === "pending"
+      ? "inline-flex w-fit rounded-full border border-[#d80509]/25 bg-[#fff1f1] px-2 py-1 text-[#8c1f1f]"
+      : "text-[#667085]";
+
   return (
     <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)} ${muted ? "opacity-85" : ""}`}>
       <p className={`${tall ? "line-clamp-3" : "line-clamp-2"} text-[11px] leading-[1.16] text-[#111827] min-[1100px]:text-[13px]`}>{badge.label}</p>
-      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"}`}>{scheduleBadgeStatusLabel(badge, "grid")}</p>
+      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"} ${statusClass}`}>{statusLabel}</p>
     </div>
   );
 }

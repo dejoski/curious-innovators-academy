@@ -606,9 +606,9 @@ function ParentClassesEnrichmentCatalogContent() {
 
       {(catalogHint || submitBanner) && (
         <div className="mt-4 flex flex-col gap-2">
-          {catalogHint ? <p className="rounded-[8px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">{catalogHint}</p> : null}
+          {catalogHint ? <p className="rounded-[12px] border border-[#ead9a8] bg-[#fffaf0] px-4 py-3 text-sm leading-[1.55] text-[#665528]">{catalogHint}</p> : null}
           {submitBanner ? (
-            <output className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]" : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"}`}>
+            <output className={`flex flex-col gap-3 rounded-[12px] border px-4 py-3 text-sm leading-[1.55] sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#b7dfbf] bg-[#f8fcf9] text-[#235a2d]" : "border-[#ead9a8] bg-[#fffaf0] text-[#665528]"}`}>
               <span>{submitBanner.message}</span>
             </output>
           ) : null}

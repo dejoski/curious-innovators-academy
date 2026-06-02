@@ -125,32 +125,32 @@ export function ClassAddExistingStudentModal({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/35 p-4 backdrop-blur-[1px] sm:p-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full max-w-[560px] rounded-[18px] bg-white p-6 shadow-xl"
+        className="max-h-[calc(100dvh-32px)] w-full max-w-[640px] overflow-hidden rounded-[22px] border border-[#e6e9ef] bg-white shadow-[0_24px_70px_rgba(13,13,18,0.22)] sm:max-h-[calc(100dvh-48px)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-existing-student-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-5 border-b border-[#e6e9ef] px-6 py-5 sm:px-8">
           <div>
             <h3 id="add-existing-student-title" className="font-sans text-[20px] font-bold leading-[1.25] text-[#272932]">
               Add Student
             </h3>
-            <p className="mt-1 text-sm text-[#666d80]">
+            <p className="mt-2 text-sm leading-6 text-[#666d80]">
               Add an existing student to {classNameLabel || "this class"}.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1 text-[#666d80] transition-colors hover:bg-gray-100 hover:text-[#272932]"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#666d80] transition-colors hover:bg-[#f5f6f8] hover:text-[#272932]"
             aria-label="Close"
           >
             <X className="size-5" aria-hidden strokeWidth={1.8} />
@@ -158,12 +158,12 @@ export function ClassAddExistingStudentModal({
         </div>
 
         {loadError || submitError ? (
-          <div role="alert" className="mt-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+          <div role="alert" className="mx-6 mt-5 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-4 py-3 text-sm text-[#8c1f1f] sm:mx-8">
             {submitError ?? loadError}
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-col gap-4">
+        <div className="flex max-h-[calc(100dvh-170px)] flex-col gap-5 overflow-y-auto px-6 py-6 sm:max-h-[calc(100dvh-190px)] sm:px-8">
           <label className="flex flex-col gap-2">
             <span className="text-sm font-semibold text-[#272932]">Students</span>
             <div className="relative">
@@ -172,7 +172,7 @@ export function ClassAddExistingStudentModal({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search existing students..."
-                className="h-11 w-full rounded-[8px] border border-[#dfe1e7] bg-white pl-10 pr-3 text-sm text-[#272932] outline-none focus:border-[#14c1d5] focus:ring-2 focus:ring-[#14c1d5]/15"
+              className="h-12 w-full rounded-[10px] border border-[#dfe1e7] bg-white pl-10 pr-3 text-sm text-[#272932] outline-none focus:border-[#14c1d5] focus:ring-2 focus:ring-[#14c1d5]/15"
               />
             </div>
           </label>
@@ -192,7 +192,7 @@ export function ClassAddExistingStudentModal({
             ) : null}
           </div>
 
-          <div className="max-h-[260px] overflow-y-auto rounded-[10px] border border-[#f0f0f0]">
+          <div className="max-h-[300px] overflow-y-auto rounded-[14px] border border-[#e6e9ef]">
             {loading ? (
               <div className="p-4 text-sm text-[#666d80]">Loading students...</div>
             ) : visibleStudents.length === 0 ? (
