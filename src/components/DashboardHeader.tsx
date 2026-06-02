@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Bell, Ellipsis } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardPersona } from "@/components/dashboard-persona";
-import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
+import { isNotificationDropdownEnabled, isSandboxHeaderIndicatorEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import EntityAvatar from "@/components/entity-avatar";
@@ -151,6 +151,7 @@ export default function DashboardHeader() {
   const headerBackAction = !inParentShell ? dashboardHeaderBackAction(pathname, searchParams) : null;
 
   const showNotificationDropdown = isNotificationDropdownEnabled();
+  const showSandboxIndicator = isSandboxHeaderIndicatorEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
   const previewNotifications = useMemo(
     () =>
@@ -381,6 +382,12 @@ export default function DashboardHeader() {
               </div>
             </div>
           </button>
+          {showSandboxIndicator ? (
+            <span className="inline-flex h-[24px] items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-red-700">
+              <span aria-hidden className="size-1.5 rounded-full bg-red-500" />
+              Sandbox
+            </span>
+          ) : null}
           
           {/* Notifications: seeded dropdown (QA flag) or link to inbox */}
           <div className="relative" ref={notifRef}>
