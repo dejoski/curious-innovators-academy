@@ -724,7 +724,7 @@ export default function StudentsStudentsList({
                   src={imgIcRoundPlus}
                 />
               </div>
-              <p className="font-inter-tight text-[14px] text-white tracking-[0.28px]">
+              <p className="font-sans text-[14px] text-white tracking-[0.28px]">
                 Create Student
               </p>
             </Link>
@@ -884,7 +884,7 @@ export default function StudentsStudentsList({
             onClick={exportStudents}
             className="bg-[#d2f1f5] shadow-sm flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#bce6ec] transition-colors cursor-pointer"
           >
-            <p className="font-inter-tight text-[#14c1d5] text-[16px] tracking-[0.32px]">
+            <p className="font-sans text-[#14c1d5] text-[16px] tracking-[0.32px]">
               Download CSV
             </p>
           </button>

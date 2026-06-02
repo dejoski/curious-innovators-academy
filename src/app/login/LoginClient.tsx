@@ -226,7 +226,7 @@ export default function LoginClient() {
               disabled={submitting}
               className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#a8e7ef] [@media(max-height:760px)]:xl:h-[38px]"
             >
-              <span className="font-inter-tight text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
+              <span className="font-sans text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
                 {submitting ? "Signing in..." : "Sign in"}
               </span>
             </button>

@@ -433,7 +433,7 @@ export default function ParentFeedback() {
           disabled={submitState.status === "submitting"}
           className="flex h-[42px] w-[180px] items-center justify-center rounded-[6px] border border-[#14c1d5] bg-[#14c1d5] px-[16px] py-[8px] disabled:cursor-not-allowed disabled:border-[#8fdce5] disabled:bg-[#8fdce5]"
         >
-          <span className="font-inter-tight font-medium text-[16px] tracking-[0.32px] text-white">
+          <span className="font-sans font-medium text-[16px] tracking-[0.32px] text-white">
             {submitState.status === "submitting" ? "Submitting..." : "Submit"}
           </span>
         </button>

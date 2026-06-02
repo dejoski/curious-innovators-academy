@@ -818,7 +818,7 @@ export function ParentsAdminDirectory({
           onClick={exportParents}
           className="bg-[#d2f1f5] shadow-sm flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#bce6ec] transition-colors cursor-pointer"
         >
-          <p className="font-inter-tight font-medium text-[#14c1d5] text-[16px] tracking-[0.32px]">
+          <p className="font-sans font-medium text-[#14c1d5] text-[16px] tracking-[0.32px]">
             Download CSV
           </p>
         </button>

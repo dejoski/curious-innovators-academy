@@ -3,10 +3,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.font-inter-tight {
-  font-family: var(--font-inter-tight), var(--font-inter), sans-serif;
-}
-
 /* Hide Next.js dev UI overlays in local review screenshots. */
 nextjs-portal,
 #nextjs__container,

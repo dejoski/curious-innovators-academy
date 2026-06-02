@@ -71,6 +71,24 @@ export const DASHBOARD_TABLE_BODY_TEXT_CLASS =
 export const DASHBOARD_CONTROL_TEXT_CLASS =
   "text-[12px] font-medium leading-[1.4]" as const;
 
+export const DASHBOARD_BODY_TEXT_CLASS =
+  "text-[14px] leading-[1.4]" as const;
+
+export const DASHBOARD_BODY_PRIMARY_TEXT_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} ${DASHBOARD_BODY_TEXT_CLASS}` as const;
+
+export const DASHBOARD_BODY_SECONDARY_TEXT_CLASS =
+  `${DASHBOARD_TEXT_SECONDARY_CLASS} ${DASHBOARD_BODY_TEXT_CLASS}` as const;
+
+export const DASHBOARD_BUTTON_TEXT_CLASS =
+  `${DASHBOARD_BODY_TEXT_CLASS} font-medium` as const;
+
+export const DASHBOARD_METRIC_LABEL_CLASS =
+  `${DASHBOARD_TEXT_SECONDARY_CLASS} text-[14px] font-medium leading-[1.4]` as const;
+
+export const DASHBOARD_HEADER_SELECT_TEXT_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[14px] leading-[1.6] tracking-[-0.28px]` as const;
+
 export const DASHBOARD_FONT_NAV_PRIMARY_CLASS =
   "font-medium text-[14px] leading-[1.4]" as const;
 

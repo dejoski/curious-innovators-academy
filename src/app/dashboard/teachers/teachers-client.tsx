@@ -435,7 +435,7 @@ export default function TeachersTeacherList({
                 <div className="relative shrink-0 size-[24px]">
                   <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgIcRoundPlus} />
                 </div>
-                <p className="font-inter-tight font-semibold leading-[1.5] text-[14px] text-center text-white tracking-[0.28px]">
+                <p className="font-sans font-semibold leading-[1.5] text-[14px] text-center text-white tracking-[0.28px]">
                   Create Teacher
                 </p>
               </Link>
@@ -667,7 +667,7 @@ export default function TeachersTeacherList({
           onClick={exportTeachers}
           className="bg-[#d2f1f5] hover:bg-[#bce6ec] transition-colors drop-shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] w-fit cursor-pointer"
         >
-          <p className="font-inter-tight font-medium leading-[1.5] text-[#14c1d5] text-[16px] text-center tracking-[0.32px]">
+          <p className="font-sans font-medium leading-[1.5] text-[#14c1d5] text-[16px] text-center tracking-[0.32px]">
             Download CSV
           </p>
         </button>

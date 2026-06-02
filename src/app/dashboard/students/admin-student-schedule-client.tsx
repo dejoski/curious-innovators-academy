@@ -12,32 +12,35 @@ import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data";
+import {
+  STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS,
+  type DailyParentScheduleSlotKey,
+} from "@/lib/schedule-slots";
 
 type ScheduleFilter = "all" | "pending" | "approved";
 
 type ScheduleColumn = {
-  key: keyof Pick<
-    StudentScheduleRow,
-    "b1Tue" | "b1Wed" | "b1Thu" | "b2Tue" | "b2Wed" | "b2Thu" | "b3Tue" | "b3Wed" | "b3Thu" | "b4Tue" | "b4Wed" | "b4Thu"
-  >;
+  key: DailyParentScheduleSlotKey;
   label: string;
   sublabel: string;
 };
 
-const COLUMNS: ScheduleColumn[] = [
-  { key: "b1Tue", label: "B1", sublabel: "Tue" },
-  { key: "b1Wed", label: "B1", sublabel: "Wed" },
-  { key: "b1Thu", label: "B1", sublabel: "Thu" },
-  { key: "b2Tue", label: "B2", sublabel: "Tue" },
-  { key: "b2Wed", label: "B2", sublabel: "Wed" },
-  { key: "b2Thu", label: "B2", sublabel: "Thu" },
-  { key: "b3Tue", label: "B3", sublabel: "Tue" },
-  { key: "b3Wed", label: "B3", sublabel: "Wed" },
-  { key: "b3Thu", label: "B3", sublabel: "Thu" },
-  { key: "b4Tue", label: "B4", sublabel: "Tue" },
-  { key: "b4Wed", label: "B4", sublabel: "Wed" },
-  { key: "b4Thu", label: "B4", sublabel: "Thu" },
-];
+const SLOT_LABELS: Record<DailyParentScheduleSlotKey, ScheduleColumn> = {
+  b1Tue: { key: "b1Tue", label: "B1", sublabel: "Tue" },
+  b2Tue: { key: "b2Tue", label: "B2", sublabel: "Tue" },
+  b3Tue: { key: "b3Tue", label: "B3", sublabel: "Tue" },
+  b4Tue: { key: "b4Tue", label: "B4", sublabel: "Tue" },
+  b1Wed: { key: "b1Wed", label: "B1", sublabel: "Wed" },
+  b2Wed: { key: "b2Wed", label: "B2", sublabel: "Wed" },
+  b3Wed: { key: "b3Wed", label: "B3", sublabel: "Wed" },
+  b4Wed: { key: "b4Wed", label: "B4", sublabel: "Wed" },
+  b1Thu: { key: "b1Thu", label: "B1", sublabel: "Thu" },
+  b2Thu: { key: "b2Thu", label: "B2", sublabel: "Thu" },
+  b3Thu: { key: "b3Thu", label: "B3", sublabel: "Thu" },
+  b4Thu: { key: "b4Thu", label: "B4", sublabel: "Thu" },
+};
+
+const COLUMNS: ScheduleColumn[] = STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS.map((slot) => SLOT_LABELS[slot]);
 
 function realBadges(badges: StudentScheduleBadge[] | undefined) {
   return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");

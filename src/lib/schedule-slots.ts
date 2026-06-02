@@ -16,6 +16,8 @@ export type ParentScheduleSlotKey =
   | "b4Wed"
   | "b4Thu";
 
+export type DailyParentScheduleSlotKey = Exclude<ParentScheduleSlotKey, "b1" | "b2">;
+
 export type ParentScheduleBadges = Partial<Record<ParentScheduleSlotKey, StudentScheduleBadge[]>>;
 
 export const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = [
@@ -30,6 +32,21 @@ export const PARENT_SCHEDULE_SLOT_KEYS: ParentScheduleSlotKey[] = [
   "b3Thu",
   "b4Tue",
   "b4Wed",
+  "b4Thu",
+];
+
+export const STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS: DailyParentScheduleSlotKey[] = [
+  "b1Tue",
+  "b2Tue",
+  "b3Tue",
+  "b4Tue",
+  "b1Wed",
+  "b2Wed",
+  "b3Wed",
+  "b4Wed",
+  "b1Thu",
+  "b2Thu",
+  "b3Thu",
   "b4Thu",
 ];
 
@@ -73,8 +90,7 @@ export function scheduleTimeForBlock(block: unknown): string | null {
 }
 
 export function scheduleStartLabelForBlock(block: unknown): string | null {
-  const time = scheduleTimeForBlock(block);
-  return time?.split(/\s+-\s+/)[0]?.trim() || null;
+  return scheduleTimePartsForBlock(block)?.start ?? null;
 }
 
 export function scheduleTimePartsForBlock(block: unknown): { start: string; end: string } | null {

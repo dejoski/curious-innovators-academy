@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { ProgramTrack } from "@/lib/data/types";
 import {
   CLASSES_VIEW_PATHS,
@@ -32,9 +32,13 @@ function classNameForView(active: boolean) {
 
 export default function ClassesWorkspace({ initialView = "core" }: ClassesWorkspaceProps) {
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
   const [activeView, setActiveView] = React.useState<ClassesView>(
     () => classesViewFromPath(pathname) ?? initialView,
   );
+  const focusedClassId = searchParams.get("classId")?.trim() ?? "";
+  const focusedClassName = searchParams.get("class")?.trim() ?? "";
+  const focusedRequests = Boolean(focusedClassId || focusedClassName);
 
   const showClassList = activeView === "core" || activeView === "enrichment";
   const activeTrack: ProgramTrack = activeView === "enrichment" ? "enrichment" : "core";
@@ -100,6 +104,9 @@ export default function ClassesWorkspace({ initialView = "core" }: ClassesWorksp
             initialRequests={[]}
             dataSource="unavailable"
             initialDecisionSummary={EMPTY_DECISION_SUMMARY}
+            focusClassId={focusedClassId}
+            focusClassName={focusedClassName}
+            compactMode={focusedRequests}
           />
         </Suspense>
       </div>

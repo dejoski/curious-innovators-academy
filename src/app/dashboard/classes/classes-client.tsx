@@ -802,7 +802,7 @@ export default function ClassesPageClient({
 
               <button
                 type="button"
-                className="inline-flex h-[42px] min-w-0 flex-1 items-center justify-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[14px] py-[8px] font-inter-tight text-[14px] font-medium leading-[1.5] text-white sm:flex-none sm:text-[16px]"
+                className="inline-flex h-[42px] min-w-0 flex-1 items-center justify-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[14px] py-[8px] font-sans text-[14px] font-medium leading-[1.5] text-white sm:flex-none sm:text-[16px]"
                 onClick={() => {
                   const href = `/dashboard/classes/new?track=${trackTab}`;
                   startNavigation(href);
@@ -1008,14 +1008,14 @@ export default function ClassesPageClient({
             <button
               type="button"
               disabled={importing}
-              className="inline-flex items-center gap-2 rounded-[6px] bg-[#fafafa] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#0d0d12] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] hover:bg-[#f0f0f0] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-[6px] bg-[#fafafa] px-[16px] py-[8px] font-sans text-[16px] font-medium tracking-[0.32px] text-[#0d0d12] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] hover:bg-[#f0f0f0] disabled:opacity-50"
               onClick={() => setIsImportOpen(true)}
             >
               {importing ? "Importing..." : "Bulk import CSV"}
             </button>
             <button
               type="button"
-              className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
+              className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-sans text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
               onClick={exportClasses}
             >
               Download CSV

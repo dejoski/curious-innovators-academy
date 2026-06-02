@@ -334,7 +334,7 @@ export default function StudentProfileClient({
               onClick={openEditModal}
               className="bg-[#d2f1f5] flex gap-[8px] h-[42px] items-center justify-center px-[16px] rounded-[6px] hover:bg-[#bce6ec] transition-colors"
             >
-              <span className="font-inter-tight font-semibold text-[#14c1d5] text-[16px]">
+              <span className="font-sans font-semibold text-[#14c1d5] text-[16px]">
                 Edit Profile
               </span>
             </button>
@@ -520,7 +520,7 @@ export default function StudentProfileClient({
               className="bg-[#14c1d5] flex gap-[8px] items-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#12aebd] transition-colors shadow-sm"
             >
               <img alt="Add" className="size-[24px]" src={imgIcRoundPlus} />
-              <span className="font-inter-tight font-semibold text-white text-[14px]">Create Note</span>
+              <span className="font-sans font-semibold text-white text-[14px]">Create Note</span>
             </button>
           </div>
         </div>
