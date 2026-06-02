@@ -10,6 +10,7 @@ import type { DashboardNotification, EnrichmentRequestRow } from "@/lib/data/typ
 import {
   DASHBOARD_BODY_PRIMARY_TEXT_CLASS,
   DASHBOARD_BODY_SECONDARY_TEXT_CLASS,
+  DASHBOARD_PANEL_TITLE_CLASS,
   DASHBOARD_SECTION_TITLE_CLASS,
   DASHBOARD_TABLE_BODY_TEXT_CLASS,
   DASHBOARD_TABLE_HEAD_TEXT_CLASS,
@@ -79,7 +80,7 @@ export default function DashboardHomeView({
               <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
                 <Bell aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
               </div>
-              <p className="font-semibold text-[24px] leading-[1.35] text-[#0d0d12]">System Alerts</p>
+              <p className={DASHBOARD_PANEL_TITLE_CLASS}>System Alerts</p>
             </div>
 
             <div className="space-y-[12px]">
@@ -100,7 +101,7 @@ export default function DashboardHomeView({
                   </Link>
                 ))
               ) : (
-                <div className="rounded-[8px] border border-[#f0f0f0] px-3 py-4 text-sm text-[#666d80]">
+                <div className="rounded-[8px] border border-[#f0f0f0] px-3 py-4 text-[14px] leading-[1.4] text-[#666d80]">
                   No system alerts right now.
                 </div>
               )}
@@ -123,7 +124,7 @@ export default function DashboardHomeView({
                 <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
                   <Dice5 aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
                 </div>
-              <p className="font-semibold text-[24px] leading-[1.35] text-[#0d0d12]">Quick Actions</p>
+              <p className={DASHBOARD_PANEL_TITLE_CLASS}>Quick Actions</p>
             </div>
             <div className="space-y-[12px]">
               <Link href="/dashboard/classes/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">

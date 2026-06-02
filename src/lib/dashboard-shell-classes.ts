@@ -62,6 +62,18 @@ export const DASHBOARD_PAGE_SUBTITLE_CLASS =
 export const DASHBOARD_SECTION_TITLE_CLASS =
   "text-[#0d0d12] text-[16px] font-semibold leading-[1.3]" as const;
 
+export const DASHBOARD_PANEL_TITLE_CLASS =
+  "text-[#0d0d12] text-[20px] font-semibold leading-[1.25]" as const;
+
+export const DASHBOARD_DETAIL_HEADING_CLASS =
+  "text-[#0d0d12] text-[18px] font-semibold leading-[1.3]" as const;
+
+export const DASHBOARD_DETAIL_VALUE_CLASS =
+  "text-[#666d80] text-[18px] leading-[1.35]" as const;
+
+export const DASHBOARD_INPUT_TEXT_CLASS =
+  "text-[16px] leading-[1.5]" as const;
+
 export const DASHBOARD_TABLE_HEAD_TEXT_CLASS =
   `${DASHBOARD_TEXT_MUTED_CLASS} text-[11px] font-semibold uppercase tracking-[0.04em]` as const;
 
@@ -86,6 +98,9 @@ export const DASHBOARD_BUTTON_TEXT_CLASS =
 export const DASHBOARD_METRIC_LABEL_CLASS =
   `${DASHBOARD_TEXT_SECONDARY_CLASS} text-[14px] font-medium leading-[1.4]` as const;
 
+export const DASHBOARD_METRIC_VALUE_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[28px] font-bold leading-[1.1]` as const;
+
 export const DASHBOARD_HEADER_SELECT_TEXT_CLASS =
   `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[14px] leading-[1.6] tracking-[-0.28px]` as const;
 
@@ -94,6 +109,12 @@ export const DASHBOARD_FONT_NAV_PRIMARY_CLASS =
 
 export const DASHBOARD_FONT_NAV_SECONDARY_CLASS =
   "font-medium text-[12px] leading-[1.4]" as const;
+
+export const DASHBOARD_TINY_TEXT_CLASS =
+  "text-[11px] leading-[1.3]" as const;
+
+export const DASHBOARD_STATUS_PILL_TEXT_CLASS =
+  "text-[11px] font-medium leading-[1.3]" as const;
 
 /* --- Sidebar (open state primary nav) --- */
 export const DASHBOARD_SIDEBAR_SURFACE_CLASS =

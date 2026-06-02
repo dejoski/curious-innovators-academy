@@ -6,6 +6,7 @@ import type { DashboardDailyBlockRow } from "@/lib/dashboard-metrics";
 import {
   DASHBOARD_BODY_PRIMARY_TEXT_CLASS,
   DASHBOARD_BODY_SECONDARY_TEXT_CLASS,
+  DASHBOARD_CONTROL_TEXT_CLASS,
   DASHBOARD_SECTION_TITLE_CLASS,
 } from "@/lib/dashboard-shell-classes";
 
@@ -98,7 +99,7 @@ export default function DailyBlocks({ rows = [] }: DailyBlocksProps) {
               <p className={`font-semibold relative shrink-0 ${DASHBOARD_SECTION_TITLE_CLASS}`} data-node-id="11:4667">
                 Daily Blocks
               </p>
-              <p className="font-normal relative shrink-0 text-[#6b6b6b] text-[12px]" data-node-id="11:4668">
+              <p className={`font-normal relative shrink-0 text-[#6b6b6b] ${DASHBOARD_CONTROL_TEXT_CLASS}`} data-node-id="11:4668">
                 Overview
               </p>
             </div>

@@ -18,11 +18,14 @@ import {
 } from "@/lib/parent-student-selection";
 import type { DashboardNotification } from "@/lib/data";
 import {
+  DASHBOARD_BODY_TEXT_CLASS,
   DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS,
   DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS,
   DASHBOARD_MAIN_HEADER_WRAP_CLASS,
   DASHBOARD_MAIN_HEADER_ROW_CLASS,
   DASHBOARD_BORDER_SUBTLE_CLASS,
+  DASHBOARD_CONTROL_TEXT_CLASS,
+  DASHBOARD_TINY_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
 const imgSolarLogout2Outline = "/images/logout-icon.svg";
 const imgSolarLogout2OutlineParent = "/images/logout-icon-parent.svg";
@@ -111,7 +114,7 @@ export default function DashboardHeader() {
   const headerDisplayName = displayName;
   const headerRoleLine = roleLabel;
   const compactMenuItemClass =
-    "block w-full px-4 py-2 text-left text-sm text-[#272932] transition-colors hover:bg-gray-50";
+    `block w-full px-4 py-2 text-left ${DASHBOARD_BODY_TEXT_CLASS} text-[#272932] transition-colors hover:bg-gray-50`;
   const parentHeaderLayout = useMemo(() => {
     if (!inParentShell) {
       return {
@@ -335,12 +338,12 @@ export default function DashboardHeader() {
                 {isNotificationsOpen && (
               <div className={`absolute right-0 mt-2 w-80 ${DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS} px-0 overflow-hidden`}>
                 <div className={`px-4 py-2 flex justify-between items-center border-b ${DASHBOARD_BORDER_SUBTLE_CLASS}`}>
-                  <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
+                  <h3 className={`font-semibold ${DASHBOARD_BODY_TEXT_CLASS} text-gray-900`}>Notifications</h3>
                   {unreadCount > 0 && (
                     <button
                       type="button"
                       onClick={() => void markAllNotificationsRead()}
-                      className="text-xs text-[#14c1d5] hover:underline cursor-pointer"
+                      className={`${DASHBOARD_TINY_TEXT_CLASS} cursor-pointer text-[#14c1d5] hover:underline`}
                     >
                       Mark all as read
                     </button>
@@ -348,7 +351,7 @@ export default function DashboardHeader() {
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
                   {notificationsLoading ? (
-                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                    <div className={`px-4 py-6 text-center ${DASHBOARD_BODY_TEXT_CLASS} text-gray-500`}>
                       Loading notifications...
                     </div>
                   ) : previewNotifications.length ? (
@@ -361,24 +364,24 @@ export default function DashboardHeader() {
                           index < previewNotifications.length - 1 ? "border-b border-gray-50" : ""
                         }`}
                       >
-                        <p className="text-sm text-gray-800">{item.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{item.detail}</p>
-                        <p className="text-xs text-gray-400 mt-1">{item.time}</p>
+                        <p className={`${DASHBOARD_BODY_TEXT_CLASS} text-gray-800`}>{item.title}</p>
+                        <p className={`${DASHBOARD_TINY_TEXT_CLASS} mt-1 text-gray-500`}>{item.detail}</p>
+                        <p className={`${DASHBOARD_TINY_TEXT_CLASS} mt-1 text-gray-400`}>{item.time}</p>
                       </Link>
                     ))
                   ) : (
-                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                    <div className={`px-4 py-6 text-center ${DASHBOARD_BODY_TEXT_CLASS} text-gray-500`}>
                       No notifications yet.
                     </div>
                   )}
                 </div>
                 {notificationSyncHint ? (
-                  <div className="border-t border-[#f0f0f0] px-4 py-2 text-xs text-[#a00408]">
+                  <div className={`border-t border-[#f0f0f0] px-4 py-2 ${DASHBOARD_TINY_TEXT_CLASS} text-[#a00408]`}>
                     {notificationSyncHint}
                   </div>
                 ) : null}
                 <div className="px-4 py-2 border-t border-[#f0f0f0] text-center">
-                  <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className="text-sm text-gray-600 hover:text-gray-900 block w-full">
+                  <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className={`block w-full ${DASHBOARD_BODY_TEXT_CLASS} text-gray-600 hover:text-gray-900`}>
                     View all notifications
                   </Link>
                 </div>
@@ -420,11 +423,11 @@ export default function DashboardHeader() {
                   <EntityAvatar name={headerDisplayName} src={avatarUrl} className="size-8" />
                 </div>
               </div>
-              <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
-                <p className="font-semibold relative shrink-0 text-[#0d0d12]">
+              <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 ${DASHBOARD_TINY_TEXT_CLASS} whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
+                <p className={`font-semibold relative shrink-0 ${DASHBOARD_BODY_TEXT_CLASS} text-[#0d0d12]`}>
                   {headerDisplayName}
                 </p>
-                <p className="font-normal relative shrink-0 text-[#818898]">
+                <p className={`font-normal relative shrink-0 ${DASHBOARD_CONTROL_TEXT_CLASS} text-[#818898]`}>
                   {headerRoleLine}
                 </p>
               </div>
@@ -437,14 +440,14 @@ export default function DashboardHeader() {
                 <Link
                   href="/dashboard/settings"
                   onClick={() => setIsProfileOpen(false)}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={`block w-full text-left px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-gray-700 hover:bg-gray-50 transition-colors`}
                 >
                   Account Settings
                 </Link>
                 <Link
                   href="/dashboard/support"
                   onClick={() => setIsProfileOpen(false)}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={`block w-full text-left px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-gray-700 hover:bg-gray-50 transition-colors`}
                 >
                   Help & Support
                 </Link>
@@ -455,7 +458,7 @@ export default function DashboardHeader() {
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  className={`block w-full text-left px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-red-600 hover:bg-red-50 transition-colors cursor-pointer`}
                 >
                   Sign out
                 </button>
@@ -483,10 +486,10 @@ export default function DashboardHeader() {
                 <div className="flex items-center gap-3 border-b border-[#f0f0f0] px-4 py-3">
                   <EntityAvatar name={headerDisplayName} src={avatarUrl} className="size-8" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#0d0d12]">
+                    <p className={`truncate ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#0d0d12]`}>
                       {headerDisplayName}
                     </p>
-                    <p className="text-xs text-[#818898]">{headerRoleLine}</p>
+                    <p className={`${DASHBOARD_CONTROL_TEXT_CLASS} text-[#818898]`}>{headerRoleLine}</p>
                   </div>
                 </div>
                 <Link
@@ -521,7 +524,7 @@ export default function DashboardHeader() {
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
-                  className="block w-full px-4 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+                  className={`block w-full px-4 py-2 text-left ${DASHBOARD_BODY_TEXT_CLASS} text-red-600 transition-colors hover:bg-red-50`}
                 >
                   Sign out
                 </button>
