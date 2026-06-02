@@ -54,19 +54,6 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-function TextAreaInput(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={[
-        "min-h-[112px] w-full resize-y rounded-[8px] border border-[#dfe1e7] bg-white px-4 py-3 font-sans text-[15px] leading-[1.45] text-[#272932] outline-none transition-colors placeholder:text-[#818898]",
-        "focus:border-[#14c1d5] focus:ring-2 focus:ring-[#14c1d5]/15",
-        props.className ?? "",
-      ].join(" ")}
-    />
-  );
-}
-
 function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement> & { leadingIcon?: React.ReactNode }) {
   return (
     <div className="relative">
@@ -119,9 +106,6 @@ export default function AddClassForm() {
   const [block, setBlock] = useState<BlockOption>("1");
   const [status, setStatus] = useState<ClassStatus>("Active");
   const [capacity, setCapacity] = useState("");
-  const [studentGuideObjectives, setStudentGuideObjectives] = useState("");
-  const [studentGuideInformation, setStudentGuideInformation] = useState("");
-  const [studentGuideSummary, setStudentGuideSummary] = useState("");
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -172,9 +156,6 @@ export default function AddClassForm() {
           track: segment,
           description: description.trim(),
           block: blockText,
-          studentGuideObjectives: studentGuideObjectives.trim(),
-          studentGuideInformation: studentGuideInformation.trim(),
-          studentGuideSummary: studentGuideSummary.trim(),
         }),
       });
       if (res.ok) {
@@ -308,23 +289,6 @@ export default function AddClassForm() {
               <SelectInput value={blockTime.end} disabled leadingIcon={<Clock3 className="size-5" aria-hidden strokeWidth={1.8} />}>
                 <option>{blockTime.end}</option>
               </SelectInput>
-            </label>
-          </div>
-        </FormSection>
-
-        <FormSection title="Students&apos; Guide">
-          <div className="flex flex-col gap-5">
-            <label className="flex flex-col gap-3">
-              <FieldLabel>Objectives</FieldLabel>
-              <TextAreaInput value={studentGuideObjectives} onChange={(e) => setStudentGuideObjectives(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-3">
-              <FieldLabel>Information</FieldLabel>
-              <TextAreaInput value={studentGuideInformation} onChange={(e) => setStudentGuideInformation(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-3">
-              <FieldLabel>Summary</FieldLabel>
-              <TextAreaInput value={studentGuideSummary} onChange={(e) => setStudentGuideSummary(e.target.value)} />
             </label>
           </div>
         </FormSection>
