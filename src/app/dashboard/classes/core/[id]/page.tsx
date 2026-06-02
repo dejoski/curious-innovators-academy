@@ -553,7 +553,7 @@ export default function ClassDetailsPage() {
           <PageBackLink href="/dashboard/classes" className="mb-2">
             Back to Class List
           </PageBackLink>
-          <h1 className="text-3xl font-bold text-gray-900">{classMeta.title}</h1>
+          <h1 className="text-[28px] font-bold leading-[1.1] text-gray-900">{classMeta.title}</h1>
           <p className="text-gray-500 text-base">{classMeta.description}</p>
         </div>
         
@@ -654,7 +654,7 @@ export default function ClassDetailsPage() {
 
       {/* Enrolled Students Section */}
       <div className="flex flex-col gap-4 mt-4">
-        <h2 className="text-2xl font-bold text-gray-900">Enrolled Students</h2>
+        <h2 className="text-[20px] font-bold leading-[1.25] text-gray-900">Enrolled Students</h2>
         
         <div className="flex flex-col bg-white border border-gray-200 rounded-2xl p-4 gap-4 overflow-visible">
           {/* Table Toolbar */}
@@ -949,7 +949,7 @@ export default function ClassDetailsPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-2 pr-8">Edit Class Info</h3>
+            <h3 className="text-[18px] font-bold mb-2 pr-8 leading-[1.25]">Edit Class Info</h3>
             <p className="text-sm text-gray-500 mb-4">Save updates this class.</p>
             {classEditError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
@@ -1073,7 +1073,7 @@ export default function ClassDetailsPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-2 pr-8 text-red-600">Remove Class</h3>
+            <h3 className="text-[18px] font-bold mb-2 pr-8 leading-[1.25] text-red-600">Remove Class</h3>
             <p className="text-sm text-gray-500 mb-6">
               Remove <span className="font-semibold">{classMeta.title}</span> from the class directory? Administrators will no longer see this class until it is restored from your source data.
             </p>
@@ -1114,7 +1114,7 @@ export default function ClassDetailsPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-4 pr-8">Edit student</h3>
+            <h3 className="text-[18px] font-bold mb-4 pr-8 leading-[1.25]">Edit student</h3>
             {editStudentError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {editStudentError}

@@ -15,6 +15,7 @@ import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, mutateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
@@ -1105,7 +1106,7 @@ export default function ClassesPageClient({
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#14c1d5]">
                 {detailClass.program === "core" ? "Core Class" : "Enrichment Class"}
               </p>
-              <h2 id="class-detail-title" className="mt-1 text-[24px] font-bold leading-[1.15] text-[#272932]">
+              <h2 id="class-detail-title" className={`mt-1 ${DASHBOARD_PANEL_TITLE_CLASS}`}>
                 {detailClass.name}
               </h2>
               <p className="mt-2 text-sm text-[#666d80]">
@@ -1178,7 +1179,7 @@ export default function ClassesPageClient({
             >
               <X className="h-5 w-5" />
             </button>
-            <h2 id="delete-class-title" className="pr-8 font-sans text-xl font-bold text-[#0d0d12]">
+            <h2 id="delete-class-title" className={`pr-8 ${DASHBOARD_PANEL_TITLE_CLASS} text-[#0d0d12]`}>
               Delete class
             </h2>
             <p className="mt-2 font-sans text-sm text-[#666d80]">

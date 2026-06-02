@@ -21,7 +21,17 @@ import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { mutateDashboardData, readDashboardData } from "@/lib/client-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
-import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
+import {
+  DASHBOARD_BODY_TEXT_CLASS,
+  DASHBOARD_BUTTON_TEXT_CLASS,
+  DASHBOARD_CONTROL_TEXT_CLASS,
+  DASHBOARD_METRIC_VALUE_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_PANEL_CLASS,
+  DASHBOARD_PANEL_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+  DASHBOARD_TABLE_HEAD_TEXT_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 import {
@@ -105,7 +115,7 @@ function MetricCard({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[22px] font-bold leading-tight text-[#272932]">{value}</p>
+        <p className={`${DASHBOARD_METRIC_VALUE_CLASS}`}>{value}</p>
         <p className="text-[13px] leading-snug text-[#666d80]">{label}</p>
       </div>
     </div>
@@ -372,13 +382,13 @@ export default function StudentScheduleClient({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex flex-col gap-4">
           <PageBackLink href="/dashboard/students/schedule">Back to Student Schedules</PageBackLink>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#667085]">
+          <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>
             Student schedule
           </p>
-          <h1 className="mt-1 text-[30px] font-bold leading-[1.08] text-[#272932] md:text-[34px]">
+          <h1 className={`mt-1 ${DASHBOARD_PAGE_TITLE_CLASS}`}>
             {schedule?.name ? `${schedule.name}'s schedule` : "Student schedule"}
           </h1>
-          <p className="mt-2 max-w-[720px] text-[16px] leading-[1.45] text-[#666d80]">
+          <p className={`mt-2 max-w-[720px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
             Admin view for the selected student schedule: core assignments, enrichment approvals, pending choices, and open blocks.
           </p>
           {hint ? <p className="mt-2 text-sm text-[#7a5b00]">{hint}</p> : null}
@@ -388,14 +398,14 @@ export default function StudentScheduleClient({
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/dashboard/students/${encodeURIComponent(studentId)}`}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
+            className={`inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#344054] shadow-sm hover:bg-[#fafafa]`}
           >
             <UserRound className="size-4" aria-hidden strokeWidth={2} />
             Profile
           </Link>
           <Link
             href={`/dashboard/students/${encodeURIComponent(studentId)}/roster`}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
+            className={`inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#344054] shadow-sm hover:bg-[#fafafa]`}
           >
             <ListChecks className="size-4" aria-hidden strokeWidth={2} />
             Roster
@@ -404,7 +414,7 @@ export default function StudentScheduleClient({
             type="button"
             onClick={exportSchedule}
             disabled={!schedule}
-            className="inline-flex items-center gap-2 rounded-[8px] bg-[#14c1d5] px-3 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#11adbf] disabled:cursor-not-allowed disabled:bg-[#d6eef1] disabled:text-[#78aeb5]"
+            className={`inline-flex items-center gap-2 rounded-[8px] bg-[#14c1d5] px-3 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-white shadow-sm transition hover:bg-[#11adbf] disabled:cursor-not-allowed disabled:bg-[#d6eef1] disabled:text-[#78aeb5]`}
           >
             <Download className="size-4" aria-hidden strokeWidth={2} />
             Download CSV
@@ -432,12 +442,12 @@ export default function StudentScheduleClient({
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-[20px] font-bold leading-tight text-[#272932]">Schedule grid</h2>
-                  <span className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${parentScheduleFinalityClasses(finality.state)}`}>
+                  <h2 className={DASHBOARD_PANEL_TITLE_CLASS}>Schedule grid</h2>
+                  <span className={`rounded-full border px-3 py-1 ${DASHBOARD_CONTROL_TEXT_CLASS} font-semibold ${parentScheduleFinalityClasses(finality.state)}`}>
                     {finality.label}
                   </span>
                 </div>
-                <p className="mt-1 max-w-[720px] text-[14px] leading-[1.45] text-[#666d80]">
+                <p className={`mt-1 max-w-[720px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
                   {finality.description}
                 </p>
               </div>
@@ -459,8 +469,8 @@ export default function StudentScheduleClient({
 
           <section className={`${DASHBOARD_PANEL_CLASS} overflow-hidden`}>
             <div className="border-b border-[#eef0f3] px-4 py-4 md:px-5">
-              <h2 className="text-[18px] font-bold leading-tight text-[#272932]">Assigned blocks</h2>
-              <p className="mt-1 text-[14px] text-[#666d80]">
+              <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>Assigned blocks</h2>
+              <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
                 Each row shows a real day and block with an assigned class.
               </p>
             </div>
@@ -469,19 +479,19 @@ export default function StudentScheduleClient({
                 {assignedSlotDetails.map((slot) => (
                   <div key={slot.slot} className="grid gap-3 px-4 py-4 md:grid-cols-[120px_130px_150px_minmax(0,1fr)] md:px-5">
                     <div>
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Day</p>
-                      <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.day}</p>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Day</p>
+                      <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#272932]`}>{slot.day}</p>
                     </div>
                     <div>
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Block</p>
-                      <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.block}</p>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Block</p>
+                      <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#272932]`}>{slot.block}</p>
                     </div>
                     <div>
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Time</p>
-                      <p className="mt-1 text-[14px] text-[#344054]">{slot.time}</p>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Time</p>
+                      <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} text-[#344054]`}>{slot.time}</p>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Classes</p>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Classes</p>
                       <div className="mt-2">
                         <SlotChoiceList
                           badges={slot.badges}
@@ -494,7 +504,7 @@ export default function StudentScheduleClient({
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-6 text-[14px] text-[#667085] md:px-5">
+              <div className={`px-4 py-6 md:px-5 ${DASHBOARD_BODY_TEXT_CLASS} text-[#667085]`}>
                 No assigned classes yet. Use the schedule grid above to add a class to a specific day and block.
               </div>
             )}
@@ -503,7 +513,7 @@ export default function StudentScheduleClient({
       ) : (
         <div className={`${DASHBOARD_PANEL_CLASS} p-8 text-center`}>
           <p className="text-[15px] font-semibold text-[#272932]">No schedule found for this student.</p>
-          <p className="mt-2 text-[14px] text-[#666d80]">
+          <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
             The route is valid, but the student has no schedule rows in the current data source.
           </p>
         </div>

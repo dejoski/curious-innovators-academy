@@ -140,7 +140,7 @@ export function ClassAddExistingStudentModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 id="add-existing-student-title" className="font-sans text-xl font-bold text-[#272932]">
+            <h3 id="add-existing-student-title" className="font-sans text-[20px] font-bold leading-[1.25] text-[#272932]">
               Add Student
             </h3>
             <p className="mt-1 text-sm text-[#666d80]">

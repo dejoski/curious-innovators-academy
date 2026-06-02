@@ -150,7 +150,7 @@ export function ParentScheduleGrid({
           {PARENT_SCHEDULE_DAYS.map((day, index) => (
             <div key={day} className="flex h-[70px] min-w-0 flex-col items-center justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] last:border-r-0 min-[1100px]:h-[78px]">
               <span className="text-[11px] leading-none text-[#111827] min-[1100px]:text-[14px]">Day</span>
-              <span className="mt-1.5 text-[18px] font-semibold leading-none text-[#111827] min-[1100px]:mt-2 min-[1100px]:text-[22px]">{index + 1}</span>
+              <span className="mt-1.5 text-[18px] font-semibold leading-none text-[#111827] min-[1100px]:mt-2 min-[1100px]:text-[20px]">{index + 1}</span>
             </div>
           ))}
 

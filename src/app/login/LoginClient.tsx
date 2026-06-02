@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
 import { dashboardHomeForPersona } from "@/lib/dashboard/role-routes";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
@@ -157,7 +158,7 @@ export default function LoginClient() {
           </div>
 
           <div className="flex w-full flex-col gap-[2px] sm:w-[261px]">
-            <h1 className="text-[22px] font-semibold leading-[1.1] text-[#05080b] [@media(max-height:760px)]:xl:text-[20px]">
+            <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} [@media(max-height:760px)]:xl:text-[18px]`}>
               Log in to the school
             </h1>
             <p className="text-[14px] font-normal leading-[1.5] text-[#87888a]">
@@ -261,7 +262,7 @@ export default function LoginClient() {
       </div>
 
       <div className="absolute left-[165px] top-1/2 hidden h-[176px] w-[416px] -translate-y-1/2 flex-col gap-[10px] xl:flex">
-        <p className="text-[48px] font-semibold leading-[1.1] text-[#05080b]">
+        <p className="text-[28px] font-semibold leading-[1.1] text-[#05080b]">
           Fast, efficient, and productive
         </p>
         <p className="flex-1 text-[18px] font-normal leading-[1.64] text-[#2f2f2d]">

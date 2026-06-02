@@ -120,7 +120,7 @@ export default function StudentProfileClient({
   if (!bundle) {
     return (
       <div className="w-full max-w-[1200px] mx-auto px-8 py-16 flex flex-col gap-4 items-center font-sans text-center">
-        <h1 className="text-xl font-semibold text-[#272932]">Student not found</h1>
+        <h1 className="text-[20px] font-semibold leading-[1.25] text-[#272932]">Student not found</h1>
         <p className="text-sm text-[#666d80] max-w-md">
           No student matches this id in the directory. Return to the list to open a valid profile.
         </p>
@@ -569,7 +569,7 @@ export default function StudentProfileClient({
           onMouseDown={handleEditModalBackdropMouseDown}
         >
           <div className="bg-white rounded-[16px] p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Edit Profile</h2>
+            <h2 className="text-[20px] font-bold mb-4 leading-[1.25]">Edit Profile</h2>
             {editError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {editError}
@@ -653,7 +653,7 @@ export default function StudentProfileClient({
           onMouseDown={handleAddNoteModalBackdropMouseDown}
         >
           <div className="bg-white rounded-[16px] p-6 w-full max-w-lg shadow-xl">
-            <h2 className="text-xl font-bold mb-4">Add Note / Record</h2>
+            <h2 className="text-[20px] font-bold mb-4 leading-[1.25]">Add Note / Record</h2>
             {noteError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {noteError}

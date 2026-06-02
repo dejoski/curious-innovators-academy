@@ -248,7 +248,7 @@ export default function AdminStudentRosterClient({
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-8 font-sans md:px-8">
       <div>
-        <h1 className="text-[32px] font-bold leading-[1.08] text-[#272932]">Class Roster</h1>
+        <h1 className="text-[28px] font-bold leading-[1.1] text-[#272932]">Class Roster</h1>
         <p className="mt-2 text-[18px] leading-[1.4] text-[#666d80]">
           Manage students enrolled in this class, including approvals, waitlist, and requests.
         </p>

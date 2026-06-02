@@ -7,6 +7,7 @@ import type { DataSource } from "@/lib/data/fetch-source";
 import type { InvoiceRow, InvoiceStatus } from "@/lib/data/types";
 import { peekDashboardData, readDashboardData } from "@/lib/client-data-cache";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
+import { DASHBOARD_METRIC_VALUE_CLASS } from "@/lib/dashboard-shell-classes";
 
 const STATUS_ORDER: InvoiceStatus[] = ["Open", "Past due", "Paid", "Draft", "Void"];
 
@@ -188,19 +189,19 @@ export default function ParentBillingClient() {
       <div className="grid gap-4 md:grid-cols-3">
         <section className="rounded-[8px] border border-[#dfe1e7] bg-white p-4">
           <p className="text-sm font-medium text-[#666d80]">Open balance</p>
-          <p className="mt-2 text-[26px] font-bold leading-tight text-[#272932]">
+          <p className={`mt-2 ${DASHBOARD_METRIC_VALUE_CLASS}`}>
             {showUnknownBilling ? <DashboardValueSkeleton className="h-7 w-24" /> : canShowBillingFacts ? formatMoney(totals.open, currency) : "Unavailable"}
           </p>
         </section>
         <section className="rounded-[8px] border border-[#dfe1e7] bg-white p-4">
           <p className="text-sm font-medium text-[#666d80]">Paid this period</p>
-          <p className="mt-2 text-[26px] font-bold leading-tight text-[#272932]">
+          <p className={`mt-2 ${DASHBOARD_METRIC_VALUE_CLASS}`}>
             {showUnknownBilling ? <DashboardValueSkeleton className="h-7 w-24" /> : canShowBillingFacts ? formatMoney(totals.paid, currency) : "Unavailable"}
           </p>
         </section>
         <section className="rounded-[8px] border border-[#dfe1e7] bg-white p-4">
           <p className="text-sm font-medium text-[#666d80]">Invoices</p>
-          <p className="mt-2 text-[26px] font-bold leading-tight text-[#272932]">
+          <p className={`mt-2 ${DASHBOARD_METRIC_VALUE_CLASS}`}>
             {showUnknownBilling ? <DashboardValueSkeleton className="h-7 w-12" /> : canShowBillingFacts ? invoices.length : "Unavailable"}
           </p>
         </section>

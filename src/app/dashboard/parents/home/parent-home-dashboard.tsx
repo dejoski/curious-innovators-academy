@@ -36,6 +36,10 @@ import {
 import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
+  DASHBOARD_BODY_SECONDARY_TEXT_CLASS,
+  DASHBOARD_METRIC_VALUE_CLASS,
+} from "@/lib/dashboard-shell-classes";
+import {
   selectedParentStudentIdFromSearchParams,
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
@@ -868,10 +872,10 @@ function ParentHomeDashboardContent() {
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
               <UserRound className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
-            <p className="font-bold text-[#272932] text-[32px] leading-[1.1]">
+            <p className={DASHBOARD_METRIC_VALUE_CLASS}>
               {attendance}
             </p>
-            <p className="font-medium text-[#666d80] text-[16px]">
+            <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>
               Attendance
             </p>
           </div>
@@ -881,10 +885,10 @@ function ParentHomeDashboardContent() {
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
               <ListChecks className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
-            <p className="font-bold text-[#272932] text-[32px] leading-[1.1]">
+            <p className={DASHBOARD_METRIC_VALUE_CLASS}>
               {pendingRequests}
             </p>
-            <p className="font-medium text-[#666d80] text-[16px]">
+            <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>
               Pending requests
             </p>
           </div>

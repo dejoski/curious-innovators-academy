@@ -13,7 +13,7 @@ export default function TermsPage() {
         <Link href="/login" className="text-sm font-medium text-[#14c1d5] hover:underline">
           Back to login
         </Link>
-        <h1 className="mt-6 text-[32px] font-bold leading-tight">Terms of Use</h1>
+        <h1 className="mt-6 text-[28px] font-bold leading-[1.1]">Terms of Use</h1>
         <p className="mt-3 text-sm leading-6 text-[#666d80]">Last updated: May 17, 2026</p>
 
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#3d4554]">

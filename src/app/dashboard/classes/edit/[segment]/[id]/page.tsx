@@ -135,7 +135,7 @@ export default function EditClassPage() {
       <div className="mx-auto flex max-w-[560px] flex-col gap-[24px]">
         <div className="flex flex-col gap-[8px]">
           <PageBackLink href="/dashboard/classes">Back to Class List</PageBackLink>
-          <h1 className="font-sans text-[26px] font-bold leading-tight text-[#0d0d12] md:text-[28px]">
+          <h1 className="font-sans text-[28px] font-bold leading-[1.1] text-[#0d0d12]">
             Edit class
           </h1>
           {syncHint && (

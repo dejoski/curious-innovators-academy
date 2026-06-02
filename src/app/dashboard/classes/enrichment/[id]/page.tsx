@@ -668,7 +668,7 @@ export default function EnrichmentClassDetail() {
       {/* Header Info */}
 	      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
 	        <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
+        <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
             {classTitle}
           </h1>
           <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
@@ -755,7 +755,7 @@ export default function EnrichmentClassDetail() {
 
       {/* Enrolled Students Section */}
       <div className="flex flex-col gap-4">
-        <h2 className="font-bold text-[#272932] text-[24px]">Enrolled Students</h2>
+        <h2 className="font-bold text-[#272932] text-[20px] leading-[1.25]">Enrolled Students</h2>
 
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-5 flex flex-col gap-5 shadow-sm">
           {/* Toolbar */}
@@ -1063,7 +1063,7 @@ export default function EnrichmentClassDetail() {
             className="bg-white rounded-[18px] p-6 w-full max-w-md shadow-xl flex flex-col gap-4"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-[#272932] text-xl">Edit Class Info</h3>
+            <h3 className="font-bold text-[#272932] text-[18px] leading-[1.25]">Edit Class Info</h3>
             <p className="text-[#666d80] text-[14px]">Update the details for this class.</p>
             {classEditError ? (
               <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
@@ -1125,7 +1125,7 @@ export default function EnrichmentClassDetail() {
             className="bg-white rounded-[18px] p-6 w-full max-w-md shadow-xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-[#272932] text-xl">Edit Student</h3>
+            <h3 className="font-bold text-[#272932] text-[18px] leading-[1.25]">Edit Student</h3>
             <p className="text-[#666d80] text-[14px]">Update this student&apos;s enrollment details.</p>
             {editStudentError ? (
               <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
@@ -1246,7 +1246,7 @@ export default function EnrichmentClassDetail() {
             className="bg-white rounded-[18px] p-6 w-full max-w-sm shadow-xl flex flex-col gap-4"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-[#272932] text-xl">Remove Class?</h3>
+            <h3 className="font-bold text-[#272932] text-[18px] leading-[1.25]">Remove Class?</h3>
             <p className="text-[#666d80] text-[14px]">
               Are you sure you want to remove the <strong>{classTitle}</strong> class? This removes it from the directory for all administrators.
             </p>

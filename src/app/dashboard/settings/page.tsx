@@ -363,7 +363,7 @@ export default function DashboardSettingsPage() {
 
           <div className="grid gap-5 max-w-xl">
             <div className="flex items-center gap-4">
-              <EntityAvatar name={displayName} src={avatarUrl} className="size-20" textClassName="text-[22px]" />
+              <EntityAvatar name={displayName} src={avatarUrl} className="size-20" textClassName="text-[20px]" />
               <label
                 className={`inline-flex h-[42px] items-center justify-center gap-2 rounded-[6px] bg-white px-4 text-sm font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 transition-colors hover:bg-[#ecfdff] ${
                   isSavingAvatar ? "cursor-wait opacity-70" : "cursor-pointer"
