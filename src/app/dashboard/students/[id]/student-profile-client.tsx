@@ -399,6 +399,23 @@ export default function StudentProfileClient({
                   {mock.parentName}
                 </Link>
               </div>
+              <div className="rounded-[10px] border border-[#eef0f3] bg-[#fbfcfe] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.02em] text-[#667085]">Linked parent contacts</span>
+                  <Link href={mock.parentHref} className="text-[12px] font-semibold text-[#14c1d5] hover:underline">
+                    Manage parents
+                  </Link>
+                </div>
+                <div className="mt-2 flex flex-col gap-2">
+                  {parentContacts.map((contact, index) => (
+                    <div key={contact.id ?? `${contact.name}-${index}`} className="grid gap-1 text-[13px] leading-snug sm:grid-cols-[minmax(120px,1fr)_minmax(160px,1.3fr)_minmax(110px,0.8fr)]">
+                      <span className="font-semibold text-[#272932]">{contact.name || "Parent contact"}</span>
+                      <span className="break-words text-[#666d80]">{contact.email || "Email not linked"}</span>
+                      <span className="text-[#666d80]">{contact.phone || "Phone not linked"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="flex gap-2 items-baseline">
                 <span className="text-[#0d0d12]">Age:</span>
                 <span className="font-semibold text-[#666d80]">
