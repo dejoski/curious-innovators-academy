@@ -14,9 +14,9 @@ import {
 } from "@/lib/dashboard-shell-classes";
 
 import {
-  availabilityLabelForOption,
   isOptionFull,
   scheduleParts,
+  selectionLabelForOption,
   seatsRemainingForOption,
   type ParentClassChoiceKind,
   type ParentClassOption,
@@ -32,7 +32,7 @@ export type {
 } from "@/lib/parent-class-options";
 
 function detailsStatusLabel(option: ParentClassOption, statusLabel?: string): string {
-  const label = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
+  const label = statusLabel ?? (isOptionFull(option) ? "Waitlist available" : "Open");
   if (/school assigned/i.test(label)) return "Assigned by school";
   if (/pending$/i.test(label)) return "Pending approval";
   return label;
@@ -65,7 +65,7 @@ function detailsAvailabilityLabel(option: ParentClassOption): string {
   const remaining = seatsRemainingForOption(option);
   const base = option.seats || "Seats not set";
   if (remaining == null) return option.availabilityLabel ? `${base} - ${option.availabilityLabel}` : base;
-  if (remaining <= 0) return `${base} - Full`;
+  if (remaining <= 0) return `${base} - waitlist available`;
   return `${base} - ${remaining} remaining`;
 }
 
@@ -192,7 +192,7 @@ export function ParentClassSummaryCard({
 }) {
   if (!option) return null;
   const scheduleLabel = scheduleDisplay ? `${scheduleDisplay.day} · ${scheduleDisplay.time}` : option.block || option.schedule || "Selected block";
-  const status = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
+  const status = statusLabel ?? (isOptionFull(option) ? "Waitlist available" : "Open");
   return (
     <div className="rounded-[8px] border border-[#dfe1e6] bg-white px-[14px] py-[12px] sm:px-[16px] sm:py-[14px]">
       <div className="flex items-start justify-between gap-3 border-b border-[#dfe1e6] pb-[10px]">
@@ -272,15 +272,13 @@ function ChoiceDropdown({
                 No classes are available for this block and day.
               </div>
             ) : classes.map((cls) => {
-              const full = isOptionFull(cls);
               const schedule = scheduleDisplay ?? scheduleParts(cls);
               return (
                 <button
                   key={cls.id || cls.name}
                   type="button"
-                  disabled={full}
                   onClick={() => onSelect(cls)}
-                  className="flex w-full items-start justify-between gap-4 py-[10px] text-left disabled:cursor-not-allowed disabled:opacity-55"
+                  className="flex w-full items-start justify-between gap-4 py-[10px] text-left hover:bg-[#fafafa]"
                 >
                   <span>
                     <span className={`block ${DASHBOARD_BODY_TEXT_CLASS} text-[#0d0d12]`}>{cls.name}</span>
@@ -289,7 +287,7 @@ function ChoiceDropdown({
                       {schedule.day} · {schedule.time}
                     </span>
                   </span>
-                  <span className={`mt-[2px] shrink-0 font-medium ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>{full ? "Full" : availabilityLabelForOption(cls)}</span>
+                  <span className={`mt-[2px] shrink-0 font-medium ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>{selectionLabelForOption(cls)}</span>
                 </button>
               );
             })}

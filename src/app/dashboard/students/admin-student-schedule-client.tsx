@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Filter, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Filter, Search } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
@@ -26,6 +26,7 @@ import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data";
+import { parentScheduleFinalityClasses, parentScheduleFinalityFromRow } from "@/lib/parent-schedule-status";
 import {
   STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS,
   type DailyParentScheduleSlotKey,
@@ -92,6 +93,36 @@ function ScheduleCell({ badges }: { badges: StudentScheduleBadge[] }) {
           <span className="truncate">{badge.label}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+function ScheduleStatePill({ row }: { row: StudentScheduleRow }) {
+  const finality = parentScheduleFinalityFromRow(row);
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span className={`inline-flex rounded-full border px-2.5 py-1 ${DASHBOARD_STATUS_PILL_TEXT_CLASS} ${parentScheduleFinalityClasses(finality.state)}`}>
+        {finality.label}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {row.hasConflicts ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#d80509]/25 bg-[#fff5f5] px-2 py-0.5 text-[11px] font-semibold text-[#8c1f1f]">
+            <AlertTriangle className="size-3" aria-hidden strokeWidth={2} />
+            Conflict
+          </span>
+        ) : null}
+        {(row.incompleteBlocks ?? 0) > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#cfa500]/35 bg-[#fffdf3] px-2 py-0.5 text-[11px] font-semibold text-[#7a5b00]">
+            {row.incompleteBlocks} open
+          </span>
+        ) : null}
+        {!row.hasConflicts && (row.incompleteBlocks ?? 0) === 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#004d08]/25 bg-[#f3fbf4] px-2 py-0.5 text-[11px] font-semibold text-[#004d08]">
+            <CheckCircle2 className="size-3" aria-hidden strokeWidth={2} />
+            Complete
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -171,10 +202,13 @@ export default function AdminStudentScheduleClient({
     const selected = filteredRows.filter((row) => selectedIds.has(row.id));
     downloadCsv(
       "student-schedules-selected.csv",
-      ["Student", "Parent", ...COLUMNS.map((column) => `${column.label} ${column.sublabel}`)],
+      ["Student", "Parent", "Schedule state", "Open blocks", "Conflicts", ...COLUMNS.map((column) => `${column.label} ${column.sublabel}`)],
       selected.map((row) => [
         row.name,
         row.parent,
+        parentScheduleFinalityFromRow(row).label,
+        String(row.incompleteBlocks ?? 0),
+        row.hasConflicts ? "Yes" : "No",
         ...COLUMNS.map((column) => realBadges(row[column.key]).map((badge) => `${badge.label} (${badge.tone})`).join("; ")),
       ]),
     );
@@ -290,6 +324,7 @@ export default function AdminStudentScheduleClient({
               <tr className={DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS}>
                 <th className={`w-[220px] ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Student</th>
                 <th className={`w-[150px] ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Parent</th>
+                <th className={`w-[150px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>State</th>
                 {COLUMNS.map((column) => (
                   <th key={column.key} className={`w-[122px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>
                     <span className="block">{column.label}</span>
@@ -323,6 +358,9 @@ export default function AdminStudentScheduleClient({
                       </div>
                     </td>
                     <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>{row.parent || "--"}</td>
+                    <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>
+                      <ScheduleStatePill row={row} />
+                    </td>
                     {COLUMNS.map((column) => (
                       <td key={column.key} className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS}`}>
                         <ScheduleCell badges={row[column.key]} />
@@ -348,7 +386,7 @@ export default function AdminStudentScheduleClient({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={COLUMNS.length + 3} className="px-4 py-12 text-center text-[15px] text-[#666d80]">
+                  <td colSpan={COLUMNS.length + 4} className="px-4 py-12 text-center text-[15px] text-[#666d80]">
                     No student schedules match your filters.
                   </td>
                 </tr>

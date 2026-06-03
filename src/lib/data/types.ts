@@ -1,4 +1,11 @@
 export type ProgramTrack = "core" | "enrichment";
+export type StudentCompetencyBehavior = "block" | "core" | "enrichment";
+
+export type StudentCompetencyLevel = {
+  competency: string;
+  level: string;
+  behavior: StudentCompetencyBehavior;
+};
 
 export type SemesterRow = {
   id: string;
@@ -94,6 +101,8 @@ export type SchoolClassOptionRow = Pick<
   | "scheduleDays"
   | "isActive"
   | "archivedAt"
+  | "location"
+  | "room"
   | "minAgeYears"
   | "maxAgeYears"
 >;
@@ -114,6 +123,7 @@ export type StudentProfileDetails = {
   name: string;
   age: string;
   level: string;
+  competencyLevels: StudentCompetencyLevel[];
   learningProfile: string;
   strengths: string;
   supportNotes: string;
@@ -148,6 +158,12 @@ export type StudentProfileBundle = {
   avatar: string;
   details: StudentProfileDetails;
   parentName: string;
+  parentContacts: {
+    id?: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  }[];
   parentHref: string;
   coreSummaryLabel: string;
   enrichmentSummaryLabel: string;
@@ -166,6 +182,7 @@ export type StudentScheduleBadge = {
   label: string;
   tone: StudentScheduleBadgeTone;
   classId?: string;
+  requestId?: string;
   draftKind?: "choice" | "change";
   draftOf?: {
     label: string;

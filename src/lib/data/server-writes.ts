@@ -46,7 +46,9 @@ type PlacementClassRow = {
   name?: unknown;
   program?: unknown;
   block?: unknown;
+  level?: unknown;
   schedule_summary?: unknown;
+  schedule_days?: unknown;
   semester_id?: unknown;
 };
 
@@ -95,12 +97,49 @@ function workflowStatusForRequest(status: EnrichmentRequestRow["status"]): "pend
 }
 
 function classPlacementSlot(row: PlacementClassRow): string | null {
-  const source = `${String(row.block ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
+  const source = `${String(row.block ?? "")} ${String(row.level ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
   if (!/\b(?:block|b)\s*[1-4]\b/.test(source)) return null;
   return scheduleSlotForClassFields({
     block: row.block,
-    scheduleSummary: row.schedule_summary,
+    scheduleSummary: [row.level, row.schedule_summary].filter(Boolean).join(" "),
   });
+}
+
+function blockNumberForPlacement(row: PlacementClassRow): number | null {
+  const source = `${String(row.block ?? "")} ${String(row.level ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
+  const parsed = Number(
+    source.match(/\bblock\s*([1-4])\b/)?.[1] ??
+      source.match(/\bb([1-4])\b/)?.[1] ??
+      source.match(/^\s*([1-4])\s*$/)?.[1],
+  );
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null;
+}
+
+function classPlacementSlots(row: PlacementClassRow): string[] {
+  const blockNumber = blockNumberForPlacement(row);
+  const rawDays = Array.isArray(row.schedule_days) ? row.schedule_days : [];
+  const daySuffixes = rawDays
+    .map((value) => String(value ?? "").trim().toUpperCase())
+    .map((day) =>
+      day === "T" || day === "TUE" || day === "TUESDAY" ? "Tue" :
+      day === "W" || day === "WED" || day === "WEDNESDAY" ? "Wed" :
+      day === "TH" || day === "THU" || day === "THURSDAY" ? "Thu" :
+      null,
+    )
+    .filter((value): value is "Tue" | "Wed" | "Thu" => value !== null);
+
+  if (blockNumber && daySuffixes.length > 0) {
+    return daySuffixes.map((day) => `b${blockNumber}${day}`);
+  }
+
+  const slot = classPlacementSlot(row);
+  return slot ? [slot] : [];
+}
+
+function placementSlotsOverlap(left: PlacementClassRow, right: PlacementClassRow): boolean {
+  const leftSlots = new Set(classPlacementSlots(left));
+  if (leftSlots.size === 0) return false;
+  return classPlacementSlots(right).some((slot) => leftSlots.has(slot));
 }
 
 async function ensureApprovedRosterPlacementAllowed(
@@ -109,6 +148,7 @@ async function ensureApprovedRosterPlacementAllowed(
     classId: string;
     studentId: string;
     existingApprovedInClass?: boolean;
+    pendingRequestConsumesSeat?: boolean;
   },
 ): Promise<WriteFail | { ok: true }> {
   if (input.existingApprovedInClass) return { ok: true };
@@ -116,7 +156,7 @@ async function ensureApprovedRosterPlacementAllowed(
   const [{ data: targetClass, error: targetClassError }, { data: availability, error: availabilityError }] = await Promise.all([
     supabase
       .from("classes")
-      .select("id, name, program, block, schedule_summary")
+      .select("id, name, program, block, level, schedule_summary, schedule_days")
       .eq("id", input.classId)
       .maybeSingle(),
     supabase
@@ -129,17 +169,18 @@ async function ensureApprovedRosterPlacementAllowed(
   if (availabilityError) return { ok: false, message: availabilityError.message };
   if (!targetClass) return { ok: false, message: "Class not found" };
 
-  const seatsRemaining = Math.max(0, Math.floor(Number((availability as Record<string, unknown> | null)?.seats_remaining ?? 0)));
+  const seatsRemaining =
+    Math.max(0, Math.floor(Number((availability as Record<string, unknown> | null)?.seats_remaining ?? 0))) +
+    (input.pendingRequestConsumesSeat ? 1 : 0);
   if (seatsRemaining <= 0) {
     return { ok: false, message: `${String((targetClass as Record<string, unknown>).name ?? "This class")} is full.` };
   }
 
-  const targetSlot = classPlacementSlot(targetClass as PlacementClassRow);
-  if (!targetSlot) return { ok: true };
+  if (classPlacementSlots(targetClass as PlacementClassRow).length === 0) return { ok: true };
 
   const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollments")
-    .select("class_id, status, classes ( id, name, program, block, schedule_summary )")
+    .select("class_id, status, classes ( id, name, program, block, level, schedule_summary, schedule_days )")
     .eq("student_id", input.studentId)
     .eq("status", "approved");
   if (enrollmentError) return { ok: false, message: enrollmentError.message };
@@ -148,7 +189,7 @@ async function ensureApprovedRosterPlacementAllowed(
     const classId = String(row.class_id ?? "");
     if (classId === input.classId) continue;
     const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
-    if (targetSlot === classPlacementSlot((classRow ?? {}) as PlacementClassRow)) {
+    if (placementSlotsOverlap(targetClass as PlacementClassRow, (classRow ?? {}) as PlacementClassRow)) {
       const className = String((classRow as Record<string, unknown> | null)?.name ?? "another approved class");
       return { ok: false, message: `Student already has ${className} in this schedule slot.` };
     }
@@ -473,7 +514,17 @@ export async function serverInsertClass(input: {
       action: "class.create",
       entityType: "class",
       entityId: mapped.id,
-      metadata: { name: mapped.name, program: mapped.program },
+      metadata: {
+        name: mapped.name,
+        program: mapped.program,
+        semesterId: mapped.semesterId,
+        teacherId: mapped.teacherId ?? null,
+        block: mapped.block,
+        scheduleDays: mapped.scheduleDays,
+        room: mapped.room ?? null,
+        isActive: mapped.isActive,
+        archivedAt: mapped.archivedAt ?? null,
+      },
     });
     return { ok: true, row: mapped };
   } catch (e) {
@@ -596,7 +647,17 @@ export async function serverUpdateClass(
       action: "class.update",
       entityType: "class",
       entityId: mapped.id,
-      metadata: { name: mapped.name, program: mapped.program },
+      metadata: {
+        name: mapped.name,
+        program: mapped.program,
+        semesterId: mapped.semesterId,
+        teacherId: mapped.teacherId ?? null,
+        block: mapped.block,
+        scheduleDays: mapped.scheduleDays,
+        room: mapped.room ?? null,
+        isActive: mapped.isActive,
+        archivedAt: mapped.archivedAt ?? null,
+      },
     });
     return { ok: true, row: mapped };
   } catch (e) {
@@ -609,15 +670,17 @@ export async function serverDeleteClass(id: string): Promise<{ ok: true } | Writ
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
+    const archivedAt = new Date().toISOString();
     const { error } = await supabase
       .from("classes")
-      .update({ is_active: false, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({ is_active: false, archived_at: archivedAt, updated_at: archivedAt })
       .eq("id", id);
     if (error) return { ok: false, message: error.message };
     await writeAuditEvent(supabase, {
       action: "class.archive",
       entityType: "class",
       entityId: id,
+      metadata: { source: "delete", archivedAt },
     });
     return { ok: true };
   } catch (e) {
@@ -633,9 +696,10 @@ export async function serverSetClassLifecycle(
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
+    const timestamp = new Date().toISOString();
     const payload = input.archived
-      ? { is_active: false, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      : { is_active: input.isActive, archived_at: null, updated_at: new Date().toISOString() };
+      ? { is_active: false, archived_at: timestamp, updated_at: timestamp }
+      : { is_active: input.isActive, archived_at: null, updated_at: timestamp };
     const { data, error } = await supabase
       .from("classes")
       .update(payload)
@@ -1999,6 +2063,33 @@ async function ensureClassCapacityForChoices(
   return { ok: true };
 }
 
+async function ensureNoDuplicatePendingClassRequests(
+  supabase: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    choices: { classId: string }[];
+  },
+): Promise<WriteFail | { ok: true }> {
+  const classIds = [...new Set(input.choices.map((choice) => choice.classId).filter(Boolean))];
+  if (classIds.length === 0) return { ok: true };
+
+  const { data, error } = await supabase
+    .from("class_requests")
+    .select("class_id, classes ( name )")
+    .eq("student_id", input.studentId)
+    .eq("status", "pending")
+    .in("class_id", classIds);
+  if (error) return { ok: false, message: error.message };
+
+  const existing = ((data ?? []) as unknown as Record<string, unknown>[])[0];
+  if (!existing) return { ok: true };
+
+  const classes = Array.isArray(existing.classes) ? existing.classes[0] : existing.classes;
+  const cls = classes && typeof classes === "object" ? classes as Record<string, unknown> : {};
+  const className = String(cls.name ?? "Selected class");
+  return { ok: false, message: `${className} already has a pending request for this student.` };
+}
+
 async function ensureOpenSlotsForRequestChoices(
   supabase: SupabaseMutationClient,
   input: {
@@ -2019,22 +2110,30 @@ async function ensureOpenSlotsForRequestChoices(
   const requestedSlots = new Map(
     placementRows.requestedClasses
       .filter((row) => classBelongsToSemester(row as Record<string, unknown>, input.semesterId))
-      .map((row) => [String(row.id ?? ""), classPlacementSlot(row)])
-      .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])),
+      .map((row) => [String(row.id ?? ""), classPlacementSlots(row)])
+      .filter((entry): entry is [string, string[]] => Boolean(entry[0] && entry[1].length)),
   );
   const occupiedSlots = new Set<string>();
   for (const row of placementRows.enrollments) {
     if (String(row.status ?? "").toLowerCase() !== "approved") continue;
     const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
     if (!classBelongsToSemester((classRow ?? {}) as Record<string, unknown>, input.semesterId)) continue;
-    const slot = classPlacementSlot((classRow ?? {}) as PlacementClassRow);
-    if (slot) occupiedSlots.add(slot);
+    for (const slot of classPlacementSlots((classRow ?? {}) as PlacementClassRow)) {
+      occupiedSlots.add(slot);
+    }
+  }
+  for (const row of placementRows.pendingRequests) {
+    const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+    if (!classBelongsToSemester((classRow ?? {}) as Record<string, unknown>, input.semesterId)) continue;
+    for (const slot of classPlacementSlots((classRow ?? {}) as PlacementClassRow)) {
+      occupiedSlots.add(slot);
+    }
   }
 
   for (const choice of input.choices) {
-    const slot = requestedSlots.get(choice.classId);
-    if (slot && occupiedSlots.has(slot)) {
-      return { ok: false, message: "This schedule slot already has an approved class. Use waitlist instead of submitting another class request for the same block and day." };
+    const slots = requestedSlots.get(choice.classId) ?? [];
+    if (slots.some((slot) => occupiedSlots.has(slot))) {
+      return { ok: false, message: "This schedule slot already has an approved or pending class. Use waitlist instead of submitting another class request for the same block and day." };
     }
   }
 
@@ -2052,13 +2151,13 @@ async function clearSameSlotAlternativesAfterApproval(
 ): Promise<WriteFail | { ok: true }> {
   let { data: approvedClass, error: approvedClassError } = await supabase
     .from("classes")
-    .select("id, program, block, schedule_summary, semester_id")
+    .select("id, program, block, level, schedule_summary, schedule_days, semester_id")
     .eq("id", input.approvedClassId)
     .maybeSingle();
   if (approvedClassError && isSemesterSchemaError(approvedClassError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, program, block, schedule_summary")
+      .select("id, program, block, level, schedule_summary, schedule_days")
       .eq("id", input.approvedClassId)
       .maybeSingle();
     approvedClass = fallback.data as typeof approvedClass;
@@ -2071,10 +2170,10 @@ async function clearSameSlotAlternativesAfterApproval(
   const semesterId = "semester_id" in ((approvedClass ?? {}) as Record<string, unknown>)
     ? String((approvedClass as Record<string, unknown>).semester_id ?? "")
     : null;
-  const approvedSlot = classPlacementSlot(approved);
+  const approvedSlots = classPlacementSlots(approved);
   let classQuery = supabase
     .from("classes")
-    .select("id, program, block, schedule_summary");
+    .select("id, program, block, level, schedule_summary, schedule_days");
   if (semesterId) {
     classQuery = classQuery.eq("semester_id", semesterId);
   }
@@ -2082,7 +2181,7 @@ async function clearSameSlotAlternativesAfterApproval(
   if (classesError && semesterId && isSemesterSchemaError(classesError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, program, block, schedule_summary")
+      .select("id, program, block, level, schedule_summary, schedule_days")
       .not("id", "is", null);
     classRows = fallback.data as typeof classRows;
     classesError = fallback.error;
@@ -2090,7 +2189,11 @@ async function clearSameSlotAlternativesAfterApproval(
   if (classesError) return { ok: false, message: classesError.message };
 
   const sameSlotClassIds = ((classRows ?? []) as PlacementClassRow[])
-    .filter((row) => String(row.id ?? "") && classPlacementSlot(row) === approvedSlot)
+    .filter((row) => {
+      if (!String(row.id ?? "")) return false;
+      const rowSlots = classPlacementSlots(row);
+      return rowSlots.some((slot) => approvedSlots.includes(slot));
+    })
     .map((row) => String(row.id));
   if (sameSlotClassIds.length === 0) return { ok: true };
 
@@ -2263,17 +2366,18 @@ async function fetchRequestPlacementRows(
       ok: true;
       requestedClasses: PlacementClassRow[];
       enrollments: Record<string, unknown>[];
+      pendingRequests: Record<string, unknown>[];
     }
   | WriteFail
 > {
   let { data: requestedClasses, error: classError } = await supabase
     .from("classes")
-    .select("id, block, schedule_summary, semester_id")
+    .select("id, block, level, schedule_summary, schedule_days, semester_id")
     .in("id", input.classIds);
   if (classError && isSemesterSchemaError(classError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, block, schedule_summary")
+      .select("id, block, level, schedule_summary, schedule_days")
       .in("id", input.classIds);
     requestedClasses = fallback.data as typeof requestedClasses;
     classError = fallback.error;
@@ -2282,13 +2386,13 @@ async function fetchRequestPlacementRows(
 
   let { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollments")
-    .select("class_id, status, classes ( id, program, block, schedule_summary, semester_id )")
+    .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days, semester_id )")
     .eq("student_id", input.studentId)
     .in("status", ["approved", "waitlisted"]);
   if (enrollmentError && isSemesterSchemaError(enrollmentError)) {
     const fallback = await supabase
       .from("enrollments")
-      .select("class_id, status, classes ( id, program, block, schedule_summary )")
+      .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days )")
       .eq("student_id", input.studentId)
       .in("status", ["approved", "waitlisted"]);
     enrollments = fallback.data as typeof enrollments;
@@ -2296,10 +2400,27 @@ async function fetchRequestPlacementRows(
   }
   if (enrollmentError) return { ok: false, message: enrollmentError.message };
 
+  let { data: pendingRequests, error: pendingRequestError } = await supabase
+    .from("class_requests")
+    .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days, semester_id )")
+    .eq("student_id", input.studentId)
+    .eq("status", "pending");
+  if (pendingRequestError && isSemesterSchemaError(pendingRequestError)) {
+    const fallback = await supabase
+      .from("class_requests")
+      .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days )")
+      .eq("student_id", input.studentId)
+      .eq("status", "pending");
+    pendingRequests = fallback.data as typeof pendingRequests;
+    pendingRequestError = fallback.error;
+  }
+  if (pendingRequestError) return { ok: false, message: pendingRequestError.message };
+
   return {
     ok: true,
     requestedClasses: (requestedClasses ?? []) as unknown as PlacementClassRow[],
     enrollments: (enrollments ?? []) as unknown as Record<string, unknown>[],
+    pendingRequests: (pendingRequests ?? []) as unknown as Record<string, unknown>[],
   };
 }
 
@@ -2355,6 +2476,9 @@ export async function serverInsertEnrichmentRequests(input: {
       });
       if (!cleared.ok) return cleared;
 
+      const duplicates = await ensureNoDuplicatePendingClassRequests(admin, { studentId, choices });
+      if (!duplicates.ok) return duplicates;
+
       const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId, studentId });
       if (!capacity.ok) return capacity;
 
@@ -2380,6 +2504,9 @@ export async function serverInsertEnrichmentRequests(input: {
       submitScope: input.submitScope,
     });
     if (!cleared.ok) return cleared;
+
+    const duplicates = await ensureNoDuplicatePendingClassRequests(capacityClient, { studentId, choices });
+    if (!duplicates.ok) return duplicates;
 
     const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId, studentId });
     if (!capacity.ok) return capacity;
@@ -2443,6 +2570,15 @@ export async function serverPatchEnrichmentRequest(
 
       if (dbStatus !== "approved" && dbStatus !== "waitlisted" && dbStatus !== "rejected") {
         return { ok: false, message: "Invalid final status" };
+      }
+
+      if (dbStatus === "approved") {
+        const allowed = await ensureApprovedRosterPlacementAllowed(mutationClient, {
+          classId,
+          studentId,
+          existingApprovedInClass: String(raw.status ?? "").toLowerCase() === "approved",
+        });
+        if (!allowed.ok) return allowed;
       }
 
       const { error: enrollmentError } = await mutationClient
@@ -2512,6 +2648,15 @@ export async function serverPatchEnrichmentRequest(
       if (!studentId || !classId) return { ok: false, message: "Request is missing student or class id" };
       if (dbStatus !== "approved" && dbStatus !== "waitlisted" && dbStatus !== "rejected") {
         return { ok: false, message: "Invalid final status" };
+      }
+
+      if (dbStatus === "approved") {
+        const allowed = await ensureApprovedRosterPlacementAllowed(mutationClient, {
+          classId,
+          studentId,
+          pendingRequestConsumesSeat: true,
+        });
+        if (!allowed.ok) return allowed;
       }
 
       const { error: enrollmentError } = await mutationClient

@@ -40,6 +40,16 @@ type ClassMeta = {
   teacher: string;
   blockLevel: string;
   schedule: string;
+  semesterName: string;
+  room: string;
+  scheduleDays: string[];
+  minAgeYears?: number;
+  maxAgeYears?: number;
+  pendingCount: number;
+  waitlistCount: number;
+  seatsRemaining?: number;
+  isActive: boolean;
+  archivedAt?: string;
   capacityEnrolled: number;
   capacityMax: number;
 };
@@ -50,6 +60,12 @@ const EMPTY_CLASS_META: ClassMeta = {
   teacher: "Teacher not assigned",
   blockLevel: "Block not set",
   schedule: "Schedule not set",
+  semesterName: "",
+  room: "",
+  scheduleDays: [],
+  pendingCount: 0,
+  waitlistCount: 0,
+  isActive: true,
   capacityEnrolled: 0,
   capacityMax: 1,
 };
@@ -61,6 +77,16 @@ function classMetaFromRow(row: SchoolClassRow): ClassMeta {
     teacher: row.teacher || "Teacher not assigned",
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
+    semesterName: row.semesterName,
+    room: row.room || row.location || "",
+    scheduleDays: row.scheduleDays,
+    minAgeYears: row.minAgeYears,
+    maxAgeYears: row.maxAgeYears,
+    pendingCount: row.pendingCount,
+    waitlistCount: row.waitlistCount,
+    seatsRemaining: row.seatsRemaining,
+    isActive: row.isActive,
+    archivedAt: row.archivedAt,
     capacityEnrolled: Math.max(0, row.enrolledCount ?? 0),
     capacityMax: Math.max(1, row.capacity ?? 1),
   };
@@ -348,6 +374,13 @@ export default function ClassDetailsPage() {
           description: classMetaDraft.description,
           block,
           level,
+          room: classMetaDraft.room,
+          location: classMetaDraft.room,
+          scheduleDays: classMetaDraft.scheduleDays,
+          minAgeYears: classMetaDraft.minAgeYears,
+          maxAgeYears: classMetaDraft.maxAgeYears,
+          isActive: classMetaDraft.isActive,
+          archivedAt: classMetaDraft.archivedAt,
         }),
       });
       if (!res.ok) {
@@ -613,6 +646,45 @@ export default function ClassDetailsPage() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 md:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <div className="font-semibold text-gray-900">Term</div>
+          <div>{classMeta.semesterName || "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Room / location</div>
+          <div>{classMeta.room || "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Meeting days</div>
+          <div>{classMeta.scheduleDays.length > 0 ? classMeta.scheduleDays.join(", ") : "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Visibility</div>
+          <div>{classMeta.isActive && !classMeta.archivedAt ? "Parent-visible" : "Parent-hidden"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Pending / waitlist</div>
+          <div>{classMeta.pendingCount} pending, {classMeta.waitlistCount} waitlisted</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Remaining seats</div>
+          <div>{classMeta.seatsRemaining ?? "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Age limits</div>
+          <div>
+            {classMeta.minAgeYears != null || classMeta.maxAgeYears != null
+              ? `${classMeta.minAgeYears ?? "Any"}-${classMeta.maxAgeYears ?? "Any"} years`
+              : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Archive state</div>
+          <div>{classMeta.archivedAt ? `Archived ${new Date(classMeta.archivedAt).toLocaleDateString()}` : "Not archived"}</div>
         </div>
       </div>
 

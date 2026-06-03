@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Download, ListChecks, UserRound } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Download, ListChecks, RotateCcw, UserRound, XCircle } from "lucide-react";
 
 import {
   ParentScheduleGrid,
@@ -33,7 +33,7 @@ import {
   DASHBOARD_TABLE_HEAD_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { RequestStatus, SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 import {
   parentClassOptionFromRow,
   parentClassOptionsForCatalogSlot,
@@ -192,6 +192,33 @@ function slotOverlayTitle(slot: SlotDetail): string {
   return `${slot.block} ${slot.day}`;
 }
 
+function scheduleStateMeta(schedule: StudentScheduleRow) {
+  if (schedule.scheduleState === "finalized") {
+    return {
+      label: "Finalized",
+      detail: schedule.finalizedAt
+        ? `Finalized ${new Date(schedule.finalizedAt).toLocaleDateString("en-US", { timeZone: "America/New_York" })}${schedule.finalizedBy ? ` by ${schedule.finalizedBy}` : ""}.`
+        : "Finalized by the school.",
+      classes: "border-[#004d08]/25 bg-[#f3fbf4] text-[#004d08]",
+      icon: <CheckCircle2 className="size-4" aria-hidden strokeWidth={2} />,
+    };
+  }
+  if (schedule.scheduleState === "pending") {
+    return {
+      label: "Pending finalization",
+      detail: "Ready for school review before parent-facing finalization.",
+      classes: "border-[#cfa500]/35 bg-[#fffdf3] text-[#7a5b00]",
+      icon: <Clock className="size-4" aria-hidden strokeWidth={2} />,
+    };
+  }
+  return {
+    label: "Draft",
+    detail: "Editable schedule. Resolve open blocks and conflicts before finalization.",
+    classes: "border-[#dfe3ea] bg-[#fbfcfe] text-[#344054]",
+    icon: <Clock className="size-4" aria-hidden strokeWidth={2} />,
+  };
+}
+
 export default function StudentScheduleClient({
   studentId,
   initialRows,
@@ -214,6 +241,8 @@ export default function StudentScheduleClient({
   const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
+  const [requestActionHint, setRequestActionHint] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -253,6 +282,7 @@ export default function StudentScheduleClient({
   );
   const slots = useMemo(() => (schedule ? studentScheduleSlots(schedule) : null), [schedule]);
   const finality = useMemo(() => parentScheduleFinalityFromRow(schedule), [schedule]);
+  const stateMeta = useMemo(() => (schedule ? scheduleStateMeta(schedule) : null), [schedule]);
   const assignedSlotDetails = useMemo(
     () =>
       SLOT_DETAILS.map((slot) => ({
@@ -293,6 +323,26 @@ export default function StudentScheduleClient({
     return [];
   }, [assignmentSlot, classOptions, classes]);
   const assignmentSlotContext = assignmentSlot ? slotContextFromBadges(badgesBySlot[assignmentSlot]) : { kind: "empty" as const };
+
+  const patchRequestStatus = async (requestId: string, status: RequestStatus) => {
+    if (requestActionBusyId) return;
+    setRequestActionBusyId(requestId);
+    setRequestActionHint(null);
+    try {
+      const res = await fetch("/api/data/enrichment-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: requestId, status }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+      await refreshSchedule();
+      setRequestActionHint(`${status === "Pending" ? "Reopened" : status} request saved.`);
+    } catch (error) {
+      setRequestActionHint(error instanceof Error ? error.message : "Request status could not be saved.");
+    } finally {
+      setRequestActionBusyId(null);
+    }
+  };
 
   const openAssignmentModal = async (slot: ParentScheduleSlotKey) => {
     setAssignmentSlot(slot);
@@ -436,6 +486,40 @@ export default function StudentScheduleClient({
             <MetricCard icon={<CalendarDays className="size-5" aria-hidden strokeWidth={2} />} label="Open enrichment slots" value={summary.openSlots} />
           </div>
 
+          {stateMeta ? (
+            <section className={`rounded-[8px] border px-4 py-3 ${stateMeta.classes}`}>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <span className="mt-0.5 shrink-0">{stateMeta.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold leading-snug">{stateMeta.label}</p>
+                    <p className="mt-1 text-[13px] leading-snug opacity-90">{stateMeta.detail}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[12px] font-semibold">
+                  {schedule.hasConflicts ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#d80509]/30 bg-white/70 px-2.5 py-1 text-[#8c1f1f]">
+                      <AlertTriangle className="size-3.5" aria-hidden strokeWidth={2} />
+                      Conflict
+                    </span>
+                  ) : null}
+                  {(schedule.incompleteBlocks ?? 0) > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#cfa500]/35 bg-white/70 px-2.5 py-1 text-[#7a5b00]">
+                      {schedule.incompleteBlocks} open block{schedule.incompleteBlocks === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                  {!schedule.hasConflicts && (schedule.incompleteBlocks ?? 0) === 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#004d08]/25 bg-white/70 px-2.5 py-1 text-[#004d08]">
+                      <CheckCircle2 className="size-3.5" aria-hidden strokeWidth={2} />
+                      Complete
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              {requestActionHint ? <p className="mt-2 text-[12px] font-semibold">{requestActionHint}</p> : null}
+            </section>
+          ) : null}
+
           <section className={`${DASHBOARD_PANEL_CLASS} p-4 md:p-5`}>
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
@@ -496,6 +580,38 @@ export default function StudentScheduleClient({
                           slot={slot.slot}
                           onManage={() => void openAssignmentModal(slot.slot)}
                         />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {slot.badges
+                            .filter((badge) => badge.requestId)
+                            .map((badge) => (
+                              <div key={badge.requestId} className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] font-semibold text-[#667085]">{badge.label}</span>
+                                {(["Approved", "Rejected", "Waitlisted", "Pending"] as RequestStatus[]).map((status) => (
+                                  <button
+                                    key={`${badge.requestId}-${status}`}
+                                    type="button"
+                                    disabled={requestActionBusyId === badge.requestId}
+                                    onClick={() => void patchRequestStatus(badge.requestId as string, status)}
+                                    className="inline-flex items-center gap-1 rounded-[6px] border border-[#dfe3ea] bg-white px-2 py-1 text-[11px] font-semibold text-[#344054] hover:bg-[#fafafa] disabled:cursor-wait disabled:opacity-60"
+                                  >
+                                    {status === "Approved" ? <CheckCircle2 className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Rejected" ? <XCircle className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Waitlisted" ? <Clock className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Pending" ? <RotateCcw className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Pending" ? "Reopen" : status}
+                                  </button>
+                                ))}
+                              </div>
+                            ))}
+                          {slot.badges.some((badge) => badge.tone === "pending" && !badge.requestId) ? (
+                            <Link
+                              href={`/dashboard/classes/requests?studentId=${encodeURIComponent(studentId)}`}
+                              className="text-[12px] font-semibold text-[#0b7180] hover:underline"
+                            >
+                              Review pending request
+                            </Link>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>

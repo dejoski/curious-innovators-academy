@@ -19,6 +19,10 @@ function capacityField(body: Record<string, unknown>) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
 }
 
+function programField(body: Record<string, unknown>) {
+  return body.program === "enrichment" || body.track === "enrichment" ? "enrichment" : "core";
+}
+
 export async function GET(request: Request) {
   const current = await loadCurrentApiUser();
   if (current.error || !current.user || !current.supabase) {
@@ -65,7 +69,7 @@ export async function POST(req: Request) {
     status: body.status === "Full" ? "Full" : "Active",
     isActive: body.isActive == null ? undefined : Boolean(body.isActive),
     archivedAt: body.archivedAt == null ? undefined : String(body.archivedAt),
-    track: body.track === "enrichment" ? "enrichment" : "core",
+    track: programField(body),
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
@@ -107,7 +111,7 @@ export async function PATCH(req: Request) {
     status: body.status === "Full" ? "Full" : "Active",
     isActive: body.isActive == null ? undefined : Boolean(body.isActive),
     archivedAt: body.archivedAt == null ? undefined : String(body.archivedAt),
-    track: body.track === "enrichment" ? "enrichment" : "core",
+    track: programField(body),
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,

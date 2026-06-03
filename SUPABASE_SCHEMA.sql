@@ -319,7 +319,7 @@ CREATE TABLE public.classes (
   is_active boolean NOT NULL DEFAULT true,
   archived_at timestamptz,
   updated_at timestamptz NOT NULL DEFAULT now(),
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT classes_age_range_order CHECK (
     min_age_years IS NULL
     OR max_age_years IS NULL
@@ -642,6 +642,7 @@ ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_request_decisions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_schedule_states ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
@@ -767,6 +768,21 @@ CREATE POLICY classes_select
 
 CREATE POLICY classes_write_admin
   ON public.classes FOR ALL TO authenticated
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
+
+-- student_schedule_states
+CREATE POLICY student_schedule_states_select
+  ON public.student_schedule_states FOR SELECT TO authenticated
+  USING (
+    private.is_admin()
+    OR private.parent_can_see_student(student_schedule_states.student_id)
+    OR private.student_is_self(student_schedule_states.student_id)
+    OR private.teacher_teaches_student(student_schedule_states.student_id)
+  );
+
+CREATE POLICY student_schedule_states_write_admin
+  ON public.student_schedule_states FOR ALL TO authenticated
   USING (private.is_admin())
   WITH CHECK (private.is_admin());
 

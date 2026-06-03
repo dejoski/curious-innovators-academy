@@ -251,7 +251,7 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
         .select("class_id, enrolled_count, pending_count, waitlist_count, reserved_count, seats_remaining, availability_label"),
     ]);
     let classesResult = initialClassesResult;
-    if (classesResult.error && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
+    if (classesResult.error && !options?.parentFacing && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
       classesResult = await supabase
         .from("classes")
         .select(CLASS_SELECT_BASE)
@@ -337,6 +337,8 @@ function mapClassOptionRow(row: Record<string, unknown>): SchoolClassOptionRow |
     scheduleDays: textArrayField(row, "schedule_days"),
     isActive: row.is_active == null ? true : Boolean(row.is_active),
     archivedAt: String(row.archived_at ?? "").trim() || undefined,
+    location: String(row.location ?? row.room ?? "").trim() || undefined,
+    room: String(row.room ?? row.location ?? "").trim() || undefined,
     minAgeYears: optionalNumberField(row, "min_age_years"),
     maxAgeYears: optionalNumberField(row, "max_age_years"),
     schedule: formatClassScheduleLabel({ block, level, scheduleSummary: row.schedule_summary }),
@@ -350,7 +352,7 @@ async function loadClassOptionsResolved(client?: ClassReadClient, options?: Clas
     const semesterId = await resolveSemesterFilter(supabase, options);
     let query = supabase
       .from("classes")
-      .select("id, semester_id, name, program, capacity, block, level, schedule_summary, schedule_days, is_active, archived_at, min_age_years, max_age_years, semesters ( id, name, starts_on, ends_on, is_current )")
+      .select("id, semester_id, name, program, capacity, block, level, schedule_summary, schedule_days, is_active, archived_at, location, room, min_age_years, max_age_years, semesters ( id, name, starts_on, ends_on, is_current )")
       .order("created_at", { ascending: true });
     if (semesterId) {
       query = query.eq("semester_id", semesterId);
@@ -361,7 +363,7 @@ async function loadClassOptionsResolved(client?: ClassReadClient, options?: Clas
     const initial = await query;
     let data = initial.data as unknown as Record<string, unknown>[] | null;
     let error = initial.error;
-    if (error && (!semesterId || classQueryNeedsSchemaFallback(error))) {
+    if (error && !options?.parentFacing && (!semesterId || classQueryNeedsSchemaFallback(error))) {
       const fallback = await supabase
         .from("classes")
         .select("id, name, program, capacity, block, level, schedule_summary")

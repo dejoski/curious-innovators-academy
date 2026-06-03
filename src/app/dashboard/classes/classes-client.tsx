@@ -57,11 +57,14 @@ const SORT_LABELS: Record<SortKey, string> = {
   status: "Class status",
 };
 
-type VisibilityFilter = "all" | "active" | "full";
+type VisibilityFilter = "all" | "parentVisible" | "hidden" | "inactive" | "archived" | "full";
 
 const VISIBILITY_FILTER_LABELS: Record<VisibilityFilter, string> = {
   all: "All Classes",
-  active: "Parent-Visible Classes",
+  parentVisible: "Parent-visible",
+  hidden: "Parent-hidden",
+  inactive: "Inactive",
+  archived: "Archived",
   full: "Full Classes",
 };
 
@@ -249,8 +252,14 @@ export default function ClassesPageClient({
     const q = search.trim().toLowerCase();
     let rows = classes.filter((c) => c.program === trackTab);
 
-    if (visibilityFilter === "active") {
+    if (visibilityFilter === "parentVisible") {
       rows = rows.filter((c) => c.isActive && !c.archivedAt);
+    } else if (visibilityFilter === "hidden") {
+      rows = rows.filter((c) => !c.isActive || Boolean(c.archivedAt));
+    } else if (visibilityFilter === "inactive") {
+      rows = rows.filter((c) => !c.isActive && !c.archivedAt);
+    } else if (visibilityFilter === "archived") {
+      rows = rows.filter((c) => Boolean(c.archivedAt));
     } else if (visibilityFilter === "full") {
       rows = rows.filter((c) => c.status === "Full");
     }
@@ -335,7 +344,7 @@ export default function ClassesPageClient({
       : visibleRows;
     downloadCsv(
       "classes-directory.csv",
-      ["Class", "Teacher", "Level", "Block", "Schedule", "Seats", "Status", "Track", "Pending", "Waitlist"],
+      ["Class", "Teacher", "Level", "Block", "Schedule", "Seats", "Status", "Visibility", "Track", "Pending", "Waitlist"],
       selected.map((row) => [
         row.name,
         row.teacher,
@@ -344,6 +353,7 @@ export default function ClassesPageClient({
         row.schedule,
         row.students,
         row.status,
+        row.isActive && !row.archivedAt ? "Parent-visible" : "Parent-hidden",
         row.program,
         row.pendingCount,
         row.waitlistCount,
@@ -1043,7 +1053,7 @@ export default function ClassesPageClient({
             if (event.target === event.currentTarget) setDetailClass(null);
           }}
         >
-          <div className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
+          <div className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[780px] flex-col overflow-hidden rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
             <button
               type="button"
               className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
@@ -1062,11 +1072,27 @@ export default function ClassesPageClient({
               <p className="mt-2 text-sm text-[#666d80]">
                 {detailClass.description || "No class description has been added yet."}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+                  detailClass.isActive && !detailClass.archivedAt
+                    ? "bg-[#eaf8f0] text-[#166534]"
+                    : "bg-[#fff8e6] text-[#7a5b00]"
+                }`}>
+                  {detailClass.isActive && !detailClass.archivedAt ? "Parent-visible" : "Parent-hidden"}
+                </span>
+                <span className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-[12px] font-semibold text-[#3f4350]">
+                  {detailClass.archivedAt ? "Archived" : detailClass.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
             </div>
-            <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+            <dl className="mt-6 grid gap-3 overflow-y-auto pr-1 text-sm sm:grid-cols-2">
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Teacher</dt>
                 <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.teacher)}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Term</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.semesterName)}</dd>
               </div>
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Schedule</dt>
@@ -1077,8 +1103,20 @@ export default function ClassesPageClient({
                 <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.block)}</dd>
               </div>
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Room / location</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.room || detailClass.location || "")}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Meeting days</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.scheduleDays.length > 0 ? detailClass.scheduleDays.join(", ") : "—"}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Seats</dt>
                 <dd className="mt-1 font-semibold text-[#272932]">{detailClass.students}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Remaining</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.seatsRemaining ?? "—"}</dd>
               </div>
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Pending</dt>
@@ -1087,6 +1125,18 @@ export default function ClassesPageClient({
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Waitlist</dt>
                 <dd className="mt-1 font-semibold text-[#272932]">{detailClass.waitlistCount}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Age limits</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">
+                  {detailClass.minAgeYears != null || detailClass.maxAgeYears != null
+                    ? `${detailClass.minAgeYears ?? "Any"}-${detailClass.maxAgeYears ?? "Any"} years`
+                    : "—"}
+                </dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Archived at</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.archivedAt ? new Date(detailClass.archivedAt).toLocaleString() : "—"}</dd>
               </div>
             </dl>
             <div className="mt-6 flex justify-end gap-3 border-t border-[#f0f0f0] pt-4">

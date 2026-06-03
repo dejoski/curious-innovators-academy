@@ -23,9 +23,14 @@ import {
   type ParentCatalogChoice,
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
-import type { EnrichmentRequestRow, SchoolClassRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentProfileBundle, StudentScheduleRow } from "@/lib/data/types";
 import { ParentClassDetailsDrawer, type ParentClassOption, type ScheduleDisplayParts } from "@/components/parent-class-drawers";
-import { parentClassOptionFromRow } from "@/lib/parent-class-options";
+import {
+  isParentSelectableEnrichmentOption,
+  parentClassOptionFromRow,
+  parseStudentAgeYears,
+  selectionLabelForOption,
+} from "@/lib/parent-class-options";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
@@ -53,28 +58,6 @@ type DraftChoiceWithLocalId = ParentCatalogChoice & {
   current: boolean;
 };
 
-function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
-  const { day, time } = classSchedulePartsFromFields({
-    block: row.block,
-    level: row.level,
-    scheduleSummary: row.schedule,
-  });
-  return {
-    id: row.id,
-    name: row.name,
-    teacher: row.teacher || "Teacher not assigned",
-    level: row.level || "—",
-    block: row.block || "—",
-    day,
-    time,
-    location: row.location || "Room not assigned",
-    availability: row.status === "Full" ? "Full" : "Open",
-    status: row.pendingCount > 0 ? "Pending" : "--",
-    current: false,
-    option: parentClassOptionFromRow(row),
-  };
-}
-
 function dataHintFromSource(source?: string) {
   if (source === "fallback") return "Showing starter classes while class records finish loading.";
   if (source === "unavailable") return "Classes are temporarily unavailable.";
@@ -85,9 +68,7 @@ function readCachedEnrichmentClasses() {
   const body = peekCachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
   return {
     body,
-    rows: (body?.classes ?? [])
-      .filter((row) => row.program === "enrichment")
-      .map(toParentEnrichmentRow),
+    rows: body?.classes ?? [],
   };
 }
 
@@ -95,6 +76,9 @@ export default function ParentClassesEnrichmentClient() {
   const searchParams = useSearchParams();
   const selectedParentStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
+  const [classRows, setClassRows] = useState<SchoolClassRow[]>([]);
+  const [studentAgeYears, setStudentAgeYears] = useState<number | null>(null);
+  const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
@@ -128,7 +112,7 @@ export default function ParentClassesEnrichmentClient() {
     async function loadClasses() {
       const cached = readCachedEnrichmentClasses();
       if (cached.body) {
-        setClasses(cached.rows);
+        setClassRows(cached.rows);
         setDataHint(dataHintFromSource(cached.body.source));
         setIsLoading(false);
       } else {
@@ -136,15 +120,14 @@ export default function ParentClassesEnrichmentClient() {
       }
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
-        const rows = (body.classes ?? [])
-          .filter((row) => row.program === "enrichment")
-          .map(toParentEnrichmentRow);
+        const rows = Array.isArray(body.classes) ? body.classes : [];
         if (cancelled) return;
-        setClasses(rows);
+        setClassRows(rows);
         setDataHint(dataHintFromSource(body.source));
       } catch (error) {
         if (!cancelled) {
           setClasses([]);
+          setClassRows([]);
           setDataHint(
             `Could not load classes: ${error instanceof Error ? error.message : String(error)}.`,
           );
@@ -158,6 +141,78 @@ export default function ParentClassesEnrichmentClient() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSelectedStudentContext() {
+      try {
+        const studentsBody = await cachedJson<{ students?: StudentListItem[] }>("/api/data/students");
+        const students = Array.isArray(studentsBody.students) ? studentsBody.students : [];
+        const activeStudent = students.find((student) => student.id === selectedParentStudentId) ?? students[0] ?? null;
+        if (!activeStudent) {
+          if (!cancelled) {
+            setStudentAgeYears(null);
+            setStudentSchedule(null);
+          }
+          return;
+        }
+        const [profileBody, scheduleBody] = await Promise.all([
+          cachedJson<{ profile?: StudentProfileBundle | null }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`,
+          ),
+          cachedJson<{ rows?: StudentScheduleRow[] }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
+          ),
+        ]);
+        if (!cancelled) {
+          setStudentAgeYears(parseStudentAgeYears(profileBody.profile?.details?.age));
+          setStudentSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
+        }
+      } catch {
+        if (!cancelled) {
+          setStudentAgeYears(null);
+          setStudentSchedule(null);
+        }
+      }
+    }
+    void loadSelectedStudentContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedParentStudentId]);
+
+  useEffect(() => {
+    setClasses(
+      classRows
+        .map(parentClassOptionFromRow)
+        .filter((option) =>
+          isParentSelectableEnrichmentOption(option, {
+            studentAgeYears,
+            schedule: studentSchedule,
+          }),
+        )
+        .map((option) => ({
+          ...(() => {
+            const { day, time } = classSchedulePartsFromFields({
+              block: option.block,
+              level: option.level,
+              scheduleSummary: option.schedule,
+            });
+            return { day, time };
+          })(),
+          id: option.id,
+          name: option.name,
+          teacher: option.teacher,
+          level: option.level || "—",
+          block: option.block || "—",
+          location: option.location || "Room not assigned",
+          availability: selectionLabelForOption(option),
+          status: (option.pendingCount ?? 0) > 0 ? "Pending" : "--",
+          current: false,
+          option,
+        })),
+    );
+  }, [classRows, studentAgeYears, studentSchedule]);
 
   useEffect(() => {
     let cancelled = false;

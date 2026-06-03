@@ -23,6 +23,7 @@ const DEFAULT_TEACHER_NAME = "Unassigned Teacher";
 
 const DAY_OPTIONS: DayOption[] = ["1", "2", "3"];
 const BLOCK_OPTIONS: BlockOption[] = ["1", "2", "3", "4"];
+const WEEKDAY_OPTIONS = ["M", "T", "W", "TH", "F"] as const;
 
 function blockLabelForOption(value: BlockOption): string {
   return PARENT_SCHEDULE_ROWS[Number(value) - 1]?.label ?? `Block ${value}`;
@@ -106,6 +107,13 @@ export default function AddClassForm() {
   const [block, setBlock] = useState<BlockOption>("1");
   const [status, setStatus] = useState<ClassStatus>("Active");
   const [capacity, setCapacity] = useState("");
+  const [teacher, setTeacher] = useState(DEFAULT_TEACHER_NAME);
+  const [room, setRoom] = useState("");
+  const [location, setLocation] = useState("");
+  const [level, setLevel] = useState("");
+  const [scheduleDays, setScheduleDays] = useState<string[]>(["M", "T", "W", "TH", "F"]);
+  const [minAgeYears, setMinAgeYears] = useState("");
+  const [maxAgeYears, setMaxAgeYears] = useState("");
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -149,13 +157,20 @@ export default function AddClassForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          teacher: DEFAULT_TEACHER_NAME,
+          teacher: teacher.trim() || DEFAULT_TEACHER_NAME,
           capacity: capacityNumber,
           schedule: scheduleText,
+          scheduleDays,
           status,
           track: segment,
           description: description.trim(),
+          level: level.trim(),
           block: blockText,
+          location: location.trim() || room.trim(),
+          room: room.trim(),
+          minAgeYears: minAgeYears.trim() ? Number(minAgeYears) : undefined,
+          maxAgeYears: maxAgeYears.trim() ? Number(maxAgeYears) : undefined,
+          isActive: status === "Active",
         }),
       });
       if (res.ok) {
@@ -202,6 +217,16 @@ export default function AddClassForm() {
                   className="min-h-[152px] w-full resize-y rounded-[8px] border border-[#dfe1e7] bg-white px-4 py-4 font-sans text-[15px] leading-[1.45] text-[#272932] outline-none transition-colors placeholder:text-[#818898] focus:border-[#14c1d5] focus:ring-2 focus:ring-[#14c1d5]/15"
                 />
               </label>
+              <div className="grid gap-5 md:grid-cols-2">
+                <label className="flex flex-col gap-3">
+                  <FieldLabel>Teacher</FieldLabel>
+                  <TextInput value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="Teacher roster name" />
+                </label>
+                <label className="flex flex-col gap-3">
+                  <FieldLabel>Level</FieldLabel>
+                  <TextInput value={level} onChange={(e) => setLevel(e.target.value)} placeholder="ex. 3" />
+                </label>
+              </div>
             </div>
 
             <div className="flex flex-col gap-5 pt-0 lg:pt-[2px]">
@@ -279,6 +304,14 @@ export default function AddClassForm() {
               </SelectInput>
             </label>
             <label className="flex flex-col gap-3">
+              <FieldLabel>Room</FieldLabel>
+              <TextInput value={room} onChange={(e) => setRoom(e.target.value)} placeholder="ex. Studio A" />
+            </label>
+            <label className="flex flex-col gap-3">
+              <FieldLabel>Location</FieldLabel>
+              <TextInput value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ex. Main campus" />
+            </label>
+            <label className="flex flex-col gap-3">
               <FieldLabel>{requiredLabel("Start Time")}</FieldLabel>
               <SelectInput value={blockTime.start} disabled leadingIcon={<Clock3 className="size-5" aria-hidden strokeWidth={1.8} />}>
                 <option>{blockTime.start}</option>
@@ -290,6 +323,31 @@ export default function AddClassForm() {
                 <option>{blockTime.end}</option>
               </SelectInput>
             </label>
+            <div className="md:col-span-2">
+              <FieldLabel>Meeting days</FieldLabel>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {WEEKDAY_OPTIONS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setScheduleDays((current) =>
+                        current.includes(value)
+                          ? current.filter((dayValue) => dayValue !== value)
+                          : [...current, value],
+                      );
+                    }}
+                    className={`rounded-[8px] border px-3 py-2 font-sans text-[14px] font-semibold ${
+                      scheduleDays.includes(value)
+                        ? "border-[#14c1d5] bg-[#d2f1f5] text-[#0d0d12]"
+                        : "border-[#dfe1e7] bg-white text-[#666d80]"
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </FormSection>
 
@@ -304,6 +362,28 @@ export default function AddClassForm() {
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
                 placeholder="ex. 18"
+              />
+            </label>
+            <label className="flex flex-col gap-3">
+              <FieldLabel>Minimum Age</FieldLabel>
+              <TextInput
+                inputMode="numeric"
+                min={0}
+                type="number"
+                value={minAgeYears}
+                onChange={(e) => setMinAgeYears(e.target.value)}
+                placeholder="Any"
+              />
+            </label>
+            <label className="flex flex-col gap-3">
+              <FieldLabel>Maximum Age</FieldLabel>
+              <TextInput
+                inputMode="numeric"
+                min={0}
+                type="number"
+                value={maxAgeYears}
+                onChange={(e) => setMaxAgeYears(e.target.value)}
+                placeholder="Any"
               />
             </label>
           </div>

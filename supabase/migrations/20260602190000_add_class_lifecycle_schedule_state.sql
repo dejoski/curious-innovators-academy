@@ -13,13 +13,23 @@ UPDATE public.classes
 SET room = COALESCE(NULLIF(room, ''), NULLIF(location, ''))
 WHERE room IS NULL;
 
-ALTER TABLE public.classes
-  ADD CONSTRAINT classes_age_range_order
-  CHECK (
-    min_age_years IS NULL
-    OR max_age_years IS NULL
-    OR max_age_years >= min_age_years
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'classes_age_range_order'
+      AND conrelid = 'public.classes'::regclass
+  ) THEN
+    ALTER TABLE public.classes
+      ADD CONSTRAINT classes_age_range_order
+      CHECK (
+        min_age_years IS NULL
+        OR max_age_years IS NULL
+        OR max_age_years >= min_age_years
+      );
+  END IF;
+END$$;
 
 CREATE INDEX IF NOT EXISTS classes_active_archive_idx
   ON public.classes (is_active, archived_at);

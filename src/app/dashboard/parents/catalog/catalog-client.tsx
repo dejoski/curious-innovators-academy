@@ -16,8 +16,11 @@ import {
 } from "@/components/parent-class-drawers";
 import {
   fallbackParentClassOption,
+  hasBlockingScheduleConflict,
+  isParentSelectableEnrichmentOption,
   parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
+  parseStudentAgeYears,
 } from "@/lib/parent-class-options";
 import {
   ParentScheduleGrid,
@@ -68,7 +71,7 @@ import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromBadges,
 } from "@/lib/parent-schedule-status";
-import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentProfileBundle, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
 type SlotId = CatalogSlotId;
 
@@ -149,6 +152,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
+  const [studentAgeYears, setStudentAgeYears] = useState<number | null>(null);
   const [studentScheduleLoading, setStudentScheduleLoading] = useState(true);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
@@ -202,20 +206,28 @@ function ParentClassesEnrichmentCatalogContent() {
           if (!cancelled) {
             setActiveStudent(null);
             setStudentSchedule(null);
+            setStudentAgeYears(null);
           }
           return;
         }
-        const scheduleBody = await cachedJson<{ rows?: StudentScheduleRow[] }>(
-          `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
-        );
+        const [profileBody, scheduleBody] = await Promise.all([
+          cachedJson<{ profile?: StudentProfileBundle | null }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`,
+          ),
+          cachedJson<{ rows?: StudentScheduleRow[] }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
+          ),
+        ]);
         if (!cancelled) {
           setActiveStudent(activeStudent);
           setStudentSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
+          setStudentAgeYears(parseStudentAgeYears(profileBody.profile?.details?.age));
         }
       } catch {
         if (!cancelled) {
           setActiveStudent(null);
           setStudentSchedule(null);
+          setStudentAgeYears(null);
         }
       } finally {
         if (!cancelled) setStudentScheduleLoading(false);
@@ -392,8 +404,16 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   const recommendedClasses = useMemo(() => {
-    return parentClassOptionsForCatalogSlot(availableClasses, activeMeta);
-  }, [activeMeta, availableClasses]);
+    return parentClassOptionsForCatalogSlot(
+      availableClasses.filter((option) =>
+        isParentSelectableEnrichmentOption(option, {
+          studentAgeYears,
+          schedule: studentSchedule,
+        }),
+      ),
+      activeMeta,
+    );
+  }, [activeMeta, availableClasses, studentAgeYears, studentSchedule]);
 
   const overlayClasses = recommendedClasses;
   const choiceMatchesActiveSlot = (choice: ParentClassOption | null) =>
@@ -424,8 +444,8 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function openScheduleSlot(slot: ParentScheduleSlotKey) {
     const currentBadges = scheduleBadgesBySlot[slot] ?? [];
-    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved")) {
-      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed class. Ask the school team to change it, or use waitlist actions for classes that should not replace the approved schedule." });
+    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved" || badge.tone === "pending")) {
+      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed or pending class. Ask the school team to change it, or use waitlist actions for classes that should not replace the current schedule." });
       return;
     }
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
@@ -433,6 +453,10 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
+    if (hasBlockingScheduleConflict(cls, studentSchedule)) {
+      setSubmitBanner({ tone: "warning", message: "This class conflicts with a confirmed or pending class already visible in the schedule." });
+      return;
+    }
     const currentRequests = editingRequests ?? (renderedRequests as Record<SlotId, SlotRequests>);
     const currentActive = currentRequests[activeSlot];
     const selectedKind: ParentClassChoiceKind = kind === "secondChoice" && !currentActive.firstChoice ? "firstChoice" : kind;

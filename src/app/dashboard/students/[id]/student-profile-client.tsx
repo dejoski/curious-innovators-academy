@@ -72,7 +72,7 @@ export default function StudentProfileClient({
   const [studentDetails, setStudentDetails] = useState<StudentDetailsState>(() =>
     bundle
       ? bundle.details
-      : { name: "", age: "", level: "", learningProfile: "", strengths: "", supportNotes: "" },
+      : { name: "", age: "", level: "", competencyLevels: [], learningProfile: "", strengths: "", supportNotes: "" },
   );
   const [avatarUrl, setAvatarUrl] = useState(() => bundle?.avatar ?? "/images/avatars/student-1.png");
   const [events, setEvents] = useState<TimelineEvent[]>(() => (bundle ? bundle.events : []));
@@ -128,6 +128,9 @@ export default function StudentProfileClient({
   }
 
   const mock = bundle;
+  const parentContacts = mock.parentContacts.length
+    ? mock.parentContacts
+    : [{ name: mock.parentName || "Parent contact" }];
 
   const filteredEvents = events.filter((e) => filterType === ALL_HISTORY_FILTER || e.type === filterType);
   const dataHint =

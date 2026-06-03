@@ -9,6 +9,21 @@ import React, { useEffect, useState } from "react";
 
 type ClassStatus = "Active" | "Full";
 
+function scheduleDaysText(days: string[] | undefined): string {
+  return (days ?? []).join(", ");
+}
+
+function parseScheduleDays(value: string): string[] {
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function optionalNumber(value: number | undefined): number | undefined {
+  return Number.isFinite(value) && value != null && value >= 0 ? value : undefined;
+}
+
 export default function EditClassPage() {
   const router = useRouter();
   const { startNavigation } = useDashboardNavigationProgress();
@@ -106,6 +121,13 @@ export default function EditClassPage() {
           description: draft.description ?? "",
           level: draft.level ?? "",
           block: draft.block ?? "",
+          scheduleDays: draft.scheduleDays,
+          location: draft.location ?? "",
+          room: draft.room ?? "",
+          minAgeYears: optionalNumber(draft.minAgeYears),
+          maxAgeYears: optionalNumber(draft.maxAgeYears),
+          isActive: draft.isActive,
+          archivedAt: draft.archivedAt,
         }),
       });
       if (res.ok) {
@@ -170,6 +192,15 @@ export default function EditClassPage() {
             />
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+            Meeting days
+            <input
+              value={scheduleDaysText(draft.scheduleDays)}
+              onChange={(e) => setRow({ ...draft, scheduleDays: parseScheduleDays(e.target.value) })}
+              placeholder="M, T, W, TH, F"
+              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+            />
+          </label>
+          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Description
             <textarea
               value={draft.description ?? ""}
@@ -177,6 +208,24 @@ export default function EditClassPage() {
               className="min-h-[96px] resize-y rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+              Room
+              <input
+                value={draft.room ?? ""}
+                onChange={(e) => setRow({ ...draft, room: e.target.value, location: e.target.value || draft.location })}
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+              Location
+              <input
+                value={draft.location ?? ""}
+                onChange={(e) => setRow({ ...draft, location: e.target.value })}
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              />
+            </label>
+          </div>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Level
             <input
@@ -193,6 +242,28 @@ export default function EditClassPage() {
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+              Minimum age
+              <input
+                type="number"
+                min={0}
+                value={draft.minAgeYears ?? ""}
+                onChange={(e) => setRow({ ...draft, minAgeYears: e.target.value === "" ? undefined : Number.parseInt(e.target.value, 10) })}
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+              Maximum age
+              <input
+                type="number"
+                min={0}
+                value={draft.maxAgeYears ?? ""}
+                onChange={(e) => setRow({ ...draft, maxAgeYears: e.target.value === "" ? undefined : Number.parseInt(e.target.value, 10) })}
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              />
+            </label>
+          </div>
 
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Status
@@ -205,6 +276,11 @@ export default function EditClassPage() {
               <option value="Full">Full</option>
             </select>
           </label>
+          <div className="rounded-lg border border-[#ebecef] bg-[#fbfcfd] p-3 font-sans text-[13px] text-[#3f4350]">
+            <div className="font-semibold text-[#272932]">Parent visibility</div>
+            <div className="mt-1">{draft.isActive && !draft.archivedAt ? "Visible to parents" : "Hidden from parents"}</div>
+            {draft.archivedAt ? <div className="mt-1 text-[#7a5b00]">Archived: {new Date(draft.archivedAt).toLocaleString()}</div> : null}
+          </div>
 
           <div className="flex flex-wrap justify-end gap-3 pt-2">
             <Link
