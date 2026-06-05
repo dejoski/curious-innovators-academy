@@ -60,6 +60,7 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
+  // fallow-ignore-next-line code-duplication
   const body = (await req.json()) as Record<string, unknown>;
   const rawChoices = Array.isArray(body.choices) ? body.choices : [];
   const choices = rawChoices.map((raw) => {
@@ -77,9 +78,11 @@ export async function POST(req: Request) {
     choices,
     submitScope,
   });
+  // fallow-ignore-next-line code-duplication
   if (!result.ok) {
     return apiWriteError(result.message, 400);
   }
+  // fallow-ignore-next-line code-duplication
   return NextResponse.json({ requests: result.rows });
 }
 

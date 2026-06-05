@@ -269,7 +269,9 @@ export default function StudentProfileClient({
       studentDetails.level !== editModalBaseline.level ||
       studentDetails.learningProfile !== editModalBaseline.learningProfile ||
       studentDetails.strengths !== editModalBaseline.strengths ||
-      studentDetails.supportNotes !== editModalBaseline.supportNotes);
+      studentDetails.supportNotes !== editModalBaseline.supportNotes ||
+      parentEmailDraft !== (bundle?.parentContacts[0]?.email ?? "") ||
+      parentNameDraft !== (bundle?.parentContacts[0]?.name ?? bundle?.parentName ?? ""));
 
   const requestCloseEditModal = () => {
     if (!isEditProfileDirty) {

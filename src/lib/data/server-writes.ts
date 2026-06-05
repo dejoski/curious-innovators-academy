@@ -2014,7 +2014,8 @@ async function ensureClassCapacityForChoices(
     .maybeSingle();
   if (studentError) return { ok: false, message: studentError.message };
   if (!student) return { ok: false, message: "Selected student was not found" };
-  const studentAge = Number((student as Record<string, unknown>).age_years);
+  const rawAge = (student as Record<string, unknown>).age_years;
+  const studentAge = rawAge != null ? Number(rawAge) : null;
   const availabilityByClassId = new Map(
     ((availability ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.class_id), row]),
   );
@@ -2039,10 +2040,10 @@ async function ensureClassCapacityForChoices(
     }
     const minAge = Number(classRow?.min_age_years);
     const maxAge = Number(classRow?.max_age_years);
-    if (Number.isFinite(studentAge) && Number.isFinite(minAge) && studentAge < minAge) {
+    if (studentAge !== null && Number.isFinite(minAge) && studentAge < minAge) {
       return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} requires students to be at least ${minAge}.` };
     }
-    if (Number.isFinite(studentAge) && Number.isFinite(maxAge) && studentAge > maxAge) {
+    if (studentAge !== null && Number.isFinite(maxAge) && studentAge > maxAge) {
       return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is limited to students age ${maxAge} or younger.` };
     }
 
@@ -2884,3 +2885,4 @@ export async function serverPatchNotificationRead(
     return { ok: false, message: msg };
   }
 }
+
