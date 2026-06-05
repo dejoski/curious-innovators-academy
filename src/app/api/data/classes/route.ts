@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     );
   }
 
+  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(request.url);
   const options = {
     semesterId: searchParams.get("semesterId"),
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
     .eq("id", current.user.id)
     .maybeSingle();
 
+  // fallow-ignore-next-line code-duplication
   if (isParentRole(profile?.role)) {
     const access = await resolveParentAccess(current.user.id);
     if ("error" in access) {

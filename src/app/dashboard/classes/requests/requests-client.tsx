@@ -2,7 +2,7 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2, ChevronLeft } from "lucide-react";
+import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2, ChevronLeft, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
@@ -13,6 +13,7 @@ import { invalidateDashboardData, parentStudentDataUrls } from "@/lib/client-dat
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
+import { scheduleSlotForClassFields } from "@/lib/schedule-slots";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 import { DashboardActionFeedback, type DashboardActionFeedbackState } from "@/components/dashboard-action-feedback";
@@ -175,6 +176,7 @@ export default function ClassesEnrichmentRequests({
   >(null);
   const [reasonDraft, setReasonDraft] = useState("");
   const [detailRequest, setDetailRequest] = useState<EnrichmentRequestRow | null>(null);
+  const [conflictWarnings, setConflictWarnings] = useState<Map<string, string[]>>(new Map());
 
   useEffect(() => {
     if (detailIdFromUrl) {
@@ -370,6 +372,37 @@ export default function ClassesEnrichmentRequests({
     });
   };
 
+  const checkConflictBeforeApproval = async (id: string, status: RequestStatus): Promise<boolean> => {
+    if (status !== "Approved") return true;
+    const touchedRow = requests.find((request) => request.id === id);
+    if (!touchedRow || !touchedRow.studentId || !touchedRow.classId) return true;
+    try {
+      const res = await fetch("/api/data/classes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checkConflict: true,
+          studentId: touchedRow.studentId,
+          classId: touchedRow.classId,
+        }),
+      });
+      if (!res.ok) return true; // Allow through if check fails
+      const body = (await res.json()) as { hasConflict?: boolean; conflicts?: string[] };
+      if (body.hasConflict && body.conflicts) {
+        setConflictWarnings((prev) => {
+          const next = new Map(prev);
+          next.set(id, body.conflicts!);
+          return next;
+        });
+        setActionFeedback({ tone: "error", message: `Cannot approve: schedule conflict detected. ${body.conflicts.join("; ")}` });
+        return false;
+      }
+      return true;
+    } catch {
+      return true; // Allow through if network fails
+    }
+  };
+
   const applyStatus = async (id: string, status: RequestStatus, reason?: string) => {
     const touchedRow = requests.find((request) => request.id === id);
     setConfirmAction(null);
@@ -439,6 +472,22 @@ export default function ClassesEnrichmentRequests({
   const applyBulkStatus = async (status: RequestStatus) => {
     if (selectedRows.length === 0 || actionBusy) return;
     const targetRows = selectedRows;
+    
+    // Check for conflicts before bulk approving
+    if (status === "Approved") {
+      const conflictChecks = await Promise.all(
+        targetRows.map(async (row) => ({ row, ok: await checkConflictBeforeApproval(row.id, status) })),
+      );
+      const blocked = conflictChecks.filter((c) => !c.ok);
+      if (blocked.length > 0) {
+        setActionFeedback({
+          tone: "error",
+          message: `${blocked.length} request(s) could not be approved due to schedule conflicts. Review individual requests for details.`,
+        });
+        return;
+      }
+    }
+
     const targetIds = new Set(targetRows.map((row) => row.id));
     const previousRows = requests;
     const nextRows = previousRows.map((row) => (
@@ -752,9 +801,15 @@ export default function ClassesEnrichmentRequests({
                     {req.status}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold text-[#272932]">{req.class}</p>
+                    <p className="truncate text-[14px] font-semibold text-[#272932]">
+                      {req.classId ? (
+                        <Link href={`/dashboard/classes/enrichment/${encodeURIComponent(req.classId)}`} className="hover:underline">{req.class}</Link>
+                      ) : req.class}
+                    </p>
                     <p className="mt-1 text-[12px] text-[#666d80]">
-                      {req.student} · {req.parent}
+                      {req.studentId ? (
+                        <Link href={`/dashboard/students/${encodeURIComponent(req.studentId)}/schedule`} className="text-[#14c1d5] hover:underline">{req.student}</Link>
+                      ) : req.student} · {req.parent}
                     </p>
                   </div>
                 </div>
@@ -853,10 +908,32 @@ export default function ClassesEnrichmentRequests({
                 </span>
               </div>
               <div className="min-w-0 truncate">
-                <span className="truncate">{req.student}</span>
+                {req.studentId ? (
+                  <Link
+                    href={`/dashboard/students/${encodeURIComponent(req.studentId)}/schedule`}
+                    className="truncate text-[#14c1d5] hover:underline"
+                    title={`View ${req.student}'s schedule`}
+                  >
+                    {req.student}
+                  </Link>
+                ) : (
+                  <span className="truncate">{req.student}</span>
+                )}
               </div>
               <div className="truncate">{req.parent}</div>
-              <div className="truncate">{req.class}</div>
+              <div className="truncate">
+                {req.classId ? (
+                  <Link
+                    href={`/dashboard/classes/enrichment/${encodeURIComponent(req.classId)}`}
+                    className="truncate text-[#14c1d5] hover:underline"
+                    title={`View ${req.class} details`}
+                  >
+                    {req.class}
+                  </Link>
+                ) : (
+                  <span className="truncate">{req.class}</span>
+                )}
+              </div>
               <div className="text-center">{req.block}</div>
               <div className="text-center">{req.level}</div>
               <div>{req.option}</div>
@@ -983,40 +1060,63 @@ export default function ClassesEnrichmentRequests({
             </button>
             <h2 id="request-detail-title" className="pr-8 text-lg font-semibold text-[#272932]">
               Request summary
-            </h2>
-            <dl className="mt-4 space-y-2 text-[14px]">
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Student</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.student}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Parent</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.parent}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Class</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.class}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Block</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.block}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Level</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.level}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Option</dt>
-                <dd className="font-medium text-[#0d0d12]">{detailRequest.option}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#666d80]">Status</dt>
-                <dd>
-                  <span className={`rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(detailRequest.status)}`}>
-                    {detailRequest.status}
-                  </span>
-                </dd>
-              </div>
+            </h2>              <dl className="mt-4 space-y-2 text-[14px]">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Student</dt>
+                  <dd className="font-medium text-[#0d0d12]">
+                    {detailRequest.studentId ? (
+                      <Link
+                        href={`/dashboard/students/${encodeURIComponent(detailRequest.studentId)}/schedule`}
+                        className="text-[#14c1d5] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {detailRequest.student}
+                      </Link>
+                    ) : (
+                      detailRequest.student
+                    )}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Parent</dt>
+                  <dd className="font-medium text-[#0d0d12]">{detailRequest.parent}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Class</dt>
+                  <dd className="font-medium text-[#0d0d12]">
+                    {detailRequest.classId ? (
+                      <Link
+                        href={`/dashboard/classes/enrichment/${encodeURIComponent(detailRequest.classId)}`}
+                        className="text-[#14c1d5] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {detailRequest.class}
+                      </Link>
+                    ) : (
+                      detailRequest.class
+                    )}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Block</dt>
+                  <dd className="font-medium text-[#0d0d12]">{detailRequest.block}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Level</dt>
+                  <dd className="font-medium text-[#0d0d12]">{detailRequest.level}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Option</dt>
+                  <dd className="font-medium text-[#0d0d12]">{detailRequest.option}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#666d80]">Status</dt>
+                  <dd>
+                    <span className={`rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(detailRequest.status)}`}>
+                      {detailRequest.status}
+                    </span>
+                  </dd>
+                </div>
 	            </dl>
 	            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
 	              {statusActionOptions(detailRequest).map((status) => (

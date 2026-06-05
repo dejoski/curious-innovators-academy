@@ -163,6 +163,7 @@ export function isParentSelectableEnrichmentOption(
   if (option.program !== "enrichment") return false;
   if (option.isActive === false) return false;
   if (option.archivedAt) return false;
+  if (isOptionFull(option)) return false;
   if (!isOptionAgeEligible(option, input.studentAgeYears ?? null)) return false;
   if (hasBlockingScheduleConflict(option, input.schedule)) return false;
   return true;

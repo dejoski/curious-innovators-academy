@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProgramTrack } from "@/lib/data/types";
+import type { ProgramTrack, TeacherRow } from "@/lib/data/types";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
@@ -101,13 +101,37 @@ export default function AddClassForm() {
     setTrackTab(t === "enrichment" ? "enrichment" : "core");
   }, [searchParams]);
 
+  const [teachers, setTeachers] = useState<TeacherRow[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setTeachersLoading(true);
+      try {
+        const res = await fetch("/api/data/teachers");
+        if (res.ok) {
+          const body = (await res.json()) as { teachers?: TeacherRow[] };
+          if (!cancelled && Array.isArray(body.teachers)) {
+            setTeachers(body.teachers);
+          }
+        }
+      } catch {
+        /* Teacher list is non-critical for the form. */
+      } finally {
+        if (!cancelled) setTeachersLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [day, setDay] = useState<DayOption>("1");
   const [block, setBlock] = useState<BlockOption>("1");
   const [status, setStatus] = useState<ClassStatus>("Active");
   const [capacity, setCapacity] = useState("");
-  const [teacher, setTeacher] = useState(DEFAULT_TEACHER_NAME);
+  const [teacher, setTeacher] = useState("");
   const [room, setRoom] = useState("");
   const [location, setLocation] = useState("");
   const [level, setLevel] = useState("");
@@ -171,6 +195,7 @@ export default function AddClassForm() {
           minAgeYears: minAgeYears.trim() ? Number(minAgeYears) : undefined,
           maxAgeYears: maxAgeYears.trim() ? Number(maxAgeYears) : undefined,
           isActive: status === "Active",
+          semesterId: undefined,
         }),
       });
       if (res.ok) {
@@ -220,7 +245,23 @@ export default function AddClassForm() {
               <div className="grid gap-5 md:grid-cols-2">
                 <label className="flex flex-col gap-3">
                   <FieldLabel>Teacher</FieldLabel>
-                  <TextInput value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="Teacher roster name" />
+                  {teachersLoading ? (
+                    <TextInput disabled value="" placeholder="Loading teachers..." />
+                  ) : teachers.length > 0 ? (
+                    <SelectInput
+                      value={teacher}
+                      onChange={(e) => setTeacher(e.target.value)}
+                    >
+                      <option value="">Select a teacher...</option>
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </SelectInput>
+                  ) : (
+                    <TextInput value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="Teacher roster name" />
+                  )}
                 </label>
                 <label className="flex flex-col gap-3">
                   <FieldLabel>Level</FieldLabel>

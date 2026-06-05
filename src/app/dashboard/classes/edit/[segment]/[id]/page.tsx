@@ -1,13 +1,25 @@
 "use client";
 
-import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
+import type { ProgramTrack, SchoolClassRow, TeacherRow } from "@/lib/data/types";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
+import { invalidateDashboardData } from "@/lib/client-data-cache";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import { PARENT_SCHEDULE_ROWS, canonicalScheduleSummaryForBlockDay } from "@/lib/schedule-slots";
 
 type ClassStatus = "Active" | "Full";
+type DayOption = "1" | "2" | "3";
+type BlockOption = "1" | "2" | "3" | "4";
+
+const WEEKDAY_OPTIONS = ["M", "T", "W", "TH", "F"] as const;
+const DAY_OPTIONS: DayOption[] = ["1", "2", "3"];
+const BLOCK_OPTIONS: BlockOption[] = ["1", "2", "3", "4"];
+
+function blockLabelForOption(value: BlockOption): string {
+  return PARENT_SCHEDULE_ROWS[Number(value) - 1]?.label ?? `Block ${value}`;
+}
 
 function scheduleDaysText(days: string[] | undefined): string {
   return (days ?? []).join(", ");
@@ -33,10 +45,15 @@ export default function EditClassPage() {
   const segmentValid = rawSegment === "core" || rawSegment === "enrichment";
 
   const program: ProgramTrack = rawSegment === "enrichment" ? "enrichment" : "core";
+  const [teachers, setTeachers] = useState<TeacherRow[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(true);
   const [row, setRow] = useState<SchoolClassRow | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editBlock, setEditBlock] = useState<BlockOption>("1");
+  const [editDay, setEditDay] = useState<DayOption>("1");
+  const [editScheduleDays, setEditScheduleDays] = useState<string[]>(["M", "T", "W", "TH", "F"]);
 
   useEffect(() => {
     if (!segmentValid || !id) return;
@@ -44,19 +61,37 @@ export default function EditClassPage() {
     (async () => {
       setLoadError(null);
       try {
-        const res = await fetch("/api/data/classes");
-        if (!res.ok) {
-          if (!cancelled) setLoadError(await readApiError(res));
+        const [classesRes, teachersRes] = await Promise.all([
+          fetch("/api/data/classes"),
+          fetch("/api/data/teachers"),
+        ]);
+        if (!classesRes.ok) {
+          if (!cancelled) setLoadError(await readApiError(classesRes));
           return;
         }
-        const body = (await res.json()) as { classes: SchoolClassRow[] };
-        const found = body.classes.find((c) => String(c.id) === String(id) && c.program === program);
+        const classesBody = (await classesRes.json()) as { classes: SchoolClassRow[] };
+        const found = classesBody.classes.find((c) => String(c.id) === String(id) && c.program === program);
         if (!cancelled) {
           if (!found) setLoadError("This class ID is not in the current roster.");
-          else setRow(found);
+          else {
+            setRow(found);
+            const blockNum = String(found.block ?? "").match(/\b([1-4])\b/)?.[1] ?? "1";
+            const dayNum = String(found.schedule ?? found.block ?? "").match(/\b([1-3])\b/)?.[1] ?? "1";
+            setEditBlock(blockNum as BlockOption);
+            setEditDay(dayNum as DayOption);
+            setEditScheduleDays(found.scheduleDays.length > 0 ? found.scheduleDays : ["M", "T", "W", "TH", "F"]);
+          }
+        }
+        if (teachersRes.ok) {
+          const teachersBody = (await teachersRes.json()) as { teachers?: TeacherRow[] };
+          if (!cancelled && Array.isArray(teachersBody.teachers)) {
+            setTeachers(teachersBody.teachers);
+          }
         }
       } catch {
         if (!cancelled) setLoadError("Network error loading classes.");
+      } finally {
+        if (!cancelled) setTeachersLoading(false);
       }
     })();
     return () => {
@@ -164,13 +199,31 @@ export default function EditClassPage() {
             />
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
-            Teacher roster name
-            <input
-              value={draft.teacher}
-              onChange={(e) => setRow({ ...draft, teacher: e.target.value })}
-              aria-required="true"
-              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
-            />
+            Teacher
+            {teachersLoading ? (
+              <input disabled value="Loading teachers..." className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#666d80] outline-none" />
+            ) : teachers.length > 0 ? (
+              <select
+                value={draft.teacher}
+                onChange={(e) => setRow({ ...draft, teacher: e.target.value })}
+                aria-required="true"
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              >
+                <option value="">Select a teacher...</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={draft.teacher}
+                onChange={(e) => setRow({ ...draft, teacher: e.target.value })}
+                aria-required="true"
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              />
+            )}
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Capacity
@@ -183,22 +236,66 @@ export default function EditClassPage() {
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
-          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
-            Schedule
-            <input
-              value={draft.schedule}
-              onChange={(e) => setRow({ ...draft, schedule: e.target.value })}
-              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
-            />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+              Day
+              <select
+                value={editDay}
+                onChange={(e) => {
+                  const day = e.target.value as DayOption;
+                  setEditDay(day);
+                  const summary = canonicalScheduleSummaryForBlockDay(editBlock, day);
+                  setRow({ ...draft, schedule: summary });
+                }}
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              >
+                {DAY_OPTIONS.map((value) => (
+                  <option key={value} value={value}>Day {value}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+              Block
+              <select
+                value={editBlock}
+                onChange={(e) => {
+                  const block = e.target.value as BlockOption;
+                  setEditBlock(block);
+                  const summary = canonicalScheduleSummaryForBlockDay(block, editDay);
+                  setRow({ ...draft, block: blockLabelForOption(block), schedule: summary });
+                }}
+                className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
+              >
+                {BLOCK_OPTIONS.map((value) => (
+                  <option key={value} value={value}>{blockLabelForOption(value)}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Meeting days
-            <input
-              value={scheduleDaysText(draft.scheduleDays)}
-              onChange={(e) => setRow({ ...draft, scheduleDays: parseScheduleDays(e.target.value) })}
-              placeholder="M, T, W, TH, F"
-              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
-            />
+            <div className="mt-1 flex flex-wrap gap-2">
+              {WEEKDAY_OPTIONS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    const next = editScheduleDays.includes(value)
+                      ? editScheduleDays.filter((dayValue) => dayValue !== value)
+                      : [...editScheduleDays, value];
+                    setEditScheduleDays(next);
+                    setRow({ ...draft, scheduleDays: next });
+                  }}
+                  className={`rounded-[8px] border px-3 py-1 font-sans text-[13px] font-semibold ${
+                    editScheduleDays.includes(value)
+                      ? "border-[#14c1d5] bg-[#d2f1f5] text-[#0d0d12]"
+                      : "border-[#dfe1e7] bg-white text-[#666d80]"
+                  }`}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
           </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Description
@@ -231,14 +328,6 @@ export default function EditClassPage() {
             <input
               value={draft.level ?? ""}
               onChange={(e) => setRow({ ...draft, level: e.target.value })}
-              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
-            />
-          </label>
-          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
-            Block
-            <input
-              value={draft.block ?? ""}
-              onChange={(e) => setRow({ ...draft, block: e.target.value })}
               className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
             />
           </label>
