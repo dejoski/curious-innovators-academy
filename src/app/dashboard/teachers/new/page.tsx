@@ -8,8 +8,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
 import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
+import type { ProgramTrack } from "@/lib/data/types";
 
-// type ProgramKind removed - unused
+export type ProgramKind = "core" | "enrichment";
 
 const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Friday"] as const;
 
@@ -94,7 +95,7 @@ export default function CreateTeacherPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [subjects, setSubjects] = useState("");
-  const [program, setProgram] = useState<ProgramKind>("core");
+  const [program, setProgram] = useState<ProgramTrack>("core");
   const [active, setActive] = useState(true);
   const [homeroom, setHomeroom] = useState(true);
   const [availability, setAvailability] = useState<Record<(typeof AVAILABILITY_DAYS)[number], boolean>>({
@@ -210,7 +211,7 @@ export default function CreateTeacherPage() {
             </label>
             <label className="flex flex-col gap-3">
               <FieldLabel>{requiredLabel("Teacher Type")}</FieldLabel>
-              <SelectInput value={program} onChange={(e) => setProgram(e.target.value as ProgramKind)}>
+              <SelectInput value={program} onChange={(e) => setProgram(e.target.value as ProgramTrack)}>
                 <option value="core">Core</option>
                 <option value="enrichment">Enrichment</option>
               </SelectInput>

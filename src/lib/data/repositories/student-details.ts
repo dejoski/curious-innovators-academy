@@ -20,7 +20,6 @@ import {
 } from "@/lib/schedule-slots";
 import { normalizeStudentCompetencyLevels, summarizeStudentCompetencyLevels } from "@/lib/data/repositories/students";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
-import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { fetchCurrentSemesterResolved } from "@/lib/data/repositories/semesters";
