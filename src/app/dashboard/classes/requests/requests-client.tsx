@@ -175,7 +175,6 @@ export default function ClassesEnrichmentRequests({
   >(null);
   const [reasonDraft, setReasonDraft] = useState("");
   const [detailRequest, setDetailRequest] = useState<EnrichmentRequestRow | null>(null);
-  const [conflictWarnings, setConflictWarnings] = useState<Map<string, string[]>>(new Map());
 
   useEffect(() => {
     if (detailIdFromUrl) {
@@ -371,37 +370,6 @@ export default function ClassesEnrichmentRequests({
     });
   };
 
-  const checkConflictBeforeApproval = async (id: string, status: RequestStatus): Promise<boolean> => {
-    if (status !== "Approved") return true;
-    const touchedRow = requests.find((request) => request.id === id);
-    if (!touchedRow || !touchedRow.studentId || !touchedRow.classId) return true;
-    try {
-      const res = await fetch("/api/data/classes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          checkConflict: true,
-          studentId: touchedRow.studentId,
-          classId: touchedRow.classId,
-        }),
-      });
-      if (!res.ok) return true; // Allow through if check fails
-      const body = (await res.json()) as { hasConflict?: boolean; conflicts?: string[] };
-      if (body.hasConflict && body.conflicts) {
-        setConflictWarnings((prev) => {
-          const next = new Map(prev);
-          next.set(id, body.conflicts!);
-          return next;
-        });
-        setActionFeedback({ tone: "error", message: `Cannot approve: schedule conflict detected. ${body.conflicts.join("; ")}` });
-        return false;
-      }
-      return true;
-    } catch {
-      return true; // Allow through if network fails
-    }
-  };
-
   const applyStatus = async (id: string, status: RequestStatus, reason?: string) => {
     const touchedRow = requests.find((request) => request.id === id);
     setConfirmAction(null);
@@ -472,21 +440,6 @@ export default function ClassesEnrichmentRequests({
     if (selectedRows.length === 0 || actionBusy) return;
     const targetRows = selectedRows;
     
-    // Check for conflicts before bulk approving
-    if (status === "Approved") {
-      const conflictChecks = await Promise.all(
-        targetRows.map(async (row) => ({ row, ok: await checkConflictBeforeApproval(row.id, status) })),
-      );
-      const blocked = conflictChecks.filter((c) => !c.ok);
-      if (blocked.length > 0) {
-        setActionFeedback({
-          tone: "error",
-          message: `${blocked.length} request(s) could not be approved due to schedule conflicts. Review individual requests for details.`,
-        });
-        return;
-      }
-    }
-
     const targetIds = new Set(targetRows.map((row) => row.id));
     const previousRows = requests;
     const nextRows = previousRows.map((row) => (

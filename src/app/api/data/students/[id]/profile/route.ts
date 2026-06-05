@@ -15,6 +15,7 @@ import {
   type StudentCompetencyLevel,
   type StudentProfileTimelineEventType,
 } from "@/lib/data/types";
+import { serverUpdateStudent } from "@/lib/data/server-writes";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -119,6 +120,8 @@ export async function PATCH(req: Request, context: RouteContext) {
   const competencyLevels = normalizeCompetencyLevels(body.competencyLevels);
   const legacyLevel = cleanSingleLine(body.level, 80);
   const resolvedLevel = summarizeStudentCompetencyLevels(competencyLevels, legacyLevel);
+  const parentEmail = body.parentEmail != null ? cleanSingleLine(body.parentEmail, 254) : undefined;
+  const parent = body.parent != null ? cleanSingleLine(body.parent, 140) : undefined;
 
   if (name.length < 2) {
     return NextResponse.json({ error: "Student name must be at least 2 characters." }, { status: 400 });
@@ -130,6 +133,19 @@ export async function PATCH(req: Request, context: RouteContext) {
 
   if (age == null && ageText && ageText !== "—") {
     return NextResponse.json({ error: "Student age must be a number from 0 to 30, or blank." }, { status: 400 });
+  }
+
+  // Save parent contact fields via serverUpdateStudent (handles ensureParentAccountForEmail + parent_students links)
+  if (parentEmail !== undefined || parent !== undefined) {
+    const parentResult = await serverUpdateStudent(studentId, {
+      name: parent !== undefined ? name : undefined,
+      level: resolvedLevel,
+      parent,
+      parentEmail,
+    });
+    if (!parentResult.ok) {
+      return NextResponse.json({ error: parentResult.message }, { status: 400 });
+    }
   }
 
   const { data: updated, error: updateError } = await supabase
