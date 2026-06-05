@@ -393,19 +393,6 @@ function catalogSlotMetaFromBlockLevel(block: unknown, levelOrDay: unknown) {
   return CATALOG_SLOT_META[slotId] ?? null;
 }
 
-export function formatBlockDayLabel(block: unknown, levelOrDay?: unknown, scheduleSummary?: unknown): string {
-  const catalogMeta = catalogSlotMetaFromBlockLevel(block, levelOrDay);
-  if (catalogMeta) return catalogMeta.title;
-
-  const source = [block, scheduleSummary].filter(Boolean).join(" ");
-  const blockNumber = blockNumberFromText(source);
-  const dayNumber = dayNumberFromText(source);
-  if (blockNumber && dayNumber) return `Block ${blockNumber} Day ${dayNumber}`;
-  if (blockNumber) return `Block ${blockNumber}`;
-
-  return String(block ?? "").trim();
-}
-
 export function formatClassLevelLabel(level: unknown): string {
   const text = String(level ?? "").trim();
   if (!text) return "";

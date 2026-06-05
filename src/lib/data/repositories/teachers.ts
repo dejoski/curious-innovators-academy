@@ -116,6 +116,10 @@ async function loadTeachersResolved(client?: TeacherReadClient): Promise<Resolve
   }
 }
 
+export async function fetchTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
+  return loadTeachersResolved();
+}
+
 function _teachersHelpers() {}
 
 async function _unused_fetchAdminTeachers(): Promise<ResolvedList<TeacherRow>> {

@@ -189,6 +189,12 @@ export async function fetchEnrichmentRequestsForClientResolved(
   return loadRequestsResolved(client, options);
 }
 
+export async function fetchEnrichmentRequestsResolved(
+  options?: RequestQueryOptions,
+): Promise<ResolvedList<EnrichmentRequestRow>> {
+  return fetchEnrichmentRequestsForClientResolved({} as RequestReadClient, options);
+}
+
 function isEnrichmentClass(row: Record<string, unknown>): boolean {
   const cls = firstRel<Record<string, unknown>>(row.classes);
   return String(cls?.program ?? "").toLowerCase() === "enrichment";
@@ -258,6 +264,10 @@ export async function fetchEnrichmentDecisionSummaryForClientResolved(
   studentIds: readonly string[],
 ): Promise<EnrichmentDecisionSummary> {
   return loadEnrichmentDecisionSummaryResolved(client, studentIds);
+}
+
+export async function fetchEnrichmentDecisionSummaryResolved(): Promise<EnrichmentDecisionSummary> {
+  return fetchEnrichmentDecisionSummaryForClientResolved({} as RequestReadClient, []);
 }
 
 function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {

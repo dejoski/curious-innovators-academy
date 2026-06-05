@@ -1,17 +1,15 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
-import {
-  isStudentProfileTimelineEventType,
-  normalizeStudentCompetencyLevels,
-  summarizeStudentCompetencyLevels,
-  type ProgramTrack,
-  type StudentProfileBundle,
-  type StudentProfileTimelineEventType,
-  type StudentProfileTimelineEvent,
-  type StudentRosterRow,
-  type StudentRosterStatus,
-  type StudentScheduleBadge,
-  type StudentScheduleRow,
-  type StudentScheduleState,
+import { isStudentProfileTimelineEventType } from "@/lib/data/types";
+import type {
+  ProgramTrack,
+  StudentProfileBundle,
+  StudentProfileTimelineEventType,
+  StudentProfileTimelineEvent,
+  StudentRosterRow,
+  StudentRosterStatus,
+  StudentScheduleBadge,
+  StudentScheduleRow,
+  StudentScheduleState,
 } from "@/lib/data/types";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import {
@@ -20,6 +18,8 @@ import {
   scheduleSlotForClassFields,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
+import { normalizeStudentCompetencyLevels, summarizeStudentCompetencyLevels } from "@/lib/data/repositories/students";
+import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
 import { firstRel } from "@/lib/data/repositories/relations";
