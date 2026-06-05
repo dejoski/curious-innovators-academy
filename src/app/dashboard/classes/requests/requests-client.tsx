@@ -2,7 +2,7 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2, ChevronLeft, AlertTriangle } from "lucide-react";
+import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
@@ -13,7 +13,6 @@ import { invalidateDashboardData, parentStudentDataUrls } from "@/lib/client-dat
 import type { EnrichmentDecisionSummary } from "@/lib/data/repositories/requests";
 import type { EnrichmentRequestRow, RequestStatus } from "@/lib/data/types";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
-import { scheduleSlotForClassFields } from "@/lib/schedule-slots";
 import { fallbackQueueBannerText } from "@/lib/product-copy";
 import { DashboardValueSkeleton } from "@/components/dashboard-loading-state";
 import { DashboardActionFeedback, type DashboardActionFeedbackState } from "@/components/dashboard-action-feedback";

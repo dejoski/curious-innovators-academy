@@ -10,7 +10,7 @@ import React, { useMemo, useState } from "react";
 import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import type { ProgramTrack } from "@/lib/data/types";
 
-export type ProgramKind = "core" | "enrichment";
+type ProgramKind = "core" | "enrichment";
 
 const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Friday"] as const;
 

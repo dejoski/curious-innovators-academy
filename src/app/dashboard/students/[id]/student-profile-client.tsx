@@ -76,6 +76,8 @@ export default function StudentProfileClient({
   );
   const [avatarUrl, setAvatarUrl] = useState(() => bundle?.avatar ?? "/images/avatars/student-1.png");
   const [events, setEvents] = useState<TimelineEvent[]>(() => (bundle ? bundle.events : []));
+  const [parentEmailDraft, setParentEmailDraft] = useState(() => bundle?.parentContacts[0]?.email ?? "");
+  const [parentNameDraft, setParentNameDraft] = useState(() => bundle?.parentContacts[0]?.name ?? bundle?.parentName ?? "");
 
   useEffect(() => {
     if (!bundle) return;
@@ -97,6 +99,8 @@ export default function StudentProfileClient({
     setNewNoteTitle("");
     setNewNoteContent("");
     setNewNoteType("Academic");
+    setParentEmailDraft(bundle.parentContacts[0]?.email ?? "");
+    setParentNameDraft(bundle.parentContacts[0]?.name ?? bundle.parentName ?? "");
   }, [bundle]);
 
   const historyFilters = useMemo<HistoryFilterType[]>(() => {
@@ -187,14 +191,15 @@ export default function StudentProfileClient({
     try {
       const res = await fetch(`/api/data/students/${encodeURIComponent(studentId)}/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        headers: { "Content-Type": "application/json" },          body: JSON.stringify({
           name: studentDetails.name,
           age: studentDetails.age,
           level: studentDetails.level,
           learningProfile: studentDetails.learningProfile,
           strengths: studentDetails.strengths,
           supportNotes: studentDetails.supportNotes,
+          parentEmail: parentEmailDraft || undefined,
+          parent: parentNameDraft || undefined,
         }),
       });
       if (!res.ok) {
@@ -647,6 +652,26 @@ export default function StudentProfileClient({
                   onChange={(e) => setStudentDetails({ ...studentDetails, supportNotes: e.target.value })}
                   className="w-full border rounded-md p-2"
                   rows={2}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Parent Email</label>
+                <input
+                  type="email"
+                  value={parentEmailDraft}
+                  onChange={(e) => setParentEmailDraft(e.target.value)}
+                  className="w-full border rounded-md p-2"
+                  placeholder="parent@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Parent Name</label>
+                <input
+                  type="text"
+                  value={parentNameDraft}
+                  onChange={(e) => setParentNameDraft(e.target.value)}
+                  className="w-full border rounded-md p-2"
+                  placeholder="Parent/guardian name"
                 />
               </div>
               <div className="flex justify-end gap-2 mt-4">
