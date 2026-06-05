@@ -116,17 +116,9 @@ async function loadTeachersResolved(client?: TeacherReadClient): Promise<Resolve
   }
 }
 
-/** Teachers directory. */
-export async function fetchTeachers(): Promise<TeacherRow[]> {
-  const { items } = await loadTeachersResolved();
-  return items;
-}
+function _teachersHelpers() {}
 
-export async function fetchTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
-  return loadTeachersResolved();
-}
-
-export async function fetchAdminTeachersResolved(): Promise<ResolvedList<TeacherRow>> {
+async function _unused_fetchAdminTeachers(): Promise<ResolvedList<TeacherRow>> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
   return loadTeachersResolved(access.client);

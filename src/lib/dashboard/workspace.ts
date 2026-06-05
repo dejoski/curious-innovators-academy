@@ -20,7 +20,7 @@ export type AdminView =
   | "teachers"
   | "notifications";
 
-export type DashboardWorkspaceId = "admin" | "classes" | "parent";
+// type DashboardWorkspaceId removed - unused
 
 export type DashboardWorkspaceRoute =
   | { workspace: "admin"; view: AdminView; path: string }
@@ -117,18 +117,6 @@ export function dashboardWorkspaceRouteFromPath(pathname: string): DashboardWork
   }
 
   return null;
-}
-
-export function isClassesWorkspacePath(pathname: string) {
-  return classesViewFromPath(pathname) !== null;
-}
-
-export function isParentWorkspacePath(pathname: string) {
-  return parentViewFromPath(pathname) !== null;
-}
-
-export function isAdminWorkspacePath(pathname: string) {
-  return adminViewFromPath(pathname) !== null;
 }
 
 export function sameDashboardWorkspace(currentPath: string, nextPath: string) {

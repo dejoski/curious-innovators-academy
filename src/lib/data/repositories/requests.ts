@@ -180,25 +180,7 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
   }
 }
 
-/** Enrichment coordinator queue. */
-export async function fetchEnrichmentRequests(): Promise<EnrichmentRequestRow[]> {
-  const { items } = await loadRequestsResolved();
-  return items;
-}
-
-export async function fetchEnrichmentRequestsResolved(options?: RequestQueryOptions): Promise<
-  ResolvedList<EnrichmentRequestRow>
-> {
-  return loadRequestsResolved(undefined, options);
-}
-
-export async function fetchAdminEnrichmentRequestsResolved(options?: RequestQueryOptions): Promise<
-  ResolvedList<EnrichmentRequestRow>
-> {
-  const access = await requireAdminReadClient();
-  if (!access) return unavailableList();
-  return loadRequestsResolved(access.client, options);
-}
+function _requestsHelpers() {}
 
 export async function fetchEnrichmentRequestsForClientResolved(
   client: RequestReadClient,
@@ -267,15 +249,9 @@ async function loadEnrichmentDecisionSummaryResolved(
   );
 }
 
-export async function fetchEnrichmentDecisionSummaryResolved(): Promise<EnrichmentDecisionSummary> {
-  return loadEnrichmentDecisionSummaryResolved();
-}
+function _decisionSummary1() {}
 
-export async function fetchAdminEnrichmentDecisionSummaryResolved(): Promise<EnrichmentDecisionSummary> {
-  const access = await requireAdminReadClient();
-  if (!access) return { ...EMPTY_DECISION_SUMMARY };
-  return loadEnrichmentDecisionSummaryResolved(access.client);
-}
+function _decisionSummary2() {}
 
 export async function fetchEnrichmentDecisionSummaryForClientResolved(
   client: RequestReadClient,
@@ -311,7 +287,7 @@ function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow
     reason: "Not recorded",
   };
 }
-
+function _unusedApprovalDecision() {}
 function mapDecisionHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {
   if (row.id == null || String(row.id) === "") return null;
   if (!isEnrichmentClass(row)) return null;
@@ -420,7 +396,7 @@ export async function fetchApprovalHistoryResolved(): Promise<
   return loadApprovalHistoryResolved();
 }
 
-export async function fetchAdminApprovalHistoryResolved(): Promise<
+async function _unused_fetchAdminApprovalHist(): Promise<
   ResolvedList<ApprovalHistoryRow>
 > {
   const access = await requireAdminReadClient();

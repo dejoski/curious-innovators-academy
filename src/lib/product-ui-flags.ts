@@ -15,6 +15,3 @@ export function isNotificationDropdownEnabled(): boolean {
     process.env.NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER === "true"
   );
 }
-
-/** @deprecated Use `isNotificationDropdownEnabled`; the dropdown now reads notifications from the data API. */
-export const isMockNotificationDropdownEnabled = isNotificationDropdownEnabled;

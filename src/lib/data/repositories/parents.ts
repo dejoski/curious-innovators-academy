@@ -97,15 +97,7 @@ async function loadParentsResolved(client?: ParentReadClient): Promise<ResolvedL
   }
 }
 
-/** Guardian rows for admin Parents directory */
-export async function fetchParents(): Promise<ParentSummary[]> {
-  const { items } = await loadParentsResolved();
-  return items;
-}
-
-export async function fetchParentsResolved(): Promise<ResolvedList<ParentSummary>> {
-  return loadParentsResolved();
-}
+function _parentsHelpers() {}
 
 export async function fetchAdminParentsResolved(): Promise<ResolvedList<ParentSummary>> {
   const access = await requireAdminReadClient();

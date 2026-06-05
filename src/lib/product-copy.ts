@@ -18,27 +18,6 @@ export function fallbackInboxBannerText(): string {
   return "Notifications are temporarily unavailable.";
 }
 
-export function fallbackClassesStripText(): string {
-  return "Showing a starter class list while school records finish loading.";
-}
-
-export function bundledMetricsBannerText(): string {
-  return "Showing starter metrics while school records finish loading.";
-}
-
-export function messagingDialogDisclaimer(): string {
-  return isDemoAdjacentWording()
-    ? "Your mail app opens a draft; nothing is sent until you send it."
-    : "Your mail app opens a draft; nothing is sent until you send it.";
-}
-
-export function exportQueuedToast(): string {
-  return isDemoAdjacentWording()
-    ? "CSV download started."
-    : "CSV download started.";
-}
-
-/** Shown after failed POST when creating a student from the standalone form */
 export function studentCreatePartialSaveHint(): string {
   return "No student record was created. Check the connection and try again.";
 }
@@ -46,14 +25,4 @@ export function studentCreatePartialSaveHint(): string {
 /** Shown after failed POST when creating a teacher from the standalone form */
 export function teacherCreateFailureExtraHint(): string {
   return "No teacher record was created. Check the connection and try again.";
-}
-
-/** Placeholder narrative for Learning profile when no LMS data was loaded. */
-export function studentProfileLearningSample(): string {
-  return "Learning highlights will appear once student records are available.";
-}
-
-/** Placeholder for student support notes when none exist. */
-export function studentProfileSupportNotesPlaceholder(): string {
-  return "No coordinator notes logged yet.";
 }

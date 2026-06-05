@@ -4,49 +4,16 @@
  */
 
 /* --- Surfaces --- */
-export const DASHBOARD_SHELL_BG_CLASS = "bg-[#fafafa]" as const;
-export const DASHBOARD_SURFACE_CLASS = "bg-white" as const;
 
 /* --- Borders & radius --- */
 export const DASHBOARD_BORDER_SUBTLE_CLASS = "border-[#f0f0f0]" as const;
-export const DASHBOARD_BORDER_STRONG_CLASS = "border-[#dfe1e6]" as const;
 /** Outer cards / panels on the canvas */
-export const DASHBOARD_RADIUS_PANEL = "rounded-[18px]" as const;
-/** Inset chips, segmented controls */
-export const DASHBOARD_RADIUS_INSET = "rounded-[8px]" as const;
-export const DASHBOARD_RADIUS_CONTROL = "rounded-[6px]" as const;
-
 export const DASHBOARD_PANEL_CLASS =
-  `${DASHBOARD_SURFACE_CLASS} border ${DASHBOARD_BORDER_SUBTLE_CLASS} border-solid ${DASHBOARD_RADIUS_PANEL} shadow-sm` as const;
+  `${DASHBOARD_SURFACE_CLASS} border ${DASHBOARD_BORDER_SUBTLE_CLASS} border-solid rounded-[18px] shadow-sm` as const;
 
 /** Horizontal scroll region for wide data tables */
 export const DASHBOARD_TABLE_SCROLL_CLASS =
   "w-full overflow-x-auto min-h-[300px]" as const;
-
-/** Row above a table (filters, search, primary actions) */
-export const DASHBOARD_TABLE_TOOLBAR_CLASS =
-  `flex flex-wrap items-center gap-2 py-3 px-1 ${DASHBOARD_BORDER_SUBTLE_CLASS} border-b border-solid` as const;
-
-/** Underline-style tab strip container */
-export const DASHBOARD_TABS_CONTAINER_CLASS =
-  `flex gap-1 ${DASHBOARD_BORDER_SUBTLE_CLASS} border-b border-solid pb-px` as const;
-
-/** Individual tab triggers (inactive / active layered in component) */
-export const DASHBOARD_TAB_TRIGGER_BASE_CLASS =
-  "relative whitespace-nowrap px-3 pb-2 pt-1 font-['Inter:Medium',sans-serif] font-medium text-[13px] leading-[1.4] transition-colors" as const;
-
-export const DASHBOARD_TAB_TRIGGER_INACTIVE_CLASS =
-  `${DASHBOARD_TAB_TRIGGER_BASE_CLASS} text-[#666d80] hover:text-[#272932]` as const;
-
-export const DASHBOARD_TAB_TRIGGER_ACTIVE_CLASS =
-  `${DASHBOARD_TAB_TRIGGER_BASE_CLASS} text-[#272932] after:pointer-events-none after:absolute after:inset-x-3 after:-bottom-px after:h-[2px] after:rounded-full after:bg-[#272932]` as const;
-
-/** Table thead cells */
-export const DASHBOARD_TABLE_HEAD_CELL_CLASS =
-  "border-b border-[#f0f0f0] px-4 py-3 text-left font-['Inter:Medium',sans-serif] font-medium text-[11px] uppercase tracking-[0.04em] text-[#818898]" as const;
-
-export const DASHBOARD_TABLE_BODY_CELL_CLASS =
-  "border-b border-[#f0f0f0]/80 px-4 py-[14px] align-middle font-['Inter:Regular',sans-serif] text-[13px] leading-[1.45] text-[#272932]" as const;
 
 /* --- Typography (shell) --- */
 export const DASHBOARD_TEXT_PRIMARY_CLASS = "text-[#272932]" as const;
@@ -56,12 +23,9 @@ export const DASHBOARD_TEXT_MUTED_CLASS = "text-[#818898]" as const;
 export const DASHBOARD_FONT_NAV_PRIMARY_CLASS =
   "font-['Inter:Medium',sans-serif] font-medium text-[14px] leading-[1.4]" as const;
 
-export const DASHBOARD_FONT_NAV_SECONDARY_CLASS =
-  "font-['Inter:Medium',sans-serif] font-medium text-[12px] leading-[1.4]" as const;
-
 /* --- Sidebar (open state primary nav) --- */
 export const DASHBOARD_SIDEBAR_SURFACE_CLASS =
-  `${DASHBOARD_SHELL_BG_CLASS} ${DASHBOARD_BORDER_SUBTLE_CLASS} border-r border-solid` as const;
+  `bg-[#fafafa] ${DASHBOARD_BORDER_SUBTLE_CLASS} border-r border-solid` as const;
 
 export const DASHBOARD_SIDEBAR_NAV_ROW_BASE_CLASS =
   "content-stretch flex gap-[8px] h-[32px] items-center px-[12px] py-[6px] relative rounded-[8px] shrink-0 w-[240px] transition-colors cursor-pointer" as const;
@@ -90,11 +54,11 @@ export const DASHBOARD_SIDEBAR_HEADER_BORDER_CLASS =
   `border-[#dfe1e7] border-b border-solid` as const;
 
 export const DASHBOARD_SIDEBAR_COLLAPSE_BTN_CLASS =
-  `${DASHBOARD_SURFACE_CLASS} border border-[#dfe1e7] border-solid overflow-clip ${DASHBOARD_RADIUS_CONTROL} shadow-[0px_0.75px_1.5px_0px_rgba(13,13,18,0.06)] shrink-0 size-[24px] cursor-pointer hover:bg-[#fafafa] transition-colors relative inline-flex items-center justify-center p-0` as const;
+  `bg-white border border-[#dfe1e7] border-solid overflow-clip rounded-[6px] shadow-[0px_0.75px_1.5px_0px_rgba(13,13,18,0.06)] shrink-0 size-[24px] cursor-pointer hover:bg-[#fafafa] transition-colors relative inline-flex items-center justify-center p-0` as const;
 
 /* --- Main header chrome --- */
 export const DASHBOARD_MAIN_HEADER_WRAP_CLASS =
-  `${DASHBOARD_SURFACE_CLASS} min-h-[72px] shrink-0 w-full z-50 md:min-h-[88px]` as const;
+  `bg-white min-h-[72px] shrink-0 w-full z-50 md:min-h-[88px]` as const;
 
 export const DASHBOARD_MAIN_HEADER_ROW_CLASS =
   `content-stretch flex items-center justify-between px-4 pb-0 pt-3 shrink-0 w-full md:px-[32px] md:pt-[20px]` as const;

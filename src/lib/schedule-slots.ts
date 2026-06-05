@@ -57,21 +57,9 @@ export const PARENT_SCHEDULE_ROWS: {
   { label: "Block 4", time: "2:00 - 3:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
 
-export type ScheduleDisplayParts = { day: string; time: string };
+// type ScheduleDisplayParts removed - unused
 
 const SCHEDULE_SEPARATOR_RE = /\s*(?:\u00c2?\u00b7|\||,)\s*/;
-const TIME_RANGE_RE = /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*-\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i;
-
-function schedulePartsFromText(value: unknown): string[] {
-  return String(value ?? "").split(SCHEDULE_SEPARATOR_RE).map((part) => part.trim()).filter(Boolean);
-}
-
-export function scheduleTimeForBlock(block: unknown): string | null {
-  const blockNumber = blockNumberFromText(block);
-  if (!blockNumber) return null;
-  return PARENT_SCHEDULE_ROWS[blockNumber - 1]?.time ?? null;
-}
-
 export function classSchedulePartsFromFields(input: {
   block?: unknown;
   level?: unknown;
@@ -266,10 +254,6 @@ export function catalogSlotIdFromScheduleSlot(slot: ParentScheduleSlotKey): Cata
   return SCHEDULE_SLOT_TO_CATALOG_SLOT[slot] ?? null;
 }
 
-export function isSelectableCatalogSlot(slot: ParentScheduleSlotKey): boolean {
-  return catalogSlotIdFromScheduleSlot(slot) !== null;
-}
-
 export function eventTypeFromBadgeTone(tone: StudentScheduleBadge["tone"]): CalendarEventType {
   if (tone === "core") return "core";
   if (tone === "approved") return "enrichment-approved";
@@ -316,7 +300,10 @@ export function splitScheduleLabel(schedule: string): { day: string; time: strin
   return classSchedulePartsFromFields({ scheduleSummary: schedule });
 }
 
-function blockNumberFromText(value: unknown): number | null {
+  return real;
+}
+
+export function formatBlockDayLabel(block: unknown, levelOrDay?: unknown, scheduleSummary?: unknown): string {
   const text = String(value ?? "").toLowerCase();
   const parsed = Number(text.match(/\bblock\s*([1-4])\b/)?.[1] ?? text.match(/\bb([1-4])\b/)?.[1]);
   return Number.isFinite(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null;
@@ -326,13 +313,6 @@ function dayNumberFromText(value: unknown): number | null {
   const text = String(value ?? "").toLowerCase();
   const parsed = Number(text.match(/\bday\s*([1-3])\b/)?.[1] ?? text.match(/^\s*([1-3])\s*$/)?.[1]);
   return Number.isFinite(parsed) && parsed >= 1 && parsed <= 3 ? parsed : null;
-}
-
-export function catalogSlotMetaFromBlockLevel(block: unknown, level: unknown): (typeof CATALOG_SLOT_META)[CatalogSlotId] | null {
-  const blockNumber = blockNumberFromText(block);
-  const dayNumber = dayNumberFromText(level) ?? dayNumberFromText(block);
-  if (!blockNumber || !dayNumber) return null;
-  return CATALOG_SLOT_META[`block${blockNumber}_day${dayNumber}` as CatalogSlotId] ?? null;
 }
 
 export function formatBlockDayLabel(block: unknown, levelOrDay?: unknown, scheduleSummary?: unknown): string {

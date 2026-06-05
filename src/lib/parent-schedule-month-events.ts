@@ -97,13 +97,3 @@ export function studentScheduleToMonthEvents(
   }
   return events;
 }
-
-export function mergeCalendarEvents(...sources: Record<string, CalendarEvent[]>[]) {
-  const merged: Record<string, CalendarEvent[]> = {};
-  for (const source of sources) {
-    for (const [key, events] of Object.entries(source)) {
-      merged[key] = [...(merged[key] ?? []), ...events];
-    }
-  }
-  return merged;
-}

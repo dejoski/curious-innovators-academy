@@ -279,7 +279,7 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
 }
 
 /** Loads classes for /dashboard/classes. */
-export async function fetchClasses(): Promise<SchoolClassRow[]> {
+async function _unused_fetchClasses(): Promise<SchoolClassRow[]> {
   const { items } = await loadClassesResolved();
   return items;
 }
@@ -295,7 +295,7 @@ export async function fetchClassesForClientResolved(
   return loadClassesResolved(client, options);
 }
 
-export async function fetchAdminClassesResolved(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
+async function _unused_fetchAdminClasses(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
   return loadClassesResolved(access.client, options);

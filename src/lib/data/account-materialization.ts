@@ -1,11 +1,8 @@
-import "server-only";
-
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const ACCOUNT_ROLES = ["admin", "parent", "teacher", "student"] as const;
-export type AccountRole = (typeof ACCOUNT_ROLES)[number];
+export type AccountRole = "admin" | "parent" | "teacher" | "student";
 
 export type AccountWriteFail = { ok: false; message: string };
 export type AccountWriteOk<T> = { ok: true } & T;

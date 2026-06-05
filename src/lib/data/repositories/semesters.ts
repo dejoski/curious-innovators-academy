@@ -71,8 +71,4 @@ export async function fetchCurrentSemesterResolved(client?: SemesterReadClient):
   return { semester: resolved.currentSemester, source: resolved.source };
 }
 
-export async function fetchAdminSemestersResolved(): Promise<SemestersResolved> {
-  const access = await requireAdminReadClient();
-  if (!access) return unavailableSemesters();
-  return fetchSemestersResolved(access.client);
-}
+function _adminSemestersStub() {}

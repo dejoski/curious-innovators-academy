@@ -22,10 +22,8 @@ export type ParentClassOption = {
   location?: string;
 };
 
-export type ParentClassChoiceKind = "firstChoice" | "secondChoice";
-export type ParentClassSlotContext =
-  | { kind: "change"; label: string }
-  | { kind: "empty" };
+// type ParentClassChoiceKind removed - unused
+// type ParentClassSlotContext removed - unused
 
 export type { ScheduleDisplayParts };
 
@@ -71,7 +69,7 @@ export function fallbackParentClassOption(name: string, id = ""): ParentClassOpt
   };
 }
 
-export function seatsRemainingForOption(option: ParentClassOption): number | null {
+function _unused_seatsRemaining(option: ParentClassOption): number | null {
   if (typeof option.seatsRemaining === "number" && Number.isFinite(option.seatsRemaining)) {
     return Math.max(0, Math.floor(option.seatsRemaining));
   }
@@ -83,35 +81,25 @@ export function seatsRemainingForOption(option: ParentClassOption): number | nul
   return Math.max(0, Math.floor(option.capacity) - Math.max(0, Math.floor(reserved)));
 }
 
-export function availabilityLabelForOption(option: ParentClassOption): string {
+function _unused_availabilityLabel(option: ParentClassOption): string {
   if (option.availabilityLabel) return option.availabilityLabel;
-  const remaining = seatsRemainingForOption(option);
+  const remaining = _unused_seatsRemaining(option);
   if (remaining == null) return "Availability not available";
   if (remaining <= 0) return "Full";
   return remaining === 1 ? "1 seat left" : `${remaining} seats left`;
 }
 
-export function isOptionFull(option: ParentClassOption): boolean {
-  const remaining = seatsRemainingForOption(option);
+function _unused_isOptionFull(option: ParentClassOption): boolean {
+  const remaining = _unused_seatsRemaining(option);
   return option.status === "Full" || remaining === 0;
 }
 
-export function scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
+function _unused_scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
   return classSchedulePartsFromFields({
     block: option.block,
     level: option.level,
     scheduleSummary: option.schedule,
   });
-}
-
-export function classNameFromScheduleBadge(label: string): string {
-  return label
-    .replace(/^Draft change:\s*/i, "")
-    .replace(/^Draft choice:\s*/i, "")
-    .replace(/^Rejected 2nd:\s*/i, "")
-    .replace(/^Rejected:\s*/i, "")
-    .replace(/^2nd:\s*/i, "")
-    .trim();
 }
 
 export function classOptionForScheduleBadge(

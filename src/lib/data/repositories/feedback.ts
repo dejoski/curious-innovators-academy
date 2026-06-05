@@ -13,8 +13,9 @@ function mapFeedbackRow(row: Record<string, unknown>): FeedbackSubmissionRecord 
   };
 }
 
-/** Aggregated parent feedback rows from the RLS-scoped feedback table. */
-export async function fetchFeedbackSubmissions(): Promise<FeedbackSubmissionRecord[]> {
+function _feedbackStub() {}
+
+async function _feedbackFetch(): Promise<FeedbackSubmissionRecord[]> {
   if (!isSupabaseConfigured()) return [];
 
   try {

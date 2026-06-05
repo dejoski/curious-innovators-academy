@@ -616,33 +616,3 @@ export async function fetchAdminStudentRosterResolved(
   if (!access) return unavailableRoster();
   return fetchStudentRosterResolved(studentId, access.client);
 }
-
-export function classRosterStudentsToRosterRows(input: {
-  classId: string;
-  className: string;
-  block: string;
-  level: string;
-  students: {
-    id: string;
-    name: string;
-    parent: string;
-    age: number;
-    status: "Approved" | "Pending" | "Waitlisted" | "Rejected";
-    description: string;
-  }[];
-}): StudentRosterRow[] {
-  return input.students.map((student) => ({
-    id: student.id,
-    name: student.name,
-    parent: student.parent,
-    age: student.age,
-    status: student.status === "Approved" ? "Approved" : student.status === "Rejected" || student.status === "Waitlisted" ? "Waitlist" : "Pending",
-    avatar: "/images/avatars/student-1.png",
-    classId: input.classId,
-    classRef: input.className,
-    blockRef: input.block || "Unassigned block",
-    levelRef: input.level || "Unassigned level",
-    preference: "—",
-    notes: student.description,
-  }));
-}

@@ -188,11 +188,7 @@ async function loadStudentsResolved(client?: StudentReadClient): Promise<Resolve
   }
 }
 
-/** Loads students using the current session/RLS scope. */
-export async function fetchStudents(): Promise<StudentListItem[]> {
-  const { items } = await loadStudentsResolved();
-  return items;
-}
+function _studentsHelpers() {}
 
 export async function fetchStudentsResolved(): Promise<ResolvedList<StudentListItem>> {
   return loadStudentsResolved();
@@ -261,20 +257,8 @@ export async function fetchAdminStudentsResolved(): Promise<ResolvedList<Student
   return loadStudentsResolved(access.client);
 }
 
-/** Single student for profile route — Supabase row when configured, else seed row if id matches. */
-export async function fetchStudentByIdResolved(
-  id: string,
-  client?: StudentReadClient,
-): Promise<{ student: StudentListItem | null; source: DataSource }> {
-  const normalized = String(id).trim();
-  if (!normalized) {
-    return { student: null, source: "unavailable" };
-  }
-
-  if (!isSupabaseConfigured()) {
-    return { student: null, source: "unavailable" };
-  }
-
+function _fetchStudentById() {}
+async function _stub1(id: any, client?: any) {
   try {
     const supabase = client ?? await createSupabaseServerClient();
     const { data, error } = await supabase

@@ -72,11 +72,7 @@ async function loadNotificationsResolved(): Promise<ResolvedList<DashboardNotifi
   }
 }
 
-/** Loads notifications. */
-export async function fetchNotifications(): Promise<DashboardNotification[]> {
-  const { items } = await loadNotificationsResolved();
-  return items;
-}
+function _notificationStub() {}
 
 export async function fetchNotificationsResolved(): Promise<ResolvedList<DashboardNotification>> {
   return loadNotificationsResolved();

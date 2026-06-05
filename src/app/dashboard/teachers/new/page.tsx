@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
 
-export type ProgramKind = "core" | "enrichment";
+// type ProgramKind removed - unused
 
 const AVAILABILITY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Friday"] as const;
 

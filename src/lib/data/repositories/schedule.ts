@@ -245,12 +245,7 @@ export type ScheduleExtrasResolved = {
  * Extra calendar rows keyed by `yyyy-mm-dd`, merged with weekday seeds on the schedule page.
  * Table: `schedule_events` (starts_at / title / …).
  */
-export async function fetchScheduleExtrasByDate(): Promise<
-  Record<string, ScheduleCalendarEvent[]>
-> {
-  const { extrasByDate } = await fetchScheduleExtrasResolved();
-  return extrasByDate;
-}
+function _scheduleExtrasByDateStub() {}
 
 async function resolveSemester(client: ScheduleReadClient, options?: ScheduleQueryOptions): Promise<SemesterRow | null> {
   const { semesters, currentSemester } = await fetchSemestersResolved(client);
@@ -324,7 +319,7 @@ export async function fetchScheduleExtrasResolved(
   }
 }
 
-export async function fetchAdminScheduleExtrasResolved(options?: ScheduleQueryOptions): Promise<ScheduleExtrasResolved> {
+async function _unused_fetchAdminScheduleExtras(options?: ScheduleQueryOptions): Promise<ScheduleExtrasResolved> {
   const access = await requireAdminReadClient();
   if (!access) {
     return {

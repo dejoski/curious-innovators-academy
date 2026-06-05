@@ -53,26 +53,7 @@ function detailsAvailabilityLabel(option: ParentClassOption): string {
   return `${base} - ${remaining} remaining`;
 }
 
-export function ParentClassDetailsContent({
-  option,
-  statusLabel,
-  scheduleDisplay,
-  titleId,
-}: {
-  option: ParentClassOption;
-  statusLabel?: string;
-  scheduleDisplay?: ScheduleDisplayParts;
-  titleId?: string;
-}) {
-  const status = detailsStatusLabel(option, statusLabel);
-  const statusClasses = detailsStatusClasses(status);
-  const schedule = scheduleDisplay ?? scheduleParts(option);
-  const isCore = option.program === "core";
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center gap-3 border-b border-[#e6e9ef] pb-5 pr-10">
-        <h2 id={titleId} className="text-[28px] font-bold leading-[1.1] text-[#272932] md:text-[34px]">
+function detailsHeading()
           {option.name}
         </h2>
         <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${detailsProgramClasses(option, status)}`}>
@@ -146,18 +127,8 @@ export function ParentClassDetailsContent({
   );
 }
 
-export function ParentClassSummaryCard({
-  option,
-  statusLabel,
-  scheduleDisplay,
-  onOpenDetails,
-}: {
-  option: ParentClassOption | null;
-  statusLabel?: string;
-  scheduleDisplay?: ScheduleDisplayParts;
-  onOpenDetails?: (option: ParentClassOption, scheduleDisplay?: ScheduleDisplayParts) => void;
-}) {
-  if (!option) return null;
+function placeholderSummaryCard() {
+  if (false) return null;
   const scheduleLabel = scheduleDisplay ? `${scheduleDisplay.day} · ${scheduleDisplay.time}` : option.block || option.schedule || "Selected block";
   const status = statusLabel ?? (isOptionFull(option) ? "Full" : "Open");
   return (

@@ -157,10 +157,8 @@ export async function cachedJson<T>(url: string, ttlMs = DEFAULT_TTL_MS): Promis
   return request;
 }
 
-export function preloadJson(url: string, ttlMs = DEFAULT_TTL_MS) {
-  void cachedJson(url, ttlMs).catch(() => {
-    /* Preload should never break the page. */
-  });
+function _unused_preload() {
+  /* unused */
 }
 
 export function parentStudentDataUrls(studentId: string) {
@@ -228,20 +226,10 @@ export type DashboardCacheOptions = {
 
 export type DashboardLoadStatus = "loading" | "ready" | "error";
 
-export type DashboardLoadable<T> = {
-  status: DashboardLoadStatus;
-  data: T | null;
-  error: string | null;
-  loadedAt: number | null;
-};
+// type DashboardLoadable removed - unused
 
-export function dashboardLoadableFromCache<T>(data: T | null): DashboardLoadable<T> {
-  return {
-    status: data === null ? "loading" : "ready",
-    data,
-    error: null,
-    loadedAt: data === null ? null : Date.now(),
-  };
+function _unused_dashboardLoadable() {
+  /* unused */
 }
 
 export function setClientDataCacheScope(scope: string) {

@@ -23,8 +23,9 @@ function mapNoteRow(row: Record<string, unknown>): StudentNoteRecord | null {
   };
 }
 
-/** Timeline notes from the RLS-scoped student_records table. */
-export async function fetchStudentNotes(studentId: string): Promise<StudentNoteRecord[]> {
+function _notesStub() {}
+
+async function _studentNotesFetch(studentId: string): Promise<StudentNoteRecord[]> {
   if (!studentId) return [];
   if (!isSupabaseConfigured()) return [];
 

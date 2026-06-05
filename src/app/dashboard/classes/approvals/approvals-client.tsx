@@ -29,7 +29,7 @@ type SortKey = keyof Pick<
 >;
 type FilterValue = "All" | ApprovalStatus;
 
-export default function ClassesApprovalHistoryClient() {
+function ClassesApprovalHistoryClient() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-[#666d80]">Loading...</div>}>
       <ClassesApprovalHistory />

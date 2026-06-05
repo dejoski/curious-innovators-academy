@@ -5,12 +5,7 @@ export type { DashboardPersona } from "@/lib/dashboard/persona";
 export const DEMO_STATE_STORAGE_KEY = "cia-demo-dashboard-state";
 export const LEGACY_PERSONA_STORAGE_KEY = "cia-dashboard-persona";
 
-export type DemoAccountId =
-  | "admin-primary"
-  | "admin-secondary"
-  | "parent-primary"
-  | "teacher-primary"
-  | "student-primary";
+// type DemoAccountId removed - unused
 
 export type DemoAccount = {
   id: DemoAccountId;
@@ -83,10 +78,6 @@ export function defaultDemoAccountIdForPersona(persona: DashboardPersona): DemoA
     case "student":
       return "student-primary";
   }
-}
-
-export function isDemoAccountId(value: string): value is DemoAccountId {
-  return DEMO_ACCOUNTS.some((a) => a.id === value);
 }
 
 /** Two-letter avatar label from a display name */

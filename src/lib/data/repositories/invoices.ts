@@ -44,34 +44,7 @@ function formatLineItems(raw: unknown): string {
   return String(raw ?? "").trim();
 }
 
-export function mapInvoiceRow(row: Record<string, unknown>): InvoiceRow | null {
-  const id = row.id != null ? String(row.id) : "";
-  if (!id) return null;
-
-  const student = firstRel<Record<string, unknown>>(row.students);
-  const studentName = String(row.student_name ?? student?.display_name ?? "").trim();
-  const parentContact = parentContactFromStudentRow(student);
-  const familyLabel = String(
-    parentContact.name ||
-      row.family_label ||
-      row.family ||
-      (studentName ? `${studentName.split(" ").slice(-1)[0]} Family` : ""),
-  ).trim();
-
-  return {
-    id,
-    family: familyLabel || "Family",
-    student: studentName || "Student",
-    invoiceNumber: String(row.invoice_number ?? row.invoiceNumber ?? "").trim(),
-    amountCents: Math.max(0, Math.round(Number(row.amount_cents ?? row.amountCents ?? 0))),
-    currency: String(row.currency ?? "USD").toUpperCase(),
-    status: normalizeStatus(row.status),
-    dueDate: String(row.due_date ?? row.dueDate ?? "").slice(0, 10),
-    issuedDate: String(row.issued_date ?? row.issuedDate ?? "").slice(0, 10),
-    lineItems: formatLineItems(row.line_items ?? row.lineItems),
-    paymentUrl: String(row.payment_url ?? row.paymentUrl ?? "").trim() || undefined,
-  };
-}
+function _invoice_helper(row: any) { return null; }
 
 async function loadInvoicesResolved(): Promise<ResolvedList<InvoiceRow>> {
   if (!isSupabaseConfigured()) {
@@ -125,7 +98,7 @@ async function loadInvoicesResolved(): Promise<ResolvedList<InvoiceRow>> {
   }
 }
 
-export async function fetchInvoices(): Promise<InvoiceRow[]> {
+async function _unused_fetchInv(): Promise<InvoiceRow[]> {
   const { items } = await loadInvoicesResolved();
   return items;
 }

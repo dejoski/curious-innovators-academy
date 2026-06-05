@@ -83,7 +83,3 @@ export function parentScheduleFinalityClasses(state: ParentScheduleFinalityState
   if (state === "waitlisted") return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
   return "border-[#cfa500]/35 bg-[#fffdf3] text-[#7a5b00]";
 }
-
-export function isFinalParentSchedule(state: ParentScheduleFinalityState) {
-  return state === "final";
-}

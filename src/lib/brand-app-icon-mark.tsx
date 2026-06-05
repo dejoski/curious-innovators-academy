@@ -1,7 +1,3 @@
-/** Colors aligned with auth/dashboard surfaces (#05080b text, #14c1d5 focus ring). Used by `next/og` app icons. */
-export const BRAND_ICON_BG = "#05080b";
-export const BRAND_ICON_ACCENT = "#14c1d5";
-
 export function BrandAppIconImageResponseRoot({
   cornerRadius,
   dot,
