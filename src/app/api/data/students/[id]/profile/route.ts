@@ -7,7 +7,12 @@ import {
   mapStudentRecord,
 } from "@/lib/data/repositories/student-details";
 import {
+  normalizeStudentCompetencyBehavior,
+  summarizeStudentCompetencyLevels,
+} from "@/lib/data/repositories/students";
+import {
   isStudentProfileTimelineEventType,
+  type StudentCompetencyLevel,
   type StudentProfileTimelineEventType,
 } from "@/lib/data/types";
 
@@ -35,6 +40,24 @@ function normalizeCategory(value: unknown): StudentProfileTimelineEventType {
   const raw = String(value ?? "");
   if (isStudentProfileTimelineEventType(raw)) return raw;
   return "General";
+}
+
+function normalizeCompetencyLevels(value: unknown): StudentCompetencyLevel[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const record = row as Record<string, unknown>;
+      const competency = cleanSingleLine(record.competency, 80);
+      const level = cleanSingleLine(record.level, 80);
+      if (!competency || !level) return null;
+      return {
+        competency,
+        level,
+        behavior: normalizeStudentCompetencyBehavior(record.behavior),
+      };
+    })
+    .filter((row): row is StudentCompetencyLevel => row !== null);
 }
 
 export async function GET(req: Request, context: RouteContext) {
@@ -87,19 +110,22 @@ export async function PATCH(req: Request, context: RouteContext) {
 
   const body = (await req.json()) as Record<string, unknown>;
   const name = cleanSingleLine(body.name, 140);
-  const level = cleanSingleLine(body.level, 80);
   const ageText = cleanSingleLine(body.age, 20);
   const age = parseAge(body.age);
   const learningProfile = cleanText(body.learningProfile, 2000);
   const strengths = cleanText(body.strengths, 1200);
   const supportNotes = cleanText(body.supportNotes, 2000);
+  const hasCompetencyLevels = Object.prototype.hasOwnProperty.call(body, "competencyLevels");
+  const competencyLevels = normalizeCompetencyLevels(body.competencyLevels);
+  const legacyLevel = cleanSingleLine(body.level, 80);
+  const resolvedLevel = summarizeStudentCompetencyLevels(competencyLevels, legacyLevel);
 
   if (name.length < 2) {
     return NextResponse.json({ error: "Student name must be at least 2 characters." }, { status: 400 });
   }
 
-  if (!level) {
-    return NextResponse.json({ error: "Student level is required." }, { status: 400 });
+  if (!resolvedLevel) {
+    return NextResponse.json({ error: "Add a competency level or keep the legacy level fallback." }, { status: 400 });
   }
 
   if (age == null && ageText && ageText !== "—") {
@@ -111,7 +137,7 @@ export async function PATCH(req: Request, context: RouteContext) {
     .update({
       display_name: name,
       age_years: age,
-      level,
+      level: resolvedLevel,
       learning_profile: learningProfile,
       strengths,
       support_notes: supportNotes,
@@ -122,6 +148,32 @@ export async function PATCH(req: Request, context: RouteContext) {
 
   if (updateError || !updated) {
     return NextResponse.json({ error: updateError?.message ?? "Student profile could not be saved." }, { status: 400 });
+  }
+
+  if (hasCompetencyLevels) {
+    const { error: deleteError } = await supabase
+      .from("student_competency_levels")
+      .delete()
+      .eq("student_id", studentId);
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 400 });
+    }
+
+    if (competencyLevels.length > 0) {
+      const { error: insertError } = await supabase
+        .from("student_competency_levels")
+        .insert(
+          competencyLevels.map((row) => ({
+            student_id: studentId,
+            competency: row.competency,
+            level: row.level,
+            behavior: row.behavior,
+          })),
+        );
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 400 });
+      }
+    }
   }
 
   const { profile, source } = await fetchStudentProfileResolved(studentId);

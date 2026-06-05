@@ -1,5 +1,10 @@
-import type { ProgramTrack, SchoolClassRow, StudentScheduleBadge } from "@/lib/data/types";
-import { classSchedulePartsFromFields, type ScheduleDisplayParts } from "@/lib/schedule-slots";
+import type { ProgramTrack, SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import {
+  classSchedulePartsFromFields,
+  scheduleSlotForClassFields,
+  type ParentScheduleSlotKey,
+  type ScheduleDisplayParts,
+} from "@/lib/schedule-slots";
 
 export type ParentClassOption = {
   id: string;
@@ -18,12 +23,19 @@ export type ParentClassOption = {
   availabilityLabel?: string;
   schedule?: string;
   status?: SchoolClassRow["status"];
+  isActive?: boolean;
+  archivedAt?: string;
   program?: ProgramTrack;
   location?: string;
+  minAgeYears?: number;
+  maxAgeYears?: number;
+  waitlistCount?: number;
 };
 
-// type ParentClassChoiceKind removed - unused
-// type ParentClassSlotContext removed - unused
+export type ParentClassChoiceKind = "firstChoice" | "secondChoice";
+export type ParentClassSlotContext =
+  | { kind: "change"; label: string }
+  | { kind: "empty" };
 
 export type { ScheduleDisplayParts };
 
@@ -50,8 +62,13 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     availabilityLabel: row.availabilityLabel,
     schedule: row.schedule,
     status: row.status,
+    isActive: row.isActive,
+    archivedAt: row.archivedAt,
     program: row.program,
     location: row.location,
+    minAgeYears: row.minAgeYears,
+    maxAgeYears: row.maxAgeYears,
+    waitlistCount: row.waitlistCount,
   };
 }
 
@@ -69,7 +86,7 @@ export function fallbackParentClassOption(name: string, id = ""): ParentClassOpt
   };
 }
 
-function _unused_seatsRemaining(option: ParentClassOption): number | null {
+export function seatsRemainingForOption(option: ParentClassOption): number | null {
   if (typeof option.seatsRemaining === "number" && Number.isFinite(option.seatsRemaining)) {
     return Math.max(0, Math.floor(option.seatsRemaining));
   }
@@ -81,25 +98,84 @@ function _unused_seatsRemaining(option: ParentClassOption): number | null {
   return Math.max(0, Math.floor(option.capacity) - Math.max(0, Math.floor(reserved)));
 }
 
-function _unused_availabilityLabel(option: ParentClassOption): string {
+export function availabilityLabelForOption(option: ParentClassOption): string {
   if (option.availabilityLabel) return option.availabilityLabel;
-  const remaining = _unused_seatsRemaining(option);
+  const remaining = seatsRemainingForOption(option);
   if (remaining == null) return "Availability not available";
   if (remaining <= 0) return "Full";
   return remaining === 1 ? "1 seat left" : `${remaining} seats left`;
 }
 
-function _unused_isOptionFull(option: ParentClassOption): boolean {
-  const remaining = _unused_seatsRemaining(option);
+export function isOptionFull(option: ParentClassOption): boolean {
+  const remaining = seatsRemainingForOption(option);
   return option.status === "Full" || remaining === 0;
 }
 
-function _unused_scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
+export function selectionLabelForOption(option: ParentClassOption): string {
+  return isOptionFull(option) ? "Waitlist available" : availabilityLabelForOption(option);
+}
+
+export function scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
   return classSchedulePartsFromFields({
     block: option.block,
     level: option.level,
     scheduleSummary: option.schedule,
   });
+}
+
+export function scheduleSlotForParentClassOption(option: ParentClassOption): ParentScheduleSlotKey {
+  return scheduleSlotForClassFields({
+    block: option.block,
+    scheduleSummary: option.schedule,
+  });
+}
+
+export function parseStudentAgeYears(value: unknown): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw === "—") return null;
+  const n = Number(raw.match(/\d+(?:\.\d+)?/)?.[0] ?? NaN);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.floor(n);
+  return rounded >= 0 && rounded <= 30 ? rounded : null;
+}
+
+export function isOptionAgeEligible(option: ParentClassOption, studentAgeYears: number | null): boolean {
+  if (studentAgeYears == null) return true;
+  if (typeof option.minAgeYears === "number" && studentAgeYears < option.minAgeYears) return false;
+  if (typeof option.maxAgeYears === "number" && studentAgeYears > option.maxAgeYears) return false;
+  return true;
+}
+
+export function hasBlockingScheduleConflict(
+  option: ParentClassOption,
+  schedule?: StudentScheduleRow | null,
+): boolean {
+  if (!schedule) return false;
+  const slot = scheduleSlotForParentClassOption(option);
+  const badges = schedule[slot] ?? [];
+  return badges.some((badge) => badge.tone === "core" || badge.tone === "approved" || badge.tone === "pending");
+}
+
+export function isParentSelectableEnrichmentOption(
+  option: ParentClassOption,
+  input: { studentAgeYears?: number | null; schedule?: StudentScheduleRow | null } = {},
+): boolean {
+  if (option.program !== "enrichment") return false;
+  if (option.isActive === false) return false;
+  if (option.archivedAt) return false;
+  if (!isOptionAgeEligible(option, input.studentAgeYears ?? null)) return false;
+  if (hasBlockingScheduleConflict(option, input.schedule)) return false;
+  return true;
+}
+
+export function classNameFromScheduleBadge(label: string): string {
+  return label
+    .replace(/^Draft change:\s*/i, "")
+    .replace(/^Draft choice:\s*/i, "")
+    .replace(/^Rejected 2nd:\s*/i, "")
+    .replace(/^Rejected:\s*/i, "")
+    .replace(/^2nd:\s*/i, "")
+    .trim();
 }
 
 export function classOptionForScheduleBadge(

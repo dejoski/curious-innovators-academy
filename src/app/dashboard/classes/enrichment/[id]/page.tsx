@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
+import { RemoveEnrollmentConfirmationModal } from "@/components/remove-enrollment-confirmation-modal";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
@@ -20,7 +21,7 @@ import type {
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-group.svg";
-const imgGroup3 = "/images/icon-generic2.svg";
+const imgGroup3 = "/images/icon-calendar-linear.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
@@ -36,34 +37,32 @@ type ClassMeta = {
   teacher: string;
   blockLevel: string;
   schedule: string;
+  semesterName: string;
+  room: string;
+  scheduleDays: string[];
+  minAgeYears?: number;
+  maxAgeYears?: number;
+  waitlistCount: number;
+  seatsRemaining?: number;
+  isActive: boolean;
+  archivedAt?: string;
   capacityEnrolled: number;
   capacityMax: number;
   pendingCount: number;
-  plannerSubject: string;
-  plannerSummary: string;
-  teacherGuideObjectives: string;
-  teacherGuideInformation: string;
-  teacherGuideSummary: string;
-  studentGuideObjectives: string;
-  studentGuideInformation: string;
-  studentGuideSummary: string;
 };
 
 const EMPTY_CLASS_META: ClassMeta = {
   teacher: "Teacher not assigned",
   blockLevel: "Block not set",
   schedule: "Schedule not set",
+  semesterName: "",
+  room: "",
+  scheduleDays: [],
+  waitlistCount: 0,
+  isActive: true,
   capacityEnrolled: 0,
   capacityMax: 1,
   pendingCount: 0,
-  plannerSubject: "",
-  plannerSummary: "",
-  teacherGuideObjectives: "",
-  teacherGuideInformation: "",
-  teacherGuideSummary: "",
-  studentGuideObjectives: "",
-  studentGuideInformation: "",
-  studentGuideSummary: "",
 };
 
 function classMetaFromRow(row: SchoolClassRow): ClassMeta {
@@ -71,17 +70,18 @@ function classMetaFromRow(row: SchoolClassRow): ClassMeta {
     teacher: row.teacher || "Teacher not assigned",
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
+    semesterName: row.semesterName,
+    room: row.room || row.location || "",
+    scheduleDays: row.scheduleDays,
+    minAgeYears: row.minAgeYears,
+    maxAgeYears: row.maxAgeYears,
+    waitlistCount: row.waitlistCount,
+    seatsRemaining: row.seatsRemaining,
+    isActive: row.isActive,
+    archivedAt: row.archivedAt,
     capacityEnrolled: Math.max(0, row.enrolledCount ?? 0),
     capacityMax: Math.max(1, row.capacity ?? 1),
     pendingCount: row.pendingCount,
-    plannerSubject: row.plannerSubject || "",
-    plannerSummary: row.plannerSummary || "",
-    teacherGuideObjectives: row.teacherGuideObjectives || "",
-    teacherGuideInformation: row.teacherGuideInformation || "",
-    teacherGuideSummary: row.teacherGuideSummary || "",
-    studentGuideObjectives: row.studentGuideObjectives || "",
-    studentGuideInformation: row.studentGuideInformation || "",
-    studentGuideSummary: row.studentGuideSummary || "",
   };
 }
 
@@ -126,18 +126,15 @@ export default function EnrichmentClassDetail() {
   const [isEditClassModalOpen, setIsEditClassModalOpen] = useState(false);
   const [isRemoveClassModalOpen, setIsRemoveClassModalOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [removeStudentDraft, setRemoveStudentDraft] = useState<Student | null>(null);
 
   const [editClassDraft, setEditClassDraft] = useState({
     title: "",
     description: "",
-    plannerSubject: "",
-    plannerSummary: "",
-    teacherGuideObjectives: "",
-    teacherGuideInformation: "",
-    teacherGuideSummary: "",
-    studentGuideObjectives: "",
-    studentGuideInformation: "",
-    studentGuideSummary: "",
+    teacher: "",
+    blockLevel: "",
+    schedule: "",
+    capacityMax: 1,
   });
 
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
@@ -289,6 +286,11 @@ export default function EnrichmentClassDetail() {
     () => students.filter((student) => selectedStudentIds.has(student.id)),
     [students, selectedStudentIds],
   );
+  const approvedRosterCount = useMemo(
+    () => students.filter((student) => student.status === "Approved").length,
+    [students],
+  );
+  const displayedCapacityEnrolled = Math.max(classMeta.capacityEnrolled, approvedRosterCount);
 
   // Selection Logic
   const handleSelectAll = () => {
@@ -374,20 +376,17 @@ export default function EnrichmentClassDetail() {
     setIsRemoveClassModalOpen(false);
     setEditingStudentId(null);
     setEditStudentDraft(null);
+    setRemoveStudentDraft(null);
   }
 
   const openEditClassModal = () => {
     setEditClassDraft({
       title: classTitle,
       description: classDescription,
-      plannerSubject: classMeta.plannerSubject,
-      plannerSummary: classMeta.plannerSummary,
-      teacherGuideObjectives: classMeta.teacherGuideObjectives,
-      teacherGuideInformation: classMeta.teacherGuideInformation,
-      teacherGuideSummary: classMeta.teacherGuideSummary,
-      studentGuideObjectives: classMeta.studentGuideObjectives,
-      studentGuideInformation: classMeta.studentGuideInformation,
-      studentGuideSummary: classMeta.studentGuideSummary,
+      teacher: classMeta.teacher,
+      blockLevel: classMeta.blockLevel,
+      schedule: classMeta.schedule,
+      capacityMax: classMeta.capacityMax,
     });
     setClassEditError(null);
     setIsEditClassModalOpen(true);
@@ -396,7 +395,8 @@ export default function EnrichmentClassDetail() {
   const saveEditClass = async () => {
     const t = editClassDraft.title.trim();
     if (!t) return;
-    const { block, level } = splitBlockLevelLabel(classMeta.blockLevel);
+    const { block, level } = splitBlockLevelLabel(editClassDraft.blockLevel);
+    const max = editClassDraft.capacityMax <= 0 ? 1 : editClassDraft.capacityMax;
     setClassEditError(null);
     setIsSavingClass(true);
     try {
@@ -406,22 +406,21 @@ export default function EnrichmentClassDetail() {
         body: JSON.stringify({
           id: classId,
           name: t,
-          teacher: classMeta.teacher,
-          capacity: classMeta.capacityMax,
-          schedule: classMeta.schedule,
+          teacher: editClassDraft.teacher,
+          capacity: max,
+          schedule: editClassDraft.schedule,
           status: "Active",
           track: "enrichment",
           description: editClassDraft.description,
           block,
           level,
-          plannerSubject: editClassDraft.plannerSubject,
-          plannerSummary: editClassDraft.plannerSummary,
-          teacherGuideObjectives: editClassDraft.teacherGuideObjectives,
-          teacherGuideInformation: editClassDraft.teacherGuideInformation,
-          teacherGuideSummary: editClassDraft.teacherGuideSummary,
-          studentGuideObjectives: editClassDraft.studentGuideObjectives,
-          studentGuideInformation: editClassDraft.studentGuideInformation,
-          studentGuideSummary: editClassDraft.studentGuideSummary,
+          room: classMeta.room,
+          location: classMeta.room,
+          scheduleDays: classMeta.scheduleDays,
+          minAgeYears: classMeta.minAgeYears,
+          maxAgeYears: classMeta.maxAgeYears,
+          isActive: classMeta.isActive,
+          archivedAt: classMeta.archivedAt,
         }),
       });
       if (!res.ok) {
@@ -436,6 +435,15 @@ export default function EnrichmentClassDetail() {
       } else {
         setClassTitle(t);
         setClassDescription(editClassDraft.description);
+        setClassMeta((prev) => ({
+          ...prev,
+          title: t,
+          description: editClassDraft.description,
+          teacher: editClassDraft.teacher,
+          blockLevel: editClassDraft.blockLevel,
+          schedule: editClassDraft.schedule,
+          capacityMax: max,
+        }));
       }
       setIsEditClassModalOpen(false);
     } catch (error) {
@@ -450,7 +458,8 @@ export default function EnrichmentClassDetail() {
       isAddStudentModalOpen ||
       isEditClassModalOpen ||
       isRemoveClassModalOpen ||
-      editingStudentId !== null;
+      editingStudentId !== null ||
+      removeStudentDraft !== null;
 
     if (!anyOpen) return;
 
@@ -461,16 +470,27 @@ export default function EnrichmentClassDetail() {
         setIsRemoveClassModalOpen(false);
         setEditingStudentId(null);
         setEditStudentDraft(null);
+        setRemoveStudentDraft(null);
       }
     }
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId]);
+  }, [isAddStudentModalOpen, isEditClassModalOpen, isRemoveClassModalOpen, editingStudentId, removeStudentDraft]);
 
   async function handleSaveAddStudent(input: { studentIds: string[]; status: Exclude<StudentStatus, "Pending"> }) {
     const studentIds = [...new Set(input.studentIds)].filter(Boolean);
     if (studentIds.length === 0) return;
+    if (input.status === "Approved") {
+      const seatsLeft = Math.max(0, classMeta.capacityMax - displayedCapacityEnrolled);
+      if (studentIds.length > seatsLeft) {
+        throw new Error(
+          seatsLeft === 0
+            ? "This class is full. Add students as waitlisted or increase capacity first."
+            : `Only ${seatsLeft} approved seat${seatsLeft === 1 ? "" : "s"} left. Add fewer students or use waitlist.`,
+        );
+      }
+    }
     const added: Student[] = [];
     const errors: string[] = [];
     try {
@@ -494,6 +514,10 @@ export default function EnrichmentClassDetail() {
 
       if (added.length > 0) {
         setStudents((prev) => [...prev, ...added]);
+        const approvedAdded = added.filter((student) => student.status === "Approved").length;
+        if (approvedAdded > 0) {
+          setClassMeta((prev) => ({ ...prev, capacityEnrolled: prev.capacityEnrolled + approvedAdded }));
+        }
         invalidateDashboardData([
           `/api/data/classes/${encodeURIComponent(classId)}/roster`,
           "/api/data/students",
@@ -539,9 +563,16 @@ export default function EnrichmentClassDetail() {
       }
       const body = (await res.json()) as { student?: Student };
       const saved = body.student ?? editStudentDraft;
+      const previous = students.find((s) => s.id === saved.id);
       setStudents((prev) =>
         prev.map((s) => (s.id === saved.id ? saved : s)),
       );
+      if (previous?.status !== saved.status) {
+        const delta = saved.status === "Approved" ? 1 : previous?.status === "Approved" ? -1 : 0;
+        if (delta !== 0) {
+          setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled + delta) }));
+        }
+      }
       setEditingStudentId(null);
       setEditStudentDraft(null);
     } catch (error) {
@@ -563,7 +594,12 @@ export default function EnrichmentClassDetail() {
         setRowActionError(await readApiError(res));
         return;
       }
+      const removed = students.find((s) => s.id === studentId);
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setRemoveStudentDraft(null);
+      if (removed?.status === "Approved") {
+        setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
+      }
       setSelectedStudentIds((prev) => {
         const next = new Set(prev);
         next.delete(studentId);
@@ -594,13 +630,7 @@ export default function EnrichmentClassDetail() {
   }
 
   return (
-    <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto font-['Inter',sans-serif]">
-      {/* Back Link */}
-      <Link href="/dashboard/classes" className="flex items-center gap-4 w-fit">
-        <ArrowLeft className="size-[18px] text-[#666d80]" aria-hidden strokeWidth={1.8} />
-        <span className="font-medium text-[#666d80] text-[14px]">Back to class setup</span>
-      </Link>
-
+    <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto">
       {/* Alert Banner */}
       <div className="flex items-center gap-2 bg-white border border-[#f0f0f0] rounded-[18px] p-3 shadow-sm">
         <div className="bg-[rgba(207,165,0,0.2)] rounded-[10px] w-10 h-10 flex items-center justify-center shrink-0">
@@ -610,8 +640,8 @@ export default function EnrichmentClassDetail() {
           <p className="font-semibold text-[#272932] text-[16px]">
             {classMeta.pendingCount} Requests waiting for approval for this class
           </p>
-          <Link
-            href="/dashboard/classes/requests"
+	          <Link
+	            href={`/dashboard/classes/requests?classId=${encodeURIComponent(classId)}`}
             className="flex items-center gap-2 font-semibold text-[#272932] text-[16px] hover:text-[#14c1d5] transition-colors"
           >
             Review Requests
@@ -632,27 +662,27 @@ export default function EnrichmentClassDetail() {
       )}
 
       {/* Header Info */}
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
+	      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+	        <div className="flex min-w-0 flex-col gap-2">
+        <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
             {classTitle}
           </h1>
           <p className="font-normal text-[#666d80] text-[16px] leading-[1.4]">
             {classDescription}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+	        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
           <button 
             type="button"
             onClick={openEditClassModal}
-            className="bg-[#d2f1f5] text-[#14c1d5] font-semibold text-[16px] px-4 py-2 rounded-[6px] tracking-[0.32px] hover:bg-[#bceef4] transition-colors"
+	            className="h-[42px] min-w-[86px] whitespace-nowrap rounded-[6px] bg-[#d2f1f5] px-4 text-[14px] font-semibold text-[#14c1d5] transition-colors hover:bg-[#bceef4]"
           >
             Edit Info
           </button>
           <button 
             type="button"
             onClick={() => setIsRemoveClassModalOpen(true)}
-            className="bg-[#ffd9d9] text-[#d80509] font-medium text-[16px] px-4 py-2 rounded-[6px] tracking-[0.32px] hover:bg-[#ffc2c2] transition-colors"
+	            className="h-[42px] min-w-[116px] whitespace-nowrap rounded-[6px] bg-[#ffd9d9] px-4 text-[14px] font-semibold text-[#d80509] transition-colors hover:bg-[#ffc2c2]"
           >
             Remove Class
           </button>
@@ -707,21 +737,60 @@ export default function EnrichmentClassDetail() {
                 style={{
                   width: `${Math.min(
                     100,
-                    Math.max(0, (classMeta.capacityEnrolled / Math.max(1, classMeta.capacityMax)) * 100),
+	                    Math.max(0, (displayedCapacityEnrolled / Math.max(1, classMeta.capacityMax)) * 100),
                   )}%`,
                 }}
               />
             </div>
             <span className="font-medium text-[#666d80] text-[16px] whitespace-nowrap">
-              {classMeta.capacityEnrolled}/{classMeta.capacityMax}
+	              {displayedCapacityEnrolled}/{classMeta.capacityMax}
             </span>
           </div>
         </div>
       </div>
 
+      <div className="grid gap-3 rounded-[18px] border border-[#f0f0f0] bg-white p-4 font-sans text-[14px] text-[#666d80] md:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <div className="font-semibold text-[#272932]">Term</div>
+          <div>{classMeta.semesterName || "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Room / location</div>
+          <div>{classMeta.room || "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Meeting days</div>
+          <div>{classMeta.scheduleDays.length > 0 ? classMeta.scheduleDays.join(", ") : "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Visibility</div>
+          <div>{classMeta.isActive && !classMeta.archivedAt ? "Parent-visible" : "Parent-hidden"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Pending / waitlist</div>
+          <div>{classMeta.pendingCount} pending, {classMeta.waitlistCount} waitlisted</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Remaining seats</div>
+          <div>{classMeta.seatsRemaining ?? "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Age limits</div>
+          <div>
+            {classMeta.minAgeYears != null || classMeta.maxAgeYears != null
+              ? `${classMeta.minAgeYears ?? "Any"}-${classMeta.maxAgeYears ?? "Any"} years`
+              : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#272932]">Archive state</div>
+          <div>{classMeta.archivedAt ? `Archived ${new Date(classMeta.archivedAt).toLocaleDateString()}` : "Not archived"}</div>
+        </div>
+      </div>
+
       {/* Enrolled Students Section */}
       <div className="flex flex-col gap-4">
-        <h2 className="font-bold text-[#272932] text-[24px]">Enrolled Students</h2>
+        <h2 className="font-bold text-[#272932] text-[20px] leading-[1.25]">Enrolled Students</h2>
 
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-5 flex flex-col gap-5 shadow-sm">
           {/* Toolbar */}
@@ -844,7 +913,7 @@ export default function EnrichmentClassDetail() {
                   <th className="py-4 px-3 font-semibold text-[14px] text-[#0d0d12] text-center whitespace-nowrap">Action</th>
                 </tr>
               </thead>
-              <tbody className="text-[16px] text-[#0d0d12]">
+	            <tbody className="text-[13px] text-[#0d0d12]">
                 {paginatedStudents.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-[#666d80]">
@@ -874,18 +943,18 @@ export default function EnrichmentClassDetail() {
                               </svg>
                             )}
                           </button>
-                          <span className="whitespace-nowrap">{student.name}</span>
+                          <span className="whitespace-nowrap text-[13px]">{student.name}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-3 whitespace-nowrap">{student.parent}</td>
-                      <td className="py-4 px-3 text-center whitespace-nowrap">{student.age} years</td>
-                      <td className="py-4 px-3 text-center">{student.level}</td>
+	                      <td className="whitespace-nowrap px-3 py-4 text-[13px]">{student.parent}</td>
+	                      <td className="whitespace-nowrap px-3 py-4 text-center text-[13px]">{student.age} years</td>
+	                      <td className="px-3 py-4 text-center text-[13px]">{student.level}</td>
                       <td className="py-4 px-3 text-center">
                         <span className={`inline-block border text-[10px] px-2 py-1 rounded-[6px] ${getStatusStyles(student.status)}`}>
                           {student.status}
                         </span>
                       </td>
-                      <td className="py-4 px-3 text-[#666d80] min-w-[200px]">{student.description}</td>
+	                      <td className="min-w-[200px] px-3 py-4 text-[13px] text-[#666d80]">{student.description}</td>
                       <td
                         data-student-action-root={student.id}
                         className="py-4 px-3 text-center"
@@ -926,7 +995,11 @@ export default function EnrichmentClassDetail() {
                             </button>
                             <button 
                               type="button"
-                              onClick={() => void removeStudentById(student.id)}
+                              onClick={() => {
+                                setRowActionError(null);
+                                setActiveActionDropdown(null);
+                                setRemoveStudentDraft(student);
+                              }}
                               className="w-full text-left px-4 py-2 text-[14px] text-[#d80509] hover:bg-gray-50"
                             >
                               Remove
@@ -1025,7 +1098,7 @@ export default function EnrichmentClassDetail() {
             className="bg-white rounded-[18px] p-6 w-full max-w-md shadow-xl flex flex-col gap-4"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-[#272932] text-xl">Edit Class Info</h3>
+            <h3 className="font-bold text-[#272932] text-[18px] leading-[1.25]">Edit Class Info</h3>
             <p className="text-[#666d80] text-[14px]">Update the details for this class.</p>
             {classEditError ? (
               <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
@@ -1033,45 +1106,69 @@ export default function EnrichmentClassDetail() {
               </div>
             ) : null}
             <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={editClassDraft.title}
-                onChange={(e) => setEditClassDraft((d) => ({ ...d, title: e.target.value }))}
-                className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-              />
-              <textarea
-                value={editClassDraft.description}
-                onChange={(e) => setEditClassDraft((d) => ({ ...d, description: e.target.value }))}
-                className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5] resize-none h-24"
-              />
-              <div className="border-t border-[#f0f0f0] pt-3">
-                <p className="mb-2 font-semibold text-[#272932] text-[14px]">Daily Planner</p>
-                <textarea
-                  value={editClassDraft.plannerSubject}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, plannerSubject: e.target.value }))}
-                  className="mb-3 h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-                  aria-label="Daily planner subject"
+              <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                Title
+                <input
+                  type="text"
+                  value={editClassDraft.title}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, title: e.target.value }))}
+                  className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
                 />
+              </label>
+              <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                Description
                 <textarea
-                  value={editClassDraft.plannerSummary}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, plannerSummary: e.target.value }))}
-                  className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-                  aria-label="Daily planner summary"
+                  value={editClassDraft.description}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, description: e.target.value }))}
+                  className="h-24 resize-none rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
                 />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-[#272932] text-[14px]">Teacher&apos;s Guide</p>
-                  <textarea value={editClassDraft.teacherGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide objectives" />
-                  <textarea value={editClassDraft.teacherGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide information" />
-                  <textarea value={editClassDraft.teacherGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, teacherGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Teacher guide summary" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-[#272932] text-[14px]">Students&apos; Guide</p>
-                  <textarea value={editClassDraft.studentGuideObjectives} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide objectives" />
-                  <textarea value={editClassDraft.studentGuideInformation} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide information" />
-                  <textarea value={editClassDraft.studentGuideSummary} onChange={(e) => setEditClassDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} className="h-20 resize-y rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]" aria-label="Student guide summary" />
-                </div>
+              </label>
+              <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                Teacher
+                <input
+                  value={editClassDraft.teacher}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, teacher: e.target.value }))}
+                  className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                Block & level
+                <input
+                  value={editClassDraft.blockLevel}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, blockLevel: e.target.value }))}
+                  className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                Schedule
+                <input
+                  value={editClassDraft.schedule}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, schedule: e.target.value }))}
+                  className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                />
+              </label>
+              <div className="flex gap-3">
+                <label className="flex-1 text-[13px] font-semibold text-[#666d80]">
+                  Enrolled (derived)
+                  <input
+                    type="number"
+                    min={0}
+                    value={String(classMeta.capacityEnrolled)}
+                    disabled
+                    readOnly
+                    className="mt-1 w-full rounded-[8px] border border-[#f0f0f0] bg-[#fafafa] px-3 py-2 text-[14px] text-[#8a8f9f]"
+                  />
+                </label>
+                <label className="flex-1 text-[13px] font-semibold text-[#666d80]">
+                  Max seats
+                  <input
+                    type="number"
+                    min={1}
+                    value={String(editClassDraft.capacityMax)}
+                    onChange={(e) => setEditClassDraft((d) => ({ ...d, capacityMax: Number.parseInt(e.target.value, 10) || 0 }))}
+                    className="mt-1 w-full rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                  />
+                </label>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">
@@ -1110,7 +1207,7 @@ export default function EnrichmentClassDetail() {
             className="bg-white rounded-[18px] p-6 w-full max-w-md shadow-xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-[#272932] text-xl">Edit Student</h3>
+            <h3 className="font-bold text-[#272932] text-[18px] leading-[1.25]">Edit Student</h3>
             <p className="text-[#666d80] text-[14px]">Update this student&apos;s enrollment details.</p>
             {editStudentError ? (
               <div role="alert" className="rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
@@ -1206,6 +1303,16 @@ export default function EnrichmentClassDetail() {
         </div>
       )}
 
+      {removeStudentDraft && (
+        <RemoveEnrollmentConfirmationModal
+          studentName={removeStudentDraft.name}
+          className={classTitle}
+          error={rowActionError}
+          onCancel={() => setRemoveStudentDraft(null)}
+          onConfirm={() => void removeStudentById(removeStudentDraft.id)}
+        />
+      )}
+
       {/* Remove Class Modal */}
       {isRemoveClassModalOpen && (
         <div
@@ -1221,7 +1328,7 @@ export default function EnrichmentClassDetail() {
             className="bg-white rounded-[18px] p-6 w-full max-w-sm shadow-xl flex flex-col gap-4"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-[#272932] text-xl">Remove Class?</h3>
+            <h3 className="font-bold text-[#272932] text-[18px] leading-[1.25]">Remove Class?</h3>
             <p className="text-[#666d80] text-[14px]">
               Are you sure you want to remove the <strong>{classTitle}</strong> class? This removes it from the directory for all administrators.
             </p>

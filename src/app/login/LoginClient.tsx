@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
 import { dashboardHomeForPersona } from "@/lib/dashboard/role-routes";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
@@ -137,7 +138,7 @@ export default function LoginClient() {
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-56px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-6 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] sm:py-8 xl:absolute xl:left-[821px] xl:top-1/2 xl:h-auto xl:max-h-[calc(100dvh-96px)] xl:min-h-0 xl:w-[423px] xl:-translate-y-1/2 xl:justify-start xl:overflow-y-auto xl:py-8 [@media(max-height:760px)]:xl:py-5">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-56px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-6 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] sm:py-8 xl:absolute xl:left-1/2 xl:top-1/2 xl:h-auto xl:max-h-[calc(100dvh-96px)] xl:min-h-0 xl:w-[423px] xl:-translate-x-1/2 xl:-translate-y-1/2 xl:justify-start xl:overflow-y-auto xl:py-8 [@media(max-height:760px)]:xl:py-5">
         <div className="flex w-full flex-col gap-[20px] sm:w-[339px] [@media(max-height:760px)]:xl:gap-[14px]">
           <div className="relative h-[44px] w-[196px] shrink-0 overflow-clip [@media(max-height:760px)]:xl:h-[36px] [@media(max-height:760px)]:xl:w-[170px]">
             <div className="absolute left-[47.07px] top-[5.47px] h-[31.659px] w-[132.782px]">
@@ -157,7 +158,7 @@ export default function LoginClient() {
           </div>
 
           <div className="flex w-full flex-col gap-[2px] sm:w-[261px]">
-            <h1 className="text-[22px] font-semibold leading-[1.1] text-[#05080b] [@media(max-height:760px)]:xl:text-[20px]">
+            <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} [@media(max-height:760px)]:xl:text-[18px]`}>
               Log in to the school
             </h1>
             <p className="text-[14px] font-normal leading-[1.5] text-[#87888a]">
@@ -226,7 +227,7 @@ export default function LoginClient() {
               disabled={submitting}
               className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#a8e7ef] [@media(max-height:760px)]:xl:h-[38px]"
             >
-              <span className="font-inter-tight text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
+              <span className="font-sans text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
                 {submitting ? "Signing in..." : "Sign in"}
               </span>
             </button>
@@ -261,7 +262,7 @@ export default function LoginClient() {
       </div>
 
       <div className="absolute left-[165px] top-1/2 hidden h-[176px] w-[416px] -translate-y-1/2 flex-col gap-[10px] xl:flex">
-        <p className="text-[48px] font-semibold leading-[1.1] text-[#05080b]">
+        <p className="text-[28px] font-semibold leading-[1.1] text-[#05080b]">
           Fast, efficient, and productive
         </p>
         <p className="flex-1 text-[18px] font-normal leading-[1.64] text-[#2f2f2d]">

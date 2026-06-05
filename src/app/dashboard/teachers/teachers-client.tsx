@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import EntityAvatar from "@/components/entity-avatar";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import {
   BookOpenCheck,
   ChevronDown,
@@ -19,6 +19,8 @@ import {
 import {
   DASHBOARD_PANEL_CLASS,
   DASHBOARD_TABLE_SCROLL_CLASS,
+  DASHBOARD_TABLE_BODY_TEXT_CLASS,
+  DASHBOARD_TABLE_HEAD_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
@@ -270,8 +272,8 @@ export default function TeachersTeacherList({
     <div className="flex flex-col w-full min-h-full px-[32px] py-[32px] gap-[24px] relative">
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-[8px]">
-          <h1 className="font-['Inter:Bold',sans-serif] font-bold leading-[1.1] text-[#272932] text-[28px]">Teachers</h1>
-          <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] text-[#666d80] text-[16px] max-w-3xl">
+          <h1 className="font-bold leading-[1.1] text-[#272932] text-[28px]">Teachers</h1>
+          <p className="font-normal leading-[1.4] text-[#666d80] text-[16px] max-w-3xl">
             Directory of faculty, programs, and contact information.
           </p>
           {dataSource === "fallback" ? (
@@ -294,8 +296,8 @@ export default function TeachersTeacherList({
               <GraduationCap aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Total Teachers</p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.total}</p>
+              <p className="font-semibold text-[#272932] text-[16px]">Total Teachers</p>
+              <p className="font-medium text-[#666d80] text-[16px]">{stats.total}</p>
             </div>
           </div>
         </div>
@@ -305,8 +307,8 @@ export default function TeachersTeacherList({
               <BookOpenCheck aria-hidden className="size-5 text-[#004d08]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Core program</p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.core}</p>
+              <p className="font-semibold text-[#272932] text-[16px]">Core program</p>
+              <p className="font-medium text-[#666d80] text-[16px]">{stats.core}</p>
             </div>
           </div>
         </div>
@@ -316,8 +318,8 @@ export default function TeachersTeacherList({
               <Sparkles aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Enrichment program</p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.enrichment}</p>
+              <p className="font-semibold text-[#272932] text-[16px]">Enrichment program</p>
+              <p className="font-medium text-[#666d80] text-[16px]">{stats.enrichment}</p>
             </div>
           </div>
         </div>
@@ -327,8 +329,8 @@ export default function TeachersTeacherList({
               <Mail aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">With email on file</p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{stats.withEmail}</p>
+              <p className="font-semibold text-[#272932] text-[16px]">With email on file</p>
+              <p className="font-medium text-[#666d80] text-[16px]">{stats.withEmail}</p>
             </div>
           </div>
         </div>
@@ -348,7 +350,7 @@ export default function TeachersTeacherList({
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[14px] outline-none bg-transparent w-full"
+                className="font-normal text-[#0d0d12] text-[14px] outline-none bg-transparent w-full"
               />
             </div>
 
@@ -368,7 +370,7 @@ export default function TeachersTeacherList({
                     </div>
                   </div>
                   <div className="flex items-center px-[2px]">
-                    <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] text-[#0d0d12] text-[12px] text-center">
+                    <p className="font-normal leading-[1.4] text-[#0d0d12] text-[12px] text-center">
                       Program: {filterLabel}
                     </p>
                   </div>
@@ -422,7 +424,7 @@ export default function TeachersTeacherList({
                 className={`${selectedTeachers.length > 0 ? "bg-[#d2f1f5] text-[#14c1d5]" : "bg-[#fafafa] text-[#0d0d12]"} hover:bg-gray-100 transition-colors flex items-center p-[8px] rounded-[8px]`}
               >
                 <div className="flex items-center px-[2px]">
-                  <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] text-[12px] text-center">
+                  <p className="font-normal leading-[1.4] text-[12px] text-center">
                     {selectedTeachers.length > 0 ? `Clear selected (${selectedTeachers.length})` : "Select visible"}
                   </p>
                 </div>
@@ -435,7 +437,7 @@ export default function TeachersTeacherList({
                 <div className="relative shrink-0 size-[24px]">
                   <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgIcRoundPlus} />
                 </div>
-                <p className="font-['Inter_Tight:SemiBold',sans-serif] leading-[1.5] text-[14px] text-center text-white tracking-[0.28px]">
+                <p className="font-sans font-semibold leading-[1.5] text-[14px] text-center text-white tracking-[0.28px]">
                   Create Teacher
                 </p>
               </Link>
@@ -463,11 +465,11 @@ export default function TeachersTeacherList({
             <table className="w-full text-left min-w-[900px]">
               <thead>
                 <tr className="border-t border-[#f0f0f0]">
-                  <th className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Teacher</th>
-                  <th className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Subjects</th>
-                  <th className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Email</th>
-                  <th className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px]">Phone</th>
-                  <th className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[14px] py-[16px] px-[10px] text-center">Action</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Teacher</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Subjects</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Email</th>
+                  <th className={`py-[16px] px-[10px] ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Phone</th>
+                  <th className={`py-[16px] px-[10px] text-center ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -500,105 +502,78 @@ export default function TeachersTeacherList({
                               </svg>
                             )}
                           </button>
-                          <div className="flex gap-[6px] items-center min-w-0">
-                            <EntityAvatar name={teacher.name} src={teacher.avatar} className="size-8" />
-                            <p className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px] truncate">{teacher.name}</p>
-                          </div>
+                        <div className="flex gap-[6px] items-center min-w-0">
+                          <EntityAvatar name={teacher.name} src={teacher.avatar} className="size-8" />
+                          <p className={`truncate ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>{teacher.name}</p>
                         </div>
-                      </td>
-                      <td className="py-[12px] px-[10px]">
+                      </div>
+                    </td>
+                    <td className="py-[12px] px-[10px]">
                         {assignedClassNames(teacher).length > MAX_CLASS_PREVIEW ? (
                           <button
                             type="button"
                             onClick={() => setViewTeacher(teacher)}
-                            className="max-w-[320px] text-left font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px] underline-offset-2 hover:text-[#14c1d5] hover:underline"
+                            className={`max-w-[320px] text-left underline-offset-2 hover:text-[#14c1d5] hover:underline ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}
                             title={teacher.subjects}
                           >
                             {assignedClassPreview(teacher)}
                           </button>
                         ) : (
-                          <p className="max-w-[320px] font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px]">
+                          <p className={`max-w-[320px] ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}>
                             {assignedClassPreview(teacher)}
                           </p>
                         )}
                       </td>
-                      <td className="py-[12px] px-[10px]">
-                        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px]">{teacher.email}</p>
-                      </td>
-                      <td className="py-[12px] px-[10px]">
-                        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#0d0d12] text-[16px]">{teacher.phone}</p>
-                      </td>
-                      <td className="py-[12px] px-[10px] relative">
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdown(activeDropdown === teacher.id ? null : teacher.id);
-                            }}
-                            className={`block cursor-pointer size-[24px] hover:opacity-70 transition-opacity rounded-full p-1 ${
-                              activeDropdown === teacher.id ? "bg-gray-200" : "hover:bg-gray-200"
-                            }`}
-                          >
-                            <img alt="More" className="block size-full" src={imgWeuiMoreOutlined} />
-                          </button>
+                    <td className="py-[12px] px-[10px]">
+                      <p className={DASHBOARD_TABLE_BODY_TEXT_CLASS}>{teacher.email}</p>
+                    </td>
+                    <td className="py-[12px] px-[10px]">
+                      <p className={DASHBOARD_TABLE_BODY_TEXT_CLASS}>{teacher.phone}</p>
+                    </td>
+                      <td className="py-[12px] px-[10px] text-center">
+                        <div ref={activeDropdown === teacher.id ? dropdownRef : null}>
+                          <DashboardRowActionsMenu
+                            label={`Actions for ${teacher.name}`}
+                            isOpen={activeDropdown === teacher.id}
+                            onToggle={() => setActiveDropdown(activeDropdown === teacher.id ? null : teacher.id)}
+                            onClose={() => setActiveDropdown(null)}
+                            actions={[
+                              {
+                                label: "View",
+                                onClick: () => {
+                                  setViewTeacher(teacher);
+                                  setActiveDropdown(null);
+                                },
+                              },
+                              { label: "View Schedule", href: "/dashboard/schedule" },
+                              {
+                                label: "Edit Teacher",
+                                onClick: () => openEdit(teacher),
+                              },
+                              {
+                                label: "Message",
+                                onClick: () => {
+                                  setMessageTeacher(teacher);
+                                  setActiveDropdown(null);
+                                },
+                              },
+                              {
+                                label: "Remove Teacher",
+                                tone: "danger",
+                                onClick: () => {
+                                  setRemoveTeacherId(teacher.id);
+                                  setActiveDropdown(null);
+                                },
+                              },
+                            ]}
+                          />
                         </div>
-
-                        {activeDropdown === teacher.id && (
-                          <div ref={dropdownRef} className="absolute right-10 top-10 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-30">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setViewTeacher(teacher);
-                                setActiveDropdown(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              View
-                            </button>
-                            <Link
-                              href="/dashboard/schedule"
-                              onClick={() => setActiveDropdown(null)}
-                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              View Schedule
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(teacher)}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              Edit Teacher
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMessageTeacher(teacher);
-                                setActiveDropdown(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              Message
-                            </button>
-                            <div className="border-t border-gray-100 my-1" />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRemoveTeacherId(teacher.id);
-                                setActiveDropdown(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              Remove Teacher
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-[32px] text-center text-[#666d80] font-['Inter:Regular',sans-serif]">
+                    <td colSpan={5} className="py-[32px] text-center text-[#666d80]">
                       {searchQuery.trim()
                         ? `No teachers found matching "${searchQuery}"`
                         : "No teachers match the current program filter."}
@@ -632,7 +607,7 @@ export default function TeachersTeacherList({
                   }`}
                 >
                   <p
-                    className={`font-['Inter:Semi_Bold',sans-serif] font-semibold text-[12px] text-center leading-[0] ${
+                    className={`font-semibold text-[12px] text-center leading-[0] ${
                       currentPage === page ? "text-white" : "text-[#666d80]"
                     }`}
                   >
@@ -667,7 +642,7 @@ export default function TeachersTeacherList({
           onClick={exportTeachers}
           className="bg-[#d2f1f5] hover:bg-[#bce6ec] transition-colors drop-shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] w-fit cursor-pointer"
         >
-          <p className="font-['Inter_Tight:Medium',sans-serif] leading-[1.5] text-[#14c1d5] text-[16px] text-center tracking-[0.32px]">
+          <p className="font-sans font-medium leading-[1.5] text-[#14c1d5] text-[16px] text-center tracking-[0.32px]">
             Download CSV
           </p>
         </button>

@@ -9,6 +9,7 @@ import { getExpectedSignupInviteCode, PUBLIC_SIGNUP_INVITE_DEFAULT } from "@/lib
 import { isDemoAdjacentWording } from "@/lib/product-copy";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isRemoteDataRequired } from "@/lib/data/env";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 const MIN_PW = 6;
 
@@ -106,7 +107,7 @@ export default function SignupClient() {
         {!successInfo ? (
           <>
             <div className="mb-6 text-center lg:text-left">
-              <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px] mb-2">Create your account</h1>
+              <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} mb-2`}>Create your account</h1>
               <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
                 Enter your details and invite code. {!supabaseConfigured && !remoteDataRequired && "Account setup will continue locally for now."}
                 {!supabaseConfigured && remoteDataRequired && "Account creation is not ready yet. Ask an administrator to finish setup."}
@@ -298,7 +299,7 @@ export default function SignupClient() {
           </>
         ) : (
           <div className="flex flex-col gap-4">
-            <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px] text-center">Confirm your email</h1>
+            <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} text-center`}>Confirm your email</h1>
             <p className="font-normal leading-[1.55] text-[#2f2f2d] text-[14px] text-center">{successInfo}</p>
             <Link href="/login" className="text-center mt-2 text-[#14c1d5] text-[14px] font-medium hover:underline">
               Go to login after confirming

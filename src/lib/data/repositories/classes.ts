@@ -17,7 +17,7 @@ import { formatClassScheduleLabel } from "@/lib/schedule-slots";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ClassReadClient = Awaited<ReturnType<typeof createSupabaseServerClient>> | AdminReadClient;
-type ClassQueryOptions = { semesterId?: string | null };
+type ClassQueryOptions = { semesterId?: string | null; parentFacing?: boolean };
 
 function formatStudentsLabel(row: Record<string, unknown>): string {
   const direct = row.students_label ?? row.students;
@@ -37,6 +37,17 @@ function numberField(row: Record<string, unknown>, key: string): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(0, Math.floor(raw));
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : null;
+}
+
+function optionalNumberField(row: Record<string, unknown>, key: string): number | undefined {
+  const value = numberField(row, key);
+  return value == null ? undefined : value;
+}
+
+function textArrayField(row: Record<string, unknown>, key: string): string[] {
+  const raw = row[key];
+  if (!Array.isArray(raw)) return [];
+  return raw.map((value) => String(value ?? "").trim()).filter(Boolean);
 }
 
 function formatAvailabilityLabel(seatsRemaining: number, capacity: number): string {
@@ -115,6 +126,10 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
   const block = String(row.block ?? row.block_label ?? "").trim();
   const level = String(row.level ?? row.level_label ?? "").trim();
   const scheduleSummary = row.schedule ?? row.schedule_label ?? row.schedule_summary ?? "";
+  const isActive = row.is_active == null ? true : Boolean(row.is_active);
+  const archivedAt = String(row.archived_at ?? "").trim();
+  const location = String(row.location ?? row.room ?? "").trim();
+  const room = String(row.room ?? row.location ?? "").trim();
 
   return {
     id,
@@ -123,24 +138,23 @@ export function mapClassRow(row: Record<string, unknown>): SchoolClassRow | null
     semesterStartsOn: String(semester?.starts_on ?? row.semester_starts_on ?? "").slice(0, 10),
     semesterEndsOn: String(semester?.ends_on ?? row.semester_ends_on ?? "").slice(0, 10),
     name: String(row.name ?? row.title ?? ""),
+    teacherId: String(row.teacher_id ?? "").trim() || undefined,
     teacher: String(row.teacher_name ?? row.teacher ?? ""),
     students: formatStudentsLabel(row),
     schedule: formatClassScheduleLabel({ block, level, scheduleSummary }),
     status,
+    isActive,
+    archivedAt: archivedAt || undefined,
     program: normalizeProgram(row.program ?? row.track),
     level,
     block,
-    location: String(row.location ?? "").trim(),
+    scheduleDays: textArrayField(row, "schedule_days"),
+    location,
+    room,
     description: String(row.description ?? "").trim(),
     prerequisites: String(row.prerequisites ?? "").trim(),
-    plannerSubject: String(row.planner_subject ?? row.plannerSubject ?? "").trim(),
-    plannerSummary: String(row.planner_summary ?? row.plannerSummary ?? "").trim(),
-    teacherGuideObjectives: String(row.teacher_guide_objectives ?? row.teacherGuideObjectives ?? "").trim(),
-    teacherGuideInformation: String(row.teacher_guide_information ?? row.teacherGuideInformation ?? "").trim(),
-    teacherGuideSummary: String(row.teacher_guide_summary ?? row.teacherGuideSummary ?? "").trim(),
-    studentGuideObjectives: String(row.student_guide_objectives ?? row.studentGuideObjectives ?? "").trim(),
-    studentGuideInformation: String(row.student_guide_information ?? row.studentGuideInformation ?? "").trim(),
-    studentGuideSummary: String(row.student_guide_summary ?? row.studentGuideSummary ?? "").trim(),
+    minAgeYears: optionalNumberField(row, "min_age_years"),
+    maxAgeYears: optionalNumberField(row, "max_age_years"),
     pendingCount,
     waitlistCount,
     capacity,
@@ -227,6 +241,9 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
     if (semesterId) {
       classesQuery = classesQuery.eq("semester_id", semesterId);
     }
+    if (options?.parentFacing) {
+      classesQuery = classesQuery.eq("is_active", true).is("archived_at", null);
+    }
     const [initialClassesResult, availabilityResult] = await Promise.all([
       classesQuery,
       supabase
@@ -234,7 +251,7 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
         .select("class_id, enrolled_count, pending_count, waitlist_count, reserved_count, seats_remaining, availability_label"),
     ]);
     let classesResult = initialClassesResult;
-    if (classesResult.error && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
+    if (classesResult.error && !options?.parentFacing && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
       classesResult = await supabase
         .from("classes")
         .select(CLASS_SELECT_BASE)
@@ -292,7 +309,7 @@ export async function fetchClassesForClientResolved(
   client: ClassReadClient,
   options?: ClassQueryOptions,
 ): Promise<ResolvedList<SchoolClassRow>> {
-  return loadClassesResolved(client, options);
+  return loadClassesResolved(client, { ...options, parentFacing: true });
 }
 
 async function _unused_fetchAdminClasses(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
@@ -317,6 +334,13 @@ function mapClassOptionRow(row: Record<string, unknown>): SchoolClassOptionRow |
     capacity: numberField(row, "capacity") ?? 0,
     block,
     level,
+    scheduleDays: textArrayField(row, "schedule_days"),
+    isActive: row.is_active == null ? true : Boolean(row.is_active),
+    archivedAt: String(row.archived_at ?? "").trim() || undefined,
+    location: String(row.location ?? row.room ?? "").trim() || undefined,
+    room: String(row.room ?? row.location ?? "").trim() || undefined,
+    minAgeYears: optionalNumberField(row, "min_age_years"),
+    maxAgeYears: optionalNumberField(row, "max_age_years"),
     schedule: formatClassScheduleLabel({ block, level, scheduleSummary: row.schedule_summary }),
   };
 }
@@ -328,15 +352,18 @@ async function loadClassOptionsResolved(client?: ClassReadClient, options?: Clas
     const semesterId = await resolveSemesterFilter(supabase, options);
     let query = supabase
       .from("classes")
-      .select("id, semester_id, name, program, capacity, block, level, schedule_summary, semesters ( id, name, starts_on, ends_on, is_current )")
+      .select("id, semester_id, name, program, capacity, block, level, schedule_summary, schedule_days, is_active, archived_at, location, room, min_age_years, max_age_years, semesters ( id, name, starts_on, ends_on, is_current )")
       .order("created_at", { ascending: true });
     if (semesterId) {
       query = query.eq("semester_id", semesterId);
     }
+    if (options?.parentFacing) {
+      query = query.eq("is_active", true).is("archived_at", null);
+    }
     const initial = await query;
     let data = initial.data as unknown as Record<string, unknown>[] | null;
     let error = initial.error;
-    if (error && (!semesterId || classQueryNeedsSchemaFallback(error))) {
+    if (error && !options?.parentFacing && (!semesterId || classQueryNeedsSchemaFallback(error))) {
       const fallback = await supabase
         .from("classes")
         .select("id, name, program, capacity, block, level, schedule_summary")

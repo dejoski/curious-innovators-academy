@@ -3,34 +3,59 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Filter, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Filter, Search } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
-import { DASHBOARD_PANEL_CLASS, DASHBOARD_TABLE_SCROLL_CLASS } from "@/lib/dashboard-shell-classes";
+import {
+  DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS,
+  DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_CELL_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS,
+  DASHBOARD_BODY_TEXT_CLASS,
+  DASHBOARD_BUTTON_TEXT_CLASS,
+  DASHBOARD_PAGE_SUBTITLE_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_PANEL_CLASS,
+  DASHBOARD_STATUS_PILL_TEXT_CLASS,
+  DASHBOARD_TABLE_SCROLL_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import type { DataSource, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data";
+import { parentScheduleFinalityClasses, parentScheduleFinalityFromRow } from "@/lib/parent-schedule-status";
+import {
+  STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS,
+  type DailyParentScheduleSlotKey,
+} from "@/lib/schedule-slots";
 
 type ScheduleFilter = "all" | "pending" | "approved";
 
 type ScheduleColumn = {
-  key: keyof Pick<StudentScheduleRow, "b1" | "b2" | "b3Tue" | "b3Wed" | "b3Thu" | "b4Tue" | "b4Wed" | "b4Thu">;
+  key: DailyParentScheduleSlotKey;
   label: string;
   sublabel: string;
 };
 
-const COLUMNS: ScheduleColumn[] = [
-  { key: "b1", label: "B1", sublabel: "Tue Wed Thu" },
-  { key: "b2", label: "B2", sublabel: "Tue Wed Thu" },
-  { key: "b3Tue", label: "B3", sublabel: "Tue" },
-  { key: "b3Wed", label: "B3", sublabel: "Wed" },
-  { key: "b3Thu", label: "B3", sublabel: "Thu" },
-  { key: "b4Tue", label: "B4", sublabel: "Tue" },
-  { key: "b4Wed", label: "B4", sublabel: "Wed" },
-  { key: "b4Thu", label: "B4", sublabel: "Thu" },
-];
+const SLOT_LABELS: Record<DailyParentScheduleSlotKey, ScheduleColumn> = {
+  b1Tue: { key: "b1Tue", label: "B1", sublabel: "Tue" },
+  b2Tue: { key: "b2Tue", label: "B2", sublabel: "Tue" },
+  b3Tue: { key: "b3Tue", label: "B3", sublabel: "Tue" },
+  b4Tue: { key: "b4Tue", label: "B4", sublabel: "Tue" },
+  b1Wed: { key: "b1Wed", label: "B1", sublabel: "Wed" },
+  b2Wed: { key: "b2Wed", label: "B2", sublabel: "Wed" },
+  b3Wed: { key: "b3Wed", label: "B3", sublabel: "Wed" },
+  b4Wed: { key: "b4Wed", label: "B4", sublabel: "Wed" },
+  b1Thu: { key: "b1Thu", label: "B1", sublabel: "Thu" },
+  b2Thu: { key: "b2Thu", label: "B2", sublabel: "Thu" },
+  b3Thu: { key: "b3Thu", label: "B3", sublabel: "Thu" },
+  b4Thu: { key: "b4Thu", label: "B4", sublabel: "Thu" },
+};
+
+const COLUMNS: ScheduleColumn[] = STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS.map((slot) => SLOT_LABELS[slot]);
 
 function realBadges(badges: StudentScheduleBadge[] | undefined) {
   return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");
@@ -47,7 +72,7 @@ function chipClasses(tone: StudentScheduleBadge["tone"]) {
 
 function LegendItem({ tone, label }: { tone: StudentScheduleBadge["tone"]; label: string }) {
   return (
-    <span className="inline-flex items-center gap-2 text-[14px] text-[#0d0d12]">
+    <span className="inline-flex items-center gap-2 text-[13px] text-[#0d0d12]">
       <span className={`size-[18px] rounded-[5px] border ${chipClasses(tone)}`} aria-hidden />
       {label}
     </span>
@@ -56,18 +81,48 @@ function LegendItem({ tone, label }: { tone: StudentScheduleBadge["tone"]; label
 
 function ScheduleCell({ badges }: { badges: StudentScheduleBadge[] }) {
   const visible = realBadges(badges);
-  if (!visible.length) return <span className="text-[16px] text-[#818898]">--</span>;
+  if (!visible.length) return <span className="text-[#818898]">--</span>;
   return (
     <div className="flex max-w-[150px] flex-wrap justify-center gap-1.5">
       {visible.map((badge, index) => (
         <span
           key={`${badge.label}-${badge.tone}-${index}`}
-          className={`inline-flex max-w-full items-center rounded-[6px] border px-2.5 py-1 text-[12px] leading-none ${chipClasses(badge.tone)}`}
+          className={`inline-flex max-w-full items-center rounded-[6px] border px-2.5 py-1 ${DASHBOARD_STATUS_PILL_TEXT_CLASS} ${chipClasses(badge.tone)}`}
           title={badge.label}
         >
           <span className="truncate">{badge.label}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+function ScheduleStatePill({ row }: { row: StudentScheduleRow }) {
+  const finality = parentScheduleFinalityFromRow(row);
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span className={`inline-flex rounded-full border px-2.5 py-1 ${DASHBOARD_STATUS_PILL_TEXT_CLASS} ${parentScheduleFinalityClasses(finality.state)}`}>
+        {finality.label}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {row.hasConflicts ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#d80509]/25 bg-[#fff5f5] px-2 py-0.5 text-[11px] font-semibold text-[#8c1f1f]">
+            <AlertTriangle className="size-3" aria-hidden strokeWidth={2} />
+            Conflict
+          </span>
+        ) : null}
+        {(row.incompleteBlocks ?? 0) > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#cfa500]/35 bg-[#fffdf3] px-2 py-0.5 text-[11px] font-semibold text-[#7a5b00]">
+            {row.incompleteBlocks} open
+          </span>
+        ) : null}
+        {!row.hasConflicts && (row.incompleteBlocks ?? 0) === 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#004d08]/25 bg-[#f3fbf4] px-2 py-0.5 text-[11px] font-semibold text-[#004d08]">
+            <CheckCircle2 className="size-3" aria-hidden strokeWidth={2} />
+            Complete
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -114,7 +169,7 @@ export default function AdminStudentScheduleClient({
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
-    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
+    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}/schedule`);
   }, [router]);
 
   const filteredRows = useMemo(() => {
@@ -147,10 +202,13 @@ export default function AdminStudentScheduleClient({
     const selected = filteredRows.filter((row) => selectedIds.has(row.id));
     downloadCsv(
       "student-schedules-selected.csv",
-      ["Student", "Parent", ...COLUMNS.map((column) => `${column.label} ${column.sublabel}`)],
+      ["Student", "Parent", "Schedule state", "Open blocks", "Conflicts", ...COLUMNS.map((column) => `${column.label} ${column.sublabel}`)],
       selected.map((row) => [
         row.name,
         row.parent,
+        parentScheduleFinalityFromRow(row).label,
+        String(row.incompleteBlocks ?? 0),
+        row.hasConflicts ? "Yes" : "No",
         ...COLUMNS.map((column) => realBadges(row[column.key]).map((badge) => `${badge.label} (${badge.tone})`).join("; ")),
       ]),
     );
@@ -185,12 +243,12 @@ export default function AdminStudentScheduleClient({
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-8 font-sans md:px-8">
       <div>
-        <h1 className="text-[32px] font-bold leading-[1.08] text-[#272932]">Student Schedule</h1>
-        <p className="mt-2 text-[18px] leading-[1.4] text-[#666d80]">
+        <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>Student Schedule</h1>
+        <p className={`mt-2 ${DASHBOARD_PAGE_SUBTITLE_CLASS}`}>
           View and compare student schedules across all blocks.
         </p>
-        {hint ? <p className="mt-2 text-sm text-[#7a5b00]">{hint}</p> : null}
-        {syncHint ? <p className="mt-2 text-sm text-[#155e66]">{syncHint}</p> : null}
+        {hint ? <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#7a5b00]`}>{hint}</p> : null}
+        {syncHint ? <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#155e66]`}>{syncHint}</p> : null}
       </div>
 
       <div className="flex flex-wrap gap-x-6 gap-y-3">
@@ -202,17 +260,17 @@ export default function AdminStudentScheduleClient({
 
       <section className={`${DASHBOARD_PANEL_CLASS} p-5`}>
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="flex h-[44px] min-w-0 flex-1 items-center gap-3 rounded-[10px] bg-white px-3 text-[#666d80] lg:max-w-[420px]">
+          <label className={`flex min-w-0 flex-1 items-center gap-3 text-[#666d80] lg:max-w-[420px] ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS}`}>
             <Search className="size-5 shrink-0" aria-hidden strokeWidth={2} />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search..."
-              className="min-w-0 flex-1 bg-transparent text-[16px] text-[#0d0d12] outline-none placeholder:text-[#666d80]"
+              className={DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS}
             />
           </label>
           <div className="flex flex-wrap gap-3">
-            <label className="inline-flex h-[44px] items-center gap-2 rounded-[10px] bg-[#fafafa] px-3 text-[14px] text-[#0d0d12]">
+            <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
               <Filter className="size-4" aria-hidden strokeWidth={2} />
               <span className="whitespace-nowrap">Filter by:</span>
               <select
@@ -228,14 +286,14 @@ export default function AdminStudentScheduleClient({
             <button
               type="button"
               onClick={toggleAll}
-              className="h-[44px] rounded-[10px] bg-[#fafafa] px-4 text-[14px] text-[#0d0d12] hover:bg-[#f0f0f0]"
+              className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa] px-4 hover:bg-[#f0f0f0]`}
             >
               {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
             </button>
             <button
               type="button"
               onClick={() => setIsImportOpen(true)}
-              className="h-[44px] rounded-[10px] border border-[#14c1d5]/40 bg-white px-4 text-[14px] font-semibold text-[#14c1d5] hover:bg-[#ecfdff]"
+              className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} border border-[#14c1d5]/40 px-4 font-semibold text-[#14c1d5] hover:bg-[#ecfdff]`}
             >
               Bulk import CSV
             </button>
@@ -261,18 +319,19 @@ export default function AdminStudentScheduleClient({
         </DashboardBulkSelectionBar>
 
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
-          <table className="min-w-[1120px] table-fixed border-collapse">
+          <table className="min-w-[1920px] table-fixed border-collapse">
             <thead>
-              <tr className="border-y border-[#f0f0f0] text-left text-[14px] font-semibold text-[#0d0d12]">
-                <th className="w-[220px] px-3 py-5">Student</th>
-                <th className="w-[150px] px-3 py-5">Parent</th>
+              <tr className={DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS}>
+                <th className={`w-[220px] ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Student</th>
+                <th className={`w-[150px] ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Parent</th>
+                <th className={`w-[150px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>State</th>
                 {COLUMNS.map((column) => (
-                  <th key={column.key} className="w-[122px] px-3 py-5 text-center">
-                    <span className="block text-[16px]">{column.label}</span>
+                  <th key={column.key} className={`w-[122px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>
+                    <span className="block">{column.label}</span>
                     <span className="mt-2 block font-normal text-[#818898]">{column.sublabel}</span>
                   </th>
                 ))}
-                <th className="w-[90px] px-3 py-5 text-center">Action</th>
+                <th className={`w-[90px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -280,11 +339,11 @@ export default function AdminStudentScheduleClient({
                 filteredRows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-b border-[#f0f0f0] text-[16px] text-[#0d0d12]"
+                    className={DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS}
                     onMouseEnter={() => warmStudent(row.id)}
                     onFocusCapture={() => warmStudent(row.id)}
                   >
-                    <td className="px-3 py-5">
+                    <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>
                       <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
@@ -293,18 +352,21 @@ export default function AdminStudentScheduleClient({
                           className={`size-[16px] shrink-0 rounded-[4px] border border-[#14c1d5] ${selectedIds.has(row.id) ? "bg-[#14c1d5]" : "bg-[#d2f1f5]/50"}`}
                         />
                         <img src={row.avatar} alt="" className="size-9 rounded-full object-cover" />
-                        <Link href={`/dashboard/students/${encodeURIComponent(row.id)}`} className="truncate hover:text-[#14c1d5]">
+                        <Link href={`/dashboard/students/${encodeURIComponent(row.id)}/schedule`} className="truncate hover:text-[#14c1d5]">
                           {row.name}
                         </Link>
                       </div>
                     </td>
-                    <td className="px-3 py-5">{row.parent || "--"}</td>
+                    <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>{row.parent || "--"}</td>
+                    <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>
+                      <ScheduleStatePill row={row} />
+                    </td>
                     {COLUMNS.map((column) => (
-                      <td key={column.key} className="px-3 py-4 text-center align-middle">
+                      <td key={column.key} className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS}`}>
                         <ScheduleCell badges={row[column.key]} />
                       </td>
                     ))}
-                    <td className="px-3 py-5 text-center">
+                    <td className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>
                       <DashboardRowActionsMenu
                         label={`Actions for ${row.name}`}
                         isOpen={openActionId === row.id}
@@ -324,7 +386,7 @@ export default function AdminStudentScheduleClient({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-[15px] text-[#666d80]">
+                  <td colSpan={COLUMNS.length + 4} className="px-4 py-12 text-center text-[15px] text-[#666d80]">
                     No student schedules match your filters.
                   </td>
                 </tr>

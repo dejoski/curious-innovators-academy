@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { PageBackLink } from "@/components/page-back-link";
 
 type FaqItem = { q: string; a: string; keywords: string };
 type SubmitState =
@@ -268,11 +269,9 @@ export default function DashboardSupportPage() {
         </section>
       </div>
 
-      <p className="mt-8">
-        <Link href="/dashboard" className="text-[#14c1d5] text-sm font-medium hover:underline">
-          ← Back to dashboard
-        </Link>
-      </p>
+      <div className="mt-8">
+        <PageBackLink href="/dashboard">Back to Dashboard</PageBackLink>
+      </div>
     </div>
   );
 }

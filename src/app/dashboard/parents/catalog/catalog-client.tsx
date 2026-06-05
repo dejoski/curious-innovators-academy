@@ -16,8 +16,11 @@ import {
 } from "@/components/parent-class-drawers";
 import {
   fallbackParentClassOption,
+  hasBlockingScheduleConflict,
+  isParentSelectableEnrichmentOption,
   parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
+  parseStudentAgeYears,
 } from "@/lib/parent-class-options";
 import {
   ParentScheduleGrid,
@@ -68,7 +71,7 @@ import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromBadges,
 } from "@/lib/parent-schedule-status";
-import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentProfileBundle, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
 
 type SlotId = CatalogSlotId;
 
@@ -149,6 +152,7 @@ function ParentClassesEnrichmentCatalogContent() {
   const [submitBanner, setSubmitBanner] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [activeStudent, setActiveStudent] = useState<StudentListItem | null>(null);
+  const [studentAgeYears, setStudentAgeYears] = useState<number | null>(null);
   const [studentScheduleLoading, setStudentScheduleLoading] = useState(true);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
   const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
@@ -202,20 +206,28 @@ function ParentClassesEnrichmentCatalogContent() {
           if (!cancelled) {
             setActiveStudent(null);
             setStudentSchedule(null);
+            setStudentAgeYears(null);
           }
           return;
         }
-        const scheduleBody = await cachedJson<{ rows?: StudentScheduleRow[] }>(
-          `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
-        );
+        const [profileBody, scheduleBody] = await Promise.all([
+          cachedJson<{ profile?: StudentProfileBundle | null }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`,
+          ),
+          cachedJson<{ rows?: StudentScheduleRow[] }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
+          ),
+        ]);
         if (!cancelled) {
           setActiveStudent(activeStudent);
           setStudentSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
+          setStudentAgeYears(parseStudentAgeYears(profileBody.profile?.details?.age));
         }
       } catch {
         if (!cancelled) {
           setActiveStudent(null);
           setStudentSchedule(null);
+          setStudentAgeYears(null);
         }
       } finally {
         if (!cancelled) setStudentScheduleLoading(false);
@@ -392,8 +404,16 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   const recommendedClasses = useMemo(() => {
-    return parentClassOptionsForCatalogSlot(availableClasses, activeMeta);
-  }, [activeMeta, availableClasses]);
+    return parentClassOptionsForCatalogSlot(
+      availableClasses.filter((option) =>
+        isParentSelectableEnrichmentOption(option, {
+          studentAgeYears,
+          schedule: studentSchedule,
+        }),
+      ),
+      activeMeta,
+    );
+  }, [activeMeta, availableClasses, studentAgeYears, studentSchedule]);
 
   const overlayClasses = recommendedClasses;
   const choiceMatchesActiveSlot = (choice: ParentClassOption | null) =>
@@ -424,8 +444,8 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function openScheduleSlot(slot: ParentScheduleSlotKey) {
     const currentBadges = scheduleBadgesBySlot[slot] ?? [];
-    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved")) {
-      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed class. Ask the school team to change it, or use waitlist actions for classes that should not replace the approved schedule." });
+    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved" || badge.tone === "pending")) {
+      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed or pending class. Ask the school team to change it, or use waitlist actions for classes that should not replace the current schedule." });
       return;
     }
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
@@ -433,6 +453,10 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
+    if (hasBlockingScheduleConflict(cls, studentSchedule)) {
+      setSubmitBanner({ tone: "warning", message: "This class conflicts with a confirmed or pending class already visible in the schedule." });
+      return;
+    }
     const currentRequests = editingRequests ?? (renderedRequests as Record<SlotId, SlotRequests>);
     const currentActive = currentRequests[activeSlot];
     const selectedKind: ParentClassChoiceKind = kind === "secondChoice" && !currentActive.firstChoice ? "firstChoice" : kind;
@@ -469,7 +493,7 @@ function ParentClassesEnrichmentCatalogContent() {
     } catch {
       /* Browser storage can be unavailable in privacy modes. */
     }
-    setSubmitBanner({ tone: "success", message: "Draft saved. You can discard it to restore the approved schedule." });
+    setSubmitBanner({ tone: "success", message: "Draft saved on this device. Submit it to send changes for review." });
     closeSelectionDrawer();
   }
 
@@ -606,9 +630,9 @@ function ParentClassesEnrichmentCatalogContent() {
 
       {(catalogHint || submitBanner) && (
         <div className="mt-4 flex flex-col gap-2">
-          {catalogHint ? <p className="rounded-[8px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">{catalogHint}</p> : null}
+          {catalogHint ? <p className="rounded-[12px] border border-[#ead9a8] bg-[#fffaf0] px-4 py-3 text-sm leading-[1.55] text-[#665528]">{catalogHint}</p> : null}
           {submitBanner ? (
-            <output className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]" : "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]"}`}>
+            <output className={`flex flex-col gap-3 rounded-[12px] border px-4 py-3 text-sm leading-[1.55] sm:flex-row sm:items-center sm:justify-between ${submitBanner.tone === "success" ? "border-[#b7dfbf] bg-[#f8fcf9] text-[#235a2d]" : "border-[#ead9a8] bg-[#fffaf0] text-[#665528]"}`}>
               <span>{submitBanner.message}</span>
             </output>
           ) : null}

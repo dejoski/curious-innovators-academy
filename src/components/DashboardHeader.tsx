@@ -5,10 +5,11 @@ import Link from "next/link";
 import { Bell, Ellipsis } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardPersona } from "@/components/dashboard-persona";
-import { isNotificationDropdownEnabled } from "@/lib/product-ui-flags";
+import { isNotificationDropdownEnabled, isSandboxHeaderIndicatorEnabled } from "@/lib/product-ui-flags";
 import { logoutThenLogin } from "@/lib/auth/logout-client";
 import ParentStudentContextSelector from "@/components/ParentStudentContextSelector";
 import EntityAvatar from "@/components/entity-avatar";
+import { PageBackLink } from "@/components/page-back-link";
 import { cachedJson, invalidateClientDataCache, peekCachedJson } from "@/lib/client-data-cache";
 import { readApiError } from "@/lib/client-api-errors";
 import { dashboardHrefForPersona } from "@/lib/dashboard/role-routes";
@@ -18,11 +19,14 @@ import {
 } from "@/lib/parent-student-selection";
 import type { DashboardNotification } from "@/lib/data";
 import {
+  DASHBOARD_BODY_TEXT_CLASS,
   DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS,
   DASHBOARD_MAIN_HEADER_UNDERLINE_CLASS,
   DASHBOARD_MAIN_HEADER_WRAP_CLASS,
   DASHBOARD_MAIN_HEADER_ROW_CLASS,
   DASHBOARD_BORDER_SUBTLE_CLASS,
+  DASHBOARD_CONTROL_TEXT_CLASS,
+  DASHBOARD_TINY_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
 const imgSolarLogout2Outline = "/images/logout-icon.svg";
 const imgSolarLogout2OutlineParent = "/images/logout-icon-parent.svg";
@@ -33,6 +37,61 @@ type NotificationsBody = {
   notifications?: DashboardNotification[];
   source?: string;
 };
+
+type HeaderBackAction = {
+  href: string;
+  label: string;
+};
+
+function dashboardHeaderBackAction(pathname: string, searchParams: Pick<URLSearchParams, "has">): HeaderBackAction | null {
+  if (
+    pathname === "/dashboard/students/schedule" ||
+    pathname === "/dashboard/students/roster" ||
+    pathname === "/dashboard/students/new"
+  ) {
+    return null;
+  }
+
+  const studentScheduleMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/schedule\/?$/);
+  if (studentScheduleMatch) return { href: "/dashboard/students/schedule", label: "Back to Student Schedules" };
+
+  const studentEditMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/edit\/?$/);
+  if (studentEditMatch?.[1]) {
+    return {
+      href: `/dashboard/students/${encodeURIComponent(decodeURIComponent(studentEditMatch[1]))}`,
+      label: "Back to Student Profile",
+    };
+  }
+
+  const studentRosterDetailMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/roster\/?$/);
+  if (studentRosterDetailMatch) return { href: "/dashboard/students/roster", label: "Back to Student Roster" };
+
+  const studentProfileMatch = pathname.match(/^\/dashboard\/students\/([^/]+)\/?$/);
+  if (studentProfileMatch) return { href: "/dashboard/students", label: "Back to Student List" };
+
+  const classDetailMatch = pathname.match(/^\/dashboard\/classes\/(core|enrichment)\/([^/]+)\/?$/);
+  if (classDetailMatch) return { href: "/dashboard/classes", label: "Back to Class List" };
+
+  const classEditMatch = pathname.match(/^\/dashboard\/classes\/edit\/(core|enrichment)\/([^/]+)\/?$/);
+  if (classEditMatch) return { href: "/dashboard/classes", label: "Back to Class List" };
+
+  if (pathname === "/dashboard/classes/new") return { href: "/dashboard/classes", label: "Back to Class List" };
+  if (pathname === "/dashboard/teachers/new") return { href: "/dashboard/teachers", label: "Back to Teacher List" };
+
+  const classRosterMatch = pathname.match(/^\/dashboard\/classes\/([^/]+)\/roster\/?$/);
+  if (classRosterMatch?.[1]) {
+    return {
+      href: `/dashboard/classes/core/${encodeURIComponent(decodeURIComponent(classRosterMatch[1]))}`,
+      label: "Back to Class Profile",
+    };
+  }
+
+  if (pathname === "/dashboard/classes/requests" && searchParams.has("classId")) {
+    return { href: "/dashboard/classes/requests", label: "Back to enrichment requests" };
+  }
+
+  return null;
+}
 
 function readCachedNotifications() {
   const body = peekCachedJson<NotificationsBody>("/api/data/notifications");
@@ -89,8 +148,10 @@ export default function DashboardHeader() {
   const selectedParentStudentId = inParentShell
     ? searchParams.get("student") ?? readStoredParentStudentId()
     : "";
+  const headerBackAction = !inParentShell ? dashboardHeaderBackAction(pathname, searchParams) : null;
 
   const showNotificationDropdown = isNotificationDropdownEnabled();
+  const showSandboxIndicator = isSandboxHeaderIndicatorEnabled();
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read).length, [notifications]);
   const previewNotifications = useMemo(
     () =>
@@ -111,7 +172,7 @@ export default function DashboardHeader() {
   const headerDisplayName = displayName;
   const headerRoleLine = roleLabel;
   const compactMenuItemClass =
-    "block w-full px-4 py-2 text-left text-sm text-[#272932] transition-colors hover:bg-gray-50";
+    `block w-full px-4 py-2 text-left ${DASHBOARD_BODY_TEXT_CLASS} text-[#272932] transition-colors hover:bg-gray-50`;
   const parentHeaderLayout = useMemo(() => {
     if (!inParentShell) {
       return {
@@ -124,7 +185,7 @@ export default function DashboardHeader() {
       return { canShowInlineActions: false, canShowProfileText: false, pickerWidth: 260 };
     }
 
-    const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 16px Inter, sans-serif");
+    const studentNameWidth = measureHeaderText(selectedStudentName || "Select student", "400 14px Inter, sans-serif");
     const profileNameWidth = measureHeaderText(headerDisplayName, "600 12px Inter, sans-serif");
     const profileRoleWidth = measureHeaderText(headerRoleLine, "400 12px Inter, sans-serif");
     const desiredPickerWidth = Math.min(420, Math.max(220, Math.ceil(studentNameWidth) + 116));
@@ -275,8 +336,13 @@ export default function DashboardHeader() {
               pickerWidthPx={parentHeaderLayout.pickerWidth}
             />
           ) : null}
+          {headerBackAction ? (
+            <PageBackLink href={headerBackAction.href} className="h-[40px] border-0 px-3 shadow-none sm:px-4">
+              {headerBackAction.label}
+            </PageBackLink>
+          ) : null}
           {!inParentShell ? (
-            <div className="min-w-[1px]" aria-hidden />
+            <div className={headerBackAction ? "hidden" : "min-w-[1px]"} aria-hidden />
           ) : null}
         </div>
         <div className={`content-stretch gap-[16px] items-center relative shrink-0 ${inParentShell && !canShowParentInlineActions ? "hidden" : "flex"}`}>
@@ -316,6 +382,12 @@ export default function DashboardHeader() {
               </div>
             </div>
           </button>
+          {showSandboxIndicator ? (
+            <span className="inline-flex h-[24px] items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-red-700">
+              <span aria-hidden className="size-1.5 rounded-full bg-red-500" />
+              Sandbox
+            </span>
+          ) : null}
           
           {/* Notifications: seeded dropdown (QA flag) or link to inbox */}
           <div className="relative" ref={notifRef}>
@@ -335,12 +407,12 @@ export default function DashboardHeader() {
                 {isNotificationsOpen && (
               <div className={`absolute right-0 mt-2 w-80 ${DASHBOARD_HEADER_DROPDOWN_PANEL_CLASS} px-0 overflow-hidden`}>
                 <div className={`px-4 py-2 flex justify-between items-center border-b ${DASHBOARD_BORDER_SUBTLE_CLASS}`}>
-                  <h3 className="font-['Inter',sans-serif] font-semibold text-sm text-gray-900">Notifications</h3>
+                  <h3 className={`font-semibold ${DASHBOARD_BODY_TEXT_CLASS} text-gray-900`}>Notifications</h3>
                   {unreadCount > 0 && (
                     <button
                       type="button"
                       onClick={() => void markAllNotificationsRead()}
-                      className="text-xs text-[#14c1d5] hover:underline cursor-pointer"
+                      className={`${DASHBOARD_TINY_TEXT_CLASS} cursor-pointer text-[#14c1d5] hover:underline`}
                     >
                       Mark all as read
                     </button>
@@ -348,7 +420,7 @@ export default function DashboardHeader() {
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
                   {notificationsLoading ? (
-                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                    <div className={`px-4 py-6 text-center ${DASHBOARD_BODY_TEXT_CLASS} text-gray-500`}>
                       Loading notifications...
                     </div>
                   ) : previewNotifications.length ? (
@@ -361,24 +433,24 @@ export default function DashboardHeader() {
                           index < previewNotifications.length - 1 ? "border-b border-gray-50" : ""
                         }`}
                       >
-                        <p className="text-sm text-gray-800 font-['Inter',sans-serif]">{item.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{item.detail}</p>
-                        <p className="text-xs text-gray-400 mt-1">{item.time}</p>
+                        <p className={`${DASHBOARD_BODY_TEXT_CLASS} text-gray-800`}>{item.title}</p>
+                        <p className={`${DASHBOARD_TINY_TEXT_CLASS} mt-1 text-gray-500`}>{item.detail}</p>
+                        <p className={`${DASHBOARD_TINY_TEXT_CLASS} mt-1 text-gray-400`}>{item.time}</p>
                       </Link>
                     ))
                   ) : (
-                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                    <div className={`px-4 py-6 text-center ${DASHBOARD_BODY_TEXT_CLASS} text-gray-500`}>
                       No notifications yet.
                     </div>
                   )}
                 </div>
                 {notificationSyncHint ? (
-                  <div className="border-t border-[#f0f0f0] px-4 py-2 text-xs text-[#a00408]">
+                  <div className={`border-t border-[#f0f0f0] px-4 py-2 ${DASHBOARD_TINY_TEXT_CLASS} text-[#a00408]`}>
                     {notificationSyncHint}
                   </div>
                 ) : null}
                 <div className="px-4 py-2 border-t border-[#f0f0f0] text-center">
-                  <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className="text-sm text-gray-600 hover:text-gray-900 font-['Inter',sans-serif] block w-full">
+                  <Link href="/dashboard/notifications" onClick={() => setIsNotificationsOpen(false)} className={`block w-full ${DASHBOARD_BODY_TEXT_CLASS} text-gray-600 hover:text-gray-900`}>
                     View all notifications
                   </Link>
                 </div>
@@ -420,11 +492,11 @@ export default function DashboardHeader() {
                   <EntityAvatar name={headerDisplayName} src={avatarUrl} className="size-8" />
                 </div>
               </div>
-              <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 text-[12px] whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
-                <p className="font-['Inter',sans-serif] font-semibold relative shrink-0 text-[#0d0d12]">
+              <div className={`content-stretch flex-col items-start leading-[1.5] not-italic relative shrink-0 ${DASHBOARD_TINY_TEXT_CLASS} whitespace-nowrap text-left ${inParentShell && !canShowParentProfileText ? "hidden" : "flex"}`}>
+                <p className={`font-semibold relative shrink-0 ${DASHBOARD_BODY_TEXT_CLASS} text-[#0d0d12]`}>
                   {headerDisplayName}
                 </p>
-                <p className="font-['Inter',sans-serif] font-normal relative shrink-0 text-[#818898]">
+                <p className={`font-normal relative shrink-0 ${DASHBOARD_CONTROL_TEXT_CLASS} text-[#818898]`}>
                   {headerRoleLine}
                 </p>
               </div>
@@ -437,14 +509,14 @@ export default function DashboardHeader() {
                 <Link
                   href="/dashboard/settings"
                   onClick={() => setIsProfileOpen(false)}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={`block w-full text-left px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-gray-700 hover:bg-gray-50 transition-colors`}
                 >
                   Account Settings
                 </Link>
                 <Link
                   href="/dashboard/support"
                   onClick={() => setIsProfileOpen(false)}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={`block w-full text-left px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-gray-700 hover:bg-gray-50 transition-colors`}
                 >
                   Help & Support
                 </Link>
@@ -455,7 +527,7 @@ export default function DashboardHeader() {
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  className={`block w-full text-left px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-red-600 hover:bg-red-50 transition-colors cursor-pointer`}
                 >
                   Sign out
                 </button>
@@ -483,10 +555,10 @@ export default function DashboardHeader() {
                 <div className="flex items-center gap-3 border-b border-[#f0f0f0] px-4 py-3">
                   <EntityAvatar name={headerDisplayName} src={avatarUrl} className="size-8" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#0d0d12]">
+                    <p className={`truncate ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#0d0d12]`}>
                       {headerDisplayName}
                     </p>
-                    <p className="text-xs text-[#818898]">{headerRoleLine}</p>
+                    <p className={`${DASHBOARD_CONTROL_TEXT_CLASS} text-[#818898]`}>{headerRoleLine}</p>
                   </div>
                 </div>
                 <Link
@@ -521,7 +593,7 @@ export default function DashboardHeader() {
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
-                  className="block w-full px-4 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+                  className={`block w-full px-4 py-2 text-left ${DASHBOARD_BODY_TEXT_CLASS} text-red-600 transition-colors hover:bg-red-50`}
                 >
                   Sign out
                 </button>

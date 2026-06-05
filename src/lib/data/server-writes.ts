@@ -3,13 +3,17 @@ import "server-only";
 import { mapClassRow } from "@/lib/data/repositories/classes";
 import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapParentRow } from "@/lib/data/repositories/parents";
+import { firstRel } from "@/lib/data/repositories/relations";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
 import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
 import {
+  authUserIdForEmail,
   cleanAccountEmail,
   ensureParentAccountForEmail,
   isValidAccountEmail,
+  normalizeAccountDisplayName,
+  temporaryAccountPassword,
 } from "@/lib/data/account-materialization";
 import { isSupabaseConfigured } from "@/lib/data/env";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
@@ -42,7 +46,9 @@ type PlacementClassRow = {
   name?: unknown;
   program?: unknown;
   block?: unknown;
+  level?: unknown;
   schedule_summary?: unknown;
+  schedule_days?: unknown;
   semester_id?: unknown;
 };
 
@@ -91,12 +97,105 @@ function workflowStatusForRequest(status: EnrichmentRequestRow["status"]): "pend
 }
 
 function classPlacementSlot(row: PlacementClassRow): string | null {
-  const source = `${String(row.block ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
+  const source = `${String(row.block ?? "")} ${String(row.level ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
   if (!/\b(?:block|b)\s*[1-4]\b/.test(source)) return null;
   return scheduleSlotForClassFields({
     block: row.block,
-    scheduleSummary: row.schedule_summary,
+    scheduleSummary: [row.level, row.schedule_summary].filter(Boolean).join(" "),
   });
+}
+
+function blockNumberForPlacement(row: PlacementClassRow): number | null {
+  const source = `${String(row.block ?? "")} ${String(row.level ?? "")} ${String(row.schedule_summary ?? "")}`.toLowerCase();
+  const parsed = Number(
+    source.match(/\bblock\s*([1-4])\b/)?.[1] ??
+      source.match(/\bb([1-4])\b/)?.[1] ??
+      source.match(/^\s*([1-4])\s*$/)?.[1],
+  );
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null;
+}
+
+function classPlacementSlots(row: PlacementClassRow): string[] {
+  const blockNumber = blockNumberForPlacement(row);
+  const rawDays = Array.isArray(row.schedule_days) ? row.schedule_days : [];
+  const daySuffixes = rawDays
+    .map((value) => String(value ?? "").trim().toUpperCase())
+    .map((day) =>
+      day === "T" || day === "TUE" || day === "TUESDAY" ? "Tue" :
+      day === "W" || day === "WED" || day === "WEDNESDAY" ? "Wed" :
+      day === "TH" || day === "THU" || day === "THURSDAY" ? "Thu" :
+      null,
+    )
+    .filter((value): value is "Tue" | "Wed" | "Thu" => value !== null);
+
+  if (blockNumber && daySuffixes.length > 0) {
+    return daySuffixes.map((day) => `b${blockNumber}${day}`);
+  }
+
+  const slot = classPlacementSlot(row);
+  return slot ? [slot] : [];
+}
+
+function placementSlotsOverlap(left: PlacementClassRow, right: PlacementClassRow): boolean {
+  const leftSlots = new Set(classPlacementSlots(left));
+  if (leftSlots.size === 0) return false;
+  return classPlacementSlots(right).some((slot) => leftSlots.has(slot));
+}
+
+async function ensureApprovedRosterPlacementAllowed(
+  supabase: SupabaseMutationClient,
+  input: {
+    classId: string;
+    studentId: string;
+    existingApprovedInClass?: boolean;
+    pendingRequestConsumesSeat?: boolean;
+  },
+): Promise<WriteFail | { ok: true }> {
+  if (input.existingApprovedInClass) return { ok: true };
+
+  const [{ data: targetClass, error: targetClassError }, { data: availability, error: availabilityError }] = await Promise.all([
+    supabase
+      .from("classes")
+      .select("id, name, program, block, level, schedule_summary, schedule_days")
+      .eq("id", input.classId)
+      .maybeSingle(),
+    supabase
+      .from("class_catalog_availability")
+      .select("class_id, seats_remaining, availability_label")
+      .eq("class_id", input.classId)
+      .maybeSingle(),
+  ]);
+  if (targetClassError) return { ok: false, message: targetClassError.message };
+  if (availabilityError) return { ok: false, message: availabilityError.message };
+  if (!targetClass) return { ok: false, message: "Class not found" };
+
+  const seatsRemaining =
+    Math.max(0, Math.floor(Number((availability as Record<string, unknown> | null)?.seats_remaining ?? 0))) +
+    (input.pendingRequestConsumesSeat ? 1 : 0);
+  if (seatsRemaining <= 0) {
+    return { ok: false, message: `${String((targetClass as Record<string, unknown>).name ?? "This class")} is full.` };
+  }
+
+  if (classPlacementSlots(targetClass as PlacementClassRow).length === 0) return { ok: true };
+
+  const { data: enrollments, error: enrollmentError } = await supabase
+    .from("enrollments")
+    .select("class_id, status, classes ( id, name, program, block, level, schedule_summary, schedule_days )")
+    .eq("student_id", input.studentId)
+    .eq("status", "approved");
+  if (enrollmentError) return { ok: false, message: enrollmentError.message };
+
+  for (const row of (enrollments ?? []) as unknown as Record<string, unknown>[]) {
+    const classId = String(row.class_id ?? "");
+    if (classId === input.classId) continue;
+    const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+    if (placementSlotsOverlap(targetClass as PlacementClassRow, (classRow ?? {}) as PlacementClassRow)) {
+      const className = String((classRow as Record<string, unknown> | null)?.name ?? "another approved class");
+      return { ok: false, message: `Student already has ${className} in this schedule slot.` };
+    }
+  }
+
+  return { ok: true };
 }
 
 function normalizeCapacity(raw: unknown): number {
@@ -119,6 +218,44 @@ function mapSemesterWriteRow(row: Record<string, unknown>): SemesterRow | null {
 function normalizeDateOnly(raw: string): string | null {
   const trimmed = raw.trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
+
+function normalizeOptionalAge(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.floor(parsed);
+}
+
+function normalizeScheduleDays(raw: unknown): string[] {
+  const values = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,\n]/);
+  const allowed = new Set(["M", "T", "W", "TH", "F"]);
+  const normalized: string[] = [];
+  for (const value of values) {
+    const day = String(value ?? "").trim().toUpperCase();
+    if (!day) continue;
+    const mapped =
+      day === "MON" || day === "MONDAY" ? "M" :
+      day === "TUE" || day === "TUESDAY" ? "T" :
+      day === "WED" || day === "WEDNESDAY" ? "W" :
+      day === "THU" || day === "THURSDAY" ? "TH" :
+      day === "FRI" || day === "FRIDAY" ? "F" :
+      day;
+    if (allowed.has(mapped) && !normalized.includes(mapped)) normalized.push(mapped);
+  }
+  return normalized;
+}
+
+function validateClassScheduleInput(input: {
+  schedule: string;
+  block?: string;
+  scheduleDays?: string[];
+}): WriteFail | { ok: true } {
+  if (!input.block?.trim()) return { ok: false, message: "Choose a schedule block before saving the class." };
+  if (!input.scheduleDays?.length && !input.schedule.trim()) {
+    return { ok: false, message: "Choose at least one meeting day or schedule summary before saving the class." };
+  }
+  return { ok: true };
 }
 
 async function resolveCurrentSemesterId(supabase: SupabaseMutationClient): Promise<string | null> {
@@ -308,21 +445,29 @@ export async function serverInsertClass(input: {
   capacity?: number;
   schedule: string;
   status: SchoolClassRow["status"];
+  isActive?: boolean;
+  archivedAt?: string | null;
   track?: "core" | "enrichment";
   description?: string;
   level?: string;
   block?: string;
-  plannerSubject?: string;
-  plannerSummary?: string;
-  teacherGuideObjectives?: string;
-  teacherGuideInformation?: string;
-  teacherGuideSummary?: string;
-  studentGuideObjectives?: string;
-  studentGuideInformation?: string;
-  studentGuideSummary?: string;
+  scheduleDays?: string[];
+  location?: string;
+  room?: string;
+  minAgeYears?: number | null;
+  maxAgeYears?: number | null;
+
 }): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const capacity = normalizeCapacity(input.capacity);
+  const scheduleDays = normalizeScheduleDays(input.scheduleDays);
+  const scheduleValid = validateClassScheduleInput({ schedule: input.schedule, block: input.block, scheduleDays });
+  if (!scheduleValid.ok) return scheduleValid;
+  const minAgeYears = normalizeOptionalAge(input.minAgeYears);
+  const maxAgeYears = normalizeOptionalAge(input.maxAgeYears);
+  if (minAgeYears != null && maxAgeYears != null && maxAgeYears < minAgeYears) {
+    return { ok: false, message: "Maximum age must be greater than or equal to minimum age." };
+  }
   try {
     const supabase = await createSupabaseServerClient();
     const teacherId = await resolveTeacherIdByDisplayName(supabase, input.teacher);
@@ -342,19 +487,22 @@ export async function serverInsertClass(input: {
       program: (input.track ?? "core") as "core" | "enrichment",
       capacity,
       schedule_summary: input.schedule.trim(),
+      schedule_days: scheduleDays,
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
+      is_active: input.isActive ?? true,
+      archived_at: input.archivedAt ?? null,
+      min_age_years: minAgeYears,
+      max_age_years: maxAgeYears,
     };
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
-    if (input.plannerSubject != null) payload.planner_subject = input.plannerSubject.trim();
-    if (input.plannerSummary != null) payload.planner_summary = input.plannerSummary.trim();
-    if (input.teacherGuideObjectives != null) payload.teacher_guide_objectives = input.teacherGuideObjectives.trim();
-    if (input.teacherGuideInformation != null) payload.teacher_guide_information = input.teacherGuideInformation.trim();
-    if (input.teacherGuideSummary != null) payload.teacher_guide_summary = input.teacherGuideSummary.trim();
-    if (input.studentGuideObjectives != null) payload.student_guide_objectives = input.studentGuideObjectives.trim();
-    if (input.studentGuideInformation != null) payload.student_guide_information = input.studentGuideInformation.trim();
-    if (input.studentGuideSummary != null) payload.student_guide_summary = input.studentGuideSummary.trim();
+    const room = String(input.room ?? input.location ?? "").trim();
+    if (room) {
+      payload.room = room;
+      payload.location = String(input.location ?? input.room ?? "").trim() || room;
+    }
+
     const { data, error } = await supabase.from("classes").insert(payload).select("*").maybeSingle();
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "No row returned" };
@@ -366,7 +514,17 @@ export async function serverInsertClass(input: {
       action: "class.create",
       entityType: "class",
       entityId: mapped.id,
-      metadata: { name: mapped.name, program: mapped.program },
+      metadata: {
+        name: mapped.name,
+        program: mapped.program,
+        semesterId: mapped.semesterId,
+        teacherId: mapped.teacherId ?? null,
+        block: mapped.block,
+        scheduleDays: mapped.scheduleDays,
+        room: mapped.room ?? null,
+        isActive: mapped.isActive,
+        archivedAt: mapped.archivedAt ?? null,
+      },
     });
     return { ok: true, row: mapped };
   } catch (e) {
@@ -421,22 +579,30 @@ export async function serverUpdateClass(
     capacity?: number;
     schedule: string;
     status: SchoolClassRow["status"];
+    isActive?: boolean;
+    archivedAt?: string | null;
     track?: "core" | "enrichment";
     description?: string;
     level?: string;
     block?: string;
-    plannerSubject?: string;
-    plannerSummary?: string;
-    teacherGuideObjectives?: string;
-    teacherGuideInformation?: string;
-    teacherGuideSummary?: string;
-    studentGuideObjectives?: string;
-    studentGuideInformation?: string;
-    studentGuideSummary?: string;
+    scheduleDays?: string[];
+    location?: string;
+    room?: string;
+    minAgeYears?: number | null;
+    maxAgeYears?: number | null;
+
   },
 ): Promise<WriteOk<SchoolClassRow> | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const capacity = normalizeCapacity(input.capacity);
+  const scheduleDays = normalizeScheduleDays(input.scheduleDays);
+  const scheduleValid = validateClassScheduleInput({ schedule: input.schedule, block: input.block, scheduleDays });
+  if (!scheduleValid.ok) return scheduleValid;
+  const minAgeYears = normalizeOptionalAge(input.minAgeYears);
+  const maxAgeYears = normalizeOptionalAge(input.maxAgeYears);
+  if (minAgeYears != null && maxAgeYears != null && maxAgeYears < minAgeYears) {
+    return { ok: false, message: "Maximum age must be greater than or equal to minimum age." };
+  }
   try {
     const supabase = await createSupabaseServerClient();
     const teacherId = await resolveTeacherIdByDisplayName(supabase, input.teacher);
@@ -449,20 +615,22 @@ export async function serverUpdateClass(
       program: (input.track ?? "core") as "core" | "enrichment",
       capacity,
       schedule_summary: input.schedule.trim(),
+      schedule_days: scheduleDays,
       status: input.status === "Full" ? ("full" as const) : ("active" as const),
+      is_active: input.isActive ?? true,
+      archived_at: input.archivedAt ?? null,
+      min_age_years: minAgeYears,
+      max_age_years: maxAgeYears,
+      updated_at: new Date().toISOString(),
     };
     if (input.semesterId?.trim()) payload.semester_id = input.semesterId.trim();
     if (input.description != null) payload.description = input.description.trim();
     if (input.level != null) payload.level = input.level.trim();
     if (input.block != null) payload.block = input.block.trim();
-    if (input.plannerSubject != null) payload.planner_subject = input.plannerSubject.trim();
-    if (input.plannerSummary != null) payload.planner_summary = input.plannerSummary.trim();
-    if (input.teacherGuideObjectives != null) payload.teacher_guide_objectives = input.teacherGuideObjectives.trim();
-    if (input.teacherGuideInformation != null) payload.teacher_guide_information = input.teacherGuideInformation.trim();
-    if (input.teacherGuideSummary != null) payload.teacher_guide_summary = input.teacherGuideSummary.trim();
-    if (input.studentGuideObjectives != null) payload.student_guide_objectives = input.studentGuideObjectives.trim();
-    if (input.studentGuideInformation != null) payload.student_guide_information = input.studentGuideInformation.trim();
-    if (input.studentGuideSummary != null) payload.student_guide_summary = input.studentGuideSummary.trim();
+    const room = String(input.room ?? input.location ?? "").trim();
+    payload.room = room || null;
+    payload.location = String(input.location ?? input.room ?? "").trim() || room || null;
+
     const { data, error } = await supabase
       .from("classes")
       .update(payload)
@@ -479,7 +647,17 @@ export async function serverUpdateClass(
       action: "class.update",
       entityType: "class",
       entityId: mapped.id,
-      metadata: { name: mapped.name, program: mapped.program },
+      metadata: {
+        name: mapped.name,
+        program: mapped.program,
+        semesterId: mapped.semesterId,
+        teacherId: mapped.teacherId ?? null,
+        block: mapped.block,
+        scheduleDays: mapped.scheduleDays,
+        room: mapped.room ?? null,
+        isActive: mapped.isActive,
+        archivedAt: mapped.archivedAt ?? null,
+      },
     });
     return { ok: true, row: mapped };
   } catch (e) {
@@ -492,14 +670,53 @@ export async function serverDeleteClass(id: string): Promise<{ ok: true } | Writ
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.from("classes").delete().eq("id", id);
+    const archivedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("classes")
+      .update({ is_active: false, archived_at: archivedAt, updated_at: archivedAt })
+      .eq("id", id);
     if (error) return { ok: false, message: error.message };
     await writeAuditEvent(supabase, {
-      action: "class.delete",
+      action: "class.archive",
       entityType: "class",
       entityId: id,
+      metadata: { source: "delete", archivedAt },
     });
     return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: msg };
+  }
+}
+
+export async function serverSetClassLifecycle(
+  id: string,
+  input: { isActive: boolean; archived?: boolean },
+): Promise<WriteOk<SchoolClassRow> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  try {
+    const supabase = await createSupabaseServerClient();
+    const timestamp = new Date().toISOString();
+    const payload = input.archived
+      ? { is_active: false, archived_at: timestamp, updated_at: timestamp }
+      : { is_active: input.isActive, archived_at: null, updated_at: timestamp };
+    const { data, error } = await supabase
+      .from("classes")
+      .update(payload)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "No row updated" };
+    const mapped = mapClassRow(await flattenClassRowForMap(supabase, data as Record<string, unknown>));
+    if (!mapped) return { ok: false, message: "Could not map saved class" };
+    await writeAuditEvent(supabase, {
+      action: input.archived ? "class.archive" : input.isActive ? "class.activate" : "class.deactivate",
+      entityType: "class",
+      entityId: mapped.id,
+      metadata: { name: mapped.name, isActive: mapped.isActive, archivedAt: mapped.archivedAt ?? null },
+    });
+    return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, message: msg };
@@ -629,6 +846,93 @@ async function fetchMappedParent(
   return { ok: true, row: mapped };
 }
 
+export async function serverUpdateParent(input: {
+  parentId: string;
+  name: string;
+  email: string;
+}): Promise<WriteOk<ParentSummary> | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const parentId = input.parentId.trim();
+  const displayName = normalizeAccountDisplayName(input.name);
+  const email = cleanAccountEmail(input.email);
+  if (!parentId) return { ok: false, message: "Missing parent id" };
+  if (!displayName) return { ok: false, message: "Parent name is required" };
+  if (!isValidAccountEmail(email)) return { ok: false, message: "Enter a valid parent email address" };
+
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+
+  const { data: parent, error: parentError } = await access.client
+    .from("parents")
+    .select("id, profile_id")
+    .eq("id", parentId)
+    .maybeSingle();
+  if (parentError) return { ok: false, message: parentError.message };
+  const originalProfileId = String(parent?.profile_id ?? "").trim();
+  if (!originalProfileId) return { ok: false, message: "Parent account profile was not found" };
+
+  let profileId = originalProfileId;
+  if (isSupabaseAdminConfigured()) {
+    const admin = createSupabaseAdminClient();
+    const existingAuthId = await authUserIdForEmail(admin, email);
+    if (existingAuthId && existingAuthId !== originalProfileId) {
+      profileId = existingAuthId;
+    } else {
+      const { error: updateAuthError } = await admin.auth.admin.updateUserById(originalProfileId, {
+        email,
+        email_confirm: true,
+        user_metadata: { full_name: displayName },
+      });
+      if (updateAuthError) {
+        const fallbackAuthId = await authUserIdForEmail(admin, email);
+        if (fallbackAuthId) {
+          profileId = fallbackAuthId;
+        } else {
+          const { data: created, error: createAuthError } = await admin.auth.admin.createUser({
+            email,
+            password: temporaryAccountPassword(),
+            email_confirm: true,
+            user_metadata: { full_name: displayName },
+          });
+          if (createAuthError || !created.user?.id) {
+            return { ok: false, message: createAuthError?.message ?? updateAuthError.message };
+          }
+          profileId = created.user.id;
+        }
+      }
+    }
+  }
+
+  const { error: profileError } = await access.client.from("profiles").upsert(
+    {
+      id: profileId,
+      role: "parent",
+      display_name: displayName,
+      email,
+    },
+    { onConflict: "id" },
+  );
+  if (profileError) return { ok: false, message: profileError.message };
+
+  if (profileId !== originalProfileId) {
+    const { error: relinkError } = await access.client
+      .from("parents")
+      .update({ profile_id: profileId })
+      .eq("id", parentId);
+    if (relinkError) return { ok: false, message: relinkError.message };
+  }
+
+  const mapped = await fetchMappedParent(access.client, parentId);
+  if (!mapped.ok) return mapped;
+  await writeAuditEvent(access.auditClient, {
+    action: "parent.update",
+    entityType: "parent",
+    entityId: parentId,
+    metadata: { name: displayName, email },
+  });
+  return mapped;
+}
+
 export async function serverSetParentStudentLinks(input: {
   parentId: string;
   studentIds: string[];
@@ -699,6 +1003,11 @@ export async function serverCreateParentInviteLink(input: {
   if (!parent.ok) return parent;
   const email = cleanContactEmail(parent.row.email);
   if (!isValidContactEmail(email)) return { ok: false, message: "Parent needs a valid email before inviting" };
+  const ensured = await ensureParentAccountForEmail(access.client, {
+    displayName: parent.row.name,
+    email,
+  });
+  if (!ensured.ok) return ensured;
 
   const admin = createSupabaseAdminClient();
   const redirectTo = `${input.origin.replace(/\/$/, "")}/reset-password`;
@@ -720,6 +1029,63 @@ export async function serverCreateParentInviteLink(input: {
     metadata: { email },
   });
   return { ok: true, inviteUrl: link.data.properties.action_link, parent: parent.row };
+}
+
+export async function serverDeleteParent(parentId: string): Promise<{ ok: true } | WriteFail> {
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+  const id = parentId.trim();
+  if (!id) return { ok: false, message: "Missing parent id" };
+
+  const access = await mutationClientForParentContactUpdate();
+  if (!access.ok) return access;
+  if (!access.actorId || !(await currentUserIsAdmin(access.auditClient, access.actorId))) {
+    return { ok: false, message: "Only administrators can delete parent records." };
+  }
+
+  const { data: parent, error: parentError } = await access.client
+    .from("parents")
+    .select("id, profile_id, profiles ( display_name, email, role )")
+    .eq("id", id)
+    .maybeSingle();
+  if (parentError) return { ok: false, message: parentError.message };
+  if (!parent) return { ok: false, message: "Parent not found" };
+
+  const profile = firstRel<Record<string, unknown>>((parent as { profiles?: unknown }).profiles);
+  const profileId = String((parent as { profile_id?: unknown }).profile_id ?? "").trim();
+  const email = String(profile?.email ?? "").trim();
+  const name = String(profile?.display_name ?? "").trim();
+  const role = String(profile?.role ?? "").trim();
+
+  const { error: linkDeleteError } = await access.client
+    .from("parent_students")
+    .delete()
+    .eq("parent_id", id);
+  if (linkDeleteError) return { ok: false, message: linkDeleteError.message };
+
+  const { error: parentDeleteError } = await access.client
+    .from("parents")
+    .delete()
+    .eq("id", id);
+  if (parentDeleteError) return { ok: false, message: parentDeleteError.message };
+
+  if (profileId && role === "parent" && isSupabaseAdminConfigured()) {
+    const { error: authDeleteError } = await createSupabaseAdminClient().auth.admin.deleteUser(profileId);
+    if (authDeleteError) return { ok: false, message: `Parent record was deleted, but auth cleanup failed: ${authDeleteError.message}` };
+  } else if (profileId && role === "parent") {
+    const { error: profileDeleteError } = await access.client
+      .from("profiles")
+      .delete()
+      .eq("id", profileId);
+    if (profileDeleteError) return { ok: false, message: `Parent record was deleted, but profile cleanup failed: ${profileDeleteError.message}` };
+  }
+
+  await writeAuditEvent(access.auditClient, {
+    action: "parent.delete",
+    entityType: "parent",
+    entityId: id,
+    metadata: { name, email, profileId },
+  });
+  return { ok: true };
 }
 
 export async function serverDeleteStudent(id: string): Promise<{ ok: true } | WriteFail> {
@@ -851,6 +1217,21 @@ export async function serverPatchEnrollmentStatus(input: {
   try {
     const supabase = await createSupabaseServerClient();
     const dbStatus = workflowStatusForRoster(input.status);
+    if (dbStatus === "approved") {
+      const { data: existingEnrollment, error: existingEnrollmentError } = await supabase
+        .from("enrollments")
+        .select("status")
+        .eq("class_id", classId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      if (existingEnrollmentError) return { ok: false, message: existingEnrollmentError.message };
+      const allowed = await ensureApprovedRosterPlacementAllowed(supabase, {
+        classId,
+        studentId,
+        existingApprovedInClass: String(existingEnrollment?.status ?? "").toLowerCase() === "approved",
+      });
+      if (!allowed.ok) return allowed;
+    }
     const { error } = await supabase
       .from("enrollments")
       .update({ status: dbStatus })
@@ -930,7 +1311,7 @@ export async function serverInsertRosterStudent(input: {
     const supabase = await createSupabaseServerClient();
     const { data: classRow, error: classError } = await supabase
       .from("classes")
-      .select("id, program")
+      .select("id, program, block, schedule_summary")
       .eq("id", classId)
       .maybeSingle();
     if (classError) return { ok: false, message: classError.message };
@@ -985,6 +1366,13 @@ export async function serverInsertRosterStudent(input: {
     }
 
     const dbStatus = workflowStatusForRoster(input.status);
+    if (dbStatus === "approved") {
+      const allowed = await ensureApprovedRosterPlacementAllowed(supabase, {
+        classId,
+        studentId: String(student.id),
+      });
+      if (!allowed.ok) return allowed;
+    }
     const { error: enrollmentError } = await supabase.from("enrollments").insert({
       class_id: classId,
       student_id: student.id,
@@ -1076,6 +1464,21 @@ export async function serverUpdateRosterStudent(input: {
     const status = input.status ?? "Pending";
     const dbStatus = workflowStatusForRoster(status);
     if (input.status != null) {
+      if (dbStatus === "approved") {
+        const { data: existingEnrollment, error: existingEnrollmentError } = await supabase
+          .from("enrollments")
+          .select("status")
+          .eq("class_id", classId)
+          .eq("student_id", studentId)
+          .maybeSingle();
+        if (existingEnrollmentError) return { ok: false, message: existingEnrollmentError.message };
+        const allowed = await ensureApprovedRosterPlacementAllowed(supabase, {
+          classId,
+          studentId,
+          existingApprovedInClass: String(existingEnrollment?.status ?? "").toLowerCase() === "approved",
+        });
+        if (!allowed.ok) return allowed;
+      }
       const { error } = await supabase
         .from("enrollments")
         .update({ status: dbStatus })
@@ -1574,7 +1977,7 @@ async function ensureClassCapacityForChoices(
   choices: {
     classId: string;
   }[],
-  options: { semesterId: string | null },
+  options: { semesterId: string | null; studentId: string },
 ): Promise<WriteFail | { ok: true }> {
   const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
     next.set(choice.classId, (next.get(choice.classId) ?? 0) + 1);
@@ -1591,12 +1994,12 @@ async function ensureClassCapacityForChoices(
 
   let { data: classes, error: classesError } = await supabase
     .from("classes")
-    .select("id, name, semester_id")
+    .select("id, name, semester_id, program, is_active, archived_at, min_age_years, max_age_years")
     .in("id", classIds);
   if (classesError && isSemesterSchemaError(classesError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, name")
+      .select("id, name, program")
       .in("id", classIds);
     classes = fallback.data as typeof classes;
     classesError = fallback.error;
@@ -1604,6 +2007,14 @@ async function ensureClassCapacityForChoices(
   if (classesError) return { ok: false, message: classesError.message };
 
   const classRows = (classes ?? []) as unknown as Record<string, unknown>[];
+  const { data: student, error: studentError } = await supabase
+    .from("students")
+    .select("id, age_years")
+    .eq("id", options.studentId)
+    .maybeSingle();
+  if (studentError) return { ok: false, message: studentError.message };
+  if (!student) return { ok: false, message: "Selected student was not found" };
+  const studentAge = Number((student as Record<string, unknown>).age_years);
   const availabilityByClassId = new Map(
     ((availability ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.class_id), row]),
   );
@@ -1616,6 +2027,23 @@ async function ensureClassCapacityForChoices(
     const classRow = classRows.find((candidate) => String(candidate.id) === classId);
     if (!classBelongsToSemester(classRow, options.semesterId)) {
       return { ok: false, message: "Selected class is not available in the current semester." };
+    }
+    if (String(classRow?.program ?? "").toLowerCase() !== "enrichment") {
+      return { ok: false, message: "Only enrichment classes can be requested by parents." };
+    }
+    if (classRow && "is_active" in classRow && !Boolean(classRow.is_active)) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is not currently available.` };
+    }
+    if (classRow && "archived_at" in classRow && classRow.archived_at) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} has been archived.` };
+    }
+    const minAge = Number(classRow?.min_age_years);
+    const maxAge = Number(classRow?.max_age_years);
+    if (Number.isFinite(studentAge) && Number.isFinite(minAge) && studentAge < minAge) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} requires students to be at least ${minAge}.` };
+    }
+    if (Number.isFinite(studentAge) && Number.isFinite(maxAge) && studentAge > maxAge) {
+      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is limited to students age ${maxAge} or younger.` };
     }
 
     const remaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
@@ -1633,6 +2061,33 @@ async function ensureClassCapacityForChoices(
   }
 
   return { ok: true };
+}
+
+async function ensureNoDuplicatePendingClassRequests(
+  supabase: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    choices: { classId: string }[];
+  },
+): Promise<WriteFail | { ok: true }> {
+  const classIds = [...new Set(input.choices.map((choice) => choice.classId).filter(Boolean))];
+  if (classIds.length === 0) return { ok: true };
+
+  const { data, error } = await supabase
+    .from("class_requests")
+    .select("class_id, classes ( name )")
+    .eq("student_id", input.studentId)
+    .eq("status", "pending")
+    .in("class_id", classIds);
+  if (error) return { ok: false, message: error.message };
+
+  const existing = ((data ?? []) as unknown as Record<string, unknown>[])[0];
+  if (!existing) return { ok: true };
+
+  const classes = Array.isArray(existing.classes) ? existing.classes[0] : existing.classes;
+  const cls = classes && typeof classes === "object" ? classes as Record<string, unknown> : {};
+  const className = String(cls.name ?? "Selected class");
+  return { ok: false, message: `${className} already has a pending request for this student.` };
 }
 
 async function ensureOpenSlotsForRequestChoices(
@@ -1655,22 +2110,30 @@ async function ensureOpenSlotsForRequestChoices(
   const requestedSlots = new Map(
     placementRows.requestedClasses
       .filter((row) => classBelongsToSemester(row as Record<string, unknown>, input.semesterId))
-      .map((row) => [String(row.id ?? ""), classPlacementSlot(row)])
-      .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1])),
+      .map((row) => [String(row.id ?? ""), classPlacementSlots(row)])
+      .filter((entry): entry is [string, string[]] => Boolean(entry[0] && entry[1].length)),
   );
   const occupiedSlots = new Set<string>();
   for (const row of placementRows.enrollments) {
     if (String(row.status ?? "").toLowerCase() !== "approved") continue;
     const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
     if (!classBelongsToSemester((classRow ?? {}) as Record<string, unknown>, input.semesterId)) continue;
-    const slot = classPlacementSlot((classRow ?? {}) as PlacementClassRow);
-    if (slot) occupiedSlots.add(slot);
+    for (const slot of classPlacementSlots((classRow ?? {}) as PlacementClassRow)) {
+      occupiedSlots.add(slot);
+    }
+  }
+  for (const row of placementRows.pendingRequests) {
+    const classRow = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+    if (!classBelongsToSemester((classRow ?? {}) as Record<string, unknown>, input.semesterId)) continue;
+    for (const slot of classPlacementSlots((classRow ?? {}) as PlacementClassRow)) {
+      occupiedSlots.add(slot);
+    }
   }
 
   for (const choice of input.choices) {
-    const slot = requestedSlots.get(choice.classId);
-    if (slot && occupiedSlots.has(slot)) {
-      return { ok: false, message: "This schedule slot already has an approved class. Use waitlist instead of submitting another class request for the same block and day." };
+    const slots = requestedSlots.get(choice.classId) ?? [];
+    if (slots.some((slot) => occupiedSlots.has(slot))) {
+      return { ok: false, message: "This schedule slot already has an approved or pending class. Use waitlist instead of submitting another class request for the same block and day." };
     }
   }
 
@@ -1688,13 +2151,13 @@ async function clearSameSlotAlternativesAfterApproval(
 ): Promise<WriteFail | { ok: true }> {
   let { data: approvedClass, error: approvedClassError } = await supabase
     .from("classes")
-    .select("id, program, block, schedule_summary, semester_id")
+    .select("id, program, block, level, schedule_summary, schedule_days, semester_id")
     .eq("id", input.approvedClassId)
     .maybeSingle();
   if (approvedClassError && isSemesterSchemaError(approvedClassError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, program, block, schedule_summary")
+      .select("id, program, block, level, schedule_summary, schedule_days")
       .eq("id", input.approvedClassId)
       .maybeSingle();
     approvedClass = fallback.data as typeof approvedClass;
@@ -1707,13 +2170,10 @@ async function clearSameSlotAlternativesAfterApproval(
   const semesterId = "semester_id" in ((approvedClass ?? {}) as Record<string, unknown>)
     ? String((approvedClass as Record<string, unknown>).semester_id ?? "")
     : null;
-  if (String(approved.program ?? "").toLowerCase() !== "enrichment") return { ok: true };
-
-  const approvedSlot = classPlacementSlot(approved);
+  const approvedSlots = classPlacementSlots(approved);
   let classQuery = supabase
     .from("classes")
-    .select("id, program, block, schedule_summary")
-    .eq("program", "enrichment");
+    .select("id, program, block, level, schedule_summary, schedule_days");
   if (semesterId) {
     classQuery = classQuery.eq("semester_id", semesterId);
   }
@@ -1721,15 +2181,19 @@ async function clearSameSlotAlternativesAfterApproval(
   if (classesError && semesterId && isSemesterSchemaError(classesError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, program, block, schedule_summary")
-      .eq("program", "enrichment");
+      .select("id, program, block, level, schedule_summary, schedule_days")
+      .not("id", "is", null);
     classRows = fallback.data as typeof classRows;
     classesError = fallback.error;
   }
   if (classesError) return { ok: false, message: classesError.message };
 
   const sameSlotClassIds = ((classRows ?? []) as PlacementClassRow[])
-    .filter((row) => String(row.id ?? "") && classPlacementSlot(row) === approvedSlot)
+    .filter((row) => {
+      if (!String(row.id ?? "")) return false;
+      const rowSlots = classPlacementSlots(row);
+      return rowSlots.some((slot) => approvedSlots.includes(slot));
+    })
     .map((row) => String(row.id));
   if (sameSlotClassIds.length === 0) return { ok: true };
 
@@ -1902,17 +2366,18 @@ async function fetchRequestPlacementRows(
       ok: true;
       requestedClasses: PlacementClassRow[];
       enrollments: Record<string, unknown>[];
+      pendingRequests: Record<string, unknown>[];
     }
   | WriteFail
 > {
   let { data: requestedClasses, error: classError } = await supabase
     .from("classes")
-    .select("id, block, schedule_summary, semester_id")
+    .select("id, block, level, schedule_summary, schedule_days, semester_id")
     .in("id", input.classIds);
   if (classError && isSemesterSchemaError(classError)) {
     const fallback = await supabase
       .from("classes")
-      .select("id, block, schedule_summary")
+      .select("id, block, level, schedule_summary, schedule_days")
       .in("id", input.classIds);
     requestedClasses = fallback.data as typeof requestedClasses;
     classError = fallback.error;
@@ -1921,13 +2386,13 @@ async function fetchRequestPlacementRows(
 
   let { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollments")
-    .select("class_id, status, classes ( id, program, block, schedule_summary, semester_id )")
+    .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days, semester_id )")
     .eq("student_id", input.studentId)
     .in("status", ["approved", "waitlisted"]);
   if (enrollmentError && isSemesterSchemaError(enrollmentError)) {
     const fallback = await supabase
       .from("enrollments")
-      .select("class_id, status, classes ( id, program, block, schedule_summary )")
+      .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days )")
       .eq("student_id", input.studentId)
       .in("status", ["approved", "waitlisted"]);
     enrollments = fallback.data as typeof enrollments;
@@ -1935,10 +2400,27 @@ async function fetchRequestPlacementRows(
   }
   if (enrollmentError) return { ok: false, message: enrollmentError.message };
 
+  let { data: pendingRequests, error: pendingRequestError } = await supabase
+    .from("class_requests")
+    .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days, semester_id )")
+    .eq("student_id", input.studentId)
+    .eq("status", "pending");
+  if (pendingRequestError && isSemesterSchemaError(pendingRequestError)) {
+    const fallback = await supabase
+      .from("class_requests")
+      .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days )")
+      .eq("student_id", input.studentId)
+      .eq("status", "pending");
+    pendingRequests = fallback.data as typeof pendingRequests;
+    pendingRequestError = fallback.error;
+  }
+  if (pendingRequestError) return { ok: false, message: pendingRequestError.message };
+
   return {
     ok: true,
     requestedClasses: (requestedClasses ?? []) as unknown as PlacementClassRow[],
     enrollments: (enrollments ?? []) as unknown as Record<string, unknown>[],
+    pendingRequests: (pendingRequests ?? []) as unknown as Record<string, unknown>[],
   };
 }
 
@@ -1994,7 +2476,10 @@ export async function serverInsertEnrichmentRequests(input: {
       });
       if (!cleared.ok) return cleared;
 
-      const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId });
+      const duplicates = await ensureNoDuplicatePendingClassRequests(admin, { studentId, choices });
+      if (!duplicates.ok) return duplicates;
+
+      const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId, studentId });
       if (!capacity.ok) return capacity;
 
       const openSlots = await ensureOpenSlotsForRequestChoices(admin, { studentId, choices, semesterId });
@@ -2020,7 +2505,10 @@ export async function serverInsertEnrichmentRequests(input: {
     });
     if (!cleared.ok) return cleared;
 
-    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId });
+    const duplicates = await ensureNoDuplicatePendingClassRequests(capacityClient, { studentId, choices });
+    if (!duplicates.ok) return duplicates;
+
+    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId, studentId });
     if (!capacity.ok) return capacity;
 
     const openSlots = await ensureOpenSlotsForRequestChoices(capacityClient, { studentId, choices, semesterId });
@@ -2082,6 +2570,15 @@ export async function serverPatchEnrichmentRequest(
 
       if (dbStatus !== "approved" && dbStatus !== "waitlisted" && dbStatus !== "rejected") {
         return { ok: false, message: "Invalid final status" };
+      }
+
+      if (dbStatus === "approved") {
+        const allowed = await ensureApprovedRosterPlacementAllowed(mutationClient, {
+          classId,
+          studentId,
+          existingApprovedInClass: String(raw.status ?? "").toLowerCase() === "approved",
+        });
+        if (!allowed.ok) return allowed;
       }
 
       const { error: enrollmentError } = await mutationClient
@@ -2151,6 +2648,15 @@ export async function serverPatchEnrichmentRequest(
       if (!studentId || !classId) return { ok: false, message: "Request is missing student or class id" };
       if (dbStatus !== "approved" && dbStatus !== "waitlisted" && dbStatus !== "rejected") {
         return { ok: false, message: "Invalid final status" };
+      }
+
+      if (dbStatus === "approved") {
+        const allowed = await ensureApprovedRosterPlacementAllowed(mutationClient, {
+          classId,
+          studentId,
+          pendingRequestConsumesSeat: true,
+        });
+        if (!allowed.ok) return allowed;
       }
 
       const { error: enrollmentError } = await mutationClient

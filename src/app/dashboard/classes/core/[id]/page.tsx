@@ -4,11 +4,12 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
 import { ClassAddExistingStudentModal } from "@/components/class-add-existing-student-modal";
+import { RemoveEnrollmentConfirmationModal } from "@/components/remove-enrollment-confirmation-modal";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
 import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateDashboardData, peekCachedJson, studentDetailDataUrls } from "@/lib/client-data-cache";
@@ -20,7 +21,7 @@ import type {
 } from "@/lib/data/types";
 
 const imgGroup1 = "/images/icon-group.svg";
-const imgGroup2 = "/images/icon-generic2.svg";
+const imgGroup2 = "/images/icon-calendar-linear.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
@@ -39,16 +40,18 @@ type ClassMeta = {
   teacher: string;
   blockLevel: string;
   schedule: string;
+  semesterName: string;
+  room: string;
+  scheduleDays: string[];
+  minAgeYears?: number;
+  maxAgeYears?: number;
+  pendingCount: number;
+  waitlistCount: number;
+  seatsRemaining?: number;
+  isActive: boolean;
+  archivedAt?: string;
   capacityEnrolled: number;
   capacityMax: number;
-  plannerSubject: string;
-  plannerSummary: string;
-  teacherGuideObjectives: string;
-  teacherGuideInformation: string;
-  teacherGuideSummary: string;
-  studentGuideObjectives: string;
-  studentGuideInformation: string;
-  studentGuideSummary: string;
 };
 
 const EMPTY_CLASS_META: ClassMeta = {
@@ -57,16 +60,14 @@ const EMPTY_CLASS_META: ClassMeta = {
   teacher: "Teacher not assigned",
   blockLevel: "Block not set",
   schedule: "Schedule not set",
+  semesterName: "",
+  room: "",
+  scheduleDays: [],
+  pendingCount: 0,
+  waitlistCount: 0,
+  isActive: true,
   capacityEnrolled: 0,
   capacityMax: 1,
-  plannerSubject: "",
-  plannerSummary: "",
-  teacherGuideObjectives: "",
-  teacherGuideInformation: "",
-  teacherGuideSummary: "",
-  studentGuideObjectives: "",
-  studentGuideInformation: "",
-  studentGuideSummary: "",
 };
 
 function classMetaFromRow(row: SchoolClassRow): ClassMeta {
@@ -76,16 +77,18 @@ function classMetaFromRow(row: SchoolClassRow): ClassMeta {
     teacher: row.teacher || "Teacher not assigned",
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
+    semesterName: row.semesterName,
+    room: row.room || row.location || "",
+    scheduleDays: row.scheduleDays,
+    minAgeYears: row.minAgeYears,
+    maxAgeYears: row.maxAgeYears,
+    pendingCount: row.pendingCount,
+    waitlistCount: row.waitlistCount,
+    seatsRemaining: row.seatsRemaining,
+    isActive: row.isActive,
+    archivedAt: row.archivedAt,
     capacityEnrolled: Math.max(0, row.enrolledCount ?? 0),
     capacityMax: Math.max(1, row.capacity ?? 1),
-    plannerSubject: row.plannerSubject || "",
-    plannerSummary: row.plannerSummary || "",
-    teacherGuideObjectives: row.teacherGuideObjectives || "",
-    teacherGuideInformation: row.teacherGuideInformation || "",
-    teacherGuideSummary: row.teacherGuideSummary || "",
-    studentGuideObjectives: row.studentGuideObjectives || "",
-    studentGuideInformation: row.studentGuideInformation || "",
-    studentGuideSummary: row.studentGuideSummary || "",
   };
 }
 
@@ -124,6 +127,7 @@ export default function ClassDetailsPage() {
   const [isEditInfoModalOpen, setIsEditInfoModalOpen] = useState(false);
   const [isRemoveClassModalOpen, setIsRemoveClassModalOpen] = useState(false);
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
+  const [removeStudentDraft, setRemoveStudentDraft] = useState<Student | null>(null);
   const [classEditError, setClassEditError] = useState<string | null>(null);
   const [deleteClassError, setDeleteClassError] = useState<string | null>(null);
   const [editStudentError, setEditStudentError] = useState<string | null>(null);
@@ -259,6 +263,11 @@ export default function ClassDetailsPage() {
     () => students.filter((student) => selectedRows.includes(student.id)),
     [students, selectedRows],
   );
+  const approvedRosterCount = useMemo(
+    () => students.filter((student) => student.status === "Approved").length,
+    [students],
+  );
+  const displayedCapacityEnrolled = Math.max(classMeta.capacityEnrolled, approvedRosterCount);
 
   const toggleRowSelection = (id: string) => {
     setSelectedRows((prev) =>
@@ -336,8 +345,8 @@ export default function ClassDetailsPage() {
 
   const capacityFillPercent = useMemo(() => {
     const max = Math.max(1, classMeta.capacityMax);
-    return Math.min(100, Math.max(0, (classMeta.capacityEnrolled / max) * 100));
-  }, [classMeta.capacityEnrolled, classMeta.capacityMax]);
+    return Math.min(100, Math.max(0, (displayedCapacityEnrolled / max) * 100));
+  }, [displayedCapacityEnrolled, classMeta.capacityMax]);
 
   const openEditInfo = () => {
     setClassMetaDraft(classMeta);
@@ -365,14 +374,13 @@ export default function ClassDetailsPage() {
           description: classMetaDraft.description,
           block,
           level,
-          plannerSubject: classMetaDraft.plannerSubject,
-          plannerSummary: classMetaDraft.plannerSummary,
-          teacherGuideObjectives: classMetaDraft.teacherGuideObjectives,
-          teacherGuideInformation: classMetaDraft.teacherGuideInformation,
-          teacherGuideSummary: classMetaDraft.teacherGuideSummary,
-          studentGuideObjectives: classMetaDraft.studentGuideObjectives,
-          studentGuideInformation: classMetaDraft.studentGuideInformation,
-          studentGuideSummary: classMetaDraft.studentGuideSummary,
+          room: classMetaDraft.room,
+          location: classMetaDraft.room,
+          scheduleDays: classMetaDraft.scheduleDays,
+          minAgeYears: classMetaDraft.minAgeYears,
+          maxAgeYears: classMetaDraft.maxAgeYears,
+          isActive: classMetaDraft.isActive,
+          archivedAt: classMetaDraft.archivedAt,
         }),
       });
       if (!res.ok) {
@@ -394,6 +402,16 @@ export default function ClassDetailsPage() {
   const submitAddStudent = async (input: { studentIds: string[]; status: Exclude<Status, "Pending"> }) => {
     const studentIds = [...new Set(input.studentIds)].filter(Boolean);
     if (studentIds.length === 0) return;
+    if (input.status === "Approved") {
+      const seatsLeft = Math.max(0, classMeta.capacityMax - displayedCapacityEnrolled);
+      if (studentIds.length > seatsLeft) {
+        throw new Error(
+          seatsLeft === 0
+            ? "This class is full. Add students as waitlisted or increase capacity first."
+            : `Only ${seatsLeft} approved seat${seatsLeft === 1 ? "" : "s"} left. Add fewer students or use waitlist.`,
+        );
+      }
+    }
     const added: Student[] = [];
     const errors: string[] = [];
     try {
@@ -417,6 +435,11 @@ export default function ClassDetailsPage() {
 
       if (added.length > 0) {
         setStudents((prev) => [...prev, ...added]);
+        const approvedAdded = added.filter((student) => student.status === "Approved").length;
+        if (approvedAdded > 0) {
+          setClassMeta((prev) => ({ ...prev, capacityEnrolled: prev.capacityEnrolled + approvedAdded }));
+          setClassMetaDraft((prev) => ({ ...prev, capacityEnrolled: prev.capacityEnrolled + approvedAdded }));
+        }
         invalidateDashboardData([
           `/api/data/classes/${encodeURIComponent(classId)}/roster`,
           "/api/data/students",
@@ -449,7 +472,13 @@ export default function ClassDetailsPage() {
         setRowActionError(await readApiError(res));
         return;
       }
+      const removed = students.find((s) => s.id === id);
       setStudents((prev) => prev.filter((s) => s.id !== id));
+      setRemoveStudentDraft(null);
+      if (removed?.status === "Approved") {
+        setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
+        setClassMetaDraft((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled - 1) }));
+      }
       setSelectedRows((rows) => rows.filter((r) => r !== id));
     } catch (error) {
       setRowActionError(error instanceof Error ? error.message : "Student could not be removed.");
@@ -480,7 +509,15 @@ export default function ClassDetailsPage() {
       }
       const body = (await res.json()) as { student?: Student };
       const saved = body.student ?? editStudentDraft;
+      const previous = students.find((s) => s.id === saved.id);
       setStudents((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      if (previous?.status !== saved.status) {
+        const delta = saved.status === "Approved" ? 1 : previous?.status === "Approved" ? -1 : 0;
+        if (delta !== 0) {
+          setClassMeta((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled + delta) }));
+          setClassMetaDraft((prev) => ({ ...prev, capacityEnrolled: Math.max(0, prev.capacityEnrolled + delta) }));
+        }
+      }
       setEditStudentDraft(null);
     } catch (error) {
       setEditStudentError(error instanceof Error ? error.message : "Student enrollment could not be saved.");
@@ -511,34 +548,30 @@ export default function ClassDetailsPage() {
   return (
     <div className="flex flex-col gap-8 p-8 w-full max-w-[1200px] mx-auto">
       {/* Header Section */}
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-2">
-          <Link href="/dashboard/classes" className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors mb-4">
-            <ArrowLeft className="size-[18px]" aria-hidden strokeWidth={1.8} />
-            <span className="text-sm font-medium">Back to class setup</span>
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900">{classMeta.title}</h1>
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h1 className="text-[28px] font-bold leading-[1.1] text-gray-900">{classMeta.title}</h1>
           <p className="text-gray-500 text-base">{classMeta.description}</p>
         </div>
         
-        <div className="flex gap-4">
-          <Link 
-            href="/dashboard/classes/requests"
-            className="h-[42px] px-4 rounded-md flex items-center justify-center bg-cyan-500 text-white font-semibold text-base hover:bg-cyan-600 transition-colors"
+        <div className="flex shrink-0 flex-wrap justify-end gap-3">
+          <Link
+            href={`/dashboard/classes/requests?classId=${encodeURIComponent(classId)}`}
+            className="flex h-[42px] min-w-[132px] items-center justify-center whitespace-nowrap rounded-md bg-cyan-500 px-4 text-[14px] font-semibold text-white transition-colors hover:bg-cyan-600"
           >
             Review Requests
           </Link>
           <button 
             type="button"
             onClick={openEditInfo}
-            className="h-[42px] px-4 rounded-md bg-cyan-50 text-cyan-500 font-semibold text-base hover:bg-cyan-100 transition-colors"
+            className="h-[42px] min-w-[86px] whitespace-nowrap rounded-md bg-cyan-50 px-4 text-[14px] font-semibold text-cyan-500 transition-colors hover:bg-cyan-100"
           >
             Edit Info
           </button>
           <button 
             type="button"
             onClick={() => setIsRemoveClassModalOpen(true)}
-            className="h-[42px] px-4 rounded-md bg-red-50 text-red-600 font-medium text-base hover:bg-red-100 transition-colors"
+            className="h-[42px] min-w-[116px] whitespace-nowrap rounded-md bg-red-50 px-4 text-[14px] font-semibold text-red-600 transition-colors hover:bg-red-100"
           >
             Remove Class
           </button>
@@ -609,16 +642,55 @@ export default function ClassDetailsPage() {
                 />
               </div>
               <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
-                {classMeta.capacityEnrolled}/{classMeta.capacityMax}
+                {displayedCapacityEnrolled}/{classMeta.capacityMax}
               </span>
             </div>
           </div>
         </div>
       </div>
 
+      <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 md:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <div className="font-semibold text-gray-900">Term</div>
+          <div>{classMeta.semesterName || "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Room / location</div>
+          <div>{classMeta.room || "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Meeting days</div>
+          <div>{classMeta.scheduleDays.length > 0 ? classMeta.scheduleDays.join(", ") : "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Visibility</div>
+          <div>{classMeta.isActive && !classMeta.archivedAt ? "Parent-visible" : "Parent-hidden"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Pending / waitlist</div>
+          <div>{classMeta.pendingCount} pending, {classMeta.waitlistCount} waitlisted</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Remaining seats</div>
+          <div>{classMeta.seatsRemaining ?? "—"}</div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Age limits</div>
+          <div>
+            {classMeta.minAgeYears != null || classMeta.maxAgeYears != null
+              ? `${classMeta.minAgeYears ?? "Any"}-${classMeta.maxAgeYears ?? "Any"} years`
+              : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">Archive state</div>
+          <div>{classMeta.archivedAt ? `Archived ${new Date(classMeta.archivedAt).toLocaleDateString()}` : "Not archived"}</div>
+        </div>
+      </div>
+
       {/* Enrolled Students Section */}
       <div className="flex flex-col gap-4 mt-4">
-        <h2 className="text-2xl font-bold text-gray-900">Enrolled Students</h2>
+        <h2 className="text-[20px] font-bold leading-[1.25] text-gray-900">Enrolled Students</h2>
         
         <div className="flex flex-col bg-white border border-gray-200 rounded-2xl p-4 gap-4 overflow-visible">
           {/* Table Toolbar */}
@@ -753,7 +825,7 @@ export default function ClassDetailsPage() {
                 ) : (
                   currentStudents.map((student) => (
                     <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4">
+	                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => toggleRowSelection(student.id)}
@@ -769,18 +841,18 @@ export default function ClassDetailsPage() {
                               </svg>
                             )}
                           </button>
-                          <span className="text-base text-gray-900">{student.name}</span>
+	                          <span className="text-[13px] text-gray-900">{student.name}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-base text-gray-900">{student.parent}</td>
-                      <td className="py-3 px-4 text-base text-gray-900 text-center">{student.age} years</td>
-                      <td className="py-3 px-4 text-base text-gray-900 text-center">{student.level}</td>
+	                      <td className="px-4 py-3 text-[13px] text-gray-900">{student.parent}</td>
+	                      <td className="px-4 py-3 text-center text-[13px] text-gray-900">{student.age} years</td>
+	                      <td className="px-4 py-3 text-center text-[13px] text-gray-900">{student.level}</td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] border ${getStatusStyles(student.status)}`}>
                           {student.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-base text-gray-500 max-w-[250px] truncate">
+	                      <td className="max-w-[250px] truncate px-4 py-3 text-[13px] text-gray-500">
                         {student.description}
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -817,7 +889,11 @@ export default function ClassDetailsPage() {
                             <button
                               type="button"
                               className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                              onClick={() => void removeStudentById(student.id)}
+                              onClick={() => {
+                                setRowActionError(null);
+                                setOpenActionDropdownId(null);
+                                setRemoveStudentDraft(student);
+                              }}
                             >
                               Remove
                             </button>
@@ -909,7 +985,7 @@ export default function ClassDetailsPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-2 pr-8">Edit Class Info</h3>
+            <h3 className="text-[18px] font-bold mb-2 pr-8 leading-[1.25]">Edit Class Info</h3>
             <p className="text-sm text-gray-500 mb-4">Save updates this class.</p>
             {classEditError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
@@ -958,59 +1034,6 @@ export default function ClassDetailsPage() {
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
-              <div className="mt-2 border-t border-gray-100 pt-3">
-                <p className="mb-2 text-sm font-bold text-[#272932]">Daily Planner</p>
-                <label className="text-xs font-semibold text-gray-600">
-                  Subject
-                  <textarea
-                    value={classMetaDraft.plannerSubject}
-                    onChange={(e) => setClassMetaDraft((d) => ({ ...d, plannerSubject: e.target.value }))}
-                    rows={2}
-                    className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="mt-3 block text-xs font-semibold text-gray-600">
-                  Summary
-                  <textarea
-                    value={classMetaDraft.plannerSummary}
-                    onChange={(e) => setClassMetaDraft((d) => ({ ...d, plannerSummary: e.target.value }))}
-                    rows={2}
-                    className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                  />
-                </label>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm font-bold text-[#272932]">Teacher&apos;s Guide</p>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Objectives
-                    <textarea value={classMetaDraft.teacherGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Information
-                    <textarea value={classMetaDraft.teacherGuideInformation} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideInformation: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Summary
-                    <textarea value={classMetaDraft.teacherGuideSummary} onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacherGuideSummary: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm font-bold text-[#272932]">Students&apos; Guide</p>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Objectives
-                    <textarea value={classMetaDraft.studentGuideObjectives} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideObjectives: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Information
-                    <textarea value={classMetaDraft.studentGuideInformation} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideInformation: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                  <label className="text-xs font-semibold text-gray-600">
-                    Summary
-                    <textarea value={classMetaDraft.studentGuideSummary} onChange={(e) => setClassMetaDraft((d) => ({ ...d, studentGuideSummary: e.target.value }))} rows={2} className="mt-1 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-                  </label>
-                </div>
-              </div>
               <div className="flex gap-3">
                 <label className="text-xs font-semibold text-gray-600 flex-1">
                   Enrolled (derived)
@@ -1071,7 +1094,7 @@ export default function ClassDetailsPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-2 pr-8 text-red-600">Remove Class</h3>
+            <h3 className="text-[18px] font-bold mb-2 pr-8 leading-[1.25] text-red-600">Remove Class</h3>
             <p className="text-sm text-gray-500 mb-6">
               Remove <span className="font-semibold">{classMeta.title}</span> from the class directory? Administrators will no longer see this class until it is restored from your source data.
             </p>
@@ -1112,7 +1135,7 @@ export default function ClassDetailsPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-bold mb-4 pr-8">Edit student</h3>
+            <h3 className="text-[18px] font-bold mb-4 pr-8 leading-[1.25]">Edit student</h3>
             {editStudentError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {editStudentError}
@@ -1191,6 +1214,16 @@ export default function ClassDetailsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {removeStudentDraft && (
+        <RemoveEnrollmentConfirmationModal
+          studentName={removeStudentDraft.name}
+          className={classMeta.title}
+          error={rowActionError}
+          onCancel={() => setRemoveStudentDraft(null)}
+          onConfirm={() => void removeStudentById(removeStudentDraft.id)}
+        />
       )}
 
     </div>

@@ -2,7 +2,8 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2 } from "lucide-react";
+import { Search, SortAsc, Filter, ChevronDown, MoreHorizontal, Clock, CheckCircle2, XCircle, X, ListPlus, RotateCcw, Trash2, ChevronLeft } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { useFixedMenuPlacement } from "@/hooks/use-fixed-menu-placement";
@@ -20,6 +21,9 @@ export type ClassesEnrichmentRequestsProps = {
   initialRequests: EnrichmentRequestRow[];
   dataSource: DataSource;
   initialDecisionSummary?: EnrichmentDecisionSummary;
+  focusClassId?: string;
+  focusClassName?: string;
+  compactMode?: boolean;
 };
 
 const PAGE_SIZE = 10;
@@ -35,6 +39,8 @@ const STATUS_PRIORITY: Record<RequestStatus, number> = {
 
 const REQUESTS_GRID_COLUMNS =
   "32px minmax(104px,0.65fr) minmax(130px,1fr) minmax(130px,1fr) minmax(170px,1.25fr) minmax(112px,0.8fr) minmax(86px,0.65fr) minmax(126px,0.85fr) 40px";
+const REQUESTS_GRID_COLUMNS_COMPACT =
+  "minmax(104px,0.65fr) minmax(130px,1fr) minmax(130px,1fr) minmax(170px,1.25fr) minmax(112px,0.8fr) minmax(86px,0.65fr) minmax(126px,0.85fr) 40px";
 
 function statusBadgeClass(status: RequestStatus) {
   if (status === "Pending") return "bg-[#cfa500]/20 text-[#8a6d00] border-[#cfa500]/50";
@@ -121,9 +127,16 @@ export default function ClassesEnrichmentRequests({
   initialRequests,
   dataSource,
   initialDecisionSummary = { approved: 0, waitlisted: 0, rejected: 0 },
+  focusClassId: focusClassIdProp,
+  focusClassName: focusClassNameProp,
+  compactMode,
 }: ClassesEnrichmentRequestsProps) {
   const searchParams = useSearchParams();
   const detailIdFromUrl = searchParams.get("detail");
+  const classIdFromUrl = (focusClassIdProp ?? searchParams.get("classId") ?? "").trim();
+  const classNameParam = (focusClassNameProp ?? searchParams.get("class") ?? "").trim();
+  const classNameFromUrl = classNameParam.toLowerCase();
+  const compactView = compactMode ?? Boolean(classIdFromUrl || classNameFromUrl);
   const classesCache = useClassesDataCache();
 
   const [requests, setRequests] = useState<EnrichmentRequestRow[]>(
@@ -183,6 +196,19 @@ export default function ClassesEnrichmentRequests({
   }, [classesCache, dataSource, initialDecisionSummary, initialRequests]);
 
   useEffect(() => {
+    if (!compactView) return;
+    setSelectedIds(new Set());
+    setSearch("");
+    setFilter("All");
+    setSortKey("student");
+    setSortDir("asc");
+    setPage(1);
+    setFilterOpen(false);
+    setSortOpen(false);
+    setRowMenuId(null);
+  }, [classIdFromUrl, classNameFromUrl, compactView]);
+
+  useEffect(() => {
     const payload = classesCache.requests.data;
     if (payload) {
       setRequests(payload.requests);
@@ -201,11 +227,36 @@ export default function ClassesEnrichmentRequests({
     () => new Set(requests.map((r) => r.class.trim()).filter(Boolean)).size,
     [requests],
   );
+  const isClassScoped = Boolean(classIdFromUrl || classNameFromUrl);
+  const classScopedRows = useMemo(
+    () =>
+      isClassScoped
+        ? requests.filter((request) => {
+            if (classIdFromUrl && request.classId === classIdFromUrl) return true;
+            return Boolean(classNameFromUrl && request.class.trim().toLowerCase() === classNameFromUrl);
+          })
+        : requests,
+    [requests, classIdFromUrl, classNameFromUrl, isClassScoped],
+  );
+  const activeClassLabel =
+    classScopedRows.find((request) => request.class.trim())?.class.trim() ||
+    classNameParam ||
+    "Selected class";
+  const activeClassMeta = classScopedRows[0]
+    ? [classScopedRows[0].block, classScopedRows[0].level].filter(Boolean).join(" · ")
+    : "";
+  const activeRequestRows = useMemo(
+    () => (compactView ? classScopedRows.filter((request) => request.status === "Pending") : requests),
+    [classScopedRows, compactView, requests],
+  );
 
   const processed = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let rows = requests.filter((r) => {
-      if (filter !== "All" && r.status !== filter) return false;
+    const q = compactView ? "" : search.trim().toLowerCase();
+    let rows = (compactView ? activeRequestRows : requests).filter((r) => {
+      if (classIdFromUrl && r.classId !== classIdFromUrl) return false;
+      if (classNameFromUrl && r.class.trim().toLowerCase() !== classNameFromUrl) return false;
+      if (compactView && r.status !== "Pending") return false;
+      if (!compactView && filter !== "All" && r.status !== filter) return false;
       if (!q) return true;
       const hay = [r.student, r.parent, r.class, r.block, r.level, r.option, r.status].join(" ").toLowerCase();
       return hay.includes(q);
@@ -222,7 +273,7 @@ export default function ClassesEnrichmentRequests({
       return sortDir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [requests, search, filter, sortKey, sortDir]);
+  }, [requests, activeRequestRows, classIdFromUrl, classNameFromUrl, compactView, search, filter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -432,10 +483,26 @@ export default function ClassesEnrichmentRequests({
     <div className="flex h-full flex-col gap-6 bg-[#fafafa] p-4 md:p-8">
       <DashboardActionFeedback state={actionFeedback} />
       <div className="flex flex-col gap-2">
-        <h1 className="text-[28px] font-bold text-[#272932]">Enrichment requests</h1>
+        <h1 className="text-[28px] font-bold text-[#272932]">
+          {compactView ? "Viewing requests" : "Enrichment requests"}
+        </h1>
         <p className="text-[16px] text-[#666d80]">
-          Review enrichment class requests, approve or reject enrollments, and track demand by class.
+          {compactView
+            ? `Current pending requests for ${activeClassLabel}${activeClassMeta ? ` · ${activeClassMeta}` : ""}.`
+            : "Review enrichment class requests, approve or reject enrollments, and track demand by class."}
         </p>
+        {compactView && activeClassLabel ? (
+          <div className="mt-1 flex max-w-4xl flex-wrap items-center gap-2">
+            <span className="rounded-[999px] border border-[#dfe3ea] bg-white px-3 py-1 text-[13px] font-semibold text-[#272932]">
+              {activeClassLabel}
+            </span>
+            {activeClassMeta ? (
+              <span className="rounded-[999px] border border-[#dfe3ea] bg-white px-3 py-1 text-[12px] text-[#666d80]">
+                {activeClassMeta}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         {((classesCache.requests.source === "fallback" || dataSource === "fallback") || syncHint) && (
           <div className="flex flex-col gap-2 max-w-3xl">
             {(classesCache.requests.source === "fallback" || dataSource === "fallback") && (
@@ -450,167 +517,171 @@ export default function ClassesEnrichmentRequests({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
-          <div className="bg-[#fff8e6] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
-            <ListPlus className="w-5 h-5 text-[#cfa500]" />
+      {!compactView ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
+            <div className="bg-[#fff8e6] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+              <ListPlus className="w-5 h-5 text-[#cfa500]" />
+            </div>
+            <div className="flex min-w-0 flex-col leading-snug">
+              <span className="break-words text-[15px] font-semibold text-[#272932]">Waitlisted</span>
+              <span className="text-[16px] font-medium text-[#666d80]">{metricValue(waitlistedCount)}</span>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col leading-snug">
-            <span className="break-words text-[15px] font-semibold text-[#272932]">Waitlisted</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(waitlistedCount)}</span>
-          </div>
-        </div>
 
-        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
-          <div className="bg-[#cfa500]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-[#cfa500]" />
+          <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
+            <div className="bg-[#cfa500]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-[#cfa500]" />
+            </div>
+            <div className="flex min-w-0 flex-col leading-snug">
+              <span className="break-words text-[15px] font-semibold text-[#272932]">Pending</span>
+              <span className="text-[16px] font-medium text-[#666d80]">{metricValue(pendingCount)}</span>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col leading-snug">
-            <span className="break-words text-[15px] font-semibold text-[#272932]">Pending</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(pendingCount)}</span>
-          </div>
-        </div>
 
-        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
-          <div className="bg-[#004d08]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5 text-[#004d08]" />
+          <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
+            <div className="bg-[#004d08]/20 rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-[#004d08]" />
+            </div>
+            <div className="flex min-w-0 flex-col leading-snug">
+              <span className="break-words text-[15px] font-semibold text-[#272932]">Approved enrollments</span>
+              <span className="text-[16px] font-medium text-[#666d80]">{metricValue(approvedCount)}</span>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col leading-snug">
-            <span className="break-words text-[15px] font-semibold text-[#272932]">Approved enrollments</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(approvedCount)}</span>
-          </div>
-        </div>
 
-        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
-          <div className="bg-[#ffd9d9] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
-            <XCircle className="w-5 h-5 text-[#d80509]" />
+          <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex items-center gap-[10px]">
+            <div className="bg-[#ffd9d9] rounded-[10px] w-[40px] h-[40px] flex items-center justify-center shrink-0">
+              <XCircle className="w-5 h-5 text-[#d80509]" />
+            </div>
+            <div className="flex min-w-0 flex-col leading-snug">
+              <span className="break-words text-[15px] font-semibold text-[#272932]">Declined</span>
+              <span className="text-[16px] font-medium text-[#666d80]">{metricValue(rejectedCount)}</span>
+            </div>
           </div>
-          <div className="flex min-w-0 flex-col leading-snug">
-            <span className="break-words text-[15px] font-semibold text-[#272932]">Declined</span>
-            <span className="text-[16px] font-medium text-[#666d80]">{metricValue(rejectedCount)}</span>
-          </div>
-        </div>
 
-        <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex flex-col justify-center gap-1 leading-snug">
-          <span className="break-words text-[15px] font-semibold text-[#272932]">Classes in queue</span>
-          <span className="text-[16px] font-medium text-[#666d80]">
-            {isInitialRequestsLoad ? <DashboardValueSkeleton className="h-5 w-20" /> : `${distinctClasses} ${distinctClasses === 1 ? "class" : "classes"}`}
-          </span>
-          <span className="text-[12px] text-[#8b919f]">
-            {isInitialRequestsLoad ? <DashboardValueSkeleton className="h-4 w-24" /> : `${totalRequests} total requests`}
-          </span>
+          <div className="min-w-0 bg-white border border-[#f0f0f0] rounded-[18px] p-[14px] flex flex-col justify-center gap-1 leading-snug">
+            <span className="break-words text-[15px] font-semibold text-[#272932]">Classes in queue</span>
+            <span className="text-[16px] font-medium text-[#666d80]">
+              {isInitialRequestsLoad ? <DashboardValueSkeleton className="h-5 w-20" /> : `${distinctClasses} ${distinctClasses === 1 ? "class" : "classes"}`}
+            </span>
+            <span className="text-[12px] text-[#8b919f]">
+              {isInitialRequestsLoad ? <DashboardValueSkeleton className="h-4 w-24" /> : `${totalRequests} total requests`}
+            </span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-4 flex flex-col gap-4 flex-1">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
-          <div className="flex min-h-9 w-full items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 text-[#0d0d12] lg:bg-transparent lg:px-0">
-            <Search className="w-4 h-4 text-gray-500 shrink-0" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search..."
-              className="w-full min-w-[120px] bg-transparent text-[12px] outline-none placeholder:text-[#0d0d12]"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            {selectableProcessed.length > 0 ? (
-              <button
-                type="button"
-                disabled={actionBusy}
-                className="bg-[#fafafa] px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-[#272932] hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={toggleSelectAllFiltered}
-              >
-                {allFilteredSelected ? "Deselect rows" : `Select rows (${selectableProcessed.length})`}
-              </button>
-            ) : null}
-            <div className="relative" ref={filterRef}>
-              <button
-                type="button"
-                className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]"
-                onClick={() => {
-                  setFilterOpen((o) => !o);
-                  setSortOpen(false);
+        {!compactView ? (
+          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
+            <div className="flex min-h-9 w-full items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 text-[#0d0d12] lg:bg-transparent lg:px-0">
+              <Search className="w-4 h-4 text-gray-500 shrink-0" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
                 }}
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filter by: {filter}</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              {filterOpen && (
-                <div className="absolute right-0 top-full mt-1 z-[100] min-w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
-                  {(["All", "Pending", "Approved", "Waitlisted", "Rejected"] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
-                      onClick={() => {
-                        setFilter(opt);
-                        setFilterOpen(false);
-                        setPage(1);
-                      }}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
+                placeholder="Search..."
+                className="w-full min-w-[120px] bg-transparent text-[12px] outline-none placeholder:text-[#0d0d12]"
+              />
             </div>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              {selectableProcessed.length > 0 ? (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  className="bg-[#fafafa] px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-[#272932] hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={toggleSelectAllFiltered}
+                >
+                  {allFilteredSelected ? "Deselect rows" : `Select rows (${selectableProcessed.length})`}
+                </button>
+              ) : null}
+              <div className="relative" ref={filterRef}>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]"
+                  onClick={() => {
+                    setFilterOpen((o) => !o);
+                    setSortOpen(false);
+                  }}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Filter by: {filter}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                {filterOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-[100] min-w-[160px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
+                    {(["All", "Pending", "Approved", "Waitlisted", "Rejected"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                        onClick={() => {
+                          setFilter(opt);
+                          setFilterOpen(false);
+                          setPage(1);
+                        }}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            <div className="relative" ref={sortRef}>
-              <button
-                type="button"
-                className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]"
-                onClick={() => {
-                  setSortOpen((o) => !o);
-                  setFilterOpen(false);
-                }}
-              >
-                <SortAsc className="w-4 h-4" />
-                <span>Sort</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              {sortOpen && (
-                <div className="absolute right-0 top-full mt-1 z-[100] min-w-[200px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
-                  {(
-                    [
-                      ["student", "Student name"],
-                      ["parent", "Parent"],
-                      ["class", "Class"],
-                      ["block", "Block"],
-                      ["level", "Level"],
-                      ["option", "Option"],
-                      ["status", "Status priority"],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
-                      onClick={() => {
-                        if (sortKey === key) {
-                          setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                        } else {
-                          setSortKey(key);
-                          setSortDir("asc");
-                        }
-                        setSortOpen(false);
-                      }}
-                    >
-                      <span>{label}</span>
-                      {sortKey === key && <span className="text-[10px] text-[#666d80]">{sortDir === "asc" ? "A→Z" : "Z→A"}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="relative" ref={sortRef}>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]"
+                  onClick={() => {
+                    setSortOpen((o) => !o);
+                    setFilterOpen(false);
+                  }}
+                >
+                  <SortAsc className="w-4 h-4" />
+                  <span>Sort</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                {sortOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-[100] min-w-[200px] rounded-[8px] border border-[#f0f0f0] bg-white py-1 shadow-md">
+                    {(
+                      [
+                        ["student", "Student name"],
+                        ["parent", "Parent"],
+                        ["class", "Class"],
+                        ["block", "Block"],
+                        ["level", "Level"],
+                        ["option", "Option"],
+                        ["status", "Status priority"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] text-[#0d0d12] hover:bg-[#fafafa]"
+                        onClick={() => {
+                          if (sortKey === key) {
+                            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                          } else {
+                            setSortKey(key);
+                            setSortDir("asc");
+                          }
+                          setSortOpen(false);
+                        }}
+                      >
+                        <span>{label}</span>
+                        {sortKey === key && <span className="text-[10px] text-[#666d80]">{sortDir === "asc" ? "A→Z" : "Z→A"}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
-
           </div>
-        </div>
+        ) : null}
 
         {selectedCount > 0 ? (
           <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[#dfe1e6] bg-[#fafafa] px-3 py-2">
@@ -665,16 +736,18 @@ export default function ClassesEnrichmentRequests({
             {pageRows.map((req) => (
               <article key={req.id} className="rounded-[14px] border border-[#f0f0f0] bg-white p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <button
-                    type="button"
-                    aria-label={`Select ${req.student} request for ${req.class}`}
-                    aria-pressed={selectedIds.has(req.id)}
-                    disabled={actionBusy}
+                  {!compactView ? (
+                    <button
+                      type="button"
+                      aria-label={`Select ${req.student} request for ${req.class}`}
+                      aria-pressed={selectedIds.has(req.id)}
+                      disabled={actionBusy}
 	                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-[#14c1d5] disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
-                      selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
-                    }`}
-                    onClick={() => toggleSelect(req.id)}
-                  />
+                        selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
+                      }`}
+                      onClick={() => toggleSelect(req.id)}
+                    />
+                  ) : null}
                   <span className={`shrink-0 rounded-[6px] border px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(req.status)}`}>
                     {req.status}
                   </span>
@@ -726,17 +799,22 @@ export default function ClassesEnrichmentRequests({
 
           <div className="hidden w-full min-w-0 overflow-x-auto pb-2 md:block">
             <div className="min-w-[1040px]">
-          <div className="grid gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide" style={{ gridTemplateColumns: REQUESTS_GRID_COLUMNS }}>
-            <button
-              type="button"
-	              aria-label={allFilteredSelected ? "Deselect all requests" : "Select all requests"}
-              aria-pressed={allFilteredSelected}
-              disabled={selectableProcessed.length === 0 || actionBusy}
-              className={`h-4 w-4 rounded border border-[#14c1d5] ${
-                allFilteredSelected ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
-              } disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa]`}
-              onClick={toggleSelectAllFiltered}
-            />
+          <div
+            className="grid gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide"
+            style={{ gridTemplateColumns: compactView ? REQUESTS_GRID_COLUMNS_COMPACT : REQUESTS_GRID_COLUMNS }}
+          >
+            {!compactView ? (
+              <button
+                type="button"
+                aria-label={allFilteredSelected ? "Deselect all requests" : "Select all requests"}
+                aria-pressed={allFilteredSelected}
+                disabled={selectableProcessed.length === 0 || actionBusy}
+                className={`h-4 w-4 rounded border border-[#14c1d5] ${
+                  allFilteredSelected ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
+                } disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa]`}
+                onClick={toggleSelectAllFiltered}
+              />
+            ) : null}
             <div>Status</div>
             <div>Student</div>
             <div>Parent</div>
@@ -751,20 +829,22 @@ export default function ClassesEnrichmentRequests({
               <div
                 key={req.id}
                 className="grid gap-3 py-2.5 border-b border-[#f0f0f0] items-center text-[13px] text-[#0d0d12] hover:bg-[#fafafa] transition-colors"
-                style={{ gridTemplateColumns: REQUESTS_GRID_COLUMNS }}
+                style={{ gridTemplateColumns: compactView ? REQUESTS_GRID_COLUMNS_COMPACT : REQUESTS_GRID_COLUMNS }}
               >
-              <div className="flex items-center min-w-0">
-                <button
-                  type="button"
-                  aria-label={`Select ${req.student} request for ${req.class}`}
-                  aria-pressed={selectedIds.has(req.id)}
-                  disabled={actionBusy}
-	                  className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
-                    selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
-                  }`}
-                  onClick={() => toggleSelect(req.id)}
-                />
-              </div>
+                {!compactView ? (
+                  <div className="flex items-center min-w-0">
+                    <button
+                      type="button"
+                      aria-label={`Select ${req.student} request for ${req.class}`}
+                      aria-pressed={selectedIds.has(req.id)}
+                      disabled={actionBusy}
+	                      className={`w-4 h-4 rounded border border-[#14c1d5] shrink-0 disabled:cursor-not-allowed disabled:border-[#dfe1e7] disabled:bg-[#f7f8fa] ${
+                        selectedIds.has(req.id) ? "bg-[#14c1d5] opacity-100" : "bg-[#d2f1f5] opacity-50"
+                      }`}
+                      onClick={() => toggleSelect(req.id)}
+                    />
+                  </div>
+                ) : null}
               <div>
                 <span
                   className={`inline-flex items-center px-2 py-1 rounded-[6px] text-[10px] border ${statusBadgeClass(req.status)}`}

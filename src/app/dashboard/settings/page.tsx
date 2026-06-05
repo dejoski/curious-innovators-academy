@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Camera } from "lucide-react";
+import { PageBackLink } from "@/components/page-back-link";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import EntityAvatar from "@/components/entity-avatar";
 import { readApiError } from "@/lib/client-api-errors";
@@ -362,7 +363,7 @@ export default function DashboardSettingsPage() {
 
           <div className="grid gap-5 max-w-xl">
             <div className="flex items-center gap-4">
-              <EntityAvatar name={displayName} src={avatarUrl} className="size-20" textClassName="text-[22px]" />
+              <EntityAvatar name={displayName} src={avatarUrl} className="size-20" textClassName="text-[20px]" />
               <label
                 className={`inline-flex h-[42px] items-center justify-center gap-2 rounded-[6px] bg-white px-4 text-sm font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 transition-colors hover:bg-[#ecfdff] ${
                   isSavingAvatar ? "cursor-wait opacity-70" : "cursor-pointer"
@@ -693,9 +694,7 @@ export default function DashboardSettingsPage() {
           >
             {isSaving ? "Saving..." : "Save changes"}
           </button>
-          <Link href="/dashboard" className="text-[#14c1d5] text-sm font-medium hover:underline">
-            ← Back to dashboard
-          </Link>
+          <PageBackLink href="/dashboard">Back to Dashboard</PageBackLink>
         </div>
       </form>
 

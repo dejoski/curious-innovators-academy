@@ -15,8 +15,17 @@ import {
   typeLabel,
 } from "@/lib/dashboard/schedule-calendar-shared";
 import { readApiError } from "@/lib/client-api-errors";
-import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
+import {
+  DASHBOARD_BODY_TEXT_CLASS,
+  DASHBOARD_BUTTON_TEXT_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_PANEL_CLASS,
+  DASHBOARD_PANEL_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+  DASHBOARD_TINY_TEXT_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import { invalidateDashboardData, readDashboardData } from "@/lib/client-data-cache";
+import { PARENT_SCHEDULE_ROWS, scheduleStartLabelForBlock } from "@/lib/schedule-slots";
 
 export type ScheduleCanvasView = "Month" | "Week" | "Day";
 
@@ -43,18 +52,10 @@ const EVENT_TYPE_STYLES = {
   },
 } satisfies Record<CalendarEventType, { surface: string; dot: string; text: string }>;
 
-const WEEK_TIME_ROWS = [
-  { label: "7:00 am", minutes: 7 * 60 },
-  { label: "8:30 am", minutes: 8 * 60 + 30 },
-  { label: "10:00 am", minutes: 10 * 60 },
-  { label: "11:30 am", minutes: 11 * 60 + 30 },
-  { label: "1:00 pm", minutes: 13 * 60 },
-  { label: "2:30 pm", minutes: 14 * 60 + 30 },
-  { label: "4:00 pm", minutes: 16 * 60 },
-  { label: "5:30 pm", minutes: 17 * 60 + 30 },
-  { label: "7:30 pm", minutes: 19 * 60 + 30 },
-  { label: "9:00 pm", minutes: 21 * 60 },
-] as const;
+const WEEK_TIME_ROWS = PARENT_SCHEDULE_ROWS.map((row) => {
+  const label = scheduleStartLabelForBlock(row.label) ?? row.time;
+  return { label, minutes: timeLabelToMinutes(label) };
+});
 
 const FULL_DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
@@ -245,21 +246,9 @@ function EventDetailsModal({
 }) {
   const details = event.classDetails;
   const title = displayEventTitle(event.title);
-  const subject = details?.plannerSubject?.trim() || details?.description?.trim() || event.description?.trim();
-  const summary = details?.plannerSummary?.trim();
   const preparedBy = details?.teacher?.trim();
   const grade = details?.level?.trim();
   const status = event.statusLabel ?? typeLabel(event.type);
-  const teacherGuideRows = [
-    ["Objectives", details?.teacherGuideObjectives?.trim()],
-    ["Information", details?.teacherGuideInformation?.trim()],
-    ["Summary", details?.teacherGuideSummary?.trim()],
-  ].filter((row): row is [string, string] => Boolean(row[1]));
-  const studentGuideRows = [
-    ["Objectives", details?.studentGuideObjectives?.trim()],
-    ["Information", details?.studentGuideInformation?.trim()],
-    ["Summary", details?.studentGuideSummary?.trim()],
-  ].filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
     <div
@@ -276,8 +265,8 @@ function EventDetailsModal({
       >
         <div className="mb-7 flex items-start justify-between gap-4">
           <div>
-            <h3 id="daily-planner-title" className="font-sans text-[26px] font-bold leading-tight text-[#272932]">
-              Daily Planner
+            <h3 id="daily-planner-title" className={`${DASHBOARD_PANEL_TITLE_CLASS} font-bold`}>
+              Class Details
             </h3>
             <p className="mt-2 text-[15px] text-[#666d80]">{title}</p>
           </div>
@@ -292,26 +281,12 @@ function EventDetailsModal({
         </div>
 
         <div className="border-t border-[#e6e9ef]">
-          {subject ? <PlannerRow label="Subject">{subject}</PlannerRow> : null}
           {preparedBy ? <PlannerRow label="Prepared By">{preparedBy}</PlannerRow> : null}
           {grade ? <PlannerRow label="Grade">{grade}</PlannerRow> : null}
-          {summary ? <PlannerRow label="Summary">{summary}</PlannerRow> : null}
           <PlannerRow label="Status">{status}</PlannerRow>
           <PlannerRow label="Time">{event.time}</PlannerRow>
           {event.scheduleSlotLabel ? <PlannerRow label="Block">{event.scheduleSlotLabel}</PlannerRow> : null}
         </div>
-
-        {teacherGuideRows.length ? (
-          <PlannerSection title="Teacher's Guide">
-            {teacherGuideRows.map(([label, value]) => <PlannerRow key={label} label={label}>{value}</PlannerRow>)}
-          </PlannerSection>
-        ) : null}
-
-        {studentGuideRows.length ? (
-          <PlannerSection title="Students' Guide">
-            {studentGuideRows.map(([label, value]) => <PlannerRow key={label} label={label}>{value}</PlannerRow>)}
-          </PlannerSection>
-        ) : null}
       </section>
     </div>
   );
@@ -768,7 +743,7 @@ export default function ScheduleMonth({
   };
 
   const renderDayView = () => {
-    const events = eventsForDate(currentDate);
+    const events = sortedEvents(eventsForDate(currentDate));
     const isToday = currentDate.toDateString() === new Date().toDateString();
 
     return (
@@ -809,26 +784,26 @@ export default function ScheduleMonth({
   return (
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       <div className="flex flex-col gap-[4px] items-start">
-        <h1 className="font-sans font-bold text-[#272932] text-[24px] leading-[1.1]">
+        <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>
           {titleByView?.[view] ?? `Schedule (${view})`}
         </h1>
-        <p className="font-sans font-normal text-[#666d80] text-[16px] leading-[1.4]">
+        <p className={`font-sans font-normal ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
           {subtitleByView?.[view] ?? heroSubtitle}
         </p>
         {activeSemester ? (
-          <p className="font-sans text-[13px] font-medium text-[#4f5b73]">
+          <p className={`font-sans ${DASHBOARD_TINY_TEXT_CLASS} font-medium text-[#4f5b73]`}>
             {activeSemester.name}: {activeSemester.startsOn} to {activeSemester.endsOn}
           </p>
         ) : null}
         {showDataSourceBanner && (activeDataSource === "fallback" || syncHint) && (
           <div className="mt-2 flex flex-col gap-2 max-w-3xl">
             {activeDataSource === "fallback" && (
-              <p className="rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 text-sm text-[#7a5b00]">
+              <p className={`rounded-lg border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#7a5b00]`}>
                 Showing a starter schedule while saved calendar items finish loading.
               </p>
             )}
             {syncHint && (
-              <p className="rounded-lg border border-[#d80509]/30 bg-[#fff5f5] px-4 py-2 text-sm text-[#a00408]">{syncHint}</p>
+              <p className={`rounded-lg border border-[#d80509]/30 bg-[#fff5f5] px-4 py-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#a00408]`}>{syncHint}</p>
             )}
           </div>
         )}
@@ -889,7 +864,7 @@ export default function ScheduleMonth({
           >
             <ChevronLeft className="size-[20px] text-[#272932]" aria-hidden strokeWidth={1.75} />
           </button>
-          <h2 className="font-sans font-semibold text-[#0d0d12] text-[18px] min-w-[200px] text-center">{dateDisplay}</h2>
+          <h2 className={`font-sans ${DASHBOARD_SECTION_TITLE_CLASS} min-w-[200px] text-center`}>{dateDisplay}</h2>
           <button
             type="button"
             onClick={handleNext}
@@ -903,7 +878,7 @@ export default function ScheduleMonth({
           href={viewClassesHref}
           className="bg-[#14c1d5] flex items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#12aebd] transition-colors shadow-sm"
         >
-          <span className="font-sans font-semibold text-white text-[16px]">View Classes</span>
+          <span className={`font-sans ${DASHBOARD_BUTTON_TEXT_CLASS} text-white`}>View Classes</span>
         </Link>
       </div>
 
@@ -921,21 +896,21 @@ export default function ScheduleMonth({
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-bold text-[#0d0d12]">
+                <h3 className={`${DASHBOARD_PANEL_TITLE_CLASS} text-[#0d0d12]`}>
                   {selectedDay.date.toLocaleDateString("en-US", {
                     weekday: "long",
                     month: "short",
                     day: "numeric",
                   })}
                 </h3>
-                <p className="mt-1 text-sm text-[#666d80]">
+                <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
                   {selectedDay.events.length} scheduled item{selectedDay.events.length === 1 ? "" : "s"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedDay(null)}
-                className="text-xl font-bold text-gray-500 hover:text-gray-800"
+                className={`${DASHBOARD_PANEL_TITLE_CLASS} text-gray-500 hover:text-gray-800`}
                 aria-label="Close day schedule"
               >
                 &times;
@@ -954,11 +929,11 @@ export default function ScheduleMonth({
                     }}
                     className={`${style.surface} rounded-[8px] border p-3 text-left hover:border-[#14c1d5] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/35`}
                   >
-                    <span className={`${style.text} text-xs font-semibold`}>{event.time}</span>
-                    <span className="mt-1 block text-sm font-semibold text-[#0d0d12]">{event.title}</span>
-                    <span className="mt-2 block text-xs text-[#666d80]">{typeLabel(event.type)}</span>
+                    <span className={`${style.text} ${DASHBOARD_TINY_TEXT_CLASS} font-semibold`}>{event.time}</span>
+                    <span className={`mt-1 block ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#0d0d12]`}>{event.title}</span>
+                    <span className={`mt-2 block ${DASHBOARD_TINY_TEXT_CLASS} text-[#666d80]`}>{typeLabel(event.type)}</span>
                     {event.description?.trim() ? (
-                      <span className="mt-2 block text-xs text-[#4f5b73]">{event.description}</span>
+                      <span className={`mt-2 block ${DASHBOARD_TINY_TEXT_CLASS} text-[#4f5b73]`}>{event.description}</span>
                     ) : null}
                   </button>
                 );
@@ -973,7 +948,7 @@ export default function ScheduleMonth({
                     setSelectedDay(null);
                     handleSlotClick(date);
                   }}
-                  className="rounded-lg bg-[#14c1d5] px-4 py-2 font-medium text-white hover:bg-[#12aebd]"
+                  className={`rounded-lg bg-[#14c1d5] px-4 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-white hover:bg-[#12aebd]`}
                 >
                   Add Event
                 </button>
@@ -995,14 +970,14 @@ export default function ScheduleMonth({
         >
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold">Create Event</h3>
+              <h3 className={DASHBOARD_PANEL_TITLE_CLASS}>Create Event</h3>
               <button
                 type="button"
                 onClick={() => {
                   setIsCreateModalOpen(false);
                   resetCreateForm();
                 }}
-                className="text-gray-500 hover:text-gray-800 text-xl font-bold"
+                className={`${DASHBOARD_PANEL_TITLE_CLASS} text-gray-500 hover:text-gray-800`}
               >
                 &times;
               </button>

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Upload, X } from "lucide-react";
 import { downloadCsv } from "@/lib/client-directory-actions";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 export type BulkImportColumn = {
   key: string;
@@ -160,7 +161,7 @@ export function DashboardBulkImportModal({
       <div className="flex max-h-[90vh] w-full max-w-[760px] flex-col overflow-hidden rounded-[18px] bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-[#f0f0f0] px-6 py-5">
           <div>
-            <h2 className="text-[22px] font-bold text-[#272932]">{title}</h2>
+            <h2 className={DASHBOARD_PANEL_TITLE_CLASS}>{title}</h2>
             <p className="mt-1 text-sm text-[#666d80]">Download the template, fill it out, then upload the completed CSV.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-1 text-[#666d80] hover:bg-[#f5f5f5]" aria-label="Close import modal">

@@ -55,6 +55,10 @@ export function localReviewKey(slotId: CatalogSlotId, kind: "first" | "second") 
   return `catalog-${slotId}-${kind}`;
 }
 
+export function dispatchParentCatalogUpdated() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("cia-parent-catalog-updated"));
+}
+
 function normalizeChoice(choice: ParentCatalogChoice | null | undefined): ParentCatalogChoice | null {
   if (!choice?.id && !choice?.name) return null;
   return { ...choice };
@@ -386,7 +390,40 @@ export function catalogChoiceReviews(
   return rows;
 }
 
-function mergedParentCatalogScheduleBadgeOverrides(
+export function catalogBadgesForSlot(
+  requests: ParentCatalogRequests | null,
+  slotId: CatalogSlotId,
+  reviewStatuses: LocalReviewStatuses,
+  state: "draft" | "submitted" | null = "submitted",
+): StudentScheduleBadge[] {
+  const slot = requests?.[slotId];
+  const rows = catalogChoiceReviews({ ...INITIAL_PARENT_CATALOG_REQUESTS, [slotId]: slot ?? {} }, reviewStatuses)
+    .filter((row) => row.slotId === slotId && row.status !== "Rejected");
+  return rows.map((row) => ({
+    label:
+      row.status === "Waitlisted"
+          ? `${row.choice === "2nd" ? "Waitlisted 2nd" : "Waitlisted"}: ${row.name}`
+          : row.choice === "2nd"
+            ? `2nd: ${row.name}`
+            : row.name,
+    classId: row.classId,
+    tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : row.status === "Waitlisted" ? "waitlisted" : "pending",
+  }));
+}
+
+export function catalogScheduleBadgeOverrides(
+  requests: ParentCatalogRequests | null,
+  reviewStatuses: LocalReviewStatuses,
+  state: "draft" | "submitted" | null,
+): ParentScheduleBadges {
+  return CATALOG_SLOT_IDS.reduce<ParentScheduleBadges>((overrides, slotId) => {
+    const badges = catalogBadgesForSlot(requests, slotId, reviewStatuses, state);
+    if (badges.length) overrides[CATALOG_SLOT_META[slotId].scheduleSlot] = badges;
+    return overrides;
+  }, {});
+}
+
+export function mergedParentCatalogScheduleBadgeOverrides(
   baseRequests: ParentCatalogRequests | null,
   baseReviewStatuses: LocalReviewStatuses,
   baseState: "submitted" | null,

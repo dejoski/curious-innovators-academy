@@ -15,13 +15,120 @@ export const DASHBOARD_PANEL_CLASS =
 export const DASHBOARD_TABLE_SCROLL_CLASS =
   "w-full overflow-x-auto min-h-[300px]" as const;
 
+/** Row above a table (filters, search, primary actions) */
+export const DASHBOARD_TABLE_TOOLBAR_CLASS =
+  `flex flex-wrap items-center gap-2 py-3 px-1 ${DASHBOARD_BORDER_SUBTLE_CLASS} border-b border-solid` as const;
+
+/** Underline-style tab strip container */
+export const DASHBOARD_TABS_CONTAINER_CLASS =
+  `flex gap-1 ${DASHBOARD_BORDER_SUBTLE_CLASS} border-b border-solid pb-px` as const;
+
+/** Individual tab triggers (inactive / active layered in component) */
+export const DASHBOARD_TAB_TRIGGER_BASE_CLASS =
+  "relative whitespace-nowrap px-3 pb-2 pt-1 font-medium text-[13px] leading-[1.4] transition-colors" as const;
+
+export const DASHBOARD_TAB_TRIGGER_INACTIVE_CLASS =
+  `${DASHBOARD_TAB_TRIGGER_BASE_CLASS} text-[#666d80] hover:text-[#272932]` as const;
+
+export const DASHBOARD_TAB_TRIGGER_ACTIVE_CLASS =
+  `${DASHBOARD_TAB_TRIGGER_BASE_CLASS} text-[#272932] after:pointer-events-none after:absolute after:inset-x-3 after:-bottom-px after:h-[2px] after:rounded-full after:bg-[#272932]` as const;
+
+/** Table thead cells */
+export const DASHBOARD_TABLE_HEAD_CELL_CLASS =
+  "border-b border-[#f0f0f0] px-4 py-3 text-left font-semibold text-[11px] uppercase tracking-[0.04em] text-[#818898]" as const;
+
+export const DASHBOARD_TABLE_BODY_CELL_CLASS =
+  "border-b border-[#f0f0f0]/80 px-4 py-[14px] align-middle text-[13px] leading-[1.45] text-[#272932]" as const;
+
 /* --- Typography (shell) --- */
 export const DASHBOARD_TEXT_PRIMARY_CLASS = "text-[#272932]" as const;
 export const DASHBOARD_TEXT_SECONDARY_CLASS = "text-[#666d80]" as const;
 export const DASHBOARD_TEXT_MUTED_CLASS = "text-[#818898]" as const;
 
+export const DASHBOARD_PAGE_TITLE_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[28px] font-bold leading-[1.1]` as const;
+
+export const DASHBOARD_PAGE_SUBTITLE_CLASS =
+  `${DASHBOARD_TEXT_SECONDARY_CLASS} text-[16px] leading-[1.4]` as const;
+
+export const DASHBOARD_SECTION_TITLE_CLASS =
+  "text-[#0d0d12] text-[16px] font-semibold leading-[1.3]" as const;
+
+export const DASHBOARD_PANEL_TITLE_CLASS =
+  "text-[#0d0d12] text-[20px] font-semibold leading-[1.25]" as const;
+
+export const DASHBOARD_DETAIL_HEADING_CLASS =
+  "text-[#0d0d12] text-[18px] font-semibold leading-[1.3]" as const;
+
+export const DASHBOARD_DETAIL_VALUE_CLASS =
+  "text-[#666d80] text-[18px] leading-[1.35]" as const;
+
+export const DASHBOARD_INPUT_TEXT_CLASS =
+  "text-[16px] leading-[1.5]" as const;
+
+export const DASHBOARD_TABLE_HEAD_TEXT_CLASS =
+  `${DASHBOARD_TEXT_MUTED_CLASS} text-[11px] font-semibold uppercase tracking-[0.04em]` as const;
+
+export const DASHBOARD_TABLE_BODY_TEXT_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[13px] leading-[1.45]` as const;
+
+export const DASHBOARD_CONTROL_TEXT_CLASS =
+  "text-[12px] font-medium leading-[1.4]" as const;
+
+export const DASHBOARD_BODY_TEXT_CLASS =
+  "text-[14px] leading-[1.4]" as const;
+
+export const DASHBOARD_BODY_PRIMARY_TEXT_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} ${DASHBOARD_BODY_TEXT_CLASS}` as const;
+
+export const DASHBOARD_BODY_SECONDARY_TEXT_CLASS =
+  `${DASHBOARD_TEXT_SECONDARY_CLASS} ${DASHBOARD_BODY_TEXT_CLASS}` as const;
+
+export const DASHBOARD_BUTTON_TEXT_CLASS =
+  `${DASHBOARD_BODY_TEXT_CLASS} font-medium` as const;
+
+export const DASHBOARD_METRIC_LABEL_CLASS =
+  `${DASHBOARD_TEXT_SECONDARY_CLASS} text-[14px] font-medium leading-[1.4]` as const;
+
+export const DASHBOARD_METRIC_VALUE_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[28px] font-bold leading-[1.1]` as const;
+
+export const DASHBOARD_HEADER_SELECT_TEXT_CLASS =
+  `${DASHBOARD_TEXT_PRIMARY_CLASS} text-[14px] leading-[1.6] tracking-[-0.28px]` as const;
+
 export const DASHBOARD_FONT_NAV_PRIMARY_CLASS =
-  "font-['Inter:Medium',sans-serif] font-medium text-[14px] leading-[1.4]" as const;
+  "font-medium text-[14px] leading-[1.4]" as const;
+
+export const DASHBOARD_FONT_NAV_SECONDARY_CLASS =
+  "font-medium text-[12px] leading-[1.4]" as const;
+
+export const DASHBOARD_TINY_TEXT_CLASS =
+  "text-[11px] leading-[1.3]" as const;
+
+export const DASHBOARD_STATUS_PILL_TEXT_CLASS =
+  "text-[11px] font-medium leading-[1.3]" as const;
+
+/* --- Directory tables: Student List is the source of truth --- */
+export const DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS =
+  `border-y ${DASHBOARD_BORDER_SUBTLE_CLASS} text-left ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}` as const;
+
+export const DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS =
+  `border-b ${DASHBOARD_BORDER_SUBTLE_CLASS} ${DASHBOARD_TABLE_BODY_TEXT_CLASS}` as const;
+
+export const DASHBOARD_DIRECTORY_TABLE_CELL_CLASS =
+  "px-3 py-5 align-middle" as const;
+
+export const DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS =
+  "px-3 py-4 align-middle" as const;
+
+export const DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS =
+  `h-[40px] rounded-[8px] bg-white px-3 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#0d0d12] shadow-[0_0_0_1px_#f0f0f0]` as const;
+
+export const DASHBOARD_DIRECTORY_TOOLBAR_SELECT_CLASS =
+  `flex w-full items-center justify-between text-left ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS}` as const;
+
+export const DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS =
+  `min-w-0 flex-1 bg-transparent ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#0d0d12] outline-none placeholder:text-[#818898]` as const;
 
 /* --- Sidebar (open state primary nav) --- */
 export const DASHBOARD_SIDEBAR_SURFACE_CLASS =
@@ -44,7 +151,7 @@ export const DASHBOARD_SIDEBAR_SUBMENU_STACK_CLASS =
   "flex flex-col gap-[8px] mt-[8px] w-full" as const;
 
 export const DASHBOARD_SIDEBAR_SUB_LINK_BASE_CLASS =
-  "block rounded-[6px] px-[12px] py-[6px] transition-colors font-['Inter:Medium',sans-serif] text-[14px] font-medium leading-[1.4]" as const;
+  "block rounded-[6px] px-[12px] py-[6px] transition-colors font-medium text-[14px] leading-[1.4]" as const;
 
 export const DASHBOARD_SIDEBAR_NAV_ACTIVE_BG_CLASS = "bg-[#d2f1f5]" as const;
 export const DASHBOARD_SIDEBAR_NAV_HOVER_BG_CLASS = "hover:bg-[#f0f0f0]/60" as const;

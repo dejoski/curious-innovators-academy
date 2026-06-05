@@ -2,24 +2,54 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Download, ListChecks, UserRound } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Download, ListChecks, RotateCcw, UserRound, XCircle } from "lucide-react";
 
 import {
   ParentScheduleGrid,
   type ParentScheduleBadges,
   type ParentScheduleSlotKey,
 } from "@/components/parent-schedule-grid";
+import {
+  ParentClassDetailsDrawer,
+  ParentClassSelectionDrawer,
+  type ParentClassChoiceKind,
+  type ParentClassOption,
+  type ParentClassSlotContext,
+  type ScheduleDisplayParts,
+} from "@/components/parent-class-drawers";
 import { buildParentScheduleBadges } from "@/lib/parent-schedule-badges";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { mutateDashboardData, readDashboardData } from "@/lib/client-data-cache";
-import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
+import { readApiError } from "@/lib/client-api-errors";
+import {
+  DASHBOARD_BODY_TEXT_CLASS,
+  DASHBOARD_BUTTON_TEXT_CLASS,
+  DASHBOARD_CONTROL_TEXT_CLASS,
+  DASHBOARD_METRIC_VALUE_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_PANEL_CLASS,
+  DASHBOARD_PANEL_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+  DASHBOARD_TABLE_HEAD_TEXT_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import type { DataSource } from "@/lib/data/fetch-source";
-import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { RequestStatus, SchoolClassRow, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import {
+  parentClassOptionFromRow,
+  parentClassOptionsForCatalogSlot,
+} from "@/lib/parent-class-options";
 import {
   parentScheduleFinalityClasses,
   parentScheduleFinalityFromRow,
 } from "@/lib/parent-schedule-status";
-import { studentScheduleSlots } from "@/lib/schedule-slots";
+import {
+  CATALOG_SLOT_META,
+  PARENT_SCHEDULE_DAYS,
+  PARENT_SCHEDULE_ROWS,
+  catalogSlotIdFromScheduleSlot,
+  scheduleSlotForClassFields,
+  studentScheduleSlots,
+} from "@/lib/schedule-slots";
 
 type RowData = StudentScheduleRow;
 
@@ -30,25 +60,16 @@ type SlotDetail = {
   time: string;
 };
 
-const SLOT_DETAILS: SlotDetail[] = [
-  { slot: "b1", day: "Day 1-3", block: "Block 1", time: "9:00 - 10:30 am" },
-  { slot: "b2", day: "Day 1-3", block: "Block 2", time: "10:30 am - 12:00 pm" },
-  { slot: "b3Tue", day: "Day 1", block: "Block 3", time: "12:30 - 2:00 pm" },
-  { slot: "b3Wed", day: "Day 2", block: "Block 3", time: "12:30 - 2:00 pm" },
-  { slot: "b3Thu", day: "Day 3", block: "Block 3", time: "12:30 - 2:00 pm" },
-  { slot: "b4Tue", day: "Day 1", block: "Block 4", time: "2:00 - 3:30 pm" },
-  { slot: "b4Wed", day: "Day 2", block: "Block 4", time: "2:00 - 3:30 pm" },
-  { slot: "b4Thu", day: "Day 3", block: "Block 4", time: "2:00 - 3:30 pm" },
-];
+const SLOT_DETAILS: SlotDetail[] = PARENT_SCHEDULE_ROWS.flatMap((row) =>
+  row.slots.map((slot, index) => ({
+    slot,
+    day: PARENT_SCHEDULE_DAYS[index] ?? `Day ${index + 1}`,
+    block: row.label,
+    time: row.time,
+  })),
+);
 
-const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = [
-  "b3Tue",
-  "b3Wed",
-  "b3Thu",
-  "b4Tue",
-  "b4Wed",
-  "b4Thu",
-];
+const SELECTABLE_SLOTS: ParentScheduleSlotKey[] = PARENT_SCHEDULE_ROWS.flatMap((row) => row.slots);
 
 function realBadges(badges: StudentScheduleBadge[] | undefined): StudentScheduleBadge[] {
   return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");
@@ -93,7 +114,7 @@ function MetricCard({
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[22px] font-bold leading-tight text-[#272932]">{value}</p>
+        <p className={`${DASHBOARD_METRIC_VALUE_CLASS}`}>{value}</p>
         <p className="text-[13px] leading-snug text-[#666d80]">{label}</p>
       </div>
     </div>
@@ -109,14 +130,30 @@ function LegendItem({ tone, label }: { tone: StudentScheduleBadge["tone"]; label
   );
 }
 
-function SlotChoiceList({ badges }: { badges: StudentScheduleBadge[] }) {
+function SlotChoiceList({
+  badges,
+  slot,
+  onManage,
+}: {
+  badges: StudentScheduleBadge[];
+  slot: ParentScheduleSlotKey;
+  onManage: () => void;
+}) {
   const visible = realBadges(badges);
   if (visible.length === 0) {
-    return <span className="text-[13px] text-[#667085]">Open enrichment slot</span>;
+    const emptyLabel = slot.startsWith("b1") || slot.startsWith("b2") ? "Core assignment pending" : "Open enrichment slot";
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-[13px] text-[#667085]">{emptyLabel}</span>
+        <button type="button" onClick={onManage} className="text-[12px] font-semibold text-[#0b7180] hover:underline">
+          Add class
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {visible.map((badge, index) => (
         <span
           key={`${badge.label}-${badge.tone}-${index}`}
@@ -126,8 +163,60 @@ function SlotChoiceList({ badges }: { badges: StudentScheduleBadge[] }) {
           <span className="font-medium opacity-80">{badgeStatusLabel(badge.tone)}</span>
         </span>
       ))}
+      <button type="button" onClick={onManage} className="text-[12px] font-semibold text-[#0b7180] hover:underline">
+        Edit
+      </button>
     </div>
   );
+}
+
+type ClassesBody = { classes?: SchoolClassRow[]; source?: DataSource };
+
+function classSlot(row: SchoolClassRow): ParentScheduleSlotKey {
+  return scheduleSlotForClassFields({
+    block: row.block,
+    scheduleSummary: row.schedule,
+  });
+}
+
+function slotContextFromBadges(badges: StudentScheduleBadge[] | undefined): ParentClassSlotContext {
+  const current = realBadges(badges)[0];
+  return current ? { kind: "change", label: current.label } : { kind: "empty" };
+}
+
+function slotScheduleDisplay(slot: SlotDetail): ScheduleDisplayParts {
+  return { day: slot.day, time: slot.time };
+}
+
+function slotOverlayTitle(slot: SlotDetail): string {
+  return `${slot.block} ${slot.day}`;
+}
+
+function scheduleStateMeta(schedule: StudentScheduleRow) {
+  if (schedule.scheduleState === "finalized") {
+    return {
+      label: "Finalized",
+      detail: schedule.finalizedAt
+        ? `Finalized ${new Date(schedule.finalizedAt).toLocaleDateString("en-US", { timeZone: "America/New_York" })}${schedule.finalizedBy ? ` by ${schedule.finalizedBy}` : ""}.`
+        : "Finalized by the school.",
+      classes: "border-[#004d08]/25 bg-[#f3fbf4] text-[#004d08]",
+      icon: <CheckCircle2 className="size-4" aria-hidden strokeWidth={2} />,
+    };
+  }
+  if (schedule.scheduleState === "pending") {
+    return {
+      label: "Pending finalization",
+      detail: "Ready for school review before parent-facing finalization.",
+      classes: "border-[#cfa500]/35 bg-[#fffdf3] text-[#7a5b00]",
+      icon: <Clock className="size-4" aria-hidden strokeWidth={2} />,
+    };
+  }
+  return {
+    label: "Draft",
+    detail: "Editable schedule. Resolve open blocks and conflicts before finalization.",
+    classes: "border-[#dfe3ea] bg-[#fbfcfe] text-[#344054]",
+    icon: <Clock className="size-4" aria-hidden strokeWidth={2} />,
+  };
 }
 
 export default function StudentScheduleClient({
@@ -144,6 +233,16 @@ export default function StudentScheduleClient({
   const [source, setSource] = useState<DataSource>(initialSource);
   const [isLoading, setIsLoading] = useState(initialRows.length === 0 && initialSource !== "remote");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [classes, setClasses] = useState<SchoolClassRow[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [assignmentSlot, setAssignmentSlot] = useState<ParentScheduleSlotKey | null>(null);
+  const [assignmentClass, setAssignmentClass] = useState<ParentClassOption | null>(null);
+  const [openChoice, setOpenChoice] = useState<ParentClassChoiceKind | null>(null);
+  const [detailClass, setDetailClass] = useState<{ option: ParentClassOption; scheduleDisplay?: ScheduleDisplayParts } | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
+  const [requestActionHint, setRequestActionHint] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,6 +282,15 @@ export default function StudentScheduleClient({
   );
   const slots = useMemo(() => (schedule ? studentScheduleSlots(schedule) : null), [schedule]);
   const finality = useMemo(() => parentScheduleFinalityFromRow(schedule), [schedule]);
+  const stateMeta = useMemo(() => (schedule ? scheduleStateMeta(schedule) : null), [schedule]);
+  const assignedSlotDetails = useMemo(
+    () =>
+      SLOT_DETAILS.map((slot) => ({
+        ...slot,
+        badges: realBadges(badgesBySlot[slot.slot]),
+      })).filter((slot) => slot.badges.length > 0),
+    [badgesBySlot],
+  );
 
   const summary = useMemo(() => {
     const badges = slots ? Object.values(slots).flatMap((slotBadges) => realBadges(slotBadges)) : [];
@@ -199,6 +307,103 @@ export default function StudentScheduleClient({
   }, [slots]);
 
   const hint = sourceHint(source);
+  const assignmentBadges = assignmentSlot ? realBadges(badgesBySlot[assignmentSlot]) : [];
+  const replaceableClassId = assignmentBadges.find((badge) => badge.classId && (badge.tone === "core" || badge.tone === "approved"))?.classId ?? "";
+  const assignmentSlotDetail = assignmentSlot ? SLOT_DETAILS.find((slot) => slot.slot === assignmentSlot) ?? null : null;
+  const assignmentScheduleDisplay = assignmentSlotDetail ? slotScheduleDisplay(assignmentSlotDetail) : undefined;
+  const classOptions = useMemo(() => classes.map(parentClassOptionFromRow), [classes]);
+  const assignmentOptions = useMemo(() => {
+    if (!assignmentSlot) return [];
+    const matching = classes.filter((row) => classSlot(row) === assignmentSlot);
+    if (matching.length) return matching.map(parentClassOptionFromRow);
+    const catalogSlot = catalogSlotIdFromScheduleSlot(assignmentSlot);
+    if (catalogSlot) {
+      return parentClassOptionsForCatalogSlot(classOptions, CATALOG_SLOT_META[catalogSlot]);
+    }
+    return [];
+  }, [assignmentSlot, classOptions, classes]);
+  const assignmentSlotContext = assignmentSlot ? slotContextFromBadges(badgesBySlot[assignmentSlot]) : { kind: "empty" as const };
+
+  const patchRequestStatus = async (requestId: string, status: RequestStatus) => {
+    if (requestActionBusyId) return;
+    setRequestActionBusyId(requestId);
+    setRequestActionHint(null);
+    try {
+      const res = await fetch("/api/data/enrichment-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: requestId, status }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+      await refreshSchedule();
+      setRequestActionHint(`${status === "Pending" ? "Reopened" : status} request saved.`);
+    } catch (error) {
+      setRequestActionHint(error instanceof Error ? error.message : "Request status could not be saved.");
+    } finally {
+      setRequestActionBusyId(null);
+    }
+  };
+
+  const openAssignmentModal = async (slot: ParentScheduleSlotKey) => {
+    setAssignmentSlot(slot);
+    setAssignmentClass(null);
+    setOpenChoice("firstChoice");
+    setAssignmentError(null);
+    setDetailClass(null);
+    if (classes.length > 0) return;
+    setClassesLoading(true);
+    try {
+      const body = await readDashboardData<ClassesBody>("/api/data/classes");
+      setClasses(body.classes ?? []);
+    } catch (error) {
+      setAssignmentError(error instanceof Error ? error.message : "Classes could not be loaded.");
+    } finally {
+      setClassesLoading(false);
+    }
+  };
+
+  const refreshSchedule = async () => {
+    const payload = await readDashboardData<{ rows?: RowData[]; source?: DataSource }>(
+      cacheKey,
+      undefined,
+      { force: true },
+    );
+    setRows(Array.isArray(payload.rows) ? payload.rows : []);
+    setSource(payload.source ?? "unavailable");
+  };
+
+  const saveAssignment = async () => {
+    if (!assignmentSlot || !assignmentClass?.id || isSavingAssignment) return;
+    setIsSavingAssignment(true);
+    setAssignmentError(null);
+    try {
+      if (replaceableClassId && replaceableClassId === assignmentClass.id) {
+        setAssignmentSlot(null);
+        return;
+      }
+      if (replaceableClassId && replaceableClassId !== assignmentClass.id) {
+        const removeRes = await fetch(
+          `/api/data/classes/${encodeURIComponent(replaceableClassId)}/roster?studentId=${encodeURIComponent(studentId)}`,
+          { method: "DELETE" },
+        );
+        if (!removeRes.ok) throw new Error(await readApiError(removeRes));
+      }
+      const addRes = await fetch(`/api/data/classes/${encodeURIComponent(assignmentClass.id)}/roster`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, status: "Approved" }),
+      });
+      if (!addRes.ok) throw new Error(await readApiError(addRes));
+      await refreshSchedule();
+      setAssignmentSlot(null);
+      setAssignmentClass(null);
+      setOpenChoice(null);
+    } catch (error) {
+      setAssignmentError(error instanceof Error ? error.message : "Schedule assignment could not be saved.");
+    } finally {
+      setIsSavingAssignment(false);
+    }
+  };
 
   const exportSchedule = () => {
     if (!schedule || !slots) return;
@@ -224,14 +429,14 @@ export default function StudentScheduleClient({
   return (
     <div className="relative flex min-h-full w-full flex-col gap-6 px-4 py-6 font-sans md:px-8 md:py-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#667085]">
+        <div className="min-w-0 flex flex-col gap-4">
+          <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>
             Student schedule
           </p>
-          <h1 className="mt-1 text-[30px] font-bold leading-[1.08] text-[#272932] md:text-[34px]">
+          <h1 className={`mt-1 ${DASHBOARD_PAGE_TITLE_CLASS}`}>
             {schedule?.name ? `${schedule.name}'s schedule` : "Student schedule"}
           </h1>
-          <p className="mt-2 max-w-[720px] text-[16px] leading-[1.45] text-[#666d80]">
+          <p className={`mt-2 max-w-[720px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
             Admin view for the selected student schedule: core assignments, enrichment approvals, pending choices, and open blocks.
           </p>
           {hint ? <p className="mt-2 text-sm text-[#7a5b00]">{hint}</p> : null}
@@ -241,14 +446,14 @@ export default function StudentScheduleClient({
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/dashboard/students/${encodeURIComponent(studentId)}`}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
+            className={`inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#344054] shadow-sm hover:bg-[#fafafa]`}
           >
             <UserRound className="size-4" aria-hidden strokeWidth={2} />
             Profile
           </Link>
           <Link
             href={`/dashboard/students/${encodeURIComponent(studentId)}/roster`}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 text-[13px] font-semibold text-[#344054] shadow-sm hover:bg-[#fafafa]"
+            className={`inline-flex items-center gap-2 rounded-[8px] border border-[#dfe3ea] bg-white px-3 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#344054] shadow-sm hover:bg-[#fafafa]`}
           >
             <ListChecks className="size-4" aria-hidden strokeWidth={2} />
             Roster
@@ -257,7 +462,7 @@ export default function StudentScheduleClient({
             type="button"
             onClick={exportSchedule}
             disabled={!schedule}
-            className="inline-flex items-center gap-2 rounded-[8px] bg-[#14c1d5] px-3 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#11adbf] disabled:cursor-not-allowed disabled:bg-[#d6eef1] disabled:text-[#78aeb5]"
+            className={`inline-flex items-center gap-2 rounded-[8px] bg-[#14c1d5] px-3 py-2 ${DASHBOARD_BUTTON_TEXT_CLASS} text-white shadow-sm transition hover:bg-[#11adbf] disabled:cursor-not-allowed disabled:bg-[#d6eef1] disabled:text-[#78aeb5]`}
           >
             <Download className="size-4" aria-hidden strokeWidth={2} />
             Download CSV
@@ -281,16 +486,50 @@ export default function StudentScheduleClient({
             <MetricCard icon={<CalendarDays className="size-5" aria-hidden strokeWidth={2} />} label="Open enrichment slots" value={summary.openSlots} />
           </div>
 
+          {stateMeta ? (
+            <section className={`rounded-[8px] border px-4 py-3 ${stateMeta.classes}`}>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <span className="mt-0.5 shrink-0">{stateMeta.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold leading-snug">{stateMeta.label}</p>
+                    <p className="mt-1 text-[13px] leading-snug opacity-90">{stateMeta.detail}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[12px] font-semibold">
+                  {schedule.hasConflicts ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#d80509]/30 bg-white/70 px-2.5 py-1 text-[#8c1f1f]">
+                      <AlertTriangle className="size-3.5" aria-hidden strokeWidth={2} />
+                      Conflict
+                    </span>
+                  ) : null}
+                  {(schedule.incompleteBlocks ?? 0) > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#cfa500]/35 bg-white/70 px-2.5 py-1 text-[#7a5b00]">
+                      {schedule.incompleteBlocks} open block{schedule.incompleteBlocks === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                  {!schedule.hasConflicts && (schedule.incompleteBlocks ?? 0) === 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#004d08]/25 bg-white/70 px-2.5 py-1 text-[#004d08]">
+                      <CheckCircle2 className="size-3.5" aria-hidden strokeWidth={2} />
+                      Complete
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              {requestActionHint ? <p className="mt-2 text-[12px] font-semibold">{requestActionHint}</p> : null}
+            </section>
+          ) : null}
+
           <section className={`${DASHBOARD_PANEL_CLASS} p-4 md:p-5`}>
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-[20px] font-bold leading-tight text-[#272932]">Schedule grid</h2>
-                  <span className={`rounded-full border px-3 py-1 text-[12px] font-semibold ${parentScheduleFinalityClasses(finality.state)}`}>
+                  <h2 className={DASHBOARD_PANEL_TITLE_CLASS}>Schedule grid</h2>
+                  <span className={`rounded-full border px-3 py-1 ${DASHBOARD_CONTROL_TEXT_CLASS} font-semibold ${parentScheduleFinalityClasses(finality.state)}`}>
                     {finality.label}
                   </span>
                 </div>
-                <p className="mt-1 max-w-[720px] text-[14px] leading-[1.45] text-[#666d80]">
+                <p className={`mt-1 max-w-[720px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
                   {finality.description}
                 </p>
               </div>
@@ -302,50 +541,145 @@ export default function StudentScheduleClient({
                 <LegendItem tone="draft" label="Draft" />
               </div>
             </div>
-            <ParentScheduleGrid badgesBySlot={badgesBySlot} className="border-[#eef0f3] shadow-none" />
+            <ParentScheduleGrid
+              badgesBySlot={badgesBySlot}
+              onSlotClick={(slot) => void openAssignmentModal(slot)}
+              clickableSlots={SELECTABLE_SLOTS}
+              className="border-[#eef0f3] shadow-none"
+            />
           </section>
 
           <section className={`${DASHBOARD_PANEL_CLASS} overflow-hidden`}>
             <div className="border-b border-[#eef0f3] px-4 py-4 md:px-5">
-              <h2 className="text-[18px] font-bold leading-tight text-[#272932]">Block details</h2>
-              <p className="mt-1 text-[14px] text-[#666d80]">
-                One row per real schedule slot. Open rows are available for enrichment placement.
+              <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>Assigned blocks</h2>
+              <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
+                Each row shows a real day and block with an assigned class.
               </p>
             </div>
-            <div className="divide-y divide-[#eef0f3]">
-              {SLOT_DETAILS.map((slot) => (
-                <div key={slot.slot} className="grid gap-3 px-4 py-4 md:grid-cols-[120px_130px_150px_minmax(0,1fr)] md:px-5">
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Day</p>
-                    <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.day}</p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Block</p>
-                    <p className="mt-1 text-[14px] font-semibold text-[#272932]">{slot.block}</p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Time</p>
-                    <p className="mt-1 text-[14px] text-[#344054]">{slot.time}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#818898]">Classes</p>
-                    <div className="mt-2">
-                      <SlotChoiceList badges={slots?.[slot.slot] ?? []} />
+            {assignedSlotDetails.length > 0 ? (
+              <div className="divide-y divide-[#eef0f3]">
+                {assignedSlotDetails.map((slot) => (
+                  <div key={slot.slot} className="grid gap-3 px-4 py-4 md:grid-cols-[120px_130px_150px_minmax(0,1fr)] md:px-5">
+                    <div>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Day</p>
+                      <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#272932]`}>{slot.day}</p>
+                    </div>
+                    <div>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Block</p>
+                      <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} font-semibold text-[#272932]`}>{slot.block}</p>
+                    </div>
+                    <div>
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Time</p>
+                      <p className={`mt-1 ${DASHBOARD_BODY_TEXT_CLASS} text-[#344054]`}>{slot.time}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className={DASHBOARD_TABLE_HEAD_TEXT_CLASS}>Classes</p>
+                      <div className="mt-2">
+                        <SlotChoiceList
+                          badges={slot.badges}
+                          slot={slot.slot}
+                          onManage={() => void openAssignmentModal(slot.slot)}
+                        />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {slot.badges
+                            .filter((badge) => badge.requestId)
+                            .map((badge) => (
+                              <div key={badge.requestId} className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] font-semibold text-[#667085]">{badge.label}</span>
+                                {(["Approved", "Rejected", "Waitlisted", "Pending"] as RequestStatus[]).map((status) => (
+                                  <button
+                                    key={`${badge.requestId}-${status}`}
+                                    type="button"
+                                    disabled={requestActionBusyId === badge.requestId}
+                                    onClick={() => void patchRequestStatus(badge.requestId as string, status)}
+                                    className="inline-flex items-center gap-1 rounded-[6px] border border-[#dfe3ea] bg-white px-2 py-1 text-[11px] font-semibold text-[#344054] hover:bg-[#fafafa] disabled:cursor-wait disabled:opacity-60"
+                                  >
+                                    {status === "Approved" ? <CheckCircle2 className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Rejected" ? <XCircle className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Waitlisted" ? <Clock className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Pending" ? <RotateCcw className="size-3" aria-hidden strokeWidth={2} /> : null}
+                                    {status === "Pending" ? "Reopen" : status}
+                                  </button>
+                                ))}
+                              </div>
+                            ))}
+                          {slot.badges.some((badge) => badge.tone === "pending" && !badge.requestId) ? (
+                            <Link
+                              href={`/dashboard/classes/requests?studentId=${encodeURIComponent(studentId)}`}
+                              className="text-[12px] font-semibold text-[#0b7180] hover:underline"
+                            >
+                              Review pending request
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className={`px-4 py-6 md:px-5 ${DASHBOARD_BODY_TEXT_CLASS} text-[#667085]`}>
+                No assigned classes yet. Use the schedule grid above to add a class to a specific day and block.
+              </div>
+            )}
           </section>
         </>
       ) : (
         <div className={`${DASHBOARD_PANEL_CLASS} p-8 text-center`}>
           <p className="text-[15px] font-semibold text-[#272932]">No schedule found for this student.</p>
-          <p className="mt-2 text-[14px] text-[#666d80]">
+          <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#666d80]`}>
             The route is valid, but the student has no schedule rows in the current data source.
           </p>
         </div>
       )}
+      {assignmentSlot && assignmentSlotDetail ? (
+        <ParentClassSelectionDrawer
+          title={slotOverlayTitle(assignmentSlotDetail)}
+          time={assignmentSlotDetail.time}
+          description="Choose a class to add directly to this student's approved schedule."
+          emptySlotMessage="This slot is open. The selected class will be added as approved."
+          changeSlotMessage="This will replace"
+          slotContext={assignmentSlotContext}
+          firstChoice={assignmentClass}
+          secondChoice={null}
+          firstChoiceOptions={assignmentOptions}
+          secondChoiceOptions={[]}
+          openChoice={openChoice}
+          onToggleChoice={(kind) => setOpenChoice((open) => (open === kind ? null : kind))}
+          onSelectChoice={(cls) => {
+            setAssignmentClass(cls);
+            setAssignmentError(null);
+            setOpenChoice(null);
+          }}
+          onClose={() => {
+            setAssignmentSlot(null);
+            setAssignmentClass(null);
+            setOpenChoice(null);
+            setDetailClass(null);
+          }}
+          onOpenClassDetails={(option, scheduleDisplay) => setDetailClass({ option, scheduleDisplay })}
+          onSubmit={() => void saveAssignment()}
+          firstChoiceLabel="Choose class"
+          hideSecondChoice
+          submitDisabled={!assignmentClass || isSavingAssignment}
+          submitLabel="Add approved class"
+          submitting={isSavingAssignment}
+          optionsLoading={classesLoading}
+        />
+      ) : null}
+      {assignmentError && assignmentSlot ? (
+        <div role="alert" className="fixed bottom-4 left-1/2 z-[210] w-[calc(100vw-32px)] max-w-[620px] -translate-x-1/2 rounded-[8px] border border-[#f6c8c8] bg-[#fff1f1] px-4 py-3 text-sm text-[#8c1f1f] shadow-lg">
+          {assignmentError}
+        </div>
+      ) : null}
+      {detailClass ? (
+        <ParentClassDetailsDrawer
+          option={detailClass.option}
+          scheduleDisplay={detailClass.scheduleDisplay ?? assignmentScheduleDisplay}
+          statusLabel={detailClass.option.program === "core" ? "School assigned" : detailClass.option.status}
+          onClose={() => setDetailClass(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -2,23 +2,22 @@
 
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { ProgramTrack, SchoolClassRow } from "@/lib/data/types";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Search, X } from "lucide-react";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { useClassesDataCache } from "@/components/classes-data-cache";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, mutateDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
 import { getVisibleDashboardPages } from "@/lib/dashboard-pagination";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
-const imgWeuiMoreOutlined = "/images/icon-more.svg";
 const imgFilterFunnel = "/images/icon-filter-funnel.svg";
 const imgCheckRounded = "/images/icon-check-rounded.svg";
 
@@ -58,11 +57,14 @@ const SORT_LABELS: Record<SortKey, string> = {
   status: "Class status",
 };
 
-type VisibilityFilter = "all" | "active" | "full";
+type VisibilityFilter = "all" | "parentVisible" | "hidden" | "inactive" | "archived" | "full";
 
 const VISIBILITY_FILTER_LABELS: Record<VisibilityFilter, string> = {
   all: "All Classes",
-  active: "Active Classes",
+  parentVisible: "Parent-visible",
+  hidden: "Parent-hidden",
+  inactive: "Inactive",
+  archived: "Archived",
   full: "Full Classes",
 };
 
@@ -76,14 +78,6 @@ type ClassImportDraft = {
   description?: string;
   level?: string;
   block?: string;
-  plannerSubject?: string;
-  plannerSummary?: string;
-  teacherGuideObjectives?: string;
-  teacherGuideInformation?: string;
-  teacherGuideSummary?: string;
-  studentGuideObjectives?: string;
-  studentGuideInformation?: string;
-  studentGuideSummary?: string;
 };
 
 function dash(text: string): string {
@@ -103,17 +97,6 @@ function capacityFromImportValue(value: string): number {
   const raw = seatsMatch ? seatsMatch[1] : trimmed;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
-}
-
-function computeAnchoredMenuPosition(triggerEl: HTMLElement) {
-  const r = triggerEl.getBoundingClientRect();
-  const MENU_W = 160;
-  const MENU_H = 132;
-  let left = Math.max(8, r.right - MENU_W);
-  if (left + MENU_W > window.innerWidth - 8) left = Math.max(8, window.innerWidth - MENU_W - 8);
-  let top = r.bottom + 4;
-  if (top + MENU_H > window.innerHeight - 8) top = Math.max(8, r.top - MENU_H - 4);
-  return { top, left };
 }
 
 function parseCsv(text: string): string[][] {
@@ -192,14 +175,6 @@ function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassIm
     const description = firstCsvValue(row, headers, ["Description"]);
     const level = firstCsvValue(row, headers, ["Level"]);
     const block = firstCsvValue(row, headers, ["Block"]);
-    const plannerSubject = firstCsvValue(row, headers, ["Planner Subject", "Daily Planner Subject"]);
-    const plannerSummary = firstCsvValue(row, headers, ["Planner Summary", "Daily Planner Summary"]);
-    const teacherGuideObjectives = firstCsvValue(row, headers, ["Teacher Guide Objectives"]);
-    const teacherGuideInformation = firstCsvValue(row, headers, ["Teacher Guide Information"]);
-    const teacherGuideSummary = firstCsvValue(row, headers, ["Teacher Guide Summary"]);
-    const studentGuideObjectives = firstCsvValue(row, headers, ["Student Guide Objectives"]);
-    const studentGuideInformation = firstCsvValue(row, headers, ["Student Guide Information"]);
-    const studentGuideSummary = firstCsvValue(row, headers, ["Student Guide Summary"]);
     return {
       name,
       teacher,
@@ -210,14 +185,6 @@ function parseClassImportCsv(text: string, fallbackTrack: ProgramTrack): ClassIm
       description,
       level,
       block,
-      plannerSubject,
-      plannerSummary,
-      teacherGuideObjectives,
-      teacherGuideInformation,
-      teacherGuideSummary,
-      studentGuideObjectives,
-      studentGuideInformation,
-      studentGuideSummary,
     };
   }).filter((row) => row.name || row.teacher || row.schedule || row.level || row.block);
 }
@@ -244,10 +211,9 @@ export default function ClassesPageClient({
   const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [rowMenu, setRowMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [detailClass, setDetailClass] = useState<SchoolClassRow | null>(null);
-  const [mounted, setMounted] = useState(false);
   const [importing, setImporting] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
@@ -256,11 +222,7 @@ export default function ClassesPageClient({
 
   const sortRef = useRef<HTMLDivElement | null>(null);
   const filterRef = useRef<HTMLDivElement | null>(null);
-  const rowMenuPanelRef = useRef<HTMLDivElement | null>(null);
-  const rowMenuTriggerRef = useRef<HTMLElement | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (initialClasses.length > 0 && !classesCache.classes.data) {
@@ -290,8 +252,14 @@ export default function ClassesPageClient({
     const q = search.trim().toLowerCase();
     let rows = classes.filter((c) => c.program === trackTab);
 
-    if (visibilityFilter === "active") {
-      rows = rows.filter((c) => c.status === "Active");
+    if (visibilityFilter === "parentVisible") {
+      rows = rows.filter((c) => c.isActive && !c.archivedAt);
+    } else if (visibilityFilter === "hidden") {
+      rows = rows.filter((c) => !c.isActive || Boolean(c.archivedAt));
+    } else if (visibilityFilter === "inactive") {
+      rows = rows.filter((c) => !c.isActive && !c.archivedAt);
+    } else if (visibilityFilter === "archived") {
+      rows = rows.filter((c) => Boolean(c.archivedAt));
     } else if (visibilityFilter === "full") {
       rows = rows.filter((c) => c.status === "Full");
     }
@@ -349,33 +317,15 @@ export default function ClassesPageClient({
   useClickOutside(filterRef as React.RefObject<HTMLElement | null>, () => setFilterOpen(false), filterOpen);
   useClickOutside(sortRef as React.RefObject<HTMLElement | null>, () => setSortOpen(false), sortOpen);
 
-  useLayoutEffect(() => {
-    if (rowMenu === null) {
-      rowMenuTriggerRef.current = null;
-      return;
+  useEffect(() => {
+    function closeRowMenu(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-dashboard-row-actions]")) return;
+      setRowMenuId(null);
     }
-    rowMenuTriggerRef.current =
-      (document.querySelector(`[data-classes-row-trigger="${rowMenu.id}"]`) as HTMLElement | null) ?? null;
-
-    const onScrollResize = () => {
-      const t = rowMenuTriggerRef.current;
-      if (!t) return;
-      const pos = computeAnchoredMenuPosition(t);
-      setRowMenu((prev) => (prev ? { ...prev, ...pos } : null));
-    };
-    window.addEventListener("scroll", onScrollResize, true);
-    window.addEventListener("resize", onScrollResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollResize, true);
-      window.removeEventListener("resize", onScrollResize);
-    };
-  }, [rowMenu?.id]);
-
-  useClickOutside(
-    [rowMenuTriggerRef, rowMenuPanelRef as React.RefObject<HTMLElement | null>],
-    () => setRowMenu(null),
-    rowMenu !== null,
-  );
+    document.addEventListener("mousedown", closeRowMenu);
+    return () => document.removeEventListener("mousedown", closeRowMenu);
+  }, []);
 
   const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -394,7 +344,7 @@ export default function ClassesPageClient({
       : visibleRows;
     downloadCsv(
       "classes-directory.csv",
-      ["Class", "Teacher", "Level", "Block", "Schedule", "Seats", "Status", "Track", "Pending", "Waitlist"],
+      ["Class", "Teacher", "Level", "Block", "Schedule", "Seats", "Status", "Visibility", "Track", "Pending", "Waitlist"],
       selected.map((row) => [
         row.name,
         row.teacher,
@@ -403,6 +353,7 @@ export default function ClassesPageClient({
         row.schedule,
         row.students,
         row.status,
+        row.isActive && !row.archivedAt ? "Parent-visible" : "Parent-hidden",
         row.program,
         row.pendingCount,
         row.waitlistCount,
@@ -453,14 +404,7 @@ export default function ClassesPageClient({
             description: draft.description?.trim(),
             level: draft.level?.trim(),
             block: draft.block?.trim(),
-            plannerSubject: draft.plannerSubject?.trim(),
-            plannerSummary: draft.plannerSummary?.trim(),
-            teacherGuideObjectives: draft.teacherGuideObjectives?.trim(),
-            teacherGuideInformation: draft.teacherGuideInformation?.trim(),
-            teacherGuideSummary: draft.teacherGuideSummary?.trim(),
-            studentGuideObjectives: draft.studentGuideObjectives?.trim(),
-            studentGuideInformation: draft.studentGuideInformation?.trim(),
-            studentGuideSummary: draft.studentGuideSummary?.trim(),
+            scheduleDays: draft.schedule ? undefined : ["M", "T", "W", "TH", "F"],
           }),
         });
         if (res.ok) {
@@ -536,6 +480,7 @@ export default function ClassesPageClient({
             description: draft.description?.trim(),
             level: draft.level?.trim(),
             block: draft.block?.trim(),
+            scheduleDays: draft.schedule ? undefined : ["M", "T", "W", "TH", "F"],
           }),
         });
         if (res.ok) {
@@ -582,24 +527,54 @@ export default function ClassesPageClient({
     });
   }, [trackTab, classes]);
 
-  const deleteClassById = async (id: string) => {
+  const archiveClassById = async (id: string) => {
     const removed = classes.find((c) => c.id === id);
-    const nextClasses = classes.filter((c) => c.id !== id);
+    const archivedAt = new Date().toISOString();
+    const nextClasses = classes.map((c) => c.id === id ? { ...c, isActive: false, archivedAt } : c);
     setClasses(nextClasses);
     classesCache.setClassesData(nextClasses);
     setPendingDeleteId(null);
-    setRowMenu(null);
-    const res = await fetch(`/api/data/classes?id=${encodeURIComponent(String(id))}`, {
-      method: "DELETE",
+    setRowMenuId(null);
+    const res = await fetch("/api/data/classes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, lifecycle: "archive" }),
     });
     if (!res.ok && removed) {
-      const restored = [...nextClasses, removed].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      const restored = classes;
       setClasses(restored);
       classesCache.setClassesData(restored);
-      setSyncHint(`Could not delete (${await readApiError(res)}). Row restored here.`);
+      setSyncHint(`Could not archive (${await readApiError(res)}). Row restored here.`);
       return;
     }
     invalidateDashboardData(["/api/data/class-options", "/api/dashboard-presentation"]);
+    void classesCache.loadClasses(true);
+  };
+
+  const setClassLifecycleById = async (id: string, lifecycle: "activate" | "deactivate") => {
+    const previous = classes;
+    const nextClasses = classes.map((c) => c.id === id ? { ...c, isActive: lifecycle === "activate", archivedAt: undefined } : c);
+    setClasses(nextClasses);
+    classesCache.setClassesData(nextClasses);
+    setRowMenuId(null);
+    const res = await fetch("/api/data/classes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, lifecycle }),
+    });
+    if (!res.ok) {
+      setClasses(previous);
+      classesCache.setClassesData(previous);
+      setSyncHint(`Could not ${lifecycle} class (${await readApiError(res)}).`);
+      return;
+    }
+    const body = (await res.json()) as { class?: SchoolClassRow };
+    if (body.class) {
+      const refreshed = previous.map((c) => c.id === id ? body.class! : c);
+      setClasses(refreshed);
+      classesCache.setClassesData(refreshed);
+    }
+    invalidateDashboardData(["/api/data/classes", "/api/data/class-options", "/api/dashboard-presentation"]);
     void classesCache.loadClasses(true);
   };
 
@@ -613,13 +588,21 @@ export default function ClassesPageClient({
       body: JSON.stringify({
         name,
         teacher: row.teacher,
-        students: row.students,
+        capacity: row.capacity,
         schedule: row.schedule,
+        scheduleDays: row.scheduleDays,
         status: row.status,
         track: row.program,
+        description: row.description,
+        level: row.level,
+        block: row.block,
+        location: row.location,
+        room: row.room,
+        minAgeYears: row.minAgeYears,
+        maxAgeYears: row.maxAgeYears,
       }),
     });
-    setRowMenu(null);
+    setRowMenuId(null);
     if (res.ok) {
       const body = (await res.json()) as { class: SchoolClassRow };
       const nextClasses = [...classes, body.class];
@@ -632,9 +615,9 @@ export default function ClassesPageClient({
     setSyncHint(`Could not duplicate class (${await readApiError(res)}).`);
   };
 
-  const goToClassDetail = (row: SchoolClassRow) => {
+  const goToClassDetail = (row: SchoolClassRow, options?: { edit?: boolean }) => {
     const segment = row.program === "enrichment" ? "enrichment" : "core";
-    const href = `/dashboard/classes/${segment}/${row.id}`;
+    const href = `/dashboard/classes/${segment}/${row.id}${options?.edit ? "?edit=1" : ""}`;
     mutateDashboardData<{ classes: SchoolClassRow[]; source: DataSource }>("/api/data/classes", () => ({
       classes,
       source: dataSource,
@@ -678,11 +661,11 @@ export default function ClassesPageClient({
           </p>
         )}
 
-        <div className="flex w-full max-w-full overflow-hidden rounded-tl-[8px] rounded-tr-[8px] sm:inline-flex sm:w-auto">
+        <div className="flex w-full max-w-full items-end gap-2 border-b border-[#f0f0f0] sm:w-auto sm:self-start">
           <button
             type="button"
-            className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
-              trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
+            className={`flex-1 rounded-t-[8px] px-6 py-[12px] text-center text-[14px] leading-[1.25] transition-colors sm:flex-none sm:px-[50px] ${
+              trackTab === "core" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[rgba(210,241,245,0.3)] text-[#0d0d12] hover:bg-[rgba(210,241,245,0.5)]"
             }`}
             onClick={() => changeTrack("core")}
           >
@@ -690,8 +673,8 @@ export default function ClassesPageClient({
           </button>
           <button
             type="button"
-            className={`flex-1 px-6 pb-[18px] pt-[6px] text-[14px] leading-[1.25] sm:flex-none sm:px-[50px] sm:pb-[23px] sm:pt-[4px] ${
-              trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[#d2f1f54d] text-[#0d0d12]"
+            className={`flex-1 rounded-t-[8px] px-6 py-[12px] text-center text-[14px] leading-[1.25] transition-colors sm:flex-none sm:px-[50px] ${
+              trackTab === "enrichment" ? "bg-[#d2f1f5] text-[#0d0d12]" : "bg-[rgba(210,241,245,0.3)] text-[#0d0d12] hover:bg-[rgba(210,241,245,0.5)]"
             }`}
             onClick={() => changeTrack("enrichment")}
           >
@@ -699,7 +682,7 @@ export default function ClassesPageClient({
           </button>
         </div>
 
-        <div className="relative -mt-[6px] min-h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] shadow-sm sm:px-[18px]">
+        <div className="relative min-h-[758px] rounded-[18px] border border-[#f0f0f0] bg-white px-3 py-[16px] shadow-sm sm:px-[18px]">
           <div className="mb-[16px] flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
             <div className="flex w-full min-w-0 items-center gap-[6px] rounded-[8px] bg-[#fafafa] px-3 py-2 md:w-auto md:bg-transparent md:px-0 md:py-0">
               <div className="relative size-[14px]">
@@ -725,7 +708,7 @@ export default function ClassesPageClient({
                   onClick={() => {
                     setFilterOpen((open) => !open);
                     setSortOpen(false);
-                    setRowMenu(null);
+                    setRowMenuId(null);
                   }}
                   aria-expanded={filterOpen}
                 >
@@ -760,7 +743,7 @@ export default function ClassesPageClient({
                   className="flex items-center gap-[4px] rounded-[8px] bg-[#fafafa] p-[8px] text-[12px] text-[#0d0d12]"
                   onClick={() => {
                     setSortOpen((o) => !o);
-                    setRowMenu(null);
+                    setRowMenuId(null);
                   }}
                   aria-expanded={sortOpen}
                 >
@@ -802,7 +785,7 @@ export default function ClassesPageClient({
 
               <button
                 type="button"
-                className="inline-flex h-[42px] min-w-0 flex-1 items-center justify-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[14px] py-[8px] font-inter-tight text-[14px] font-medium leading-[1.5] text-white sm:flex-none sm:text-[16px]"
+                className="inline-flex h-[42px] min-w-0 flex-1 items-center justify-center gap-[8px] rounded-[6px] bg-[#14c1d5] px-[14px] py-[8px] font-sans text-[14px] font-medium leading-[1.5] text-white sm:flex-none sm:text-[16px]"
                 onClick={() => {
                   const href = `/dashboard/classes/new?track=${trackTab}`;
                   startNavigation(href);
@@ -826,45 +809,45 @@ export default function ClassesPageClient({
           </DashboardBulkSelectionBar>
 
           <div className="w-full overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]">
-            <table className="min-w-[1160px] table-fixed border-collapse text-left">
+            <table className="min-w-[1240px] table-fixed border-separate border-spacing-0 text-left">
               <colgroup>
-                <col className="w-[300px]" />
-                <col className="w-[180px]" />
-                <col className="w-[130px]" />
-                <col className="w-[140px]" />
-                <col className="w-[210px]" />
-                <col className="w-[72px]" />
-                <col className="w-[76px]" />
-                <col className="w-[92px]" />
-                <col className="w-[52px]" />
+                <col className="w-[326px]" />
+                <col className="w-[188px]" />
+                <col className="w-[138px]" />
+                <col className="w-[150px]" />
+                <col className="w-[230px]" />
+                <col className="w-[84px]" />
+                <col className="w-[88px]" />
+                <col className="w-[104px]" />
+                <col className="w-[56px]" />
               </colgroup>
               <thead>
-                <tr className="border-b border-[#ebecef]">
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                <tr className="border-b border-[#ebecef] bg-[#fbfcfd]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888] first:rounded-tl-[10px]">
                     Class Name
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Teacher
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Level
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Block
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Schedule
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Pending
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Waitlist
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888]">
                     Seats
                   </th>
-                  <th className="whitespace-nowrap px-3 py-3 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#818898]">
+                  <th className="whitespace-nowrap border-b border-[#ebecef] px-4 py-3.5 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.04em] text-[#727888] last:rounded-tr-[10px]">
                     Action
                   </th>
                 </tr>
@@ -873,7 +856,7 @@ export default function ClassesPageClient({
                 {pageRows.map((cls, idx) => (
                   <tr
                     key={cls.id}
-                    className={`h-[68px] cursor-pointer border-b border-[#f0f0f0] transition-colors hover:bg-[#f6fbfc] ${
+                    className={`h-[82px] cursor-pointer transition-colors hover:bg-[#f6fbfc] ${
                       idx % 2 === 1 ? "bg-[rgba(250,250,250,0.4)]" : ""
                     }`}
                     onClick={() => goToClassDetail(cls)}
@@ -886,65 +869,101 @@ export default function ClassesPageClient({
                     tabIndex={0}
                     role="link"
                   >
-                    <td className="px-3 py-3 align-middle font-sans text-[14px] font-medium text-[#272932]">
-                      <div className="flex min-w-0 items-center gap-3">
+                    <td className="border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] font-medium text-[#272932]">
+                      <div className="flex min-w-0 items-center gap-3.5">
                         <span className="flex size-[14px] shrink-0 items-center justify-center rounded-[4px] border border-[#14c1d5] bg-[#d2f1f5] opacity-50">
                           {selectedIds.has(cls.id) ? (
                             <img src={imgCheckRounded} alt="" className="size-[12px]" />
                           ) : null}
                         </span>
-                        <span className="line-clamp-2 min-w-0 leading-[1.25]" title={cls.name}>{cls.name}</span>
+                        <span className="line-clamp-2 min-w-0 leading-[1.35]" title={cls.name}>{cls.name}</span>
+                        {!cls.isActive || cls.archivedAt ? (
+                          <span className="shrink-0 rounded-full border border-[#cfa500]/40 bg-[#fff8e6] px-2 py-0.5 text-[11px] font-semibold text-[#7a5b00]">
+                            {cls.archivedAt ? "Archived" : "Inactive"}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
-                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={cls.teacher}>
+                    <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={cls.teacher}>
                       {cls.teacher}
                     </td>
-                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={dash(cls.level)}>
+                    <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={dash(cls.level)}>
                       {dash(cls.level)}
                     </td>
-                    <td className="truncate px-3 py-3 align-middle font-sans text-[14px] leading-[1.35] text-[#272932]" title={dash(cls.block)}>
+                    <td className="truncate border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] leading-[1.45] text-[#3f4350]" title={dash(cls.block)}>
                       {dash(cls.block)}
                     </td>
-                    <td className="px-3 py-3 align-middle font-sans text-[14px] text-[#272932]">
-                      <div className="flex min-w-0 flex-col gap-1">
-                        <span className="line-clamp-2 leading-[1.25]" title={cls.schedule}>{cls.schedule}</span>
-                        <span className="truncate text-[12px] leading-[1.2] text-[#818898]" title={cls.location || "Room not assigned"}>
+                    <td className="border-b border-[#f0f0f0] px-4 py-4 align-middle font-sans text-[14px] text-[#3f4350]">
+                      <div className="flex min-w-0 flex-col gap-1.5">
+                        <span className="line-clamp-2 leading-[1.35]" title={cls.schedule}>{cls.schedule}</span>
+                        <span className="truncate text-[12px] leading-[1.3] text-[#818898]" title={cls.location || "Room not assigned"}>
                           {cls.location || "Room not assigned"}
                         </span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.35] tabular-nums text-[#272932]">
+                    <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.45] tabular-nums text-[#3f4350]">
                       {cls.pendingCount}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.35] tabular-nums text-[#272932]">
+                    <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.45] tabular-nums text-[#3f4350]">
                       {cls.waitlistCount}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center align-middle font-sans text-[14px] leading-[1.2] tabular-nums text-[#272932]">
-                      <div className="flex flex-col items-center gap-1">
+                    <td className="whitespace-nowrap border-b border-[#f0f0f0] px-4 py-4 text-center align-middle font-sans text-[14px] leading-[1.3] tabular-nums text-[#3f4350]">
+                      <div className="flex flex-col items-center gap-1.5">
                         <span>{cls.students}</span>
+                        <span className="max-w-[96px] truncate text-[12px] leading-[1.25] text-[#818898]">
+                          {cls.isActive && !cls.archivedAt ? "Visible" : "Hidden"}
+                        </span>
                         {trackTab === "enrichment" && (
-                          <span className="max-w-[86px] truncate text-[12px] italic leading-[1.2] text-[#818898]">
+                          <span className="max-w-[96px] truncate text-[12px] italic leading-[1.25] text-[#818898]">
                             {cls.pendingCount > 0 ? `(${cls.pendingCount} pending)` : "No pending requests"}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="relative px-3 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        data-classes-row-trigger={cls.id}
-                        className="text-[#8b919f] hover:text-[#0d0d12]"
-                        aria-expanded={rowMenu?.id === cls.id}
-                        aria-label={`Actions for ${cls.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                    <td className="relative border-b border-[#f0f0f0] px-4 py-4 align-middle text-center" onClick={(e) => e.stopPropagation()}>
+                      <DashboardRowActionsMenu
+                        label={`Actions for ${cls.name}`}
+                        isOpen={rowMenuId === cls.id}
+                        onToggle={() => {
                           setSortOpen(false);
-                          if (rowMenu?.id === cls.id) setRowMenu(null);
-                          else setRowMenu({ id: cls.id, ...computeAnchoredMenuPosition(e.currentTarget) });
+                          setRowMenuId(rowMenuId === cls.id ? null : cls.id);
                         }}
-                      >
-                        <img src={imgWeuiMoreOutlined} alt="" className="inline-block size-[24px]" />
-                      </button>
+                        onClose={() => setRowMenuId(null)}
+                        actions={[
+                          {
+                            label: "View Class",
+                            onClick: () => {
+                              setDetailClass(cls);
+                            },
+                          },
+                          {
+                            label: "Edit Class",
+                            onClick: () => {
+                              goToClassDetail(cls, { edit: true });
+                            },
+                          },
+                          {
+                            label: "Duplicate",
+                            icon: <Copy className="size-5" aria-hidden strokeWidth={1.8} />,
+                            onClick: () => {
+                              void duplicateClassById(cls.id);
+                            },
+                          },
+                          {
+                            label: cls.isActive && !cls.archivedAt ? "Deactivate" : "Activate",
+                            onClick: () => {
+                              void setClassLifecycleById(cls.id, cls.isActive && !cls.archivedAt ? "deactivate" : "activate");
+                            },
+                          },
+                          {
+                            label: "Remove",
+                            tone: "danger",
+                            onClick: () => {
+                              setPendingDeleteId(cls.id);
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -1008,14 +1027,14 @@ export default function ClassesPageClient({
             <button
               type="button"
               disabled={importing}
-              className="inline-flex items-center gap-2 rounded-[6px] bg-[#fafafa] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#0d0d12] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] hover:bg-[#f0f0f0] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-[6px] bg-[#fafafa] px-[16px] py-[8px] font-sans text-[16px] font-medium tracking-[0.32px] text-[#0d0d12] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)] hover:bg-[#f0f0f0] disabled:opacity-50"
               onClick={() => setIsImportOpen(true)}
             >
               {importing ? "Importing..." : "Bulk import CSV"}
             </button>
             <button
               type="button"
-              className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-inter-tight text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
+              className="rounded-[6px] bg-[#d2f1f5] px-[16px] py-[8px] font-sans text-[16px] font-medium tracking-[0.32px] text-[#14c1d5] shadow-[0px_0px_4.8px_rgba(0,0,0,0.12)]"
               onClick={exportClasses}
             >
               Download CSV
@@ -1023,33 +1042,6 @@ export default function ClassesPageClient({
           </div>
         </div>
       </div>
-
-      {mounted &&
-        rowMenu !== null &&
-        document.body &&
-        createPortal(
-          <div
-            ref={rowMenuPanelRef}
-            className="fixed z-[300] w-[160px] rounded-lg border border-[#ebecef] bg-white py-1 shadow-md"
-            role="menu"
-            style={{ top: rowMenu.top, left: rowMenu.left }}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="w-full px-3 py-2 text-left font-sans text-[13px] text-[#0d0d12] hover:bg-[#fafafa]"
-              onClick={(e) => {
-                e.stopPropagation();
-                const row = classes.find((c) => c.id === rowMenu.id);
-                if (row) setDetailClass(row);
-                setRowMenu(null);
-              }}
-            >
-              View Class
-            </button>
-          </div>,
-          document.body,
-        )}
 
       {detailClass !== null && (
         <div
@@ -1061,7 +1053,7 @@ export default function ClassesPageClient({
             if (event.target === event.currentTarget) setDetailClass(null);
           }}
         >
-          <div className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
+          <div className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-[780px] flex-col overflow-hidden rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-lg">
             <button
               type="button"
               className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
@@ -1074,17 +1066,33 @@ export default function ClassesPageClient({
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#14c1d5]">
                 {detailClass.program === "core" ? "Core Class" : "Enrichment Class"}
               </p>
-              <h2 id="class-detail-title" className="mt-1 text-[24px] font-bold leading-[1.15] text-[#272932]">
+              <h2 id="class-detail-title" className={`mt-1 ${DASHBOARD_PANEL_TITLE_CLASS}`}>
                 {detailClass.name}
               </h2>
               <p className="mt-2 text-sm text-[#666d80]">
                 {detailClass.description || "No class description has been added yet."}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+                  detailClass.isActive && !detailClass.archivedAt
+                    ? "bg-[#eaf8f0] text-[#166534]"
+                    : "bg-[#fff8e6] text-[#7a5b00]"
+                }`}>
+                  {detailClass.isActive && !detailClass.archivedAt ? "Parent-visible" : "Parent-hidden"}
+                </span>
+                <span className="rounded-full bg-[#f4f6f8] px-2.5 py-1 text-[12px] font-semibold text-[#3f4350]">
+                  {detailClass.archivedAt ? "Archived" : detailClass.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
             </div>
-            <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+            <dl className="mt-6 grid gap-3 overflow-y-auto pr-1 text-sm sm:grid-cols-2">
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Teacher</dt>
                 <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.teacher)}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Term</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.semesterName)}</dd>
               </div>
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Schedule</dt>
@@ -1095,8 +1103,20 @@ export default function ClassesPageClient({
                 <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.block)}</dd>
               </div>
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Room / location</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{dash(detailClass.room || detailClass.location || "")}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Meeting days</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.scheduleDays.length > 0 ? detailClass.scheduleDays.join(", ") : "—"}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Seats</dt>
                 <dd className="mt-1 font-semibold text-[#272932]">{detailClass.students}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Remaining</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.seatsRemaining ?? "—"}</dd>
               </div>
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Pending</dt>
@@ -1105,6 +1125,18 @@ export default function ClassesPageClient({
               <div className="rounded-[10px] border border-[#edf0f4] p-3">
                 <dt className="text-[#818898]">Waitlist</dt>
                 <dd className="mt-1 font-semibold text-[#272932]">{detailClass.waitlistCount}</dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Age limits</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">
+                  {detailClass.minAgeYears != null || detailClass.maxAgeYears != null
+                    ? `${detailClass.minAgeYears ?? "Any"}-${detailClass.maxAgeYears ?? "Any"} years`
+                    : "—"}
+                </dd>
+              </div>
+              <div className="rounded-[10px] border border-[#edf0f4] p-3">
+                <dt className="text-[#818898]">Archived at</dt>
+                <dd className="mt-1 font-semibold text-[#272932]">{detailClass.archivedAt ? new Date(detailClass.archivedAt).toLocaleString() : "—"}</dd>
               </div>
             </dl>
             <div className="mt-6 flex justify-end gap-3 border-t border-[#f0f0f0] pt-4">
@@ -1147,15 +1179,15 @@ export default function ClassesPageClient({
             >
               <X className="h-5 w-5" />
             </button>
-            <h2 id="delete-class-title" className="pr-8 font-sans text-xl font-bold text-[#0d0d12]">
+            <h2 id="delete-class-title" className={`pr-8 ${DASHBOARD_PANEL_TITLE_CLASS} text-[#0d0d12]`}>
               Delete class
             </h2>
             <p className="mt-2 font-sans text-sm text-[#666d80]">
-              Delete{" "}
+              Archive{" "}
               <span className="font-semibold text-[#0d0d12]">
                 {classes.find((c) => c.id === pendingDeleteId)?.name ?? "this class"}
               </span>
-              ? This removes the class from the directory for all administrators.
+              ? This hides the class from parents while preserving rosters and historical records.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -1168,9 +1200,9 @@ export default function ClassesPageClient({
               <button
                 type="button"
                 className="rounded-md bg-[#d80509] px-4 py-2 font-sans text-sm font-semibold text-white transition-colors hover:bg-[#c00408]"
-                onClick={() => deleteClassById(pendingDeleteId)}
+                onClick={() => archiveClassById(pendingDeleteId)}
               >
-                Delete
+                Archive
               </button>
             </div>
           </div>
@@ -1186,20 +1218,12 @@ export default function ClassesPageClient({
           { key: "name", label: "Name", required: true, sample: "New Class" },
           { key: "teacher", label: "Teacher", required: true, sample: "Emily Carter" },
           { key: "capacity", label: "Capacity", required: true, sample: "30" },
-          { key: "schedule", label: "Schedule", sample: "Day 1/2/3 - Block 1 - 9:00 - 10:30 AM" },
+          { key: "schedule", label: "Schedule", sample: "Day 1 · Block 1 · 9:00 - 10:30 am" },
           { key: "status", label: "Status", sample: "Active" },
           { key: "track", label: "Track", sample: trackTab },
           { key: "level", label: "Level", sample: "3" },
           { key: "block", label: "Block", sample: "Block 1 Day 1" },
           { key: "description", label: "Description", sample: "Optional class description" },
-          { key: "plannerSubject", label: "Planner Subject", sample: "" },
-          { key: "plannerSummary", label: "Planner Summary", sample: "" },
-          { key: "teacherGuideObjectives", label: "Teacher Guide Objectives", sample: "" },
-          { key: "teacherGuideInformation", label: "Teacher Guide Information", sample: "" },
-          { key: "teacherGuideSummary", label: "Teacher Guide Summary", sample: "" },
-          { key: "studentGuideObjectives", label: "Student Guide Objectives", sample: "" },
-          { key: "studentGuideInformation", label: "Student Guide Information", sample: "" },
-          { key: "studentGuideSummary", label: "Student Guide Summary", sample: "" },
         ]}
         onImport={importClassRows}
       />

@@ -6,7 +6,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import EntityAvatar from "@/components/entity-avatar";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
-import { DashboardBulkSelectionBar } from "@/components/dashboard-row-actions";
+import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
 import {
   ChevronDown,
   ChevronLeft,
@@ -102,6 +102,11 @@ export function ParentsAdminDirectory({
     parent: ParentRow;
     inviteUrl: string;
     copied: boolean;
+  } | null>(null);
+  const [deleteDraft, setDeleteDraft] = useState<{
+    parent: ParentRow;
+    deleting: boolean;
+    error: string | null;
   } | null>(null);
   const [allStudents, setAllStudents] = useState<StudentListItem[] | null>(null);
   const [studentsError, setStudentsError] = useState<string | null>(null);
@@ -300,12 +305,17 @@ export function ParentsAdminDirectory({
       setSpreadsheetBanner(`Could not create invite link: ${await readApiError(res)}.`);
       return;
     }
-    const body = (await res.json()) as { inviteUrl?: string };
+    const body = (await res.json()) as { parent?: ParentSummary; inviteUrl?: string };
     if (!body.inviteUrl) {
       setSpreadsheetBanner("Could not create invite link.");
       return;
     }
-    setInviteDraft({ parent, inviteUrl: body.inviteUrl, copied: false });
+    const savedParent = body.parent ? toDisplayRow(body.parent) : parent;
+    if (body.parent) {
+      setParents((prev) => prev.map((p) => (p.id === body.parent?.id ? body.parent : p)));
+      invalidateDashboardData(["/api/data/parents", "/api/dashboard-presentation"]);
+    }
+    setInviteDraft({ parent: savedParent, inviteUrl: body.inviteUrl, copied: false });
   };
 
   const importParents = async (rows: ParsedImportRow[]) => {
@@ -335,32 +345,58 @@ export function ParentsAdminDirectory({
     return { created: created.length, errors };
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editDraft) return;
     const name = editDraft.name.trim();
     if (!name) return;
-    setParents((prev) =>
-      prev.map((p) =>
-        p.id === editDraft.id
-          ? {
-              ...p,
-              name,
-              email: editDraft.email.trim() || p.email,
-              phone: editDraft.phone.trim() || p.phone,
-            }
-          : p,
-      ),
-    );
+    const res = await fetch("/api/data/parents", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update-parent",
+        parentId: editDraft.id,
+        name,
+        email: editDraft.email,
+      }),
+    });
+    if (!res.ok) {
+      setSpreadsheetBanner(`Could not save parent: ${await readApiError(res)}.`);
+      return;
+    }
+    const body = (await res.json()) as { parent?: ParentSummary };
+    if (body.parent) {
+      setParents((prev) => prev.map((p) => (p.id === body.parent?.id ? body.parent : p)));
+      invalidateDashboardData(["/api/data/parents", "/api/dashboard-presentation"]);
+      setSpreadsheetBanner(`Saved parent ${body.parent.name}.`);
+    }
     setEditDraft(null);
+  };
+
+  const deleteParent = async () => {
+    if (!deleteDraft || deleteDraft.deleting) return;
+    const parent = deleteDraft.parent;
+    setDeleteDraft({ parent, deleting: true, error: null });
+    const res = await fetch(`/api/data/parents?parentId=${encodeURIComponent(parent.id)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      setDeleteDraft({ parent, deleting: false, error: await readApiError(res) });
+      return;
+    }
+    setParents((prev) => prev.filter((row) => row.id !== parent.id));
+    setSelectedIds((prev) => prev.filter((id) => id !== parent.id));
+    invalidateDashboardData(["/api/data/parents", "/api/data/students", "/api/dashboard-presentation"]);
+    setDeleteDraft(null);
+    setSpreadsheetBanner(`Deleted parent ${parent.name}.`);
   };
 
   return (
     <div className="flex flex-col w-full min-h-full px-[32px] py-[32px] gap-[24px] font-sans relative">
       <div className="flex flex-col gap-[8px]">
-        <h1 className="font-['Inter:Bold',sans-serif] font-bold leading-[1.1] text-[#272932] text-[28px]">
+        <h1 className="font-bold leading-[1.1] text-[#272932] text-[28px]">
           Parents
         </h1>
-        <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.4] text-[#666d80] text-[16px] max-w-3xl">
+        <p className="font-normal leading-[1.4] text-[#666d80] text-[16px] max-w-3xl">
           Directory of parent and guardian contacts with quick links to students.
         </p>
         {dataSource === "fallback" ? (
@@ -377,10 +413,10 @@ export function ParentsAdminDirectory({
               <img alt="" className="size-[20px]" src={imgHugeiconsFamilies} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Total families
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.total}
               </p>
             </div>
@@ -392,10 +428,10 @@ export function ParentsAdminDirectory({
               <UserCheck aria-hidden className="size-5 text-[#004d08]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Active
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.active}
               </p>
             </div>
@@ -407,10 +443,10 @@ export function ParentsAdminDirectory({
               <UserPlus aria-hidden className="size-5 text-[#a88400]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Need students
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.needsStudents}
               </p>
             </div>
@@ -422,10 +458,10 @@ export function ParentsAdminDirectory({
               <Users aria-hidden className="size-5 text-[#14c1d5]" strokeWidth={1.75} />
             </div>
             <div className="flex flex-col gap-[4px] leading-[1.4]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">
+              <p className="font-semibold text-[#272932] text-[16px]">
                 Students needing parents
               </p>
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+              <p className="font-medium text-[#666d80] text-[16px]">
                 {stats.orphanStudents == null ? "Loading" : stats.orphanStudents}
               </p>
             </div>
@@ -452,7 +488,7 @@ export function ParentsAdminDirectory({
               placeholder="Search parents…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="outline-none text-[14px] w-full text-[#0d0d12] font-['Inter:Regular',sans-serif] bg-transparent placeholder:text-[#666d80]"
+              className="outline-none text-[14px] w-full text-[#0d0d12] bg-transparent placeholder:text-[#666d80]"
             />
           </div>
           <div className="flex flex-wrap gap-[16px] items-center w-full sm:w-auto justify-start sm:justify-end">
@@ -471,7 +507,7 @@ export function ParentsAdminDirectory({
                 <div className="size-[14px] flex items-center justify-center">
                   <img alt="" className="size-full" src={imgVector} />
                 </div>
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px]">
+                <span className="text-[#0d0d12] text-[12px]">
                   Status: {statusFilter === "All" ? "All" : statusFilter}
                 </span>
                 <ChevronDown className="size-[14px] shrink-0 text-[#666d80]" aria-hidden strokeWidth={1.8} />
@@ -510,7 +546,7 @@ export function ParentsAdminDirectory({
                   : "bg-[#fafafa] text-[#0d0d12] hover:bg-gray-100"
               }`}
             >
-              <p className="font-['Inter:Regular',sans-serif] text-[12px]">
+              <p className="text-[12px]">
                 {selectedIds.length > 0 ? `Clear selected (${selectedIds.length})` : "Select visible"}
               </p>
             </button>
@@ -539,19 +575,19 @@ export function ParentsAdminDirectory({
           className="grid gap-x-2 border-t border-[#f0f0f0] py-[16px] px-[18px] w-full items-center"
         >
           <div aria-hidden className="min-w-0" />
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Parent
           </div>
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Students
           </div>
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Email
           </div>
-          <div className="min-w-0 text-left text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-left text-[#0d0d12] font-semibold text-[14px]">
             Phone
           </div>
-          <div className="min-w-0 text-center text-[#0d0d12] font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]">
+          <div className="min-w-0 text-center text-[#0d0d12] font-semibold text-[14px]">
             Action
           </div>
         </div>
@@ -559,7 +595,7 @@ export function ParentsAdminDirectory({
         <div className="flex min-h-[300px] w-full flex-col overflow-visible pb-4">
           {paginatedData.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-[32px] px-[18px]">
-              <span className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] text-center leading-snug max-w-lg">
+              <span className="text-[#666d80] text-[14px] text-center leading-snug max-w-lg">
                 {parents.length === 0 && dataSource === "remote"
                   ? "No parent contacts yet. Add guardians to the parents roster."
                   : searchQuery.trim()
@@ -601,7 +637,7 @@ export function ParentsAdminDirectory({
                 <div className="flex min-w-0 items-center gap-[8px]">
                   <EntityAvatar name={parent.name} src={parent.avatar} className="size-8" />
                   <span
-                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug"
+                    className="min-w-0 truncate text-[#0d0d12] text-[14px] leading-snug"
                     title={parent.name}
                   >
                     {parent.name}
@@ -609,14 +645,14 @@ export function ParentsAdminDirectory({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-start">
-                  <span className="line-clamp-2 min-w-0 text-left font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px] leading-snug">
+                  <span className="line-clamp-2 min-w-0 text-left text-[#0d0d12] text-[14px] leading-snug">
                     {parent.studentsLabel}
                   </span>
                 </div>
 
                 <div className="flex min-w-0 items-center justify-start">
                   <span
-                    className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px]"
+                    className="min-w-0 truncate text-[#0d0d12] text-[14px]"
                     title={parent.email}
                   >
                     {parent.email}
@@ -624,89 +660,54 @@ export function ParentsAdminDirectory({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-start">
-                  <span className="min-w-0 truncate font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[14px]">
+                  <span className="min-w-0 truncate text-[#0d0d12] text-[14px]">
                     {parent.phone}
                   </span>
                 </div>
 
-                <div
-                  className={`flex items-center justify-center relative ${openActionId === parent.id ? "z-[100]" : ""}`}
-                  ref={openActionId === parent.id ? actionRef : null}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                <div className={`flex items-center justify-center relative ${openActionId === parent.id ? "z-[100]" : ""}`} ref={openActionId === parent.id ? actionRef : null}>
+                  <DashboardRowActionsMenu
+                    label={`Actions for ${parent.name}`}
+                    isOpen={openActionId === parent.id}
+                    onToggle={() => {
                       setIsFilterDropdownOpen(false);
                       setOpenActionId(openActionId === parent.id ? null : parent.id);
                     }}
-                    className={`cursor-pointer relative size-[24px] hover:opacity-70 transition-opacity rounded-full p-1 ${openActionId === parent.id ? "bg-gray-200" : "hover:bg-gray-200"}`}
-                  >
-                    <img alt="" className="block size-full" src={imgWeuiMoreOutlined} />
-                  </button>
-
-                  {openActionId === parent.id && (
-                    <div
-                      className="absolute right-[32px] top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-[100]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          openLinkManager(parent);
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Manage students
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          void createInviteLink(parent);
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Create invite link
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
+                    onClose={() => setOpenActionId(null)}
+                    actions={[
+                      {
+                        label: "Manage students",
+                        onClick: () => openLinkManager(parent),
+                      },
+                      {
+                        label: "Create invite link",
+                        onClick: () => void createInviteLink(parent),
+                      },
+                      {
+                        label: "Edit contact",
+                        onClick: () =>
                           setEditDraft({
                             id: parent.id,
                             name: parent.name,
                             email: parent.email,
                             phone: parent.phone.replace(/^—$/, ""),
-                          });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Edit contact
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          setMessageFor({ id: parent.id, name: parent.name, email: parent.email });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        Message
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => {
-                          setStudentsForParent({ parentId: parent.id, parentName: parent.name, rows: parent.linkedStudents });
-                          setOpenActionId(null);
-                        }}
-                      >
-                        View Students
-                      </button>
-                    </div>
-                  )}
+                          }),
+                      },
+                      {
+                        label: "Message",
+                        onClick: () => setMessageFor({ id: parent.id, name: parent.name, email: parent.email }),
+                      },
+                      {
+                        label: "View Students",
+                        onClick: () => setStudentsForParent({ parentId: parent.id, parentName: parent.name, rows: parent.linkedStudents }),
+                      },
+                      {
+                        label: "Delete parent",
+                        tone: "danger",
+                        onClick: () => setDeleteDraft({ parent, deleting: false, error: null }),
+                      },
+                    ]}
+                  />
                 </div>
               </div>
             ))
@@ -736,7 +737,7 @@ export function ParentsAdminDirectory({
                 }`}
               >
                 <span
-                  className={`font-['Inter:Semi_Bold',sans-serif] font-semibold text-[12px] leading-[0] ${
+                  className={`font-semibold text-[12px] leading-[0] ${
                     currentPage === pageNum ? "text-white" : "text-[#666d80]"
                   }`}
                 >
@@ -763,7 +764,7 @@ export function ParentsAdminDirectory({
 
       <div className="flex justify-end w-full flex-col items-end gap-2">
         {spreadsheetBanner && (
-          <p className="text-xs text-[#3d5a45] bg-[#f0f7f2] px-3 py-1.5 rounded-md border border-[#c5ddcc] max-w-md text-right font-['Inter:Regular',sans-serif]">
+          <p className="text-xs text-[#3d5a45] bg-[#f0f7f2] px-3 py-1.5 rounded-md border border-[#c5ddcc] max-w-md text-right">
             {spreadsheetBanner}
           </p>
         )}
@@ -772,7 +773,7 @@ export function ParentsAdminDirectory({
           onClick={exportParents}
           className="bg-[#d2f1f5] shadow-sm flex gap-[8px] items-center justify-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#bce6ec] transition-colors cursor-pointer"
         >
-          <p className="font-['Inter_Tight:Medium',sans-serif] text-[#14c1d5] text-[16px] tracking-[0.32px]">
+          <p className="font-sans font-medium text-[#14c1d5] text-[16px] tracking-[0.32px]">
             Download CSV
           </p>
         </button>
@@ -787,7 +788,7 @@ export function ParentsAdminDirectory({
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#272932]">Edit parent</h2>
             <div className="mt-4 flex flex-col gap-3">
-              <label className="text-sm text-gray-700 font-['Inter:Regular',sans-serif]">
+              <label className="text-sm text-gray-700">
                 Name
                 <input
                   className="mt-1 w-full rounded-md border border-gray-200 p-2 outline-none focus:border-[#14c1d5] focus:ring-1 focus:ring-[#14c1d5] font-normal"
@@ -795,7 +796,7 @@ export function ParentsAdminDirectory({
                   onChange={(e) => setEditDraft((d) => (d ? { ...d, name: e.target.value } : d))}
                 />
               </label>
-              <label className="text-sm text-gray-700 font-['Inter:Regular',sans-serif]">
+              <label className="text-sm text-gray-700">
                 Email
                 <input
                   type="email"
@@ -804,7 +805,7 @@ export function ParentsAdminDirectory({
                   onChange={(e) => setEditDraft((d) => (d ? { ...d, email: e.target.value } : d))}
                 />
               </label>
-              <label className="text-sm text-gray-700 font-['Inter:Regular',sans-serif]">
+              <label className="text-sm text-gray-700">
                 Phone
                 <input
                   className="mt-1 w-full rounded-md border border-gray-200 p-2 outline-none focus:border-[#14c1d5] focus:ring-1 focus:ring-[#14c1d5] font-normal"
@@ -824,9 +825,47 @@ export function ParentsAdminDirectory({
               <button
                 type="button"
                 className="rounded-md bg-[#14c1d5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12aebd]"
-                onClick={saveEdit}
+                onClick={() => void saveEdit()}
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteDraft && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-[#272932]">Delete parent</h2>
+            <p className="mt-2 text-sm leading-6 text-[#666d80]">
+              Delete <span className="font-semibold text-[#272932]">{deleteDraft.parent.name}</span>? This removes their parent record, student links, and parent login when it is only a parent account.
+            </p>
+            {deleteDraft.error ? (
+              <div role="alert" className="mt-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
+                {deleteDraft.error}
+              </div>
+            ) : null}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                disabled={deleteDraft.deleting}
+                onClick={() => setDeleteDraft(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-[#d80509] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b90408] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deleteDraft.deleting}
+                onClick={() => void deleteParent()}
+              >
+                {deleteDraft.deleting ? "Deleting..." : "Delete parent"}
               </button>
             </div>
           </div>

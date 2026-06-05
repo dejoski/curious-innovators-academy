@@ -91,16 +91,16 @@ function HistoryCard({ entry }: { entry: StudentProfileTimelineEvent }) {
           <div className="flex min-w-px flex-wrap items-center gap-x-4 gap-y-2">
             <div className="flex items-center gap-[8px]">
               <img alt="" className="size-[18px]" src={imgRiParentLine} />
-              <span className="font-['Inter:Medium',sans-serif] text-[14px] font-medium leading-[1.4] text-[#2f2f2d]">
+              <span className="font-medium text-[14px] leading-[1.4] text-[#2f2f2d]">
                 {entry.author}
               </span>
             </div>
-            <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-[1.5] text-[#4b4d4f]">
+            <span className="font-medium text-[12px] leading-[1.5] text-[#4b4d4f]">
               {entry.role}
             </span>
             {entry.urgent ? (
               <div className="rounded-[6px] border border-[rgba(216,5,9,0.5)] bg-[#ffd9d9] px-[8px] py-[2px]">
-                <span className="font-['Inter:Regular',sans-serif] text-[10px] leading-[1.4] text-[#d80509]">
+                <span className="text-[10px] leading-[1.4] text-[#d80509]">
                   Urgent
                 </span>
               </div>
@@ -109,31 +109,31 @@ function HistoryCard({ entry }: { entry: StudentProfileTimelineEvent }) {
 
           <div className="flex items-center gap-[4px]">
             <img alt="" className="size-[14px] shrink-0" src={imgVuesaxOutlineCalendar} />
-            <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-[1.3] tracking-[-0.12px] text-[#625f6e]">
+            <span className="font-medium text-[12px] leading-[1.3] tracking-[-0.12px] text-[#625f6e]">
               {entry.date}
             </span>
-            <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-[1.3] tracking-[-0.12px] text-[#625f6e]">
+            <span className="font-medium text-[12px] leading-[1.3] tracking-[-0.12px] text-[#625f6e]">
               -
             </span>
-            <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-[1.3] tracking-[-0.12px] text-[#625f6e]">
+            <span className="font-medium text-[12px] leading-[1.3] tracking-[-0.12px] text-[#625f6e]">
               {entry.time}
             </span>
           </div>
         </div>
 
         <div className="flex w-full shrink-0 flex-col items-start gap-[12px] text-[12px] leading-[1.5] text-[#2f2f2d]">
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold">{entry.title}</p>
+          <p className="font-semibold">{entry.title}</p>
           {paragraphs.map((paragraph, index) => (
-            <p key={`${entry.id}-paragraph-${index}`} className="font-['Inter:Regular',sans-serif] font-normal">
+            <p key={`${entry.id}-paragraph-${index}`} className="font-normal">
               {paragraph}
             </p>
           ))}
           {bullets.length ? (
             <div className="flex w-full shrink-0 flex-col items-start gap-[2px]">
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold leading-[1.5]">
+              <p className="font-semibold leading-[1.5]">
                 Key Information:
               </p>
-              <ul className="w-full list-disc font-['Inter:Regular',sans-serif] font-normal">
+              <ul className="w-full list-disc font-normal">
                 {bullets.map((item) => (
                   <li key={item} className="ms-[18px]">
                     <span className="leading-[1.5]">{item}</span>
@@ -290,12 +290,12 @@ function ParentStudentsProfileContent() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1104px] flex-col pb-6 pt-8 font-['Inter:Regular',sans-serif]">
+    <div className="mx-auto flex w-full max-w-[1104px] flex-col pb-6 pt-8">
       <div className="flex w-[503px] max-w-full flex-col gap-1" style={{ marginBottom: "23px" }}>
-        <h1 className="font-['Inter:Bold',sans-serif] text-[28px] font-bold leading-[1.1] text-[#272932]">
+        <h1 className="font-bold text-[28px] leading-[1.1] text-[#272932]">
           Student Profile
         </h1>
-        <p className="font-['Inter:Regular',sans-serif] text-[16px] font-normal leading-[1.4] text-[#666d80]">
+        <p className="text-[16px] font-normal leading-[1.4] text-[#666d80]">
           View your child&apos;s profile and current class schedule.
         </p>
       </div>
@@ -357,38 +357,38 @@ function ParentStudentsProfileContent() {
                 </div>
 
                 <div className="flex min-w-0 flex-col gap-[6px] md:w-[547px]">
-                  <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[20px] font-semibold leading-[1.4] text-[#0d0d12]">
+                  <h2 className="font-semibold text-[20px] leading-[1.4] text-[#0d0d12]">
                     {profile.details.name}
                   </h2>
 
                   <div className="flex flex-col gap-[12px] text-[14px] leading-[1.2] text-[#0d0d12]">
                     <div className="flex flex-wrap items-baseline gap-[6px]">
-                      <span className="font-['Inter:Regular',sans-serif] shrink-0">Age:</span>
-                      <span className="font-['Inter:Semi_Bold',sans-serif] shrink-0 font-semibold text-[#666d80]">
+                      <span className="shrink-0">Age:</span>
+                      <span className="font-semibold shrink-0 text-[#666d80]">
                         {ageLabel(profile.details.age)}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-baseline gap-[6px]">
-                      <span className="font-['Inter:Regular',sans-serif] shrink-0">Level:</span>
-                      <span className="font-['Inter:Semi_Bold',sans-serif] shrink-0 font-semibold text-[#666d80]">
+                      <span className="shrink-0">Level:</span>
+                      <span className="font-semibold shrink-0 text-[#666d80]">
                         {profile.details.level || "Not set"}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-baseline gap-[6px]">
-                      <span className="font-['Inter:Regular',sans-serif] shrink-0">Learning Profile:</span>
-                      <span className="font-['Inter:Semi_Bold',sans-serif] min-w-0 font-semibold text-[#666d80]">
+                      <span className="shrink-0">Learning Profile:</span>
+                      <span className="font-semibold min-w-0 text-[#666d80]">
                         {profile.details.learningProfile}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-baseline gap-[6px]">
-                      <span className="font-['Inter:Regular',sans-serif] shrink-0">Strengths:</span>
-                      <span className="font-['Inter:Semi_Bold',sans-serif] min-w-0 font-semibold text-[#666d80]">
+                      <span className="shrink-0">Strengths:</span>
+                      <span className="font-semibold min-w-0 text-[#666d80]">
                         {profile.details.strengths}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-baseline gap-[6px]">
-                      <span className="font-['Inter:Regular',sans-serif] shrink-0">Support Notes:</span>
-                      <span className="font-['Inter:Semi_Bold',sans-serif] min-w-0 font-semibold text-[#666d80]">
+                      <span className="shrink-0">Support Notes:</span>
+                      <span className="font-semibold min-w-0 text-[#666d80]">
                         {profile.details.supportNotes}
                       </span>
                     </div>
@@ -398,7 +398,7 @@ function ParentStudentsProfileContent() {
             </div>
 
             <div className="flex w-full max-w-[353px] shrink-0 flex-col rounded-[16px] border border-[#f0f0f0] bg-white p-6">
-              <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[16px] font-semibold leading-[1.4] text-[#272932]">
+              <h2 className="font-semibold text-[16px] leading-[1.4] text-[#272932]">
                 Schedule Summary
               </h2>
               <div className="mt-[11px] flex h-px w-full items-center justify-center">
@@ -418,7 +418,7 @@ function ParentStudentsProfileContent() {
                 ].map((item) => (
                   <div key={item.label} className="flex w-full items-center">
                     <div className="flex min-w-px flex-[1_0_0] items-center justify-between">
-                      <span className="font-['Inter:Medium',sans-serif] shrink-0 text-[16px] font-medium leading-[1.4] text-[#666d80]">
+                      <span className="font-medium shrink-0 text-[16px] leading-[1.4] text-[#666d80]">
                         {item.label}
                       </span>
                       <div className="relative size-[16px] shrink-0 overflow-clip">
@@ -439,7 +439,7 @@ function ParentStudentsProfileContent() {
 
           <div className="mt-[30px] flex w-full flex-col rounded-[12px]">
             <div className="flex items-center justify-between py-[12px]">
-              <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[14px] font-semibold leading-[1.3] text-[#05080b]">
+              <h2 className="font-semibold text-[14px] leading-[1.3] text-[#05080b]">
                 History
               </h2>
 
@@ -458,7 +458,7 @@ function ParentStudentsProfileContent() {
                     aria-pressed={urgency === opt}
                   >
                     <Filter className="size-[14px] shrink-0" aria-hidden strokeWidth={1.8} />
-                    <span className="font-['Inter:Medium',sans-serif] text-[12px] font-medium leading-none tracking-[0.12px]">
+                    <span className="font-medium text-[12px] leading-none tracking-[0.12px]">
                       {opt}
                     </span>
                   </button>

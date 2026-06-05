@@ -1,8 +1,13 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
+import {
+  DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import { cachedJson, peekCachedJson, readDashboardData } from "@/lib/client-data-cache";
 import {
   selectedParentStudentIdFromSearchParams,
@@ -18,12 +23,18 @@ import {
   type ParentCatalogChoice,
   type ParentCatalogRequests,
 } from "@/lib/parent-catalog-state";
-import type { EnrichmentRequestRow, SchoolClassRow } from "@/lib/data/types";
+import type { EnrichmentRequestRow, SchoolClassRow, StudentListItem, StudentProfileBundle, StudentScheduleRow } from "@/lib/data/types";
+import { ParentClassDetailsDrawer, type ParentClassOption, type ScheduleDisplayParts } from "@/components/parent-class-drawers";
+import {
+  isParentSelectableEnrichmentOption,
+  parentClassOptionFromRow,
+  parseStudentAgeYears,
+  selectionLabelForOption,
+} from "@/lib/parent-class-options";
 
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector3 = "/images/vector.svg";
 const imgFlowbiteSortOutline = "/images/icon-sort.svg";
-const imgWeuiMoreOutlined = "/images/icon-more.svg";
 
 type ParentEnrichmentRow = {
   id: string;
@@ -38,6 +49,7 @@ type ParentEnrichmentRow = {
   status: string;
   current: boolean;
   requestSource?: "catalog-request";
+  option: ParentClassOption;
 };
 
 type DraftChoiceWithLocalId = ParentCatalogChoice & {
@@ -45,27 +57,6 @@ type DraftChoiceWithLocalId = ParentCatalogChoice & {
   displayStatus: string;
   current: boolean;
 };
-
-function toParentEnrichmentRow(row: SchoolClassRow): ParentEnrichmentRow {
-  const { day, time } = classSchedulePartsFromFields({
-    block: row.block,
-    level: row.level,
-    scheduleSummary: row.schedule,
-  });
-  return {
-    id: row.id,
-    name: row.name,
-    teacher: row.teacher || "Teacher not assigned",
-    level: row.level || "—",
-    block: row.block || "—",
-    day,
-    time,
-    location: row.location || "Room not assigned",
-    availability: row.status === "Full" ? "Full" : "Open",
-    status: row.pendingCount > 0 ? "Pending" : "--",
-    current: row.pendingCount === 0 && row.status === "Active",
-  };
-}
 
 function dataHintFromSource(source?: string) {
   if (source === "fallback") return "Showing starter classes while class records finish loading.";
@@ -77,9 +68,7 @@ function readCachedEnrichmentClasses() {
   const body = peekCachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
   return {
     body,
-    rows: (body?.classes ?? [])
-      .filter((row) => row.program === "enrichment")
-      .map(toParentEnrichmentRow),
+    rows: body?.classes ?? [],
   };
 }
 
@@ -87,6 +76,9 @@ export default function ParentClassesEnrichmentClient() {
   const searchParams = useSearchParams();
   const selectedParentStudentId = selectedParentStudentIdFromSearchParams(searchParams);
   const [classes, setClasses] = useState<ParentEnrichmentRow[]>([]);
+  const [classRows, setClassRows] = useState<SchoolClassRow[]>([]);
+  const [studentAgeYears, setStudentAgeYears] = useState<number | null>(null);
+  const [studentSchedule, setStudentSchedule] = useState<StudentScheduleRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [catalogDraft, setCatalogDraft] = useState<ParentCatalogRequests | null>(null);
   const [localRequestState, setLocalRequestState] = useState<"draft" | "submitted" | null>(null);
@@ -99,15 +91,28 @@ export default function ParentClassesEnrichmentClient() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [toolbarBanner, setToolbarBanner] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [selectedClassDetails, setSelectedClassDetails] = useState<{
+    option: ParentClassOption;
+    statusLabel: string;
+    scheduleDisplay: ScheduleDisplayParts;
+  } | null>(null);
+
+  useEffect(() => {
+    function closeMenus(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-dashboard-row-actions]")) return;
+      setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", closeMenus);
+    return () => document.removeEventListener("mousedown", closeMenus);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     async function loadClasses() {
       const cached = readCachedEnrichmentClasses();
       if (cached.body) {
-        setClasses(cached.rows);
+        setClassRows(cached.rows);
         setDataHint(dataHintFromSource(cached.body.source));
         setIsLoading(false);
       } else {
@@ -115,15 +120,14 @@ export default function ParentClassesEnrichmentClient() {
       }
       try {
         const body = await cachedJson<{ classes?: SchoolClassRow[]; source?: string }>("/api/data/classes");
-        const rows = (body.classes ?? [])
-          .filter((row) => row.program === "enrichment")
-          .map(toParentEnrichmentRow);
+        const rows = Array.isArray(body.classes) ? body.classes : [];
         if (cancelled) return;
-        setClasses(rows);
+        setClassRows(rows);
         setDataHint(dataHintFromSource(body.source));
       } catch (error) {
         if (!cancelled) {
           setClasses([]);
+          setClassRows([]);
           setDataHint(
             `Could not load classes: ${error instanceof Error ? error.message : String(error)}.`,
           );
@@ -137,6 +141,78 @@ export default function ParentClassesEnrichmentClient() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSelectedStudentContext() {
+      try {
+        const studentsBody = await cachedJson<{ students?: StudentListItem[] }>("/api/data/students");
+        const students = Array.isArray(studentsBody.students) ? studentsBody.students : [];
+        const activeStudent = students.find((student) => student.id === selectedParentStudentId) ?? students[0] ?? null;
+        if (!activeStudent) {
+          if (!cancelled) {
+            setStudentAgeYears(null);
+            setStudentSchedule(null);
+          }
+          return;
+        }
+        const [profileBody, scheduleBody] = await Promise.all([
+          cachedJson<{ profile?: StudentProfileBundle | null }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/profile`,
+          ),
+          cachedJson<{ rows?: StudentScheduleRow[] }>(
+            `/api/data/students/${encodeURIComponent(activeStudent.id)}/schedule`,
+          ),
+        ]);
+        if (!cancelled) {
+          setStudentAgeYears(parseStudentAgeYears(profileBody.profile?.details?.age));
+          setStudentSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
+        }
+      } catch {
+        if (!cancelled) {
+          setStudentAgeYears(null);
+          setStudentSchedule(null);
+        }
+      }
+    }
+    void loadSelectedStudentContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedParentStudentId]);
+
+  useEffect(() => {
+    setClasses(
+      classRows
+        .map(parentClassOptionFromRow)
+        .filter((option) =>
+          isParentSelectableEnrichmentOption(option, {
+            studentAgeYears,
+            schedule: studentSchedule,
+          }),
+        )
+        .map((option) => ({
+          ...(() => {
+            const { day, time } = classSchedulePartsFromFields({
+              block: option.block,
+              level: option.level,
+              scheduleSummary: option.schedule,
+            });
+            return { day, time };
+          })(),
+          id: option.id,
+          name: option.name,
+          teacher: option.teacher,
+          level: option.level || "—",
+          block: option.block || "—",
+          location: option.location || "Room not assigned",
+          availability: selectionLabelForOption(option),
+          status: (option.pendingCount ?? 0) > 0 ? "Pending" : "--",
+          current: false,
+          option,
+        })),
+    );
+  }, [classRows, studentAgeYears, studentSchedule]);
 
   useEffect(() => {
     let cancelled = false;
@@ -239,22 +315,6 @@ export default function ParentClassesEnrichmentClient() {
     return result;
   }, [classes, draftOnlyCatalogRequests, searchQuery, filterStatus, sortBy, serverCatalogRequests, serverReviewStatuses]);
 
-  useEffect(() => {
-    if (!toolbarBanner) return;
-    const t = window.setTimeout(() => setToolbarBanner(null), 4000);
-    return () => window.clearTimeout(t);
-  }, [toolbarBanner]);
-
-  useEffect(() => {
-    function handleDown(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleDown);
-    return () => document.removeEventListener("mousedown", handleDown);
-  }, []);
-
   const renderStatusBadge = (status: string) => {
     if (status === "Approved") {
       return (
@@ -291,7 +351,7 @@ export default function ParentClassesEnrichmentClient() {
         </div>
       );
     }
-    return <span className="text-[16px] text-[#0d0d12]">--</span>;
+    return <span>--</span>;
   };
 
   return (
@@ -311,30 +371,24 @@ export default function ParentClassesEnrichmentClient() {
         <div className="flex items-center gap-2">
           <Link
             href={withParentStudentParam("/dashboard/parents/classes/core", selectedParentStudentId)}
-            className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
+            className="bg-[rgba(210,241,245,0.3)] hover:bg-[rgba(210,241,245,0.5)] transition-colors text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] text-[14px] leading-[1.25] text-center"
           >
             Core
           </Link>
           <Link
             href={withParentStudentParam("/dashboard/parents/classes/enrichment", selectedParentStudentId)}
-            className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] font-['Inter:Regular',sans-serif] text-[14px] leading-[1.25] text-center"
+            className="bg-[#d2f1f5] text-[#0d0d12] px-[50px] py-[12px] rounded-t-[8px] text-[14px] leading-[1.25] text-center"
           >
             Enrichment
           </Link>
         </div>
         <div className="flex items-center gap-[6px] pb-2 sm:pb-0">
           <div className="bg-[#d2f1f5] border border-[#14c1d5] rounded-[4px] shrink-0 size-[17px]" />
-          <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] text-[12px] leading-[1.25]">
+          <span className="text-[#0d0d12] text-[12px] leading-[1.25]">
             Current classes
           </span>
         </div>
       </div>
-
-      {toolbarBanner && (
-        <div className="rounded-[12px] border border-[rgba(0,77,8,0.25)] bg-[rgba(0,77,8,0.06)] px-4 py-3 text-sm text-[#004d08] font-medium">
-          {toolbarBanner}
-        </div>
-      )}
 
       {dataHint && (
         <div className="rounded-[12px] border border-[#cfa500]/40 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00] font-medium">
@@ -432,16 +486,16 @@ export default function ParentClassesEnrichmentClient() {
           <table className="w-full text-left min-w-[900px]">
             {/* Headers */}
             <thead>
-              <tr className="border-t border-b border-[#f0f0f0]">
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Class Name</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Teacher</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Level</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Block</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Schedule</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12]">Location</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Availability</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Status</th>
-                <th className="py-4 px-2 text-[14px] font-semibold text-[#0d0d12] text-center">Action</th>
+              <tr className={DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS}>
+                <th className="py-4 px-2">Class Name</th>
+                <th className="py-4 px-2">Teacher</th>
+                <th className="py-4 px-2 text-center">Level</th>
+                <th className="py-4 px-2 text-center">Block</th>
+                <th className="py-4 px-2">Schedule</th>
+                <th className="py-4 px-2">Location</th>
+                <th className="py-4 px-2 text-center">Availability</th>
+                <th className="py-4 px-2 text-center">Status</th>
+                <th className="py-4 px-2 text-center">Action</th>
               </tr>
             </thead>
             {/* Body */}
@@ -460,83 +514,56 @@ export default function ParentClassesEnrichmentClient() {
                 filteredAndSortedClasses.map((cls) => (
                   <tr
                     key={cls.id}
-                    className={`border-b border-[#f0f0f0] transition-colors ${
+                    className={`transition-colors ${DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS} ${
                       cls.current ? "bg-[rgba(208,243,247,0.29)] hover:bg-[rgba(208,243,247,0.4)]" : "bg-white hover:bg-gray-50"
                     }`}
                   >
                     <td className="py-3 px-2">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.name}</span>
+                      <span>{cls.name}</span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.teacher}</span>
+                      <span>{cls.teacher}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.level}</span>
+                      <span>{cls.level}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.block}</span>
+                      <span>{cls.block}</span>
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex flex-col">
-                        <span className="text-[16px] text-[#0d0d12]">{cls.day}</span>
+                        <span>{cls.day}</span>
                         <span className="text-[11px] text-[#666d80]">{cls.time}</span>
                       </div>
                     </td>
                     <td className="py-3 px-2">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.location}</span>
+                      <span>{cls.location}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="text-[16px] text-[#0d0d12]">{cls.availability}</span>
+                      <span>{cls.availability}</span>
                     </td>
                     <td className="py-3 px-2 text-center">
                       {renderStatusBadge(cls.status)}
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <div className="relative inline-flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === cls.id ? null : cls.id);
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded-md inline-flex items-center justify-center"
-                        >
-                          <img src={imgWeuiMoreOutlined} className="w-6 h-6" alt="More" />
-                        </button>
-                        {openMenuId === cls.id && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-0 top-full mt-1 z-50 w-52 rounded-md border border-[#f0f0f0] bg-white py-1 shadow-lg text-left"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              className="block w-full px-4 py-2 text-left text-sm text-[#0d0d12] hover:bg-gray-50"
-                              onClick={() => {
-                                setToolbarBanner(
-                                  `Class summary: ${cls.name} · ${cls.block} · ${cls.day}`
-                                );
-                                setOpenMenuId(null);
-                              }}
-                            >
-                              View class summary
-                            </button>
-                            <Link
-                              href={withParentStudentParam("/dashboard/parents/catalog", selectedParentStudentId)}
-                              className="block w-full px-4 py-2 text-sm font-medium text-[#14c1d5] hover:bg-gray-50"
-                              onClick={() => setOpenMenuId(null)}
-                            >
-                              Open class catalog
-                            </Link>
-                            <Link
-                              href={withParentStudentParam("/dashboard/parents/students", selectedParentStudentId)}
-                              className="block w-full px-4 py-2 text-sm text-[#0d0d12] hover:bg-gray-50"
-                              onClick={() => setOpenMenuId(null)}
-                            >
-                              Student profile
-                            </Link>
-                          </div>
-                        )}
+                      <div className="inline-flex justify-center">
+                        <DashboardRowActionsMenu
+                          label={`Actions for ${cls.name}`}
+                          isOpen={openMenuId === cls.id}
+                          onToggle={() => setOpenMenuId(openMenuId === cls.id ? null : cls.id)}
+                          onClose={() => setOpenMenuId(null)}
+                          actions={[
+                            {
+                              label: "View Class",
+                              onClick: () =>
+                                setSelectedClassDetails({
+                                  option: cls.option,
+                                  statusLabel: cls.status,
+                                  scheduleDisplay: { day: cls.day, time: cls.time },
+                                }),
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -546,6 +573,14 @@ export default function ParentClassesEnrichmentClient() {
           </table>
         </div>
       </div>
+      {selectedClassDetails ? (
+        <ParentClassDetailsDrawer
+          option={selectedClassDetails.option}
+          statusLabel={selectedClassDetails.statusLabel}
+          scheduleDisplay={selectedClassDetails.scheduleDisplay}
+          onClose={() => setSelectedClassDetails(null)}
+        />
+      ) : null}
     </div>
   );
 }

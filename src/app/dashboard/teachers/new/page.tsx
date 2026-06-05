@@ -7,6 +7,7 @@ import { ChevronDown, ImagePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 
 // type ProgramKind removed - unused
 
@@ -57,7 +58,7 @@ function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-[18px] border border-[#f0f0f0] bg-white px-5 py-5 shadow-sm md:px-6 md:py-6">
-      <h2 className="mb-6 font-sans text-[22px] font-bold leading-[1.2] text-[#272932]">{title}</h2>
+      <h2 className={`${DASHBOARD_PANEL_TITLE_CLASS} mb-6`}>{title}</h2>
       {children}
     </section>
   );
@@ -145,11 +146,7 @@ export default function CreateTeacherPage() {
     <div className="w-full bg-[#fafafa] px-5 py-6 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-[1220px] flex-col gap-7">
         <div className="flex flex-col gap-8 border-t border-[#dfe1e7] pt-5">
-          <Link href="/dashboard/teachers" className="inline-flex w-fit items-center gap-2 font-sans text-[14px] font-medium text-[#666d80] hover:text-[#0d0d12]">
-            <span aria-hidden>‹</span>
-            Back to Teacher List
-          </Link>
-          <h1 className="font-sans text-[34px] font-bold leading-[1.1] text-[#272932]">Create Teacher</h1>
+          <h1 className="font-sans text-[28px] font-bold leading-[1.1] text-[#272932]">Create Teacher</h1>
         </div>
 
         {hint ? (

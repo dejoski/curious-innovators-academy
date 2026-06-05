@@ -1,6 +1,8 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import {
   isStudentProfileTimelineEventType,
+  normalizeStudentCompetencyLevels,
+  summarizeStudentCompetencyLevels,
   type ProgramTrack,
   type StudentProfileBundle,
   type StudentProfileTimelineEventType,
@@ -9,6 +11,7 @@ import {
   type StudentRosterStatus,
   type StudentScheduleBadge,
   type StudentScheduleRow,
+  type StudentScheduleState,
 } from "@/lib/data/types";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import {
@@ -121,6 +124,28 @@ function eventTypeFromBody(body: string): StudentProfileTimelineEventType {
   return "General";
 }
 
+const DAILY_SCHEDULE_KEYS = [
+  "b1Tue",
+  "b2Tue",
+  "b3Tue",
+  "b4Tue",
+  "b1Wed",
+  "b2Wed",
+  "b3Wed",
+  "b4Wed",
+  "b1Thu",
+  "b2Thu",
+  "b3Thu",
+  "b4Thu",
+] as const;
+
+function normalizeScheduleState(raw: unknown): StudentScheduleState {
+  const value = String(raw ?? "").toLowerCase();
+  if (value === "finalized") return "finalized";
+  if (value === "pending") return "pending";
+  return "draft";
+}
+
 export function mapStudentRecord(row: Record<string, unknown>): StudentProfileTimelineEvent | null {
   const id = String(row.id ?? "");
   if (!id) return null;
@@ -154,6 +179,9 @@ function emptyScheduleRow(input: {
   name: string;
   parent: string;
   avatar?: string;
+  scheduleState?: StudentScheduleState;
+  finalizedBy?: string;
+  finalizedAt?: string;
 }): StudentScheduleRow {
   const empty = emptyScheduleBadgesBySlot();
   return {
@@ -161,6 +189,11 @@ function emptyScheduleRow(input: {
     name: input.name,
     parent: input.parent,
     avatar: input.avatar || "/images/avatars/student-1.png",
+    scheduleState: input.scheduleState ?? "draft",
+    finalizedBy: input.finalizedBy,
+    finalizedAt: input.finalizedAt,
+    hasConflicts: false,
+    incompleteBlocks: DAILY_SCHEDULE_KEYS.length,
     b1: empty.b1,
     b1Tue: empty.b1Tue,
     b1Wed: empty.b1Wed,
@@ -193,10 +226,15 @@ function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge 
   const status = String(row.status ?? "").toLowerCase();
   if (program === "core" && status !== "approved") return null;
   if (program === "enrichment" && status === "rejected") return null;
-  return {
+  const badge: StudentScheduleBadge = {
     label: classNameShort(String(classRow?.name ?? "")),
+    classId: String(classRow?.id ?? ""),
     tone: program === "core" ? "core" : status === "approved" ? "approved" : status === "waitlisted" || status === "waitlist" ? "waitlisted" : "pending",
   };
+  if (program === "enrichment" && status === "pending" && row.id != null) {
+    badge.requestId = String(row.id);
+  }
+  return badge;
 }
 
 function pushBadge(row: StudentScheduleRow, slot: ParentScheduleSlotKey, badge: StudentScheduleBadge) {
@@ -222,6 +260,37 @@ function pushBadge(row: StudentScheduleRow, slot: ParentScheduleSlotKey, badge: 
   row[slot] = next;
 }
 
+function realBadges(badges: StudentScheduleBadge[] | undefined) {
+  return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");
+}
+
+function finalizeScheduleDiagnostics(row: StudentScheduleRow) {
+  let incompleteBlocks = 0;
+  let hasConflicts = false;
+  for (const key of DAILY_SCHEDULE_KEYS) {
+    const badges = realBadges(row[key]);
+    if (badges.length === 0) incompleteBlocks += 1;
+    if (badges.filter((badge) => badge.tone === "approved" || badge.tone === "core").length > 1) {
+      hasConflicts = true;
+    }
+  }
+  row.incompleteBlocks = incompleteBlocks;
+  row.hasConflicts = hasConflicts;
+  if (row.scheduleState !== "finalized" && incompleteBlocks === 0 && !hasConflicts) {
+    row.scheduleState = realBadges(DAILY_SCHEDULE_KEYS.flatMap((key) => row[key])).some((badge) => badge.tone === "pending")
+      ? "pending"
+      : row.scheduleState;
+  }
+}
+
+function applyScheduleState(row: StudentScheduleRow, stateRow: Record<string, unknown> | undefined) {
+  if (!stateRow) return;
+  row.scheduleState = normalizeScheduleState(stateRow.state);
+  row.finalizedAt = String(stateRow.finalized_at ?? "").trim() || undefined;
+  const finalizer = firstRel<Record<string, unknown>>(stateRow.profiles);
+  row.finalizedBy = String(finalizer?.display_name ?? "").trim() || undefined;
+}
+
 export async function fetchStudentProfileResolved(
   studentId: string,
   client?: StudentReadClient,
@@ -235,7 +304,7 @@ export async function fetchStudentProfileResolved(
     const { data: student, error } = await supabase
       .from("students")
       .select(
-        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, ${STUDENT_PARENT_CONTACT_SELECT}`,
+        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, student_competency_levels ( competency, level, behavior ), ${STUDENT_PARENT_CONTACT_SELECT}`,
       )
       .eq("id", id)
       .maybeSingle();
@@ -307,6 +376,10 @@ export async function fetchStudentProfileResolved(
     const timeline = ((records ?? []) as unknown as Record<string, unknown>[])
       .map(mapStudentRecord)
       .filter((row): row is StudentProfileTimelineEvent => row !== null);
+    const competencyLevels = normalizeStudentCompetencyLevels((student as Record<string, unknown>).student_competency_levels);
+    const legacyLevel = String(student.level ?? "");
+
+    const parentContact = parentContactFromStudentRow(student as unknown as Record<string, unknown>);
 
     return {
       source: "remote",
@@ -315,12 +388,24 @@ export async function fetchStudentProfileResolved(
         details: {
           name: String(student.display_name ?? ""),
           age: student.age_years == null ? "—" : String(student.age_years),
-          level: String(student.level ?? ""),
+          level: summarizeStudentCompetencyLevels(competencyLevels, legacyLevel),
+          competencyLevels,
           learningProfile: String(student.learning_profile ?? "") || "—",
           strengths: String(student.strengths ?? "") || "—",
           supportNotes: String(student.support_notes ?? "") || "—",
         },
-        parentName: parentContactFromStudentRow(student as unknown as Record<string, unknown>).name,
+        parentName: parentContact.name,
+        parentContacts: parentContact.names.length || parentContact.emails.length
+          ? parentContact.names.map((name, index) => ({
+              id: parentContact.parentIds[index],
+              name,
+              email: parentContact.emails[index],
+            }))
+          : [{
+              id: parentContact.parentIds[0],
+              name: parentContact.name || "Parent contact",
+              email: parentContact.email || undefined,
+            }],
         parentHref: "/dashboard/parents",
         coreSummaryLabel: `Core: ${coreClasses.length}`,
         enrichmentSummaryLabel: `Enrichment: ${approved} / ${enrichmentTotal}`,
@@ -372,10 +457,26 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
     ).filter((row) => row.id);
     const byStudentId = new Map(rows.map((row) => [row.id, row]));
 
-    const { data: enrollments, error: enrollmentsError } = await supabase
-      .from("enrollments")
-      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
-      .order("created_at", { ascending: true });
+    const [scheduleStatesResult, enrollmentsResult] = await Promise.all([
+      semesterId
+        ? supabase
+            .from("student_schedule_states")
+            .select("student_id, state, finalized_at, profiles:finalized_by ( display_name )")
+            .eq("semester_id", semesterId)
+        : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("enrollments")
+        .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+        .order("created_at", { ascending: true }),
+    ]);
+    const { data: enrollments, error: enrollmentsError } = enrollmentsResult;
+    const scheduleStateRows = new Map(
+      ((scheduleStatesResult.data ?? []) as unknown as Record<string, unknown>[]).map((row) => [String(row.student_id ?? ""), row]),
+    );
+    rows.forEach((row) => applyScheduleState(row, scheduleStateRows.get(row.id)));
+    if (scheduleStatesResult.error) {
+      logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "student_schedule_states", scheduleStatesResult.error);
+    }
     if (enrollmentsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "enrollments", enrollmentsError);
       return unavailableSchedule();
@@ -424,6 +525,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
       row.b4Tue = normalizeScheduleBadges(row.b4Tue);
       row.b4Wed = normalizeScheduleBadges(row.b4Wed);
       row.b4Thu = normalizeScheduleBadges(row.b4Thu);
+      finalizeScheduleDiagnostics(row);
     });
 
     return { rows, source: "remote" };
@@ -455,7 +557,15 @@ export async function fetchStudentScheduleResolved(
     }
     if (!student) return { rows: [], source: "remote" };
 
-    const [enrollmentsResult, classRequestsResult] = await Promise.all([
+    const [scheduleStateResult, enrollmentsResult, classRequestsResult] = await Promise.all([
+      semesterId
+        ? supabase
+            .from("student_schedule_states")
+            .select("student_id, state, finalized_at, profiles:finalized_by ( display_name )")
+            .eq("student_id", id)
+            .eq("semester_id", semesterId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
       supabase
         .from("enrollments")
         .select("id, status, classes ( id, name, program, block, schedule_summary )")
@@ -485,6 +595,11 @@ export async function fetchStudentScheduleResolved(
       parent: parentContactFromStudentRow(student as unknown as Record<string, unknown>).name,
       avatar: String(student.avatar_url ?? ""),
     });
+    if (scheduleStateResult.error) {
+      logStudentDetailsRepoIssue("fetchStudentScheduleResolved", id, "student_schedule_states", scheduleStateResult.error);
+    } else {
+      applyScheduleState(row, (scheduleStateResult.data ?? undefined) as Record<string, unknown> | undefined);
+    }
     ((enrollments ?? []) as unknown as Record<string, unknown>[])
       .filter((row) => rowMatchesSemester(row, semesterId))
       .forEach((enrollment, index) => {
@@ -513,6 +628,7 @@ export async function fetchStudentScheduleResolved(
     row.b4Tue = normalizeScheduleBadges(row.b4Tue);
     row.b4Wed = normalizeScheduleBadges(row.b4Wed);
     row.b4Thu = normalizeScheduleBadges(row.b4Thu);
+    finalizeScheduleDiagnostics(row);
     return { rows: [row], source: "remote" };
   } catch {
     return unavailableSchedule();

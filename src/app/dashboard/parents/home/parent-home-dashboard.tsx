@@ -36,6 +36,10 @@ import {
 import { parentSafeDashboardHref } from "@/lib/dashboard/role-routes";
 import { PARENT_SCHEDULE_HREF } from "@/lib/dashboard/parent-schedule-route";
 import {
+  DASHBOARD_BODY_SECONDARY_TEXT_CLASS,
+  DASHBOARD_METRIC_VALUE_CLASS,
+} from "@/lib/dashboard-shell-classes";
+import {
   selectedParentStudentIdFromSearchParams,
   withParentStudentParam,
 } from "@/lib/parent-student-selection";
@@ -184,10 +188,10 @@ function AlertRow({ item, studentId }: { item: DashboardNotification; studentId?
     <Link href={href} className="block w-full hover:opacity-90 transition-opacity">
       <div className="flex gap-6 items-center w-full">
         <div className="flex flex-col gap-1 flex-1 min-w-0">
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#2f2f2d] text-[14px] leading-snug truncate">
+          <p className="font-semibold text-[#2f2f2d] text-[14px] leading-snug truncate">
             {alert.title}
           </p>
-          <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] leading-snug line-clamp-2">
+          <p className="text-[#666d80] text-[14px] leading-snug line-clamp-2">
             {alert.detail}
           </p>
         </div>
@@ -202,10 +206,10 @@ function QuickRow({ title, body, href }: { title: string; body: string; href: st
     <Link href={href} className="flex flex-col gap-3 w-full hover:opacity-90 transition-opacity">
       <div className="flex gap-6 items-center w-full">
         <div className="flex flex-col gap-1 flex-1 min-w-0">
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#2f2f2d] text-[14px]">
+          <p className="font-semibold text-[#2f2f2d] text-[14px]">
             {title}
           </p>
-          <p className="font-['Inter:Regular',sans-serif] text-[#666d80] text-[14px] leading-snug">
+          <p className="text-[#666d80] text-[14px] leading-snug">
             {body}
           </p>
         </div>
@@ -253,7 +257,7 @@ function StudentDashboardLoading({ studentName }: { studentName?: string }) {
           className="size-8 animate-spin rounded-full border-[3px] border-[#14c1d5]/25 border-t-[#14c1d5]"
           aria-hidden
         />
-        <p className="font-['Inter:Semi_Bold',sans-serif] text-[15px] font-semibold text-[#155e66]">
+        <p className="font-semibold text-[15px] text-[#155e66]">
           Loading {studentName ? `${studentName}'s dashboard` : "student dashboard"}...
         </p>
         <p className="max-w-[360px] text-sm text-[#666d80]">
@@ -261,6 +265,15 @@ function StudentDashboardLoading({ studentName }: { studentName?: string }) {
         </p>
       </div>
     </output>
+  );
+}
+
+function ParentFirstAccessEmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-[14px] border border-[#d9eef1] bg-[#f7fdfe] px-4 py-5 text-sm leading-[1.5] text-[#155e66]">
+      <p className="font-semibold text-[#0d0d12]">{title}</p>
+      <p className="mt-1 text-[#4f6f75]">{body}</p>
+    </div>
   );
 }
 
@@ -818,8 +831,10 @@ function ParentHomeDashboardContent() {
     }
   }
 
+  const firstAccessEmpty = !isStudentDataLoading && !student;
+
   return (
-    <div className="w-full max-w-[1104px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
+    <div className="w-full max-w-[1280px] mx-auto p-6 md:p-8 flex flex-col gap-6 font-sans">
       {hint ? (
         <output className="rounded-xl border border-[#cfa500]/35 bg-[#fff8e6] px-4 py-3 text-sm text-[#7a5b00]">
           {hint}
@@ -868,10 +883,10 @@ function ParentHomeDashboardContent() {
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
               <UserRound className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
-            <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
+            <p className={DASHBOARD_METRIC_VALUE_CLASS}>
               {attendance}
             </p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+            <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>
               Attendance
             </p>
           </div>
@@ -881,22 +896,22 @@ function ParentHomeDashboardContent() {
             <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
               <ListChecks className="size-5 text-[#14c1d5]" aria-hidden strokeWidth={2} />
             </div>
-            <p className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[32px] leading-[1.1]">
+            <p className={DASHBOARD_METRIC_VALUE_CLASS}>
               {pendingRequests}
             </p>
-            <p className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">
+            <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>
               Pending requests
             </p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-6 items-start">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)] xl:items-start">
         <div className="w-full xl:flex-1 min-w-0 flex flex-col gap-6">
           <div>
             <div className="mb-4 flex flex-col gap-3 min-[760px]:flex-row min-[760px]:items-start min-[760px]:justify-between">
               <div className="min-w-0">
-                <h2 className="font-['Inter:Semi_Bold',sans-serif] text-[16px] font-semibold text-[#0d0d12]">
+                <h2 className="font-semibold text-[16px] text-[#0d0d12]">
                   {student ? `${student.name}'s schedule` : "Student schedule"}
                 </h2>
                 <p className="mt-1 text-sm text-[#666d80]">{scheduleFinality.description}</p>
@@ -907,6 +922,13 @@ function ParentHomeDashboardContent() {
             </div>
             {isStudentDataLoading ? (
               <StudentDashboardLoading studentName={student?.name} />
+            ) : firstAccessEmpty ? (
+              <div className="rounded-[18px] border border-[#f0f0f0] bg-white p-6 shadow-sm">
+                <ParentFirstAccessEmptyState
+                  title="Student information is being prepared"
+                  body="Your child's schedule, classes, and request history will appear here after the school registers and processes the student record."
+                />
+              </div>
             ) : (
               <ParentScheduleGrid
                 badgesBySlot={scheduleBadgesBySlot}
@@ -917,13 +939,13 @@ function ParentHomeDashboardContent() {
           </div>
         </div>
 
-        <div className="w-full xl:w-[355px] shrink-0 flex flex-col gap-6">
+        <div className="w-full min-w-0 flex flex-col gap-6">
           <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 flex flex-col gap-6 shadow-sm">
             <div className="flex items-center gap-2">
               <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
                 <Bell className="size-5 text-[#0d0d12]" strokeWidth={1.75} aria-hidden />
               </div>
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px]">
+              <p className="font-semibold text-[#0d0d12] text-[16px]">
                 System Alerts
               </p>
             </div>
@@ -932,6 +954,11 @@ function ParentHomeDashboardContent() {
                 <p className="text-sm text-[#666d80]">Loading alerts&hellip;</p>
               ) : notifications.length ? (
                 notifications.map((item) => <AlertRow key={item.id} item={item} studentId={activeStudentId} />)
+              ) : firstAccessEmpty ? (
+                <ParentFirstAccessEmptyState
+                  title="No alerts yet"
+                  body="School updates and parent notifications will appear here after student information is registered and processed."
+                />
               ) : (
                 <p className="text-sm text-[#666d80]">No system alerts right now.</p>
               )}
@@ -943,15 +970,24 @@ function ParentHomeDashboardContent() {
               <div className="bg-[#d2f1f5] flex items-center justify-center rounded-[10px] size-10">
                 <CalendarDays className="size-5 text-[#0d0d12]" strokeWidth={1.75} aria-hidden />
               </div>
-              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[16px]">
+              <p className="font-semibold text-[#0d0d12] text-[16px]">
                 Quick Actions
               </p>
             </div>
             <div className="flex flex-col gap-6">
-              <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={studentScopedHref(PARENT_SCHEDULE_HREF, activeStudentId)} />
-              <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)} />
-              <QuickRow title="View Profile" body="Access your child's personal and academic information." href={studentScopedHref("/dashboard/parents/students", activeStudentId)} />
-              <QuickRow title="View Classes" body="Explore all enrolled classes and details." href={studentScopedHref("/dashboard/parents/classes/core", activeStudentId)} />
+              {firstAccessEmpty ? (
+                <ParentFirstAccessEmptyState
+                  title="Actions unlock after registration"
+                  body="Schedule, class selection, profile, and class links will have student-specific information once the school finishes processing the student record."
+                />
+              ) : (
+                <>
+                  <QuickRow title="View Schedule" body="See your child's daily and weekly schedule." href={studentScopedHref(PARENT_SCHEDULE_HREF, activeStudentId)} />
+                  <QuickRow title="Review Class Selection" body="Choose enrichment classes and track pending requests." href={studentScopedHref("/dashboard/parents/catalog", activeStudentId)} />
+                  <QuickRow title="View Profile" body="Access your child's personal and academic information." href={studentScopedHref("/dashboard/parents/students", activeStudentId)} />
+                  <QuickRow title="View Classes" body="Explore all enrolled classes and details." href={studentScopedHref("/dashboard/parents/classes/core", activeStudentId)} />
+                </>
+              )}
             </div>
           </div>
         </div>

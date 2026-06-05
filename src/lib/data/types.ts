@@ -1,4 +1,11 @@
 export type ProgramTrack = "core" | "enrichment";
+export type StudentCompetencyBehavior = "block" | "core" | "enrichment";
+
+export type StudentCompetencyLevel = {
+  competency: string;
+  level: string;
+  behavior: StudentCompetencyBehavior;
+};
 
 export type SemesterRow = {
   id: string;
@@ -37,38 +44,31 @@ export type SchoolClassRow = {
   semesterStartsOn: string;
   semesterEndsOn: string;
   name: string;
+  teacherId?: string;
   teacher: string;
   students: string;
   schedule: string;
   status: "Active" | "Full";
+  isActive: boolean;
+  archivedAt?: string;
   /** Core vs enrichment track — drives tabs on Class Setup. */
   program: ProgramTrack;
   /** Grade band / level label when known (otherwise shown as em dash). */
   level: string;
   /** Scheduling block label when known. */
   block: string;
+  /** Normalized class meeting days when supplied by admin setup. */
+  scheduleDays: string[];
   /** Optional room/location shown in parent-facing class lists. */
   location?: string;
+  /** Explicit room field; falls back to location while legacy data is migrated. */
+  room?: string;
   /** Optional long description used in parent catalog/details. */
   description?: string;
   /** Optional prerequisites used in parent catalog/details. */
   prerequisites?: string;
-  /** Optional daily planner subject/lesson focus shown in schedule details. */
-  plannerSubject?: string;
-  /** Optional daily planner summary shown in schedule details. */
-  plannerSummary?: string;
-  /** Optional teacher-facing guide objectives for the daily planner. */
-  teacherGuideObjectives?: string;
-  /** Optional teacher-facing guide information for the daily planner. */
-  teacherGuideInformation?: string;
-  /** Optional teacher-facing guide summary for the daily planner. */
-  teacherGuideSummary?: string;
-  /** Optional student-facing guide objectives for the daily planner. */
-  studentGuideObjectives?: string;
-  /** Optional student-facing guide information for the daily planner. */
-  studentGuideInformation?: string;
-  /** Optional student-facing guide summary for the daily planner. */
-  studentGuideSummary?: string;
+  minAgeYears?: number;
+  maxAgeYears?: number;
   /** Pending enrollment workflow count (from enrollments with status pending). */
   pendingCount: number;
   /** Waitlist count — populated when backend provides it; otherwise 0. */
@@ -87,7 +87,24 @@ export type SchoolClassRow = {
 
 export type SchoolClassOptionRow = Pick<
   SchoolClassRow,
-  "id" | "semesterId" | "semesterName" | "semesterStartsOn" | "semesterEndsOn" | "name" | "program" | "capacity" | "block" | "level" | "schedule"
+  | "id"
+  | "semesterId"
+  | "semesterName"
+  | "semesterStartsOn"
+  | "semesterEndsOn"
+  | "name"
+  | "program"
+  | "capacity"
+  | "block"
+  | "level"
+  | "schedule"
+  | "scheduleDays"
+  | "isActive"
+  | "archivedAt"
+  | "location"
+  | "room"
+  | "minAgeYears"
+  | "maxAgeYears"
 >;
 
 export type ClassRosterStatus = "Approved" | "Pending" | "Waitlisted" | "Rejected";
@@ -106,6 +123,7 @@ export type StudentProfileDetails = {
   name: string;
   age: string;
   level: string;
+  competencyLevels: StudentCompetencyLevel[];
   learningProfile: string;
   strengths: string;
   supportNotes: string;
@@ -140,6 +158,12 @@ export type StudentProfileBundle = {
   avatar: string;
   details: StudentProfileDetails;
   parentName: string;
+  parentContacts: {
+    id?: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  }[];
   parentHref: string;
   coreSummaryLabel: string;
   enrichmentSummaryLabel: string;
@@ -157,6 +181,8 @@ export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "waitli
 export type StudentScheduleBadge = {
   label: string;
   tone: StudentScheduleBadgeTone;
+  classId?: string;
+  requestId?: string;
   draftKind?: "choice" | "change";
   draftOf?: {
     label: string;
@@ -164,11 +190,18 @@ export type StudentScheduleBadge = {
   };
 };
 
+export type StudentScheduleState = "draft" | "pending" | "finalized";
+
 export type StudentScheduleRow = {
   id: string;
   name: string;
   parent: string;
   avatar: string;
+  scheduleState: StudentScheduleState;
+  finalizedBy?: string;
+  finalizedAt?: string;
+  hasConflicts?: boolean;
+  incompleteBlocks?: number;
   b1: StudentScheduleBadge[];
   b1Tue: StudentScheduleBadge[];
   b1Wed: StudentScheduleBadge[];

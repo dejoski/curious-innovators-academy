@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { preparePasswordRecoveryFromUrl, updateRecoveredPassword } from "@/lib/supabase/auth-bridge";
 
 const MIN_PW = 6;
@@ -76,7 +77,7 @@ export default function ResetPasswordPage() {
         {isPreparingRecovery ? (
           <div className="text-center flex flex-col items-center gap-4" role="status" aria-live="polite">
             <div className="size-10 animate-spin rounded-full border-2 border-[#d2f1f5] border-t-[#14c1d5]" />
-            <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px]">
+            <h1 className={DASHBOARD_PANEL_TITLE_CLASS}>
               Preparing password setup
             </h1>
             <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
@@ -85,7 +86,7 @@ export default function ResetPasswordPage() {
           </div>
         ) : recoveryError ? (
           <div className="text-center flex flex-col items-center gap-4">
-            <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px]">
+            <h1 className={DASHBOARD_PANEL_TITLE_CLASS}>
               Password setup link needed
             </h1>
             <div role="alert" className="rounded-[8px] border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm font-medium text-[#8c1f1f]">
@@ -97,7 +98,7 @@ export default function ResetPasswordPage() {
             <div className="rounded-full bg-[#e8fafb] p-3">
               <CheckCircle2 className="text-[#14c1d5]" size={40} strokeWidth={2} aria-hidden />
             </div>
-            <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px]">
+            <h1 className={DASHBOARD_PANEL_TITLE_CLASS}>
               Password updated
             </h1>
             <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
@@ -107,7 +108,7 @@ export default function ResetPasswordPage() {
         ) : (
           <>
             <div className="mb-6 text-center">
-              <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px] mb-2">
+              <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} mb-2`}>
                 Choose a new password
               </h1>
               <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">

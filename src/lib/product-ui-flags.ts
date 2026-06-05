@@ -15,3 +15,11 @@ export function isNotificationDropdownEnabled(): boolean {
     process.env.NEXT_PUBLIC_ENABLE_MOCK_NOTIFICATION_HEADER === "true"
   );
 }
+
+/** Small non-prod-only header chrome, such as sandbox labels. */
+export function isSandboxHeaderIndicatorEnabled(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
+/** @deprecated Use `isNotificationDropdownEnabled`; the dropdown now reads notifications from the data API. */
+export const isMockNotificationDropdownEnabled = isNotificationDropdownEnabled;

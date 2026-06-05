@@ -72,7 +72,7 @@ export default function StudentProfileClient({
   const [studentDetails, setStudentDetails] = useState<StudentDetailsState>(() =>
     bundle
       ? bundle.details
-      : { name: "", age: "", level: "", learningProfile: "", strengths: "", supportNotes: "" },
+      : { name: "", age: "", level: "", competencyLevels: [], learningProfile: "", strengths: "", supportNotes: "" },
   );
   const [avatarUrl, setAvatarUrl] = useState(() => bundle?.avatar ?? "/images/avatars/student-1.png");
   const [events, setEvents] = useState<TimelineEvent[]>(() => (bundle ? bundle.events : []));
@@ -119,18 +119,18 @@ export default function StudentProfileClient({
   if (!bundle) {
     return (
       <div className="w-full max-w-[1200px] mx-auto px-8 py-16 flex flex-col gap-4 items-center font-sans text-center">
-        <h1 className="text-xl font-semibold text-[#272932]">Student not found</h1>
+        <h1 className="text-[20px] font-semibold leading-[1.25] text-[#272932]">Student not found</h1>
         <p className="text-sm text-[#666d80] max-w-md">
           No student matches this id in the directory. Return to the list to open a valid profile.
         </p>
-        <Link href="/dashboard/students" className="text-sm font-medium text-[#14c1d5] hover:underline">
-          ← Back to students
-        </Link>
       </div>
     );
   }
 
   const mock = bundle;
+  const parentContacts = mock.parentContacts.length
+    ? mock.parentContacts
+    : [{ name: mock.parentName || "Parent contact" }];
 
   const filteredEvents = events.filter((e) => filterType === ALL_HISTORY_FILTER || e.type === filterType);
   const dataHint =
@@ -320,30 +320,24 @@ export default function StudentProfileClient({
   return (
     <div className="w-full max-w-[1200px] mx-auto p-4 md:p-8 flex flex-col gap-8 font-sans">
       <div className="flex flex-col gap-[4px] items-start w-full">
-        <div className="flex items-center justify-between w-full flex-wrap gap-3">
-          <h1 className="font-['Inter:Bold',sans-serif] font-bold text-[#272932] text-[28px] leading-[1.1]">
-            Student Profile
-          </h1>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard/students"
-              className="text-sm font-medium text-[#14c1d5] hover:underline px-2 py-1 rounded-md"
-            >
-              ← All students
-            </Link>
-            <button
-              onClick={openEditModal}
-              className="bg-[#d2f1f5] flex gap-[8px] h-[42px] items-center justify-center px-[16px] rounded-[6px] hover:bg-[#bce6ec] transition-colors"
-            >
-              <span className="font-['Inter_Tight:SemiBold',sans-serif] font-semibold text-[#14c1d5] text-[16px]">
-                Edit Profile
-              </span>
-            </button>
+        <div className="flex w-full flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-bold text-[#272932] text-[28px] leading-[1.1]">
+              Student Profile
+            </h1>
+            <p className="mt-1 font-normal text-[#666d80] text-[16px] leading-[1.4]">
+              View and manage the student’s profile, schedule, and notes.
+            </p>
           </div>
+          <button
+            onClick={openEditModal}
+            className="bg-[#d2f1f5] flex gap-[8px] h-[42px] items-center justify-center px-[16px] rounded-[6px] hover:bg-[#bce6ec] transition-colors"
+          >
+            <span className="font-sans font-semibold text-[#14c1d5] text-[16px]">
+              Edit Profile
+            </span>
+          </button>
         </div>
-        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#666d80] text-[16px] leading-[1.4]">
-          View and manage the student’s profile, schedule, and notes.
-        </p>
         {profileBanner ? (
           <div
             role={profileBanner.tone === "error" ? "alert" : "status"}
@@ -392,44 +386,61 @@ export default function StudentProfileClient({
           </div>
 
           <div className="flex flex-col gap-[6px] w-full min-w-0">
-            <h2 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0d0d12] text-[20px]">
+            <h2 className="font-semibold text-[#0d0d12] text-[20px]">
               {studentDetails.name}
             </h2>
             <div className="flex flex-col gap-3 text-[14px] leading-[1.2]">
               <div className="flex gap-2 items-baseline flex-wrap">
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] shrink-0">Parent:</span>
+                <span className="text-[#0d0d12] shrink-0">Parent:</span>
                 <Link
                   href={mock.parentHref}
-                  className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#14c1d5] hover:underline break-words"
+                  className="font-semibold text-[#14c1d5] hover:underline break-words"
                 >
                   {mock.parentName}
                 </Link>
               </div>
+              <div className="rounded-[10px] border border-[#eef0f3] bg-[#fbfcfe] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.02em] text-[#667085]">Linked parent contacts</span>
+                  <Link href={mock.parentHref} className="text-[12px] font-semibold text-[#14c1d5] hover:underline">
+                    Manage parents
+                  </Link>
+                </div>
+                <div className="mt-2 flex flex-col gap-2">
+                  {parentContacts.map((contact, index) => (
+                    <div key={contact.id ?? `${contact.name}-${index}`} className="grid gap-1 text-[13px] leading-snug sm:grid-cols-[minmax(120px,1fr)_minmax(160px,1.3fr)_minmax(110px,0.8fr)]">
+                      <span className="font-semibold text-[#272932]">{contact.name || "Parent contact"}</span>
+                      <span className="break-words text-[#666d80]">{contact.email || "Email not linked"}</span>
+                      <span className="text-[#666d80]">{contact.phone || "Phone not linked"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="flex gap-2 items-baseline">
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12]">Age:</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80]">
+                <span className="text-[#0d0d12]">Age:</span>
+                <span className="font-semibold text-[#666d80]">
                   {studentDetails.age === "—" ? "—" : `${studentDetails.age} years old`}
                 </span>
               </div>
               <div className="flex gap-2 items-baseline">
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12]">Level:</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80]">{studentDetails.level}</span>
+                <span className="text-[#0d0d12]">Level:</span>
+                <span className="font-semibold text-[#666d80]">{studentDetails.level}</span>
               </div>
               <div className="flex gap-2 items-baseline flex-wrap">
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] shrink-0">Learning Profile:</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] break-words">
+                <span className="text-[#0d0d12] shrink-0">Learning Profile:</span>
+                <span className="font-semibold text-[#666d80] break-words">
                   {studentDetails.learningProfile}
                 </span>
               </div>
               <div className="flex gap-2 items-baseline flex-wrap">
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] shrink-0">Strengths:</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] break-words">
+                <span className="text-[#0d0d12] shrink-0">Strengths:</span>
+                <span className="font-semibold text-[#666d80] break-words">
                   {studentDetails.strengths}
                 </span>
               </div>
               <div className="flex gap-2 items-baseline flex-wrap">
-                <span className="font-['Inter:Regular',sans-serif] text-[#0d0d12] shrink-0">Support Notes:</span>
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#666d80] break-words">
+                <span className="text-[#0d0d12] shrink-0">Support Notes:</span>
+                <span className="font-semibold text-[#666d80] break-words">
                   {studentDetails.supportNotes}
                 </span>
               </div>
@@ -438,11 +449,11 @@ export default function StudentProfileClient({
         </div>
 
         <div className="bg-white border border-[#f0f0f0] rounded-[18px] p-6 w-full lg:w-[353px] shrink-0 flex flex-col gap-4 shadow-sm">
-          <h3 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#272932] text-[16px]">Schedule Summary</h3>
+          <h3 className="font-semibold text-[#272932] text-[16px]">Schedule Summary</h3>
           <div className="h-px w-full bg-[#f0f0f0]" />
           <div className="flex flex-col gap-4 w-full">
             <div className="flex items-center justify-between w-full gap-2">
-              <span className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{mock.coreSummaryLabel}</span>
+              <span className="font-medium text-[#666d80] text-[16px]">{mock.coreSummaryLabel}</span>
               <img alt="Check" className="size-[16px] shrink-0" src={imgMaskGroup} />
             </div>
             <div className="flex gap-2 flex-wrap mb-2">
@@ -461,7 +472,7 @@ export default function StudentProfileClient({
               )}
             </div>
             <div className="flex items-center justify-between w-full gap-2">
-              <span className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{mock.enrichmentSummaryLabel}</span>
+              <span className="font-medium text-[#666d80] text-[16px]">{mock.enrichmentSummaryLabel}</span>
               <img alt="Alert" className="size-[16px] shrink-0" src={imgGroup1} />
             </div>
             <div className="flex gap-2 flex-wrap mb-2">
@@ -480,11 +491,11 @@ export default function StudentProfileClient({
               )}
             </div>
             <div className="flex items-center justify-between w-full gap-2">
-              <span className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{mock.pendingLabel}</span>
+              <span className="font-medium text-[#666d80] text-[16px]">{mock.pendingLabel}</span>
               <img alt="Alert" className="size-[16px] shrink-0" src={imgGroup1} />
             </div>
             <div className="flex items-center justify-between w-full pt-2">
-              <span className="font-['Inter:Medium',sans-serif] font-medium text-[#666d80] text-[16px]">{mock.attendanceLabel}</span>
+              <span className="font-medium text-[#666d80] text-[16px]">{mock.attendanceLabel}</span>
             </div>
             <Link
               href={`/dashboard/students/${studentId}/schedule`}
@@ -498,14 +509,14 @@ export default function StudentProfileClient({
 
       <div className="flex flex-col gap-4 w-full">
         <div className="flex items-center justify-between py-3 flex-wrap gap-4">
-          <h3 className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#05080b] text-[14px]">History</h3>
+          <h3 className="font-semibold text-[#05080b] text-[14px]">History</h3>
           <div className="flex gap-4 items-center flex-wrap">
             <div className="flex bg-[#fafafa] rounded-[8px] p-1 border border-gray-200">
               {historyFilters.map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilterType(type)}
-                  className={`px-3 py-2 rounded-[6px] text-[12px] font-['Inter:Medium',sans-serif] transition-colors ${
+                  className={`px-3 py-2 rounded-[6px] text-[12px] font-medium transition-colors ${
                     filterType === type ? "bg-white shadow-sm text-[#0d0d12]" : "text-[#666d80] hover:text-[#0d0d12]"
                   }`}
                 >
@@ -521,7 +532,7 @@ export default function StudentProfileClient({
               className="bg-[#14c1d5] flex gap-[8px] items-center px-[16px] py-[8px] rounded-[6px] hover:bg-[#12aebd] transition-colors shadow-sm"
             >
               <img alt="Add" className="size-[24px]" src={imgIcRoundPlus} />
-              <span className="font-['Inter_Tight:SemiBold',sans-serif] font-semibold text-white text-[14px]">Create Note</span>
+              <span className="font-sans font-semibold text-white text-[14px]">Create Note</span>
             </button>
           </div>
         </div>
@@ -538,27 +549,27 @@ export default function StudentProfileClient({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
                   <div className="flex flex-wrap gap-2 items-center">
                     <img alt="Parent" className="size-[18px]" src={imgRiParentLine} />
-                    <span className="font-['Inter:Medium',sans-serif] font-medium text-[#2f2f2d] text-[14px]">{event.author}</span>
-                    <span className="font-['Inter:Medium',sans-serif] font-medium text-[#4b4d4f] text-[12px]">({event.role})</span>
+                    <span className="font-medium text-[#2f2f2d] text-[14px]">{event.author}</span>
+                    <span className="font-medium text-[#4b4d4f] text-[12px]">({event.role})</span>
                     {event.urgent && (
-                      <span className="bg-[#ffd9d9] text-[#d80509] border border-[rgba(216,5,9,0.5)] px-2 py-0 rounded-[6px] text-[10px] font-['Inter:Regular',sans-serif]">
+                      <span className="bg-[#ffd9d9] text-[#d80509] border border-[rgba(216,5,9,0.5)] px-2 py-0 rounded-[6px] text-[10px]">
                         Urgent
                       </span>
                     )}
                     <span
-                      className={`px-2 py-0 rounded-[6px] text-[10px] font-['Inter:Medium',sans-serif] ${historyTypeBadgeClasses(event.type)}`}
+                      className={`px-2 py-0 rounded-[6px] text-[10px] font-medium ${historyTypeBadgeClasses(event.type)}`}
                     >
                       {event.type}
                     </span>
                   </div>
-                  <div className="flex gap-1 items-center text-[#625f6e] text-[12px] font-['Inter:Medium',sans-serif] font-medium shrink-0">
+                  <div className="flex gap-1 items-center text-[#625f6e] text-[12px] font-medium shrink-0">
                     <img alt="Calendar" className="size-[14px]" src={imgVuesaxOutlineCalendar} />
                     <span>{event.date}</span>
                     <span>-</span>
                     <span>{event.time}</span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-4 text-[#2f2f2d] text-[12px] font-['Inter:Regular',sans-serif] leading-[1.5] whitespace-pre-wrap break-words">
+                <div className="flex flex-col gap-4 text-[#2f2f2d] text-[12px] leading-[1.5] whitespace-pre-wrap break-words">
                   <div>
                     <p className="font-semibold mb-1">{event.title}</p>
                     <p>{event.content}</p>
@@ -577,7 +588,7 @@ export default function StudentProfileClient({
           onMouseDown={handleEditModalBackdropMouseDown}
         >
           <div className="bg-white rounded-[16px] p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Edit Profile</h2>
+            <h2 className="text-[20px] font-bold mb-4 leading-[1.25]">Edit Profile</h2>
             {editError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {editError}
@@ -661,7 +672,7 @@ export default function StudentProfileClient({
           onMouseDown={handleAddNoteModalBackdropMouseDown}
         >
           <div className="bg-white rounded-[16px] p-6 w-full max-w-lg shadow-xl">
-            <h2 className="text-xl font-bold mb-4">Add Note / Record</h2>
+            <h2 className="text-[20px] font-bold mb-4 leading-[1.25]">Add Note / Record</h2>
             {noteError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {noteError}

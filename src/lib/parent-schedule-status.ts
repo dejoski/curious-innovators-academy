@@ -1,4 +1,4 @@
-import type { StudentScheduleBadge, StudentScheduleRow } from "@/lib/data/types";
+import type { StudentScheduleBadge, StudentScheduleRow, StudentScheduleState } from "@/lib/data/types";
 import {
   CATALOG_SLOT_IDS,
   CATALOG_SLOT_META,
@@ -72,7 +72,48 @@ export function parentScheduleFinalityFromBadges(badgesBySlot: ParentScheduleBad
   };
 }
 
+export function parentScheduleFinalityFromScheduleState(
+  state: StudentScheduleState | null | undefined,
+  row?: Pick<StudentScheduleRow, "finalizedAt" | "finalizedBy" | "hasConflicts" | "incompleteBlocks"> | null,
+): ParentScheduleFinality | null {
+  if (state === "finalized") {
+    const finalizer = row?.finalizedBy ? ` by ${row.finalizedBy}` : "";
+    const when = row?.finalizedAt
+      ? ` on ${new Date(row.finalizedAt).toLocaleDateString("en-US", { timeZone: "America/New_York" })}`
+      : "";
+    return {
+      state: "final",
+      label: "Finalized schedule",
+      description: `Final. This schedule was finalized${finalizer}${when}.`,
+    };
+  }
+  if (state === "pending") {
+    return {
+      state: "pending",
+      label: "Pending finalization",
+      description: "Not final. The schedule is ready for school review before parent-facing finalization.",
+    };
+  }
+  if (state === "draft") {
+    const issues: string[] = [];
+    if (row?.hasConflicts) issues.push("conflicts");
+    if ((row?.incompleteBlocks ?? 0) > 0) {
+      issues.push(`${row?.incompleteBlocks} open block${row?.incompleteBlocks === 1 ? "" : "s"}`);
+    }
+    return {
+      state: "draft",
+      label: "Draft schedule",
+      description: issues.length
+        ? `Not final. Needs admin review for ${issues.join(" and ")}.`
+        : "Not final. Admin can keep editing before finalization.",
+    };
+  }
+  return null;
+}
+
 export function parentScheduleFinalityFromRow(row: StudentScheduleRow | null | undefined): ParentScheduleFinality {
+  const explicit = parentScheduleFinalityFromScheduleState(row?.scheduleState, row);
+  if (explicit) return explicit;
   return parentScheduleFinalityFromBadges(row ? studentScheduleSlots(row) : null);
 }
 

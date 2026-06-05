@@ -29,10 +29,16 @@ function meaningfulBadgeCount(badges: StudentScheduleBadge[]) {
 }
 
 function ScheduleBadgeFace({ badge, tall = false, compact = false, muted = false }: { badge: StudentScheduleBadge; tall?: boolean; compact?: boolean; muted?: boolean }) {
+  const statusLabel = scheduleBadgeStatusLabel(badge, "grid");
+  const statusClass =
+    badge.tone === "pending"
+      ? "inline-flex w-fit rounded-full border border-[#d80509]/25 bg-[#fff1f1] px-2 py-1 text-[#8c1f1f]"
+      : "text-[#667085]";
+
   return (
     <div className={`flex h-full flex-col rounded-[6px] border px-2 min-[1100px]:px-3 ${compact ? "justify-center py-2" : "justify-between py-2 min-[1100px]:py-3"} ${badgeClasses(badge.tone, false)} ${muted ? "opacity-85" : ""}`}>
       <p className={`${tall ? "line-clamp-3" : "line-clamp-2"} text-[11px] leading-[1.16] text-[#111827] min-[1100px]:text-[13px]`}>{badge.label}</p>
-      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"}`}>{scheduleBadgeStatusLabel(badge, "grid")}</p>
+      <p className={`mt-1.5 text-[10px] font-semibold leading-[1.15] min-[1100px]:mt-2 min-[1100px]:text-[12px] ${tall ? "line-clamp-2" : "line-clamp-1"} ${statusClass}`}>{statusLabel}</p>
     </div>
   );
 }
@@ -60,18 +66,20 @@ function SlotCell({
   tall = false,
   onSlotClick,
   onBadgeClick,
+  clickableSlots,
 }: {
   slot: ParentScheduleSlotKey;
   badges: StudentScheduleBadge[];
   tall?: boolean;
   onSlotClick?: (slot: ParentScheduleSlotKey) => void;
   onBadgeClick?: ParentScheduleBadgeClick;
+  clickableSlots?: readonly ParentScheduleSlotKey[];
 }) {
   const visible = badges.length ? badges : [{ label: "Available slot", tone: "empty" as const }];
   const isEmpty = visible.every((badge) => badge.tone === "empty");
   const catalogSlotId = catalogSlotIdFromScheduleSlot(slot);
-  const clickable = Boolean(onSlotClick) && Boolean(catalogSlotId);
-  const pendingSchoolAssignment = !catalogSlotId && isEmpty;
+  const clickable = Boolean(onSlotClick) && (Boolean(catalogSlotId) || Boolean(clickableSlots?.includes(slot)));
+  const pendingSchoolAssignment = !clickable && !catalogSlotId && isEmpty;
   const content = (
     <div className={`flex h-full flex-col ${visible.length > 1 ? "gap-1.5 min-[1100px]:gap-2" : ""}`}>
       {visible.map((badge, index) => (
@@ -101,7 +109,7 @@ function SlotCell({
       {clickable && isEmpty ? (
         <button type="button" onClick={() => onSlotClick?.(slot)} className={`block h-full w-full rounded-[6px] text-left transition ${isEmpty ? badgeClasses("empty", true) : "hover:ring-2 hover:ring-[#14c1d5]/35"}`}>
           <div className="flex h-full flex-col justify-center px-2 min-[1100px]:px-3">
-            <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">Available slot</p>
+            <p className="text-[11px] leading-[1.2] text-[#111827] min-[1100px]:text-[13px]">{catalogSlotId ? "Available slot" : "Core assignment pending"}</p>
             <p className="mt-1.5 text-[10px] font-semibold leading-[1.2] text-[#667085] min-[1100px]:mt-2 min-[1100px]:text-[12px]">+ Choose class</p>
           </div>
         </button>
@@ -123,12 +131,14 @@ export function ParentScheduleGrid({
   badgesBySlot,
   onSlotClick,
   onBadgeClick,
+  clickableSlots,
   className = "",
   footer,
 }: {
   badgesBySlot?: ParentScheduleBadges;
   onSlotClick?: (slot: ParentScheduleSlotKey) => void;
   onBadgeClick?: ParentScheduleBadgeClick;
+  clickableSlots?: readonly ParentScheduleSlotKey[];
   className?: string;
   footer?: ReactNode;
 }) {
@@ -146,7 +156,7 @@ export function ParentScheduleGrid({
           {PARENT_SCHEDULE_DAYS.map((day, index) => (
             <div key={day} className="flex h-[70px] min-w-0 flex-col items-center justify-center border-b border-r border-[#e8ebf0] bg-[#f7f9fc] last:border-r-0 min-[1100px]:h-[78px]">
               <span className="text-[11px] leading-none text-[#111827] min-[1100px]:text-[14px]">Day</span>
-              <span className="mt-1.5 text-[18px] font-semibold leading-none text-[#111827] min-[1100px]:mt-2 min-[1100px]:text-[22px]">{index + 1}</span>
+              <span className="mt-1.5 text-[18px] font-semibold leading-none text-[#111827] min-[1100px]:mt-2 min-[1100px]:text-[20px]">{index + 1}</span>
             </div>
           ))}
 
@@ -167,6 +177,7 @@ export function ParentScheduleGrid({
                     tall={tall}
                     onSlotClick={onSlotClick}
                     onBadgeClick={onBadgeClick}
+                    clickableSlots={clickableSlots}
                   />
                 ))}
               </div>

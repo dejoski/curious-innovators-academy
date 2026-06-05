@@ -7,6 +7,14 @@ import Link from "next/link";
 import { Bell, BookOpenText, ChevronRight, Dice5, GraduationCap, UserRoundCheck } from "lucide-react";
 import type { ResolvedDashboardPresentation } from "@/lib/data/repositories/dashboard";
 import type { DashboardNotification, EnrichmentRequestRow } from "@/lib/data/types";
+import {
+  DASHBOARD_BODY_PRIMARY_TEXT_CLASS,
+  DASHBOARD_BODY_SECONDARY_TEXT_CLASS,
+  DASHBOARD_PANEL_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+  DASHBOARD_TABLE_BODY_TEXT_CLASS,
+  DASHBOARD_TABLE_HEAD_TEXT_CLASS,
+} from "@/lib/dashboard-shell-classes";
 
 export type DashboardHomeViewProps = {
   presentation: ResolvedDashboardPresentation | null;
@@ -72,7 +80,7 @@ export default function DashboardHomeView({
               <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
                 <Bell aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
               </div>
-              <p className="font-['Inter:Semi_Bold',sans-serif] text-[24px] leading-[1.35] text-[#0d0d12]">System Alerts</p>
+              <p className={DASHBOARD_PANEL_TITLE_CLASS}>System Alerts</p>
             </div>
 
             <div className="space-y-[12px]">
@@ -86,14 +94,14 @@ export default function DashboardHomeView({
                     className="flex w-full items-center justify-between rounded-[8px] p-[4px] text-left hover:bg-[#fafafa]"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">{alert.title}</p>
-                      <p className="truncate font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">{alert.detail}</p>
+                      <p className={`truncate font-medium ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>{alert.title}</p>
+                      <p className={`truncate ${DASHBOARD_BODY_SECONDARY_TEXT_CLASS}`}>{alert.detail}</p>
                     </div>
                     <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
                   </Link>
                 ))
               ) : (
-                <div className="rounded-[8px] border border-[#f0f0f0] px-3 py-4 text-sm text-[#666d80]">
+                <div className="rounded-[8px] border border-[#f0f0f0] px-3 py-4 text-[14px] leading-[1.4] text-[#666d80]">
                   No system alerts right now.
                 </div>
               )}
@@ -112,31 +120,31 @@ export default function DashboardHomeView({
             )}
           </div>
           <div className="w-full self-start rounded-[18px] border border-[#f0f0f0] bg-white p-[16px] lg:w-[355px]">
-            <div className="mb-[14px] flex items-center gap-[8px]">
-              <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
-                <Dice5 aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
-              </div>
-              <p className="font-['Inter:Semi_Bold',sans-serif] text-[24px] leading-[1.35] text-[#0d0d12]">Quick Actions</p>
+              <div className="mb-[14px] flex items-center gap-[8px]">
+                <div className="flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[#d2f1f5]">
+                  <Dice5 aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
+                </div>
+              <p className={DASHBOARD_PANEL_TITLE_CLASS}>Quick Actions</p>
             </div>
             <div className="space-y-[12px]">
               <Link href="/dashboard/classes/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
                 <div>
-                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Class</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new class to the school schedule</p>
+                  <p className={`font-medium ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>Create Class</p>
+                  <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>Add a new class to the school schedule</p>
                 </div>
                 <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
               <Link href="/dashboard/students/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
                 <div>
-                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Student</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new student to the school roster</p>
+                  <p className={`font-medium ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>Create Student</p>
+                  <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>Add a new student to the school roster</p>
                 </div>
                 <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
               <Link href="/dashboard/teachers/new" className="flex items-center justify-between rounded-[8px] p-[4px] hover:bg-[#fafafa]">
                 <div>
-                  <p className="font-['Inter:Medium',sans-serif] text-[14px] leading-[1.4] text-[#0d0d12]">Create Teacher</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[14px] leading-[1.4] text-[#666d80]">Add a new teacher to the school staff</p>
+                  <p className={`font-medium ${DASHBOARD_BODY_PRIMARY_TEXT_CLASS}`}>Create Teacher</p>
+                  <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>Add a new teacher to the school staff</p>
                 </div>
                 <ChevronRight aria-hidden="true" className="size-[16px] shrink-0 text-[#0d0d12]" strokeWidth={1.8} />
               </Link>
@@ -155,8 +163,8 @@ export default function DashboardHomeView({
                   <Dice5 aria-hidden="true" className="size-[16px] text-[#00bad3]" strokeWidth={1.8} />
                 </div>
                 <div>
-                  <p className="font-['Inter:Semi_Bold',sans-serif] text-[16px] leading-[1.3] text-[#0d0d12]">Enrichment Requests</p>
-                  <p className="font-['Inter:Regular',sans-serif] text-[12px] leading-[1.4] text-[#666d80]">Overview</p>
+                  <p className={`${DASHBOARD_SECTION_TITLE_CLASS}`}>Enrichment Requests</p>
+                  <p className={DASHBOARD_BODY_SECONDARY_TEXT_CLASS}>Overview</p>
                 </div>
               </div>
               <Link href="/dashboard/classes/requests" className="rounded-[8px] bg-[#fafafa] p-[8px] hover:bg-[#f0f0f0]">
@@ -166,7 +174,7 @@ export default function DashboardHomeView({
 
             <div className="overflow-hidden rounded-[10px] border border-[#f0f0f0]">
               <div
-                className="grid bg-[#fafafa] px-[12px] py-[8px] text-[12px] font-medium text-[#666d80]"
+                className={`grid bg-[#fafafa] px-[12px] py-[8px] font-medium ${DASHBOARD_TABLE_HEAD_TEXT_CLASS}`}
                 style={{ gridTemplateColumns: "1.2fr 1.4fr 0.8fr 0.8fr" }}
               >
                 <p>Student</p>
@@ -180,7 +188,7 @@ export default function DashboardHomeView({
                 topRequests.map((req) => (
                   <div
                     key={req.id}
-                    className="grid border-t border-[#f0f0f0] px-[12px] py-[8px] text-[14px] text-[#0d0d12]"
+                    className={`grid border-t border-[#f0f0f0] px-[12px] py-[8px] ${DASHBOARD_TABLE_BODY_TEXT_CLASS}`}
                     style={{ gridTemplateColumns: "1.2fr 1.4fr 0.8fr 0.8fr" }}
                   >
                     <p>{req.student}</p>

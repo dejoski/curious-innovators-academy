@@ -5,22 +5,10 @@ import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import {
   serverDeleteClass,
   serverInsertClass,
+  serverSetClassLifecycle,
   serverUpdateClass,
 } from "@/lib/data/server-writes";
 import { fetchClassesForClientResolved, fetchClassesResolved } from "@/lib/data/repositories/classes";
-
-function plannerFields(body: Record<string, unknown>) {
-  return {
-    plannerSubject: body.plannerSubject != null ? String(body.plannerSubject) : undefined,
-    plannerSummary: body.plannerSummary != null ? String(body.plannerSummary) : undefined,
-    teacherGuideObjectives: body.teacherGuideObjectives != null ? String(body.teacherGuideObjectives) : undefined,
-    teacherGuideInformation: body.teacherGuideInformation != null ? String(body.teacherGuideInformation) : undefined,
-    teacherGuideSummary: body.teacherGuideSummary != null ? String(body.teacherGuideSummary) : undefined,
-    studentGuideObjectives: body.studentGuideObjectives != null ? String(body.studentGuideObjectives) : undefined,
-    studentGuideInformation: body.studentGuideInformation != null ? String(body.studentGuideInformation) : undefined,
-    studentGuideSummary: body.studentGuideSummary != null ? String(body.studentGuideSummary) : undefined,
-  };
-}
 
 function capacityField(body: Record<string, unknown>) {
   const direct = Number(body.capacity);
@@ -29,6 +17,10 @@ function capacityField(body: Record<string, unknown>) {
   const match = /^\d+\s*\/\s*(\d+)$/.exec(legacy);
   const parsed = match ? Number(match[1]) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+}
+
+function programField(body: Record<string, unknown>) {
+  return body.program === "enrichment" || body.track === "enrichment" ? "enrichment" : "core";
 }
 
 export async function GET(request: Request) {
@@ -75,11 +67,17 @@ export async function POST(req: Request) {
     capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
-    track: body.track === "enrichment" ? "enrichment" : "core",
+    isActive: body.isActive == null ? undefined : Boolean(body.isActive),
+    archivedAt: body.archivedAt == null ? undefined : String(body.archivedAt),
+    track: programField(body),
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
-    ...plannerFields(body),
+    scheduleDays: Array.isArray(body.scheduleDays) ? body.scheduleDays.map(String) : undefined,
+    location: body.location != null ? String(body.location) : undefined,
+    room: body.room != null ? String(body.room) : undefined,
+    minAgeYears: body.minAgeYears == null ? undefined : Number(body.minAgeYears),
+    maxAgeYears: body.maxAgeYears == null ? undefined : Number(body.maxAgeYears),
   });
   if (!result.ok) {
     return apiWriteError(result.message);
@@ -96,6 +94,14 @@ export async function PATCH(req: Request) {
   if (!id) {
     return invalidIdResponse();
   }
+  if (body.lifecycle === "activate" || body.lifecycle === "deactivate" || body.lifecycle === "archive") {
+    const result = await serverSetClassLifecycle(id, {
+      isActive: body.lifecycle === "activate",
+      archived: body.lifecycle === "archive",
+    });
+    if (!result.ok) return apiWriteError(result.message);
+    return NextResponse.json({ class: result.row });
+  }
   const result = await serverUpdateClass(id, {
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
@@ -103,11 +109,17 @@ export async function PATCH(req: Request) {
     capacity: capacityField(body),
     schedule: String(body.schedule ?? ""),
     status: body.status === "Full" ? "Full" : "Active",
-    track: body.track === "enrichment" ? "enrichment" : "core",
+    isActive: body.isActive == null ? undefined : Boolean(body.isActive),
+    archivedAt: body.archivedAt == null ? undefined : String(body.archivedAt),
+    track: programField(body),
     description: body.description != null ? String(body.description) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     block: body.block != null ? String(body.block) : undefined,
-    ...plannerFields(body),
+    scheduleDays: Array.isArray(body.scheduleDays) ? body.scheduleDays.map(String) : undefined,
+    location: body.location != null ? String(body.location) : undefined,
+    room: body.room != null ? String(body.room) : undefined,
+    minAgeYears: body.minAgeYears == null ? undefined : Number(body.minAgeYears),
+    maxAgeYears: body.maxAgeYears == null ? undefined : Number(body.maxAgeYears),
   });
   if (!result.ok) {
     return apiWriteError(result.message);

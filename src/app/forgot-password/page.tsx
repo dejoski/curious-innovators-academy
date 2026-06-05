@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, CheckCircle2 } from "lucide-react";
+import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { requestPasswordReset } from "@/lib/supabase/auth-bridge";
 
 export default function ForgotPasswordPage() {
@@ -48,7 +49,7 @@ export default function ForgotPasswordPage() {
         {!submitted ? (
           <>
             <div className="mb-6 text-center">
-              <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px] mb-2">
+              <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} mb-2`}>
                 Reset your password
               </h1>
               <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">
@@ -104,7 +105,7 @@ export default function ForgotPasswordPage() {
             <div className="rounded-full bg-[#e8fafb] p-3">
               <CheckCircle2 className="text-[#14c1d5]" size={40} strokeWidth={2} aria-hidden />
             </div>
-            <h1 className="font-semibold leading-[1.1] text-[#05080b] text-[22px]">
+            <h1 className={DASHBOARD_PANEL_TITLE_CLASS}>
               Check your inbox
             </h1>
             <p className="font-normal leading-[1.5] text-[#87888a] text-[14px]">

@@ -7,7 +7,21 @@ import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
-import { DASHBOARD_PANEL_CLASS, DASHBOARD_TABLE_SCROLL_CLASS } from "@/lib/dashboard-shell-classes";
+import {
+  DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS,
+  DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS,
+  DASHBOARD_DIRECTORY_TOOLBAR_SELECT_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_CELL_CLASS,
+  DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS,
+  DASHBOARD_BODY_TEXT_CLASS,
+  DASHBOARD_BUTTON_TEXT_CLASS,
+  DASHBOARD_PAGE_SUBTITLE_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_PANEL_CLASS,
+  DASHBOARD_STATUS_PILL_TEXT_CLASS,
+  DASHBOARD_TABLE_SCROLL_CLASS,
+} from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData, readDashboardData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
@@ -248,13 +262,13 @@ export default function AdminStudentRosterClient({
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-8 font-sans md:px-8">
       <div>
-        <h1 className="text-[32px] font-bold leading-[1.08] text-[#272932]">Class Roster</h1>
-        <p className="mt-2 text-[18px] leading-[1.4] text-[#666d80]">
+        <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>Class Roster</h1>
+        <p className={`mt-2 ${DASHBOARD_PAGE_SUBTITLE_CLASS}`}>
           Manage students enrolled in this class, including approvals, waitlist, and requests.
         </p>
-        {hint ? <p className="mt-2 text-sm text-[#7a5b00]">{hint}</p> : null}
-        {syncHint ? <p className="mt-2 text-sm text-[#155e66]">{syncHint}</p> : null}
-        {loadError ? <p className="mt-2 text-sm text-[#a00408]">{loadError}</p> : null}
+        {hint ? <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#7a5b00]`}>{hint}</p> : null}
+        {syncHint ? <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#155e66]`}>{syncHint}</p> : null}
+        {loadError ? <p className={`mt-2 ${DASHBOARD_BODY_TEXT_CLASS} text-[#a00408]`}>{loadError}</p> : null}
       </div>
 
       <div ref={pickerRef} className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_1fr]">
@@ -263,7 +277,7 @@ export default function AdminStudentRosterClient({
           {openPicker === "class" ? (
             <PickerMenu>
               {availableClasses.map((row) => (
-                <button key={row.id} type="button" onClick={() => chooseClass(row.id)} className="w-full px-3 py-2 text-left text-[14px] hover:bg-[#fafafa]">
+                <button key={row.id} type="button" onClick={() => chooseClass(row.id)} className={`w-full px-3 py-2 text-left ${DASHBOARD_BUTTON_TEXT_CLASS} hover:bg-[#fafafa]`}>
                   {row.name}
                 </button>
               ))}
@@ -285,7 +299,7 @@ export default function AdminStudentRosterClient({
                     if (nextClass) setSelectedClassId(nextClass.id);
                     setOpenPicker(null);
                   }}
-                  className="w-full px-3 py-2 text-left text-[14px] hover:bg-[#fafafa]"
+                  className={`w-full px-3 py-2 text-left ${DASHBOARD_BUTTON_TEXT_CLASS} hover:bg-[#fafafa]`}
                 >
                   {block}
                 </button>
@@ -308,7 +322,7 @@ export default function AdminStudentRosterClient({
                     if (nextClass) setSelectedClassId(nextClass.id);
                     setOpenPicker(null);
                   }}
-                  className="w-full px-3 py-2 text-left text-[14px] hover:bg-[#fafafa]"
+                  className={`w-full px-3 py-2 text-left ${DASHBOARD_BUTTON_TEXT_CLASS} hover:bg-[#fafafa]`}
                 >
                   {level}
                 </button>
@@ -316,13 +330,13 @@ export default function AdminStudentRosterClient({
             </PickerMenu>
           ) : null}
         </div>
-        <label className="flex h-[48px] items-center gap-3 rounded-[10px] bg-white px-4 shadow-[0_0_0_1px_#f0f0f0]">
+        <label className={`flex items-center gap-3 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS}`}>
           <Search className="size-5 shrink-0 text-[#14c1d5]" aria-hidden strokeWidth={2} />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search student..."
-            className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#818898]"
+            className={DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS}
           />
         </label>
       </div>
@@ -340,7 +354,7 @@ export default function AdminStudentRosterClient({
               <button
                 type="button"
                 onClick={() => setOpenPicker(openPicker === "sort" ? null : "sort")}
-                className="inline-flex h-[40px] items-center gap-2 rounded-[8px] bg-[#fafafa] px-3 text-[14px] hover:bg-[#f0f0f0]"
+                className={`inline-flex items-center gap-2 hover:bg-[#f0f0f0] ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}
               >
                 <SlidersHorizontal className="size-4" aria-hidden strokeWidth={2} />
                 Sort
@@ -353,20 +367,20 @@ export default function AdminStudentRosterClient({
                     ["student-az", "Student A-Z"],
                     ["student-za", "Student Z-A"],
                   ].map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => { setSort(value as SortOption); setOpenPicker(null); }} className="w-full px-3 py-2 text-left text-[14px] hover:bg-[#fafafa]">
+                    <button key={value} type="button" onClick={() => { setSort(value as SortOption); setOpenPicker(null); }} className={`w-full px-3 py-2 text-left ${DASHBOARD_BUTTON_TEXT_CLASS} hover:bg-[#fafafa]`}>
                       {label}
                     </button>
                   ))}
                 </PickerMenu>
               ) : null}
             </div>
-            <button type="button" onClick={toggleAll} className="h-[40px] rounded-[8px] bg-[#fafafa] px-4 text-[14px] hover:bg-[#f0f0f0]">
+            <button type="button" onClick={toggleAll} className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa] px-4 hover:bg-[#f0f0f0]`}>
               {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
             </button>
             <button
               type="button"
               onClick={() => setIsImportOpen(true)}
-              className="h-[40px] rounded-[8px] border border-[#14c1d5]/40 bg-white px-4 text-[14px] font-semibold text-[#14c1d5] hover:bg-[#ecfdff]"
+              className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} border border-[#14c1d5]/40 px-4 font-semibold text-[#14c1d5] hover:bg-[#ecfdff]`}
             >
               Bulk import CSV
             </button>
@@ -394,14 +408,14 @@ export default function AdminStudentRosterClient({
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
           <table className="min-w-[960px] table-fixed border-collapse">
             <thead>
-              <tr className="border-y border-[#f0f0f0] text-left text-[14px] font-semibold text-[#0d0d12]">
-                <th className="w-[250px] px-3 py-5">Student</th>
-                <th className="w-[160px] px-3 py-5">Parent</th>
-                <th className="w-[90px] px-3 py-5 text-center">Age</th>
-                <th className="w-[150px] px-3 py-5 text-center">Status</th>
-                <th className="w-[140px] px-3 py-5 text-center">Preference</th>
-                <th className="px-3 py-5">Notes</th>
-                <th className="w-[90px] px-3 py-5 text-center">Action</th>
+              <tr className={DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS}>
+                <th className={`w-[250px] ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Student</th>
+                <th className={`w-[160px] ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Parent</th>
+                <th className={`w-[90px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Age</th>
+                <th className={`w-[150px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Status</th>
+                <th className={`w-[140px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Preference</th>
+                <th className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>Notes</th>
+                <th className={`w-[90px] text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -413,11 +427,11 @@ export default function AdminStudentRosterClient({
                 visibleRows.map((student) => (
                   <tr
                     key={`${student.id}-${student.status}`}
-                    className="border-b border-[#f0f0f0] text-[16px] text-[#0d0d12]"
+                    className={DASHBOARD_DIRECTORY_TABLE_BODY_ROW_CLASS}
                     onMouseEnter={() => warmStudent(student.id)}
                     onFocusCapture={() => warmStudent(student.id)}
                   >
-                    <td className="px-3 py-5">
+                    <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>
                       <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
@@ -431,16 +445,16 @@ export default function AdminStudentRosterClient({
                         </Link>
                       </div>
                     </td>
-                    <td className="px-3 py-5">{student.parent || "--"}</td>
-                    <td className="px-3 py-5 text-center">{student.age || "--"}</td>
-                    <td className="px-3 py-5 text-center">
-                      <span className={`inline-flex rounded-[6px] border px-2.5 py-1 text-[12px] leading-none ${statusClasses(student.status)}`}>
+                    <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>{student.parent || "--"}</td>
+                    <td className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>{student.age || "--"}</td>
+                    <td className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>
+                      <span className={`inline-flex rounded-[6px] border px-2.5 py-1 ${DASHBOARD_STATUS_PILL_TEXT_CLASS} ${statusClasses(student.status)}`}>
                         {statusLabel(student.status)}
                       </span>
                     </td>
-                    <td className="px-3 py-5 text-center">{student.status === "Rejected" ? "--" : student.status === "Pending" ? "Pending" : "1st"}</td>
-                    <td className="px-3 py-5 text-[13px] italic leading-[1.35] text-[#666d80]">{student.description || "--"}</td>
-                    <td className="px-3 py-5 text-center">
+                    <td className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>{student.status === "Rejected" ? "--" : student.status === "Pending" ? "Pending" : "1st"}</td>
+                    <td className={`${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS} italic text-[#666d80]`}>{student.description || "--"}</td>
+                    <td className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}`}>
                       <DashboardRowActionsMenu
                         label={`Actions for ${student.name}`}
                         isOpen={openActionId === student.id}
@@ -492,9 +506,9 @@ function PickerButton({ label, open, onClick }: { label: string; open: boolean; 
     <button
       type="button"
       onClick={onClick}
-      className="flex h-[48px] w-full items-center justify-between rounded-[10px] bg-white px-4 text-left shadow-[0_0_0_1px_#f0f0f0]"
+      className={DASHBOARD_DIRECTORY_TOOLBAR_SELECT_CLASS}
     >
-      <span className="truncate text-[16px] text-[#0d0d12]">{label}</span>
+      <span className="truncate">{label}</span>
       <ChevronDown className={`size-5 shrink-0 text-[#0d0d12] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden strokeWidth={2} />
     </button>
   );
@@ -515,5 +529,5 @@ function StatPill({ tone, label }: { tone: "approved" | "pending" | "waitlist" |
     waitlist: "border-[#cfa500]/45 bg-[#fff8e6] text-[#9a7600]",
     capacity: "border-[#14c1d5]/50 bg-[#d2f1f5] text-[#1392a0]",
   }[tone];
-  return <span className={`inline-flex rounded-[6px] border px-2.5 py-1 text-[12px] leading-none ${classes}`}>{label}</span>;
+  return <span className={`inline-flex rounded-[6px] border px-2.5 py-1 ${DASHBOARD_STATUS_PILL_TEXT_CLASS} ${classes}`}>{label}</span>;
 }

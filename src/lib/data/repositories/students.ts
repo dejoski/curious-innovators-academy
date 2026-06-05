@@ -1,5 +1,10 @@
 import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
-import type { ProgramTrack, StudentListItem } from "@/lib/data/types";
+import type {
+  ProgramTrack,
+  StudentCompetencyBehavior,
+  StudentCompetencyLevel,
+  StudentListItem,
+} from "@/lib/data/types";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { isSupabaseConfigured, unavailableList } from "@/lib/data/env";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
@@ -27,6 +32,11 @@ export const STUDENT_SELECT = `
   track,
   profile_id,
   support_notes,
+  student_competency_levels (
+    competency,
+    level,
+    behavior
+  ),
   ${STUDENT_PARENT_CONTACT_SELECT},
   enrollments (
     id,
@@ -61,6 +71,59 @@ function normalizeProgram(raw: unknown): ProgramTrack {
 
 function rowsFromRelation(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+}
+
+const COMPETENCY_DISPLAY_ORDER = new Map<string, number>([
+  ["reading", 0],
+  ["math", 1],
+]);
+
+function normalizeCompetencyName(raw: unknown): string {
+  return String(raw ?? "").trim();
+}
+
+export function normalizeStudentCompetencyBehavior(raw: unknown): StudentCompetencyBehavior {
+  const value = String(raw ?? "core").trim().toLowerCase();
+  return value === "block" || value === "enrichment" ? value : "core";
+}
+
+function displayCompetencyName(raw: string): string {
+  const normalized = raw.trim().replace(/[_-]+/g, " ");
+  if (!normalized) return "";
+  return normalized
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function normalizeStudentCompetencyLevels(raw: unknown): StudentCompetencyLevel[] {
+  return rowsFromRelation(raw)
+    .map((row) => ({
+      competency: normalizeCompetencyName(row.competency),
+      level: String(row.level ?? "").trim(),
+      behavior: normalizeStudentCompetencyBehavior(row.behavior),
+    }))
+    .filter((row) => row.competency.length > 0 && row.level.length > 0)
+    .sort((a, b) => {
+      const orderA = COMPETENCY_DISPLAY_ORDER.get(a.competency.toLowerCase()) ?? 100;
+      const orderB = COMPETENCY_DISPLAY_ORDER.get(b.competency.toLowerCase()) ?? 100;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.competency.localeCompare(b.competency);
+    });
+}
+
+export function summarizeStudentCompetencyLevels(
+  levels: StudentCompetencyLevel[],
+  fallbackLevel: string,
+): string {
+  if (levels.length === 0) return fallbackLevel.trim();
+  return levels
+    .map((row) => {
+      const label = displayCompetencyName(row.competency);
+      const suffix = row.behavior === "core" ? "" : ` (${row.behavior})`;
+      return `${label} ${row.level}${suffix}`.trim();
+    })
+    .join(" · ");
 }
 
 function slotForPlacement(row: Record<string, unknown>, index: number): ParentScheduleSlotKey {
@@ -131,8 +194,9 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
   const track: ProgramTrack = trackRaw === "enrichment" ? "enrichment" : "core";
 
   const scheduleCounts = scheduleCountsFromStudentRow(row);
+  const competencyLevels = normalizeStudentCompetencyLevels(row.student_competency_levels);
   const status: StudentListItem["status"] =
-    scheduleCounts.openScheduleBlocks === 0 && scheduleCounts.enrichmentPendingCount === 0
+    scheduleCounts.coreAssignedCount >= scheduleCounts.coreRequiredCount
       ? "Completed"
       : "Incomplete";
   const studentsLabel = `${scheduleCounts.enrichmentApprovedCount}/${scheduleCounts.enrichmentRequiredCount}`;
@@ -146,7 +210,7 @@ export function mapStudentRow(row: Record<string, unknown>): StudentListItem | n
     parent: parentContact.name,
     parentEmail: parentContact.email || undefined,
     parentIds: parentIdsFromStudentRow(row),
-    level: String(row.grade_level ?? row.level ?? ""),
+    level: summarizeStudentCompetencyLevels(competencyLevels, String(row.grade_level ?? row.level ?? "")),
     status,
     enrichment: studentsLabel,
     ...scheduleCounts,

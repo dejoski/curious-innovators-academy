@@ -2,14 +2,24 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { BookOpen, CalendarDays, ClipboardList, Edit3, Eye, MoreHorizontal, Trash2 } from "lucide-react";
 
 export type DashboardRowAction = {
   label: string;
   href?: string;
   onClick?: () => void;
   tone?: "default" | "danger";
+  icon?: ReactNode;
 };
+
+function defaultActionIcon(label: string, tone?: DashboardRowAction["tone"]): ReactNode {
+  if (tone === "danger" || /remove|delete/i.test(label)) return <Trash2 className="size-5" aria-hidden strokeWidth={1.8} />;
+  if (/edit/i.test(label)) return <Edit3 className="size-5" aria-hidden strokeWidth={1.8} />;
+  if (/schedule/i.test(label)) return <CalendarDays className="size-5" aria-hidden strokeWidth={1.8} />;
+  if (/roster/i.test(label)) return <ClipboardList className="size-5" aria-hidden strokeWidth={1.8} />;
+  if (/class/i.test(label)) return <BookOpen className="size-5" aria-hidden strokeWidth={1.8} />;
+  return <Eye className="size-5" aria-hidden strokeWidth={1.8} />;
+}
 
 export function DashboardRowActionsMenu({
   label,
@@ -42,17 +52,28 @@ export function DashboardRowActionsMenu({
       {isOpen ? (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[190px] rounded-[10px] border border-[#f0f0f0] bg-white py-1 text-left shadow-lg"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[210px] overflow-hidden rounded-[14px] border border-[#dfe1e7] bg-white text-left shadow-[0px_8px_22px_rgba(13,13,18,0.12)]"
           onClick={(event) => event.stopPropagation()}
         >
+          <div className="border-b border-[#dfe1e7] px-4 py-3 text-[14px] font-semibold leading-none text-[#272932]">
+            Action
+          </div>
           {actions.map((action) => {
-            const className = `block w-full px-3 py-2 text-left text-[13px] transition-colors hover:bg-[#fafafa] ${
+            const className = `flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] leading-none transition-colors hover:bg-[#fafafa] ${
               action.tone === "danger" ? "text-[#d80509]" : "text-[#0d0d12]"
             }`;
+            const content = (
+              <>
+                <span className="flex size-5 shrink-0 items-center justify-center text-current" aria-hidden>
+                  {action.icon ?? defaultActionIcon(action.label, action.tone)}
+                </span>
+                <span className="truncate">{action.label}</span>
+              </>
+            );
             if (action.href) {
               return (
                 <Link key={action.label} href={action.href} role="menuitem" className={className} onClick={onClose}>
-                  {action.label}
+                  {content}
                 </Link>
               );
             }
@@ -67,7 +88,7 @@ export function DashboardRowActionsMenu({
                   onClose();
                 }}
               >
-                {action.label}
+                {content}
               </button>
             );
           })}

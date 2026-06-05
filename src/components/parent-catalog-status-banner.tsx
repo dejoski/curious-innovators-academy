@@ -7,10 +7,10 @@ import type { LocalCatalogChoiceReview, LocalReviewStatus } from "@/lib/parent-c
 export type ParentCatalogRequestState = "draft" | "submitted" | null;
 
 function reviewPillClasses(status: LocalReviewStatus): string {
-  if (status === "Approved") return "border-[#004d08]/35 bg-[#004d08]/15 text-[#004d08]";
-  if (status === "Waitlisted") return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
-  if (status === "Rejected") return "border-[#d80509]/35 bg-[#ffd9d9] text-[#d80509]";
-  return "border-[#cfa500]/45 bg-[#fff8e6] text-[#7a5b00]";
+  if (status === "Approved") return "border-[#8ccf98] bg-[#f5fbf6] text-[#215c2c]";
+  if (status === "Waitlisted") return "border-[#e9d59a] bg-[#fffaf0] text-[#675321]";
+  if (status === "Rejected") return "border-[#ebb8b8] bg-[#fff7f7] text-[#8a3434]";
+  return "border-[#e9d59a] bg-[#fffaf0] text-[#675321]";
 }
 
 function reviewPillLabel(status: LocalReviewStatus, state: ParentCatalogRequestState): string {
@@ -31,10 +31,10 @@ function bannerTone(state: ParentCatalogRequestState, choices: LocalCatalogChoic
 }
 
 function bannerClasses(tone: string) {
-  if (tone === "approved") return "border-[#004d08]/30 bg-[#f3fbf4] text-[#004d08]";
-  if (tone === "rejected") return "border-[#d80509]/30 bg-[#fff5f5] text-[#a00408]";
-  if (tone === "mixed") return "border-[#cfa500]/40 bg-[#fff8e6] text-[#7a5b00]";
-  return "border-[#14c1d5]/30 bg-[#ecfdff] text-[#155e66]";
+  if (tone === "approved") return "border-[#b7dfbf] bg-[#f8fcf9] text-[#235a2d]";
+  if (tone === "rejected") return "border-[#efc7c7] bg-[#fff8f8] text-[#873535]";
+  if (tone === "mixed") return "border-[#ead9a8] bg-[#fffaf0] text-[#665528]";
+  return "border-[#c9e8ec] bg-[#f7fcfd] text-[#235f67]";
 }
 
 function defaultMessage(state: ParentCatalogRequestState, tone: string) {
@@ -62,16 +62,16 @@ export function ParentCatalogStatusBanner({
   const tone = bannerTone(state, choices);
 
   return (
-    <div className={`flex flex-col gap-3 rounded-[8px] border px-4 py-3 text-sm ${bannerClasses(tone)} ${className}`}>
+    <div className={`flex flex-col gap-3 rounded-[12px] border px-4 py-3.5 text-sm shadow-[0_1px_0_rgba(15,23,42,0.03)] ${bannerClasses(tone)} ${className}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="font-medium">{message ?? defaultMessage(state, tone)}</span>
+        <span className="font-medium leading-[1.55]">{message ?? defaultMessage(state, tone)}</span>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
       <div className="flex flex-wrap gap-2">
         {choices.map((choice) => (
           <span
             key={choice.id}
-            className={`inline-flex max-w-full items-center gap-1 rounded-[999px] border px-2.5 py-1 text-[11px] font-semibold ${reviewPillClasses(choice.status)}`}
+            className={`inline-flex max-w-full items-center gap-1 rounded-[999px] border px-2.5 py-1 text-[11px] font-medium ${reviewPillClasses(choice.status)}`}
             title={`${choice.slot} ${choice.choice}: ${choice.name}`}
           >
             <span>{reviewPillLabel(choice.status, state)}</span>

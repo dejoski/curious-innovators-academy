@@ -300,8 +300,12 @@ CREATE TABLE public.classes (
   block text,
   level text,
   location text,
+  room text,
   description text,
   prerequisites text,
+  min_age_years integer,
+  max_age_years integer,
+  schedule_days text[] NOT NULL DEFAULT '{}',
   planner_subject text,
   planner_summary text,
   teacher_guide_objectives text,
@@ -312,11 +316,21 @@ CREATE TABLE public.classes (
   student_guide_summary text,
   schedule_summary text NOT NULL DEFAULT '',
   status public.class_status NOT NULL DEFAULT 'active',
-  created_at timestamptz NOT NULL DEFAULT now()
+  is_active boolean NOT NULL DEFAULT true,
+  archived_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT classes_age_range_order CHECK (
+    min_age_years IS NULL
+    OR max_age_years IS NULL
+    OR max_age_years >= min_age_years
+  )
 );
 
 CREATE INDEX classes_teacher_id_idx ON public.classes (teacher_id);
 CREATE INDEX classes_semester_id_idx ON public.classes (semester_id);
+CREATE INDEX classes_active_archive_idx ON public.classes (is_active, archived_at);
+CREATE INDEX classes_age_range_idx ON public.classes (min_age_years, max_age_years);
 
 CREATE TABLE public.enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -368,6 +382,26 @@ CREATE TABLE public.class_request_decisions (
 CREATE INDEX class_request_decisions_student_idx ON public.class_request_decisions (student_id, decided_at DESC);
 CREATE INDEX class_request_decisions_class_idx ON public.class_request_decisions (class_id, decided_at DESC);
 CREATE INDEX class_request_decisions_original_request_idx ON public.class_request_decisions (original_request_id);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'student_schedule_state') THEN
+    CREATE TYPE public.student_schedule_state AS ENUM ('draft', 'pending', 'finalized');
+  END IF;
+END$$;
+
+CREATE TABLE public.student_schedule_states (
+  student_id uuid NOT NULL REFERENCES public.students (id) ON DELETE CASCADE,
+  semester_id uuid NOT NULL REFERENCES public.semesters (id) ON DELETE CASCADE,
+  state public.student_schedule_state NOT NULL DEFAULT 'draft',
+  finalized_by uuid REFERENCES public.profiles (id) ON DELETE SET NULL,
+  finalized_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (student_id, semester_id)
+);
+
+CREATE INDEX student_schedule_states_state_idx ON public.student_schedule_states (state);
 
 CREATE TABLE public.schedule_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -608,6 +642,7 @@ ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_request_decisions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_schedule_states ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
@@ -733,6 +768,21 @@ CREATE POLICY classes_select
 
 CREATE POLICY classes_write_admin
   ON public.classes FOR ALL TO authenticated
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
+
+-- student_schedule_states
+CREATE POLICY student_schedule_states_select
+  ON public.student_schedule_states FOR SELECT TO authenticated
+  USING (
+    private.is_admin()
+    OR private.parent_can_see_student(student_schedule_states.student_id)
+    OR private.student_is_self(student_schedule_states.student_id)
+    OR private.teacher_teaches_student(student_schedule_states.student_id)
+  );
+
+CREATE POLICY student_schedule_states_write_admin
+  ON public.student_schedule_states FOR ALL TO authenticated
   USING (private.is_admin())
   WITH CHECK (private.is_admin());
 
@@ -946,6 +996,231 @@ CREATE POLICY user_preferences_upsert_self
   ON public.user_preferences FOR ALL TO authenticated
   USING (profile_id = auth.uid() OR private.is_admin())
   WITH CHECK (profile_id = auth.uid() OR private.is_admin());
+
+-- schedule placement guardrails
+CREATE OR REPLACE FUNCTION private.class_schedule_block(p_block text, p_schedule_summary text)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  WITH source AS (
+    SELECT lower(COALESCE(p_block, '') || ' ' || COALESCE(p_schedule_summary, '')) AS value
+  ),
+  parsed AS (
+    SELECT COALESCE(
+      (regexp_match(value, '(^|[^a-z0-9])block[[:space:]]*([1-4])([^0-9]|$)'))[2],
+      (regexp_match(value, '(^|[^a-z0-9])b([1-4])([^0-9]|$)'))[2]
+    ) AS value
+    FROM source
+  )
+  SELECT CASE WHEN value IS NULL THEN NULL ELSE value::integer END
+  FROM parsed;
+$$;
+
+CREATE OR REPLACE FUNCTION private.class_schedule_day(p_block text, p_schedule_summary text)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  WITH source AS (
+    SELECT lower(COALESCE(p_block, '') || ' ' || COALESCE(p_schedule_summary, '')) AS value
+  ),
+  parsed AS (
+    SELECT (regexp_match(value, '(^|[^a-z0-9])day[[:space:]]*([1-3])([^0-9]|$)'))[2] AS value
+    FROM source
+  )
+  SELECT CASE WHEN value IS NULL THEN NULL ELSE value::integer END
+  FROM parsed;
+$$;
+
+CREATE OR REPLACE FUNCTION private.assert_no_student_schedule_double_booking()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+SET row_security = off
+AS $$
+DECLARE
+  target_class record;
+  target_block integer;
+  target_day integer;
+  conflict record;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  IF NEW.status <> 'approved' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT id, name, semester_id, block, schedule_summary
+  INTO target_class
+  FROM public.classes
+  WHERE id = NEW.class_id;
+
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  target_block := private.class_schedule_block(target_class.block, target_class.schedule_summary);
+  target_day := private.class_schedule_day(target_class.block, target_class.schedule_summary);
+
+  IF target_block IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT e.id, c.name
+  INTO conflict
+  FROM public.enrollments e
+  JOIN public.classes c ON c.id = e.class_id
+  WHERE e.student_id = NEW.student_id
+    AND e.status = 'approved'
+    AND e.id <> NEW.id
+    AND c.semester_id IS NOT DISTINCT FROM target_class.semester_id
+    AND private.class_schedule_block(c.block, c.schedule_summary) = target_block
+    AND (
+      private.class_schedule_day(c.block, c.schedule_summary) IS NULL
+      OR target_day IS NULL
+      OR private.class_schedule_day(c.block, c.schedule_summary) = target_day
+    )
+  LIMIT 1;
+
+  IF FOUND THEN
+    RAISE EXCEPTION 'Student already has % in this schedule slot.', conflict.name
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enrollments_no_student_schedule_double_booking
+  BEFORE INSERT OR UPDATE OF student_id, class_id, status ON public.enrollments
+  FOR EACH ROW
+  EXECUTE FUNCTION private.assert_no_student_schedule_double_booking();
+
+CREATE OR REPLACE FUNCTION private.assert_no_student_schedule_request_conflict()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+SET row_security = off
+AS $$
+DECLARE
+  target_class record;
+  target_block integer;
+  target_day integer;
+  conflict record;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  IF NEW.status <> 'pending' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT id, name, semester_id, block, schedule_summary
+  INTO target_class
+  FROM public.classes
+  WHERE id = NEW.class_id;
+
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  target_block := private.class_schedule_block(target_class.block, target_class.schedule_summary);
+  target_day := private.class_schedule_day(target_class.block, target_class.schedule_summary);
+
+  IF target_block IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT e.id, c.name
+  INTO conflict
+  FROM public.enrollments e
+  JOIN public.classes c ON c.id = e.class_id
+  WHERE e.student_id = NEW.student_id
+    AND e.status = 'approved'
+    AND c.semester_id IS NOT DISTINCT FROM target_class.semester_id
+    AND private.class_schedule_block(c.block, c.schedule_summary) = target_block
+    AND (
+      private.class_schedule_day(c.block, c.schedule_summary) IS NULL
+      OR target_day IS NULL
+      OR private.class_schedule_day(c.block, c.schedule_summary) = target_day
+    )
+  LIMIT 1;
+
+  IF FOUND THEN
+    RAISE EXCEPTION 'Student already has % in this schedule slot.', conflict.name
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER class_requests_no_approved_slot_conflict
+  BEFORE INSERT OR UPDATE OF student_id, class_id, status ON public.class_requests
+  FOR EACH ROW
+  EXECUTE FUNCTION private.assert_no_student_schedule_request_conflict();
+
+CREATE OR REPLACE FUNCTION private.assert_class_schedule_update_has_no_double_bookings()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+SET row_security = off
+AS $$
+DECLARE
+  target_block integer;
+  target_day integer;
+  conflict record;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  target_block := private.class_schedule_block(NEW.block, NEW.schedule_summary);
+  target_day := private.class_schedule_day(NEW.block, NEW.schedule_summary);
+
+  IF target_block IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT current_enrollment.student_id, other_class.name
+  INTO conflict
+  FROM public.enrollments current_enrollment
+  JOIN public.enrollments other_enrollment
+    ON other_enrollment.student_id = current_enrollment.student_id
+   AND other_enrollment.status = 'approved'
+   AND other_enrollment.class_id <> NEW.id
+  JOIN public.classes other_class ON other_class.id = other_enrollment.class_id
+  WHERE current_enrollment.class_id = NEW.id
+    AND current_enrollment.status = 'approved'
+    AND other_class.semester_id IS NOT DISTINCT FROM NEW.semester_id
+    AND private.class_schedule_block(other_class.block, other_class.schedule_summary) = target_block
+    AND (
+      private.class_schedule_day(other_class.block, other_class.schedule_summary) IS NULL
+      OR target_day IS NULL
+      OR private.class_schedule_day(other_class.block, other_class.schedule_summary) = target_day
+    )
+  LIMIT 1;
+
+  IF FOUND THEN
+    RAISE EXCEPTION 'Class schedule change would double-book a student with %.', conflict.name
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER classes_no_student_schedule_double_booking
+  BEFORE UPDATE OF block, schedule_summary, semester_id ON public.classes
+  FOR EACH ROW
+  EXECUTE FUNCTION private.assert_class_schedule_update_has_no_double_bookings();
 
 -- Default privileges on hosted Supabase cover API roles; private helpers are execution-scoped only.
 GRANT SELECT ON public.student_parent_contacts TO authenticated;
