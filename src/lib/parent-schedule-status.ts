@@ -72,7 +72,7 @@ export function parentScheduleFinalityFromBadges(badgesBySlot: ParentScheduleBad
   };
 }
 
-export function parentScheduleFinalityFromScheduleState(
+function parentScheduleFinalityFromScheduleState(
   state: StudentScheduleState | null | undefined,
   row?: Pick<StudentScheduleRow, "finalizedAt" | "finalizedBy" | "hasConflicts" | "incompleteBlocks"> | null,
 ): ParentScheduleFinality | null {

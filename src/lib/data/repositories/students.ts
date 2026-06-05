@@ -96,7 +96,7 @@ function displayCompetencyName(raw: string): string {
     .join(" ");
 }
 
-export function normalizeStudentCompetencyLevels(raw: unknown): StudentCompetencyLevel[] {
+function normalizeStudentCompetencyLevels(raw: unknown): StudentCompetencyLevel[] {
   return rowsFromRelation(raw)
     .map((row) => ({
       competency: normalizeCompetencyName(row.competency),

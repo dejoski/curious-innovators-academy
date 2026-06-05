@@ -25,7 +25,7 @@ import { cachedJson, invalidateClientDataCache, setClientDataCacheScope } from "
 import { PERSONA_LABELS } from "@/lib/dashboard/persona-labels";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
 
-export type { DashboardPersona, DemoAccountId } from "@/lib/demo-accounts";
+export type { DashboardPersona } from "@/lib/demo-accounts";
 
 const PRODUCTION_ACCOUNT_DEFAULT = {
   persona: "parent" as DashboardPersona,

@@ -22,4 +22,4 @@ export function isSandboxHeaderIndicatorEnabled(): boolean {
 }
 
 /** @deprecated Use `isNotificationDropdownEnabled`; the dropdown now reads notifications from the data API. */
-export const isMockNotificationDropdownEnabled = isNotificationDropdownEnabled;
+const isMockNotificationDropdownEnabled = isNotificationDropdownEnabled;

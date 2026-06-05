@@ -55,7 +55,7 @@ export function localReviewKey(slotId: CatalogSlotId, kind: "first" | "second") 
   return `catalog-${slotId}-${kind}`;
 }
 
-export function dispatchParentCatalogUpdated() {
+function dispatchParentCatalogUpdated() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event("cia-parent-catalog-updated"));
 }
 
@@ -390,7 +390,7 @@ export function catalogChoiceReviews(
   return rows;
 }
 
-export function catalogBadgesForSlot(
+function catalogBadgesForSlot(
   requests: ParentCatalogRequests | null,
   slotId: CatalogSlotId,
   reviewStatuses: LocalReviewStatuses,
@@ -411,7 +411,7 @@ export function catalogBadgesForSlot(
   }));
 }
 
-export function catalogScheduleBadgeOverrides(
+function catalogScheduleBadgeOverrides(
   requests: ParentCatalogRequests | null,
   reviewStatuses: LocalReviewStatuses,
   state: "draft" | "submitted" | null,

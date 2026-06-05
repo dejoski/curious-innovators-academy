@@ -83,7 +83,7 @@ function schedulePartsFromText(value: unknown): string[] {
   return String(value ?? "").split(SCHEDULE_SEPARATOR_RE).map((part) => part.trim()).filter(Boolean);
 }
 
-export function scheduleTimeForBlock(block: unknown): string | null {
+function scheduleTimeForBlock(block: unknown): string | null {
   const blockNumber = blockNumberFromText(block);
   if (!blockNumber) return null;
   return PARENT_SCHEDULE_ROWS[blockNumber - 1]?.time ?? null;
@@ -283,7 +283,7 @@ const SCHEDULE_SLOT_TO_CATALOG_SLOT: Partial<Record<ParentScheduleSlotKey, Catal
   b4Thu: "block4_day3",
 };
 
-export const EMPTY_SCHEDULE_BADGE: StudentScheduleBadge = { label: "--", tone: "empty" };
+const EMPTY_SCHEDULE_BADGE: StudentScheduleBadge = { label: "--", tone: "empty" };
 
 export function emptyScheduleBadgesBySlot(): Record<ParentScheduleSlotKey, StudentScheduleBadge[]> {
   return {
@@ -350,7 +350,7 @@ export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): Student
   return real;
 }
 
-export function splitScheduleLabel(schedule: string): { day: string; time: string } {
+function splitScheduleLabel(schedule: string): { day: string; time: string } {
   return classSchedulePartsFromFields({ scheduleSummary: schedule });
 }
 

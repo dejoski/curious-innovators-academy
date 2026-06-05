@@ -86,7 +86,7 @@ function ClickAwayCloseButton({ label, onClose }: { label: string; onClose: () =
   );
 }
 
-export function ParentClassDetailsContent({
+function ParentClassDetailsContent({
   option,
   statusLabel,
   scheduleDisplay,
