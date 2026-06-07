@@ -17,67 +17,31 @@ export type DemoAccount = {
   studentId: string;
 };
 
-export const DEMO_ACCOUNTS: DemoAccount[] = [
-  {
-    id: "admin-primary",
-    persona: "admin",
-    displayName: "Admin preview",
-    roleLabel: "Administrator",
-    defaultRoute: "/dashboard",
-    studentId: "",
-  },
-  {
-    id: "admin-secondary",
-    persona: "admin",
-    displayName: "Admin preview 2",
-    roleLabel: "Administrator",
-    defaultRoute: "/dashboard",
-    studentId: "",
-  },
-  {
-    id: "parent-primary",
-    persona: "parent",
-    displayName: "Parent preview",
-    roleLabel: "Parent",
-    defaultRoute: "/dashboard/parents/home",
-    studentId: "",
-  },
-  {
-    id: "teacher-primary",
-    persona: "teacher",
-    displayName: "Teacher preview",
-    roleLabel: "Teacher",
-    defaultRoute: "/dashboard/teachers",
-    studentId: "",
-  },
-  {
-    id: "student-primary",
-    persona: "student",
-    displayName: "Student preview",
-    roleLabel: "Student",
-    defaultRoute: "/dashboard/students",
-    studentId: "",
-  },
-];
+function buildDemoAccounts() {
+  const accounts: DemoAccount[] = [];
+  const configs: { id: string; persona: DashboardPersona; name: string; route: string }[] = [
+    { id: "admin-primary", persona: "admin", name: "Admin preview", route: "/dashboard" },
+    { id: "admin-secondary", persona: "admin", name: "Admin preview 2", route: "/dashboard" },
+    { id: "parent-primary", persona: "parent", name: "Parent preview", route: "/dashboard/parents/home" },
+    { id: "teacher-primary", persona: "teacher", name: "Teacher preview", route: "/dashboard/teachers" },
+    { id: "student-primary", persona: "student", name: "Student preview", route: "/dashboard/students" },
+  ];
+  for (const c of configs) {
+    accounts.push({ id: c.id, persona: c.persona, displayName: c.name, roleLabel: c.persona.charAt(0).toUpperCase() + c.persona.slice(1), defaultRoute: c.route, studentId: "" });
+  }
+  return accounts;
+}
+
+export const DEMO_ACCOUNTS = buildDemoAccounts();
 
 export const DEFAULT_DEMO_ACCOUNT_ID: DemoAccountId = "admin-primary";
 
 export function getDemoAccountById(id: string | null | undefined): DemoAccount {
-  const found = DEMO_ACCOUNTS.find((a) => a.id === id);
-  return found ?? DEMO_ACCOUNTS[0]!;
+  return DEMO_ACCOUNTS.find((a) => a.id === id) ?? DEMO_ACCOUNTS[0]!;
 }
 
 export function defaultDemoAccountIdForPersona(persona: DashboardPersona): DemoAccountId {
-  switch (persona) {
-    case "admin":
-      return "admin-primary";
-    case "parent":
-      return "parent-primary";
-    case "teacher":
-      return "teacher-primary";
-    case "student":
-      return "student-primary";
-  }
+  return `${persona}-primary`;
 }
 
 /** Two-letter avatar label from a display name */
