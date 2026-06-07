@@ -2,10 +2,8 @@ import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiError, apiWriteError } from "@/lib/api/responses";
 import { fetchNotificationsResolved } from "@/lib/data/repositories/notifications";
-import {
-  serverPatchNotificationRead,
-  serverPatchNotificationsReadAll,
-} from "@/lib/data/server-writes";
+import { serverPatchNotificationRead, serverPatchNotificationsReadAll } from "@/lib/data/server-writes";
+import { parseBody } from "@/lib/api/route-factory";
 
 export async function GET(request: Request) {
   const authError = await requireRemoteApiSession();
@@ -19,7 +17,7 @@ export async function PATCH(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   if (body.scope === "all") {
     const ids = Array.isArray(body.ids) ? body.ids.map((id) => String(id)) : undefined;
     const result = await serverPatchNotificationsReadAll(ids);

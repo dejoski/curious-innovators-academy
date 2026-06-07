@@ -3,6 +3,7 @@ import { requireRemoteApiSession } from "@/lib/api/require-auth";
 import { apiError, apiWriteError } from "@/lib/api/responses";
 import { fetchScheduleExtrasResolved } from "@/lib/data/repositories/schedule";
 import { serverInsertScheduleEvent } from "@/lib/data/server-writes";
+import { parseBody } from "@/lib/api/route-factory";
 import type { ScheduleCalendarEvent } from "@/lib/data/types";
 
 export async function GET(request: Request) {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const eventDate = String(body.eventDate ?? "");
   const timeLabel = String(body.timeLabel ?? "");
   const title = String(body.title ?? "");

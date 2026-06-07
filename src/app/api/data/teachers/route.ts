@@ -7,6 +7,13 @@ import {
   serverUpdateTeacher,
 } from "@/lib/data/server-writes";
 import { fetchTeachersResolved } from "@/lib/data/repositories/teachers";
+import {
+  parseBody,
+  parseIdFromBody,
+  parseIdFromSearchParams,
+  handleWriteError,
+  handleWriteSuccess,
+} from "@/lib/api/route-factory";
 
 export async function GET() {
   const authError = await requireRemoteApiSession();
@@ -20,7 +27,7 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const result = await serverInsertTeacher({
     name: String(body.name ?? ""),
     subjects: String(body.subjects ?? ""),
@@ -28,22 +35,15 @@ export async function POST(req: Request) {
     phone: body.phone != null ? String(body.phone) : undefined,
     program: body.program === "enrichment" ? "enrichment" : "core",
   });
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  // fallow-ignore-next-line code-duplication
-  return NextResponse.json({ teacher: result.row });
+  return handleWriteSuccess(result, "teacher");
 }
 
 export async function PATCH(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
-  const body = (await req.json()) as Record<string, unknown>;
-  const id = typeof body.id === "string" ? body.id.trim() : "";
-  // fallow-ignore-next-line code-duplication
+  const body = await parseBody(req);
+  const id = parseIdFromBody(body, "id");
   if (!id) {
     return invalidIdResponse();
   }
@@ -54,29 +54,18 @@ export async function PATCH(req: Request) {
     phone: String(body.phone ?? ""),
     program: body.program === "enrichment" ? "enrichment" : "core",
   });
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  // fallow-ignore-next-line code-duplication
-  return NextResponse.json({ teacher: result.row });
+  return handleWriteSuccess(result, "teacher");
 }
 
 export async function DELETE(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id")?.trim() ?? "";
-  // fallow-ignore-next-line code-duplication
+  const id = parseIdFromSearchParams(searchParams);
   if (!id) {
     return invalidIdResponse();
   }
   const result = await serverDeleteTeacher(id);
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  return NextResponse.json({ ok: true });
+  return handleWriteError(result);
 }

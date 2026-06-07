@@ -9,6 +9,7 @@ import {
   serverUpdateClass,
 } from "@/lib/data/server-writes";
 import { fetchClassesForClientResolved, fetchClassesResolved } from "@/lib/data/repositories/classes";
+import { parseBody, parseIdFromBody, parseIdFromSearchParams, handleWriteError, handleWriteSuccess } from "@/lib/api/route-factory";
 
 function capacityField(body: Record<string, unknown>) {
   const direct = Number(body.capacity);
@@ -32,7 +33,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(request.url);
   const options = {
     semesterId: searchParams.get("semesterId"),
@@ -43,7 +43,6 @@ export async function GET(request: Request) {
     .eq("id", current.user.id)
     .maybeSingle();
 
-  // fallow-ignore-next-line code-duplication
   if (isParentRole(profile?.role)) {
     const access = await resolveParentAccess(current.user.id);
     if ("error" in access) {
@@ -61,7 +60,7 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const result = await serverInsertClass({
     name: String(body.name ?? ""),
     teacher: String(body.teacher ?? ""),
@@ -81,9 +80,7 @@ export async function POST(req: Request) {
     minAgeYears: body.minAgeYears == null ? undefined : Number(body.minAgeYears),
     maxAgeYears: body.maxAgeYears == null ? undefined : Number(body.maxAgeYears),
   });
-  if (!result.ok) {
-    return apiWriteError(result.message);
-  }
+  if (!result.ok) return apiWriteError(result.message);
   return NextResponse.json({ class: result.row });
 }
 
@@ -91,9 +88,8 @@ export async function PATCH(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
-  const id = typeof body.id === "string" ? body.id.trim() : "";
-  // fallow-ignore-next-line code-duplication
+  const body = await parseBody(req);
+  const id = parseIdFromBody(body);
   if (!id) {
     return invalidIdResponse();
   }
@@ -124,30 +120,18 @@ export async function PATCH(req: Request) {
     minAgeYears: body.minAgeYears == null ? undefined : Number(body.minAgeYears),
     maxAgeYears: body.maxAgeYears == null ? undefined : Number(body.maxAgeYears),
   });
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message);
-  }
-  // fallow-ignore-next-line code-duplication
-  return NextResponse.json({ class: result.row });
+  return handleWriteSuccess(result, "class");
 }
 
 export async function DELETE(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id")?.trim() ?? "";
-  // fallow-ignore-next-line code-duplication
+  const id = parseIdFromSearchParams(searchParams);
   if (!id) {
     return invalidIdResponse();
   }
   const result = await serverDeleteClass(id);
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message);
-  }
-  // fallow-ignore-next-line code-duplication
-  return NextResponse.json({ ok: true });
+  return handleWriteError(result);
 }

@@ -12,6 +12,7 @@ import {
   fetchStudentsResolved,
 } from "@/lib/data/repositories/students";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { parseBody, parseIdFromSearchParams, handleWriteError, handleWriteSuccess } from "@/lib/api/route-factory";
 
 export async function GET() {
   const current = await loadCurrentApiUser();
@@ -46,8 +47,7 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const result = await serverInsertStudent({
     name: String(body.name ?? ""),
     parent: String(body.parent ?? ""),
@@ -56,55 +56,37 @@ export async function POST(req: Request) {
     track: body.track === "enrichment" ? "enrichment" : "core",
     notes: body.notes != null ? String(body.notes) : undefined,
   });
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  // fallow-ignore-next-line code-duplication
-  return NextResponse.json({ student: result.row });
+  return handleWriteSuccess(result, "student");
 }
 
 export async function PATCH(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id")?.trim() ?? "";
-  // fallow-ignore-next-line code-duplication
+  const id = parseIdFromSearchParams(searchParams);
   if (!id) {
     return invalidIdResponse();
   }
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const result = await serverUpdateStudent(id, {
     name: body.name != null ? String(body.name) : undefined,
     level: body.level != null ? String(body.level) : undefined,
     parent: body.parent != null ? String(body.parent) : undefined,
     parentEmail: body.parentEmail != null ? String(body.parentEmail) : undefined,
   });
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  // fallow-ignore-next-line code-duplication
-  return NextResponse.json({ student: result.row });
+  return handleWriteSuccess(result, "student");
 }
 
 export async function DELETE(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id")?.trim() ?? "";
-  // fallow-ignore-next-line code-duplication
+  const id = parseIdFromSearchParams(searchParams);
   if (!id) {
     return invalidIdResponse();
   }
   const result = await serverDeleteStudent(id);
-  // fallow-ignore-next-line code-duplication
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  return NextResponse.json({ ok: true });
+  return handleWriteError(result);
 }

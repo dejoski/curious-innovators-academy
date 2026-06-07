@@ -14,6 +14,7 @@ import {
   serverPatchEnrichmentRequest,
 } from "@/lib/data/server-writes";
 import type { EnrichmentRequestRow } from "@/lib/data/types";
+import { parseBody, parseIdFromBody, parseIdFromSearchParams, handleWriteError, handleWriteSuccess } from "@/lib/api/route-factory";
 
 export async function GET(request: Request) {
   const current = await loadCurrentApiUser();
@@ -24,7 +25,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // fallow-ignore-next-line code-duplication
   const { searchParams } = new URL(request.url);
   const options = { semesterId: searchParams.get("semesterId") };
   const { data: profile } = await current.supabase
@@ -33,7 +33,6 @@ export async function GET(request: Request) {
     .eq("id", current.user.id)
     .maybeSingle();
 
-  // fallow-ignore-next-line code-duplication
   if (isParentRole(profile?.role)) {
     const access = await resolveParentAccess(current.user.id);
     if ("error" in access) {
@@ -60,8 +59,7 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  // fallow-ignore-next-line code-duplication
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const rawChoices = Array.isArray(body.choices) ? body.choices : [];
   const choices = rawChoices.map((raw) => {
     const choice = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -78,11 +76,9 @@ export async function POST(req: Request) {
     choices,
     submitScope,
   });
-  // fallow-ignore-next-line code-duplication
   if (!result.ok) {
     return apiWriteError(result.message, 400);
   }
-  // fallow-ignore-next-line code-duplication
   return NextResponse.json({ requests: result.rows });
 }
 
@@ -90,8 +86,8 @@ export async function PATCH(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
-  const id = typeof body.id === "string" ? body.id.trim() : "";
+  const body = await parseBody(req);
+  const id = parseIdFromBody(body);
   const status = body.status as EnrichmentRequestRow["status"] | undefined;
   if (!id || !status) {
     return apiError("Invalid payload");
@@ -112,7 +108,7 @@ export async function DELETE(req: Request) {
   if (authError) return authError;
 
   const { searchParams } = new URL(req.url);
-  let id = searchParams.get("id")?.trim() ?? "";
+  let id = parseIdFromSearchParams(searchParams);
   let reason = searchParams.get("reason")?.trim() || undefined;
   if (!id) {
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;

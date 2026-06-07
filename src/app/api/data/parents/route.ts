@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRemoteApiSession } from "@/lib/api/require-auth";
-import { apiWriteError } from "@/lib/api/responses";
+import { apiWriteError, invalidIdResponse } from "@/lib/api/responses";
 import { fetchAdminParentsResolved } from "@/lib/data/repositories/parents";
 import {
   serverCreateParentInviteLink,
@@ -9,6 +9,13 @@ import {
   serverSetParentStudentLinks,
   serverUpdateParent,
 } from "@/lib/data/server-writes";
+import {
+  parseBody,
+  parseIdFromBody,
+  parseIdFromSearchParams,
+  handleWriteError,
+  handleWriteSuccess,
+} from "@/lib/api/route-factory";
 
 export async function GET() {
   const authError = await requireRemoteApiSession();
@@ -22,22 +29,19 @@ export async function POST(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const result = await serverInsertParent({
     name: String(body.name ?? ""),
     email: String(body.email ?? ""),
   });
-  if (!result.ok) {
-    return apiWriteError(result.message, 400);
-  }
-  return NextResponse.json({ parent: result.row });
+  return handleWriteSuccess(result, "parent");
 }
 
 export async function PATCH(req: Request) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
-  const body = (await req.json()) as Record<string, unknown>;
+  const body = await parseBody(req);
   const action = String(body.action ?? "");
   const parentId = String(body.parentId ?? "");
 
@@ -47,15 +51,13 @@ export async function PATCH(req: Request) {
       name: String(body.name ?? ""),
       email: String(body.email ?? ""),
     });
-    if (!result.ok) return apiWriteError(result.message, 400);
-    return NextResponse.json({ parent: result.row });
+    return handleWriteSuccess(result, "parent");
   }
 
   if (action === "set-students") {
-    const studentIds = Array.isArray(body.studentIds) ? body.studentIds.map((id) => String(id)) : [];
+    const studentIds = Array.isArray(body.studentIds) ? body.studentIds.map((id: unknown) => String(id)) : [];
     const result = await serverSetParentStudentLinks({ parentId, studentIds });
-    if (!result.ok) return apiWriteError(result.message, 400);
-    return NextResponse.json({ parent: result.row });
+    return handleWriteSuccess(result, "parent");
   }
 
   if (action === "create-invite-link") {
@@ -73,8 +75,7 @@ export async function DELETE(req: Request) {
   if (authError) return authError;
 
   const { searchParams } = new URL(req.url);
-  const parentId = searchParams.get("parentId") ?? searchParams.get("id") ?? "";
+  const parentId = parseIdFromSearchParams(searchParams, "parentId");
   const result = await serverDeleteParent(parentId);
-  if (!result.ok) return apiWriteError(result.message, 400);
-  return NextResponse.json({ ok: true });
+  return handleWriteError(result);
 }
