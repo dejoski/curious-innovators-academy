@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-06-06 (commit 9e0f4dc)
+Last indexed: 2026-06-07 (commit 6099a28)
 ### Entry Points
 - `src/lib/supabase/server.ts`
 - `src/lib/data/index.ts`
@@ -25,12 +25,12 @@ Last indexed: 2026-06-06 (commit 9e0f4dc)
 ### Architectural Layers
 | Layer | Files | Purpose |
 |-------|-------|---------|
+| dashboard | 78 |  |
 | data/api | 61 |  |
-| dashboard | 60 |  |
 | dashboard/parents | 26 |  |
-| page | 25 |  |
-| dashboard/parents (22) | 22 |  |
-| layout | 20 |  |
+| dashboard/parents (24) | 24 |  |
+| page | 17 |  |
+| page (12) | 12 |  |
 | external:eslint-config-next | 5 |  |
 | dashboard/classes | 4 |  |
 | og | 4 |  |
@@ -42,10 +42,10 @@ Last indexed: 2026-06-06 (commit 9e0f4dc)
 | `src/app/dashboard/parents/catalog/page.tsx` | 99.1th %ile | 24 | Dejan Stajic |
 | `src/app/dashboard/parents/home/parent-home-dashboard.tsx` | 98.6th %ile | 34 | Dejan Stajic |
 | `src/app/dashboard/classes/requests/requests-client.tsx` | 98.1th %ile | 24 | Dejan Stajic |
-| `src/app/dashboard/classes/classes-client.tsx` | 97.6th %ile | 29 | Dejan Stajic |
+| `package-lock.json` | 97.8th %ile | 9 | Dejan Stajic |
 
 ## Code health
-Hotspot health: 2.09/10 (stable) ·
+Hotspot health: 2.1/10 (stable) ·
 Average: 3.69/10 ·
 Worst: 1.0/10 (`src/app/dashboard/classes/core/[id]/page.tsx`)
 

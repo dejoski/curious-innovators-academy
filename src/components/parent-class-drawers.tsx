@@ -179,41 +179,6 @@ function ParentClassDetailsContent({
   );
 }
 
-function placeholderSummaryCard() {
-  if (false) return null;
-  const scheduleLabel = scheduleDisplay ? `${scheduleDisplay.day} · ${scheduleDisplay.time}` : option.block || option.schedule || "Selected block";
-  const status = statusLabel ?? (isOptionFull(option) ? "Waitlist available" : "Open");
-  return (
-    <div className="rounded-[8px] border border-[#dfe1e6] bg-white px-[14px] py-[12px] sm:px-[16px] sm:py-[14px]">
-      <div className="flex items-start justify-between gap-3 border-b border-[#dfe1e6] pb-[10px]">
-        <h3 className={`min-w-0 ${DASHBOARD_PANEL_TITLE_CLASS}`}>
-          {option.name}
-        </h3>
-        {onOpenDetails ? (
-          <button
-            type="button"
-            aria-label={`Open details for ${option.name}`}
-            onClick={() => onOpenDetails(option, scheduleDisplay)}
-            className="inline-flex size-[32px] shrink-0 items-center justify-center rounded-[6px] text-[#14c1d5] hover:bg-[#ecfdff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14c1d5]"
-          >
-            <ExternalLink className="size-[18px]" aria-hidden strokeWidth={2.4} />
-          </button>
-        ) : null}
-      </div>
-      <div className={`space-y-[8px] border-b border-[#dfe1e6] py-[12px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#4f5665]`}>
-        <p className="line-clamp-2">
-          <span className="font-medium">Description:</span> {option.description || "Class details are not available from the class catalog yet."}
-        </p>
-        <p>Teacher: {option.teacher || "Teacher not assigned"}</p>
-        <p>{scheduleLabel}</p>
-      </div>
-      <p className={`flex items-center gap-2 pt-[12px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#4f5665]`}>
-        <span>Status:</span>
-        <span className={pendingStatusChipClasses(status)}>{status}</span>
-      </p>
-    </div>
-  );
-}
 
 function ChoiceDropdown({
   label,

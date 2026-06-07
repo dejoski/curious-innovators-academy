@@ -157,10 +157,6 @@ export async function cachedJson<T>(url: string, ttlMs = DEFAULT_TTL_MS): Promis
   return request;
 }
 
-function _unused_preload() {
-  /* unused */
-}
-
 export function parentStudentDataUrls(studentId: string) {
   const encodedId = encodeURIComponent(studentId);
   return [
@@ -228,9 +224,6 @@ export type DashboardLoadStatus = "loading" | "ready" | "error";
 
 // type DashboardLoadable removed - unused
 
-function _unused_dashboardLoadable() {
-  /* unused */
-}
 
 export function setClientDataCacheScope(scope: string) {
   const nextScope = scope.trim() || "default";

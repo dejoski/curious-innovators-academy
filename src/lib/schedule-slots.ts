@@ -350,9 +350,6 @@ export function normalizeScheduleBadges(badges: StudentScheduleBadge[]): Student
   return real;
 }
 
-function splitScheduleLabel(schedule: string): { day: string; time: string } {
-  return classSchedulePartsFromFields({ scheduleSummary: schedule });
-}
 
 export function formatBlockDayLabel(block: unknown, levelOrDay?: unknown, scheduleSummary?: unknown): string {
   const catalogMeta = catalogSlotMetaFromBlockLevel(block, levelOrDay);

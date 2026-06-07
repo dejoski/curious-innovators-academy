@@ -222,20 +222,6 @@ function PlannerRow({
   );
 }
 
-function PlannerSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mt-8">
-      <h4 className="mb-4 text-center text-[17px] font-semibold text-[#0d0d12]">{title}</h4>
-      <div className="border-t border-[#e6e9ef]">{children}</div>
-    </div>
-  );
-}
 
 function EventDetailsModal({
   event,
