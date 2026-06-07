@@ -15,6 +15,34 @@ export type PasswordResetResult = { ok: true } | { ok: false; message: string };
 
 const SUPABASE_AUTH_REQUIRED_MSG =
   "Sign-in is not ready yet. Ask an administrator to finish account setup.";
+const ACCOUNT_PENDING_MSG =
+  "Check your email to confirm your address before you can sign in. If you don't see the message, check spam or contact an administrator.";
+
+function supabaseGuard(): LoginResult | PasswordResetResult | null {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, message: "Password setup is not ready yet. Ask an administrator to finish account setup." };
+  }
+  const supabase = getBrowserSupabase();
+  if (!supabase) {
+    return { ok: false, message: "Password setup is temporarily unavailable." };
+  }
+  return null;
+}
+
+function supabaseGuardOrDemo(demoKind: "demo" | "session" = "demo"): SignupResult {
+  if (!isSupabaseConfigured()) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }
+      : { ok: true, kind: demoKind };
+  }
+  const supabase = getBrowserSupabase();
+  if (!supabase) {
+    return isRemoteDataRequired()
+      ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }
+      : { ok: true, kind: demoKind };
+  }
+  return supabase;
+}
 
 async function loginCredentialMessage(email: string): Promise<string | null> {
   try {
@@ -73,9 +101,6 @@ export async function signOutSupabaseOrDemo(): Promise<void> {
   if (!supabase) return;
   await supabase.auth.signOut();
 }
-
-const ACCOUNT_PENDING_MSG =
-  "Check your email to confirm your address before you can sign in. If you don't see the message, check spam or contact an administrator.";
 
 /**
  * Validates invite code client-side, then `signUp` when Supabase env is set.

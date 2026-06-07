@@ -60,39 +60,81 @@ export const ADMIN_VIEW_PATHS: Record<AdminView, string> = {
   notifications: "/dashboard/notifications",
 };
 
-export function classesViewFromPath(pathname: string): ClassesView | null {
-  if (pathname === "/dashboard/classes" || pathname === "/dashboard/classes/") return "core";
-  if (pathname === "/dashboard/classes/requests") return "requests";
-  if (pathname === "/dashboard/classes/approvals") return "approvals";
-  if (pathname === "/dashboard/classes/enrichment") return "enrichment";
-  if (pathname === "/dashboard/classes/core") return "core";
+type ViewPath = { path: string; view: ClassesView | ParentView | AdminView | null };
+
+const PATH_TO_CLASSES_VIEW: Record<string, ClassesView> = {
+  "/dashboard/classes/core": "core",
+  "/dashboard/classes/enrichment": "enrichment",
+  "/dashboard/classes/requests": "requests",
+  "/dashboard/classes/approvals": "approvals",
+};
+
+const PATH_TO_PARENT_VIEW: Record<string, ParentView> = {
+  "/dashboard/parents/home": "home",
+  "/dashboard/parents/schedule": "schedule",
+  "/dashboard/parents/billing": "billing",
+  "/dashboard/parents/catalog": "catalog",
+  "/dashboard/parents/students": "students",
+  "/dashboard/parents/classes/core": "classes-core",
+  "/dashboard/parents/classes/enrichment": "classes-enrichment",
+};
+
+const PATH_TO_ADMIN_VIEW: Record<string, AdminView> = {
+  "/dashboard": "home",
+  "/dashboard/schedule": "schedule",
+  "/dashboard/students": "students",
+  "/dashboard/students/schedule": "student-schedule",
+  "/dashboard/students/roster": "student-roster",
+  "/dashboard/parents": "parents",
+  "/dashboard/teachers": "teachers",
+  "/dashboard/notifications": "notifications",
+};
+
+function normalizePath(pathname: string): string {
+  if (pathname.endsWith("/")) return pathname.slice(0, -1);
+  return pathname;
+}
+
+function exactOrTrailingSlash(pathname: string): string {
+  const normalized = normalizePath(pathname);
+  return pathname === normalized ? pathname : pathname;
+}
+
+function viewFromPath(pathname: string, mapping: Record<string, string>, fallback?: { fn: (p: string) => string | null }): string | null {
+  const normalized = normalizePath(pathname);
+  const candidate = pathname === normalized ? pathname : pathname;
+  const path = normalized in mapping ? normalized : candidate;
+  if (path in mapping) return mapping[path];
+  if (fallback?.fn) return fallback.fn(pathname);
   return null;
+}
+
+export function classesViewFromPath(pathname: string): ClassesView | null {
+  const classesPath = exactOrTrailingSlash(pathname);
+  const result = viewFromPath(classesPath, PATH_TO_CLASSES_VIEW, {
+    fn: (p) => {
+      if (p === "/dashboard/classes" || p === "/dashboard/classes/") return "core";
+      return null;
+    },
+  });
+  return (result as ClassesView) ?? null;
 }
 
 export function parentViewFromPath(pathname: string): ParentView | null {
-  if (pathname === "/dashboard/parents/home") return "home";
-  if (pathname === "/dashboard/parents/schedule") return "schedule";
-  if (pathname === "/dashboard/parents/billing") return "billing";
-  if (pathname === "/dashboard/parents/catalog") return "catalog";
-  if (pathname === "/dashboard/parents/classes" || pathname === "/dashboard/parents/classes/") {
-    return "classes-core";
-  }
-  if (pathname === "/dashboard/parents/classes/core") return "classes-core";
-  if (pathname === "/dashboard/parents/classes/enrichment") return "classes-enrichment";
-  if (pathname === "/dashboard/parents/students") return "students";
-  return null;
+  const result = viewFromPath(pathname, PATH_TO_PARENT_VIEW, {
+    fn: (p) => {
+      if (p === "/dashboard/parents" || p === "/dashboard/parents/") return "classes-core";
+      return null;
+    },
+  });
+  return (result as ParentView) ?? null;
 }
 
 export function adminViewFromPath(pathname: string): AdminView | null {
-  if (pathname === "/dashboard" || pathname === "/dashboard/") return "home";
-  if (pathname === "/dashboard/schedule") return "schedule";
+  const normalized = normalizePath(pathname);
+  const candidate = pathname === normalized ? pathname : pathname;
+  if (candidate in PATH_TO_ADMIN_VIEW) return PATH_TO_ADMIN_VIEW[candidate] as AdminView;
   if (classesViewFromPath(pathname)) return "classes";
-  if (pathname === "/dashboard/students") return "students";
-  if (pathname === "/dashboard/students/schedule") return "student-schedule";
-  if (pathname === "/dashboard/students/roster") return "student-roster";
-  if (pathname === "/dashboard/parents") return "parents";
-  if (pathname === "/dashboard/teachers") return "teachers";
-  if (pathname === "/dashboard/notifications") return "notifications";
   return null;
 }
 

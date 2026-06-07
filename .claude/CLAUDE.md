@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-06-07 (commit 6099a28)
+Last indexed: 2026-06-07 (commit 863dc06)
 ### Entry Points
 - `src/lib/supabase/server.ts`
 - `src/lib/data/index.ts`
@@ -25,15 +25,15 @@ Last indexed: 2026-06-07 (commit 6099a28)
 ### Architectural Layers
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| dashboard | 78 |  |
-| data/api | 61 |  |
-| dashboard/parents | 26 |  |
-| dashboard/parents (24) | 24 |  |
-| page | 17 |  |
-| page (12) | 12 |  |
+| data/api | 65 |  |
+| dashboard | 61 |  |
+| dashboard/parents | 29 |  |
+| dashboard/parents (26) | 26 |  |
+| page | 25 |  |
+| route | 11 |  |
 | external:eslint-config-next | 5 |  |
-| dashboard/classes | 4 |  |
 | og | 4 |  |
+| dashboard/classes | 4 |  |
 | external:@playwright | 2 |  |
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
@@ -45,8 +45,8 @@ Last indexed: 2026-06-07 (commit 6099a28)
 | `package-lock.json` | 97.8th %ile | 9 | Dejan Stajic |
 
 ## Code health
-Hotspot health: 2.1/10 (stable) ·
-Average: 3.69/10 ·
+Hotspot health: 2.07/10 (stable) ·
+Average: 3.68/10 ·
 Worst: 1.0/10 (`src/app/dashboard/classes/core/[id]/page.tsx`)
 
 ### Critical biomarkers

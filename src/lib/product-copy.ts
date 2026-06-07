@@ -18,11 +18,14 @@ export function fallbackInboxBannerText(): string {
   return "Notifications are temporarily unavailable.";
 }
 
-export function studentCreatePartialSaveHint(): string {
-  return "No student record was created. Check the connection and try again.";
+function writeFailureHint(entity: string): string {
+  return `${entity} record was not created. Check the connection and try again.`;
 }
 
-/** Shown after failed POST when creating a teacher from the standalone form */
+export function studentCreatePartialSaveHint(): string {
+  return writeFailureHint("student");
+}
+
 export function teacherCreateFailureExtraHint(): string {
-  return "No teacher record was created. Check the connection and try again.";
+  return writeFailureHint("teacher");
 }

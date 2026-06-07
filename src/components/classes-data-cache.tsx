@@ -28,31 +28,58 @@ type ClassesDataCacheValue = {
   loadRequests: (force?: boolean) => Promise<RequestsPayload>;
   loadApprovals: (force?: boolean) => Promise<ApprovalHistoryRow[]>;
   setClassesData: (rows: SchoolClassRow[], source?: DataSource) => void;
-  setRequestsData: (
-    rows: EnrichmentRequestRow[],
-    decisionSummary: EnrichmentDecisionSummary,
-    source?: DataSource,
-  ) => void;
+  setRequestsData: (rows: EnrichmentRequestRow[], decisionSummary: EnrichmentDecisionSummary, source?: DataSource) => void;
 };
 
-const EMPTY_DECISION_SUMMARY: EnrichmentDecisionSummary = {
-  approved: 0,
-  waitlisted: 0,
-  rejected: 0,
-};
-
+const EMPTY_DECISION_SUMMARY: EnrichmentDecisionSummary = { approved: 0, waitlisted: 0, rejected: 0 };
 const CLASSES_URL = "/api/data/classes";
 const REQUESTS_URL = "/api/data/enrichment-requests";
 const APPROVALS_URL = "/api/data/approval-history";
 
 function emptyEntry<T>(): CacheEntry<T> {
-  return {
-    data: null,
-    source: "unavailable",
-    loading: false,
-    error: null,
-    loadedAt: null,
-  };
+  return { data: null, source: "unavailable", loading: false, error: null, loadedAt: null };
+}
+
+type LoadConfig = { url: string; transform: (body: unknown) => unknown; initialState: unknown; setResult: React.Dispatch<React.SetStateAction<CacheEntry<unknown>>>; dataKey: string; empty: unknown };
+
+function useCachedLoad(config: LoadConfig, persona: string | undefined, allLoaded?: () => void) {
+  const [state, setState] = React.useState<CacheEntry<unknown>>(() => config.initialState as CacheEntry<unknown>);
+  const inflight = React.useRef<Promise<unknown> | null>(null);
+
+  const load = React.useCallback(async (force = false) => {
+    const typedState = state as CacheEntry<unknown>;
+    if (!force && typedState.data) return typedState.data;
+    if (!force && inflight.current) return inflight.current;
+
+    const promise = (async () => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        if (force) invalidateDashboardData(config.url);
+        const body = await readDashboardData<unknown>(config.url);
+        const data = config.transform(body);
+        setState({ data, source: (body as { source?: DataSource }).source ?? "remote", loading: false, error: null, loadedAt: Date.now() });
+        return data;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setState((prev) => ({ ...prev, loading: false, error: message }));
+        return (typedState.data ?? config.empty);
+      } finally {
+        inflight.current = null;
+      }
+    })();
+
+    inflight.current = promise;
+    return promise;
+  }, [state, config.url, config.transform, config.empty]);
+
+  React.useEffect(() => {
+    void load();
+    return () => {
+      inflight.current = null;
+    };
+  }, [load]);
+
+  return [state, load] as const;
 }
 
 const ClassesDataCacheContext = React.createContext<ClassesDataCacheValue | null>(null);
@@ -78,13 +105,7 @@ export function ClassesDataCacheProvider({ children }: { children: React.ReactNo
         if (force) invalidateDashboardData(CLASSES_URL);
         const body = await readDashboardData<{ classes?: SchoolClassRow[]; source?: DataSource }>(CLASSES_URL);
         const rows = Array.isArray(body.classes) ? body.classes : [];
-        setClasses({
-          data: rows,
-          source: body.source ?? "remote",
-          loading: false,
-          error: null,
-          loadedAt: Date.now(),
-        });
+        setClasses({ data: rows, source: body.source ?? "remote", loading: false, error: null, loadedAt: Date.now() });
         return rows;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -107,22 +128,9 @@ export function ClassesDataCacheProvider({ children }: { children: React.ReactNo
       setRequests((prev) => ({ ...prev, loading: true, error: null }));
       try {
         if (force) invalidateDashboardData(REQUESTS_URL);
-        const body = await readDashboardData<{
-          requests?: EnrichmentRequestRow[];
-          decisionSummary?: EnrichmentDecisionSummary;
-          source?: DataSource;
-        }>(REQUESTS_URL);
-        const payload = {
-          requests: Array.isArray(body.requests) ? body.requests : [],
-          decisionSummary: body.decisionSummary ?? EMPTY_DECISION_SUMMARY,
-        };
-        setRequests({
-          data: payload,
-          source: body.source ?? "remote",
-          loading: false,
-          error: null,
-          loadedAt: Date.now(),
-        });
+        const body = await readDashboardData<{ requests?: EnrichmentRequestRow[]; decisionSummary?: EnrichmentDecisionSummary; source?: DataSource }>(REQUESTS_URL);
+        const payload = { requests: Array.isArray(body.requests) ? body.requests : [], decisionSummary: body.decisionSummary ?? EMPTY_DECISION_SUMMARY };
+        setRequests({ data: payload, source: body.source ?? "remote", loading: false, error: null, loadedAt: Date.now() });
         return payload;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -147,13 +155,7 @@ export function ClassesDataCacheProvider({ children }: { children: React.ReactNo
         if (force) invalidateDashboardData(APPROVALS_URL);
         const body = await readDashboardData<{ approvals?: ApprovalHistoryRow[]; source?: DataSource }>(APPROVALS_URL);
         const rows = Array.isArray(body.approvals) ? body.approvals : [];
-        setApprovals({
-          data: rows,
-          source: body.source ?? "remote",
-          loading: false,
-          error: null,
-          loadedAt: Date.now(),
-        });
+        setApprovals({ data: rows, source: body.source ?? "remote", loading: false, error: null, loadedAt: Date.now() });
         return rows;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -174,13 +176,7 @@ export function ClassesDataCacheProvider({ children }: { children: React.ReactNo
 
   const setRequestsData = React.useCallback(
     (rows: EnrichmentRequestRow[], decisionSummary: EnrichmentDecisionSummary, source: DataSource = "remote") => {
-      setRequests({
-        data: { requests: rows, decisionSummary },
-        source,
-        loading: false,
-        error: null,
-        loadedAt: Date.now(),
-      });
+      setRequests({ data: { requests: rows, decisionSummary }, source, loading: false, error: null, loadedAt: Date.now() });
     },
     [],
   );
@@ -191,30 +187,15 @@ export function ClassesDataCacheProvider({ children }: { children: React.ReactNo
   }, [loadApprovals, loadClasses, loadRequests, persona]);
 
   const value = React.useMemo(
-    () => ({
-      classes,
-      requests,
-      approvals,
-      loadClasses,
-      loadRequests,
-      loadApprovals,
-      setClassesData,
-      setRequestsData,
-    }),
+    () => ({ classes, requests, approvals, loadClasses, loadRequests, loadApprovals, setClassesData, setRequestsData }),
     [approvals, classes, loadApprovals, loadClasses, loadRequests, requests, setClassesData, setRequestsData],
   );
 
-  return (
-    <ClassesDataCacheContext.Provider value={value}>
-      {children}
-    </ClassesDataCacheContext.Provider>
-  );
+  return <ClassesDataCacheContext.Provider value={value}>{children}</ClassesDataCacheContext.Provider>;
 }
 
 export function useClassesDataCache() {
   const value = React.useContext(ClassesDataCacheContext);
-  if (!value) {
-    throw new Error("useClassesDataCache must be used inside ClassesDataCacheProvider");
-  }
+  if (!value) throw new Error("useClassesDataCache must be used inside ClassesDataCacheProvider");
   return value;
 }

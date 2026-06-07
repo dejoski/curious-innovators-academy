@@ -2,10 +2,8 @@
 
 import React from "react";
 import DashboardHomeView from "@/components/dashboard-home-view";
-import {
-  peekDashboardData,
-  readDashboardData,
-} from "@/lib/client-data-cache";
+import { peekDashboardData } from "@/lib/client-data-cache";
+import { useDashboardData } from "@/lib/data-load";
 import type { ResolvedDashboardPresentation } from "@/lib/data/repositories/dashboard";
 import type { DashboardNotification, EnrichmentRequestRow } from "@/lib/data/types";
 
@@ -18,72 +16,32 @@ export default function DashboardHomeClient() {
   const cachedRequests = peekDashboardData<{ requests?: EnrichmentRequestRow[] }>(REQUESTS_URL);
   const cachedNotifications = peekDashboardData<{ notifications?: DashboardNotification[] }>(NOTIFICATIONS_URL);
 
-  const [presentation, setPresentation] = React.useState<ResolvedDashboardPresentation | null>(
-    () => cachedPresentation ?? null,
+  const [presentationState] = useDashboardData(
+    DASHBOARD_PRESENTATION_URL,
+    (body) => body as ResolvedDashboardPresentation,
+    cachedPresentation,
   );
-  const [requests, setRequests] = React.useState<EnrichmentRequestRow[]>(
-    () => cachedRequests?.requests ?? [],
+  const [requestsState] = useDashboardData(
+    REQUESTS_URL,
+    (body) => ((body as { requests?: EnrichmentRequestRow[] }).requests ?? []),
+    cachedRequests?.requests,
   );
-  const [notifications, setNotifications] = React.useState<DashboardNotification[]>(
-    () => cachedNotifications?.notifications ?? [],
+  const [notificationsState] = useDashboardData(
+    NOTIFICATIONS_URL,
+    (body) => ((body as { notifications?: DashboardNotification[] }).notifications ?? []),
+    cachedNotifications?.notifications,
   );
-  const [presentationLoading, setPresentationLoading] = React.useState(() => !cachedPresentation);
-  const [requestsLoading, setRequestsLoading] = React.useState(() => !cachedRequests);
-  const [notificationsLoading, setNotificationsLoading] = React.useState(() => !cachedNotifications);
-  const [requestsResolved, setRequestsResolved] = React.useState(() => Boolean(cachedRequests));
-  const [notificationsResolved, setNotificationsResolved] = React.useState(() => Boolean(cachedNotifications));
-
-  React.useEffect(() => {
-    let cancelled = false;
-    void readDashboardData<ResolvedDashboardPresentation>(DASHBOARD_PRESENTATION_URL)
-      .then((body) => {
-        if (!cancelled) setPresentation(body);
-      })
-      .catch(() => {
-        if (!cancelled) setPresentation(null);
-      })
-      .finally(() => {
-        if (!cancelled) setPresentationLoading(false);
-      });
-    void readDashboardData<{ requests?: EnrichmentRequestRow[] }>(REQUESTS_URL)
-      .then((body) => {
-        if (!cancelled) setRequests(body.requests ?? []);
-        if (!cancelled) setRequestsResolved(true);
-      })
-      .catch(() => {
-        if (!cancelled) setRequests([]);
-        if (!cancelled) setRequestsResolved(false);
-      })
-      .finally(() => {
-        if (!cancelled) setRequestsLoading(false);
-      });
-    void readDashboardData<{ notifications?: DashboardNotification[] }>(NOTIFICATIONS_URL)
-      .then((body) => {
-        if (!cancelled) setNotifications(body.notifications ?? []);
-        if (!cancelled) setNotificationsResolved(true);
-      })
-      .catch(() => {
-        if (!cancelled) setNotifications([]);
-        if (!cancelled) setNotificationsResolved(false);
-      })
-      .finally(() => {
-        if (!cancelled) setNotificationsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <DashboardHomeView
-      presentation={presentation}
-      requests={requests}
-      notifications={notifications}
-      presentationLoading={presentationLoading}
-      requestsLoading={requestsLoading}
-      notificationsLoading={notificationsLoading}
-      requestsResolved={requestsResolved}
-      notificationsResolved={notificationsResolved}
+      presentation={presentationState.data}
+      requests={requestsState.data ?? []}
+      notifications={notificationsState.data ?? []}
+      presentationLoading={presentationState.loading}
+      requestsLoading={requestsState.loading}
+      notificationsLoading={notificationsState.loading}
+      requestsResolved={requestsState.resolved}
+      notificationsResolved={notificationsState.resolved}
     />
   );
 }

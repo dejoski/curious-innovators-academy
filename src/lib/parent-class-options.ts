@@ -39,6 +39,15 @@ export type ParentClassSlotContext =
 
 export type { ScheduleDisplayParts };
 
+function safeNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
+  return null;
+}
+
+function safeNumberOrZero(value: unknown): number {
+  return safeNumber(value) ?? 0;
+}
+
 export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption {
   const fallbackDescription =
     row.program === "core"
@@ -54,11 +63,11 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     block: row.block,
     level: row.level,
     seats: row.students,
-    capacity: row.capacity,
-    enrolledCount: row.enrolledCount,
-    reservedCount: row.reservedCount,
-    pendingCount: row.pendingCount,
-    seatsRemaining: row.seatsRemaining,
+    capacity: safeNumber(row.capacity),
+    enrolledCount: safeNumberOrZero(row.enrolledCount),
+    reservedCount: safeNumberOrZero(row.reservedCount),
+    pendingCount: safeNumberOrZero(row.pendingCount),
+    seatsRemaining: safeNumber(row.seatsRemaining),
     availabilityLabel: row.availabilityLabel,
     schedule: row.schedule,
     status: row.status,
@@ -66,9 +75,9 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     archivedAt: row.archivedAt,
     program: row.program,
     location: row.location,
-    minAgeYears: row.minAgeYears,
-    maxAgeYears: row.maxAgeYears,
-    waitlistCount: row.waitlistCount,
+    minAgeYears: safeNumber(row.minAgeYears),
+    maxAgeYears: safeNumber(row.maxAgeYears),
+    waitlistCount: safeNumberOrZero(row.waitlistCount),
   };
 }
 
@@ -87,15 +96,12 @@ export function fallbackParentClassOption(name: string, id = ""): ParentClassOpt
 }
 
 export function seatsRemainingForOption(option: ParentClassOption): number | null {
-  if (typeof option.seatsRemaining === "number" && Number.isFinite(option.seatsRemaining)) {
-    return Math.max(0, Math.floor(option.seatsRemaining));
-  }
-  if (typeof option.capacity !== "number" || !Number.isFinite(option.capacity)) return null;
-  const reserved =
-    typeof option.reservedCount === "number" && Number.isFinite(option.reservedCount)
-      ? option.reservedCount
-      : (option.enrolledCount ?? 0) + (option.pendingCount ?? 0);
-  return Math.max(0, Math.floor(option.capacity) - Math.max(0, Math.floor(reserved)));
+  const remaining = safeNumber(option.seatsRemaining);
+  if (remaining != null) return Math.max(0, remaining);
+  const capacity = safeNumber(option.capacity);
+  if (capacity == null) return null;
+  const reserved = safeNumberOrZero(option.reservedCount) + safeNumberOrZero(option.pendingCount);
+  return Math.max(0, Math.floor(capacity) - Math.max(0, reserved));
 }
 
 function availabilityLabelForOption(option: ParentClassOption): string {
@@ -169,26 +175,18 @@ export function isParentSelectableEnrichmentOption(
   return true;
 }
 
-function classNameFromScheduleBadge(label: string): string {
-  return label
-    .replace(/^Draft change:\s*/i, "")
-    .replace(/^Draft choice:\s*/i, "")
-    .replace(/^Rejected 2nd:\s*/i, "")
-    .replace(/^Rejected:\s*/i, "")
-    .replace(/^2nd:\s*/i, "")
-    .trim();
+function cleanBadgeLabel(label: string): string {
+  const pattern = /^Draft change:\s*|^Draft choice:\s*|^Rejected 2nd:\s*|^Rejected:\s*|^2nd:\s*/i;
+  return label.replace(pattern, "").trim();
 }
 
 export function classOptionForScheduleBadge(
   badge: StudentScheduleBadge,
   options: ParentClassOption[],
 ): ParentClassOption {
-  const label = classNameFromScheduleBadge(badge.label);
+  const label = cleanBadgeLabel(badge.label);
   const normalizedLabel = label.toLowerCase();
-  return (
-    options.find((option) => option.name.toLowerCase() === normalizedLabel) ??
-    fallbackParentClassOption(label)
-  );
+  return options.find((option) => option.name.toLowerCase() === normalizedLabel) ?? fallbackParentClassOption(label);
 }
 
 export function parentClassOptionsForCatalogSlot(
@@ -197,18 +195,19 @@ export function parentClassOptionsForCatalogSlot(
 ): ParentClassOption[] {
   const blockNumber = slot.block.match(/\d+/)?.[0] ?? "";
   const dayNumber = slot.level.match(/\d+/)?.[0] ?? "";
-  const textFor = (option: ParentClassOption) => `${option.block} ${option.level} ${option.schedule ?? ""}`.toLowerCase();
-  const matchesBlock = (option: ParentClassOption) => {
+
+  function textFor(option: ParentClassOption) {
+    return `${option.block} ${option.level} ${option.schedule ?? ""}`.toLowerCase();
+  }
+
+  return options.filter((option) => {
     const text = textFor(option);
     return text.includes(`block ${blockNumber}`) || text.includes(`b${blockNumber}`);
-  };
-  const matchesDay = (option: ParentClassOption) => {
+  }).filter((option) => {
     const text = textFor(option);
     return text.includes(`day ${dayNumber}`);
-  };
-  const exact = options.filter((option) => matchesBlock(option) && matchesDay(option));
-  const seen = new Set<string>();
-  return exact.filter((option) => {
+  }).filter((option) => {
+    const seen = new Set<string>();
     const key = option.id || option.name;
     if (seen.has(key)) return false;
     seen.add(key);
