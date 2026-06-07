@@ -74,7 +74,7 @@ export const PARENT_SCHEDULE_ROWS: {
   { label: "Block 4", time: "2:00 - 3:30 pm", slots: ["b4Tue", "b4Wed", "b4Thu"] },
 ];
 
-// type ScheduleDisplayParts removed - unused
+export type ScheduleDisplayParts = { day: string; time: string };
 
 const SCHEDULE_SEPARATOR_RE = /\s*(?:\u00c2?\u00b7|\||,)\s*/;
 const TIME_RANGE_RE = /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*-\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i;

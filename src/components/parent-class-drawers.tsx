@@ -254,6 +254,58 @@ function ChoiceDropdown({
   );
 }
 
+function ParentClassSummaryCard({
+  option,
+  scheduleDisplay,
+  onOpenDetails,
+}: {
+  option: ParentClassOption | null;
+  scheduleDisplay?: ScheduleDisplayParts;
+  onOpenDetails?: (option: ParentClassOption, scheduleDisplay?: ScheduleDisplayParts) => void;
+}) {
+  if (!option) return null;
+
+  const remaining = seatsRemainingForOption(option);
+  const availabilityLabel = remaining == null
+    ? "Availability not available"
+    : remaining <= 0
+      ? "Full"
+      : remaining === 1
+        ? "1 seat left"
+        : `${remaining} seats left`;
+
+  return (
+    <div className="rounded-[6px] border border-[#d2d8e0] bg-white p-3">
+      <div className={`${DASHBOARD_DETAIL_HEADING_CLASS} text-[#0d0d12]`}>
+        {option.name}
+      </div>
+      <div className={`mt-[4px] ${DASHBOARD_CONTROL_TEXT_CLASS} text-[#666d80]`}>
+        {option.teacher}
+      </div>
+      <div className={`mt-[2px] ${DASHBOARD_CONTROL_TEXT_CLASS} text-[#4f5665]`}>
+        {scheduleDisplay?.day ?? option.block}{" · "}{scheduleDisplay?.time ?? option.schedule}
+      </div>
+      {option.description ? (
+        <p className={`mt-[6px] ${DASHBOARD_BODY_TEXT_CLASS} text-[#0d0d12]`}>
+          {option.description}
+        </p>
+      ) : null}
+      <div className={`mt-[6px] ${DASHBOARD_CONTROL_TEXT_CLASS} font-medium ${pendingStatusChipClasses(availabilityLabel)}`}>
+        {availabilityLabel}
+      </div>
+      {onOpenDetails ? (
+        <button
+          className={`mt-[8px] inline-flex items-center gap-1 ${DASHBOARD_BUTTON_TEXT_CLASS} text-[#14c1d5] hover:text-[#11a9ba]`}
+          onClick={() => onOpenDetails(option, scheduleDisplay)}
+        >
+          View Details{" →"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+
 function ChoiceSelector({
   label,
   value,
