@@ -1,3 +1,6 @@
+const BRAND_ICON_BG = "#d2f1f5";
+const BRAND_ICON_ACCENT = "#14c1d5";
+
 export function BrandAppIconImageResponseRoot({
   cornerRadius,
   dot,

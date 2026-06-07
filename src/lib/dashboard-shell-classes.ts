@@ -4,9 +4,13 @@
  */
 
 /* --- Surfaces --- */
+export const DASHBOARD_SURFACE_CLASS = 'bg-white' as const;
 
 /* --- Borders & radius --- */
 export const DASHBOARD_BORDER_SUBTLE_CLASS = "border-[#f0f0f0]" as const;
+export const DASHBOARD_BORDER_STRONG_CLASS = "border-[#dfe1e7]" as const;
+/** Rounded inset style for dropdowns and popovers */
+export const DASHBOARD_RADIUS_INSET = "rounded-[6px]" as const;
 /** Outer cards / panels on the canvas */
 export const DASHBOARD_PANEL_CLASS =
   `${DASHBOARD_SURFACE_CLASS} border ${DASHBOARD_BORDER_SUBTLE_CLASS} border-solid rounded-[18px] shadow-sm` as const;

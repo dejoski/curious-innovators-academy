@@ -174,6 +174,12 @@ export function studentDetailDataUrls(studentId: string) {
   ] as const;
 }
 
+
+/** Preload a JSON endpoint; errors are silently swallowed. */
+function preloadJson(url: string) {
+  fetch(url, { cache: "no-store" }).catch(() => {});
+}
+
 export function preloadParentStudentData(studentId: string) {
   for (const url of parentStudentDataUrls(studentId)) preloadJson(url);
 }
