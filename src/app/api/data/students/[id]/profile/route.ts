@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isParentRole, requireParentStudentAccess } from "@/lib/api/parent-access";
+import { cleanTrimmedValue, cleanNewlines } from "@/lib/api/text-utils";
 import { loadCurrentApiUser, requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
 import {
   fetchAdminStudentProfileResolved,
@@ -19,13 +20,7 @@ import { serverUpdateStudent } from "@/lib/data/server-writes";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-function cleanText(value: unknown, maxLength: number): string {
-  return String(value ?? "").trim().replace(/\r\n/g, "\n").slice(0, maxLength);
-}
 
-function cleanSingleLine(value: unknown, maxLength: number): string {
-  return cleanText(value, maxLength).replace(/\s+/g, " ");
-}
 
 function parseAge(value: unknown): number | null {
   const raw = String(value ?? "").trim();
@@ -49,8 +44,8 @@ function normalizeCompetencyLevels(value: unknown): StudentCompetencyLevel[] {
     .map((row) => {
       if (!row || typeof row !== "object") return null;
       const record = row as Record<string, unknown>;
-      const competency = cleanSingleLine(record.competency, 80);
-      const level = cleanSingleLine(record.level, 80);
+      const competency = cleanTrimmedValue(record.competency, 80);
+      const level = cleanTrimmedValue(record.level, 80);
       if (!competency || !level) return null;
       return {
         competency,
@@ -110,18 +105,18 @@ export async function PATCH(req: Request, context: RouteContext) {
   }
 
   const body = (await req.json()) as Record<string, unknown>;
-  const name = cleanSingleLine(body.name, 140);
-  const ageText = cleanSingleLine(body.age, 20);
+  const name = cleanTrimmedValue(body.name, 140);
+  const ageText = cleanTrimmedValue(body.age, 20);
   const age = parseAge(body.age);
-  const learningProfile = cleanText(body.learningProfile, 2000);
-  const strengths = cleanText(body.strengths, 1200);
-  const supportNotes = cleanText(body.supportNotes, 2000);
+  const learningProfile = cleanNewlines(body.learningProfile, 2000);
+  const strengths = cleanNewlines(body.strengths, 1200);
+  const supportNotes = cleanNewlines(body.supportNotes, 2000);
   const hasCompetencyLevels = Object.prototype.hasOwnProperty.call(body, "competencyLevels");
   const competencyLevels = normalizeCompetencyLevels(body.competencyLevels);
-  const legacyLevel = cleanSingleLine(body.level, 80);
+  const legacyLevel = cleanTrimmedValue(body.level, 80);
   const resolvedLevel = summarizeStudentCompetencyLevels(competencyLevels, legacyLevel);
-  const parentEmail = body.parentEmail != null ? cleanSingleLine(body.parentEmail, 254) : undefined;
-  const parent = body.parent != null ? cleanSingleLine(body.parent, 140) : undefined;
+  const parentEmail = body.parentEmail != null ? cleanTrimmedValue(body.parentEmail, 254) : undefined;
+  const parent = body.parent != null ? cleanTrimmedValue(body.parent, 140) : undefined;
 
   if (name.length < 2) {
     return NextResponse.json({ error: "Student name must be at least 2 characters." }, { status: 400 });
@@ -211,8 +206,8 @@ export async function POST(req: Request, context: RouteContext) {
   }
 
   const body = (await req.json()) as Record<string, unknown>;
-  const title = cleanSingleLine(body.title, 180);
-  const content = cleanText(body.content, 4000);
+  const title = cleanTrimmedValue(body.title, 180);
+  const content = cleanNewlines(body.content, 4000);
   const category = normalizeCategory(body.type ?? body.category);
   const urgent = Boolean(body.urgent);
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
+import { cleanTrimmedValue, cleanNewlines } from "@/lib/api/text-utils";
 
 const VALID_CATEGORIES = new Set([
   "Classes & enrollment",
@@ -20,13 +21,7 @@ type SupportTicketRow = {
   created_at: string;
 };
 
-function cleanText(value: unknown, maxLength: number): string {
-  return String(value ?? "").trim().replace(/\s+/g, " ").slice(0, maxLength);
-}
 
-function cleanMultiline(value: unknown, maxLength: number): string {
-  return String(value ?? "").trim().replace(/\r\n/g, "\n").slice(0, maxLength);
-}
 
 function isEmailish(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -76,10 +71,10 @@ export async function POST(req: Request) {
   const { supabase, user } = current;
 
   const body = (await req.json()) as Record<string, unknown>;
-  const category = cleanText(body.category, 80);
-  const contactEmail = cleanText(body.contactEmail, 180).toLowerCase();
-  const subject = cleanText(body.subject, 160);
-  const message = cleanMultiline(body.message, 4000);
+  const category = cleanTrimmedValue(body.category, 80);
+  const contactEmail = cleanTrimmedValue(body.contactEmail, 180).toLowerCase();
+  const subject = cleanTrimmedValue(body.subject, 160);
+  const message = cleanNewlines(body.message, 4000);
 
   if (!VALID_CATEGORIES.has(category)) {
     return NextResponse.json({ error: "Choose a valid support category." }, { status: 400 });

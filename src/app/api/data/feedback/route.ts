@@ -5,6 +5,7 @@ import {
   requireRemoteApiSession,
   type SupabaseServerClient,
 } from "@/lib/api/require-auth";
+import { cleanNewlines } from "@/lib/api/text-utils";
 
 const VALID_MOODS = new Set(["angry", "average", "great", "excellent"]);
 const VALID_RATING_KEYS = ["teaching", "communication", "engagement", "organization"] as const;
@@ -21,9 +22,6 @@ const VALID_TAGS = new Set([
 
 type AppRole = "admin" | "parent" | "teacher" | "student";
 
-function cleanText(value: unknown, maxLength: number): string {
-  return String(value ?? "").trim().replace(/\r\n/g, "\n").slice(0, maxLength);
-}
 
 function cleanId(value: unknown): string {
   return String(value ?? "").trim();
@@ -87,30 +85,7 @@ function buildFeedbackBody(input: {
     .join("\n\n");
 }
 
-async function resolveDefaultStudentId(
-  supabase: SupabaseServerClient,
-  userId: string,
-  role: AppRole,
-): Promise<string | null> {
-  if (role === "student") {
-    const { data } = await supabase.from("students").select("id").eq("profile_id", userId).limit(1).maybeSingle();
-    return data?.id ? String(data.id) : null;
-  }
-
-  if (role === "parent") {
-    const { data: parent } = await supabase.from("parents").select("id").eq("profile_id", userId).limit(1).maybeSingle();
-    if (!parent?.id) return null;
-    const { data: link } = await supabase
-      .from("parent_students")
-      .select("student_id")
-      .eq("parent_id", parent.id)
-      .limit(1)
-      .maybeSingle();
-    return link?.student_id ? String(link.student_id) : null;
-  }
-
-  return null;
-}
+import { resolveDefaultStudentId } from "@/lib/api/data-shared";
 
 export async function GET() {
   const authError = await requireRemoteApiSession();
@@ -155,8 +130,8 @@ export async function POST(req: Request) {
   const nps = clampInt(body.nps, 1, 10);
   const ratings = normalizeRatings(body.ratings);
   const tags = normalizeTags(body.tags);
-  const thoughts = cleanText(body.thoughts, 3000);
-  const highlight = cleanText(body.highlight, 2000);
+  const thoughts = cleanNewlines(body.thoughts, 3000);
+  const highlight = cleanNewlines(body.highlight, 2000);
   let studentId = cleanId(body.studentId);
 
   if (!VALID_MOODS.has(mood)) {

@@ -5,7 +5,7 @@ export type { DashboardPersona } from "@/lib/dashboard/persona";
 export const DEMO_STATE_STORAGE_KEY = "cia-demo-dashboard-state";
 export const LEGACY_PERSONA_STORAGE_KEY = "cia-dashboard-persona";
 
-// type DemoAccountId removed - unused
+export type DemoAccountId = string;
 
 export type DemoAccount = {
   id: DemoAccountId;
