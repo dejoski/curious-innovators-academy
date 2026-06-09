@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { Bell, Ellipsis } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardPersona } from "@/components/dashboard-persona";
@@ -32,6 +32,10 @@ const imgSolarLogout2Outline = "/images/logout-icon.svg";
 const imgSolarLogout2OutlineParent = "/images/logout-icon-parent.svg";
 const imgDivider = "/images/icon-divider.svg";
 const imgRiParentLine = "/images/icon-person-feedback.svg";
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 type NotificationsBody = {
   notifications?: DashboardNotification[];

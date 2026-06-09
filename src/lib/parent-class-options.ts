@@ -44,6 +44,10 @@ function safeNumber(value: unknown): number | null {
   return null;
 }
 
+function safeOptionalNumber(value: unknown): number | undefined {
+  return safeNumber(value) ?? undefined;
+}
+
 function safeNumberOrZero(value: unknown): number {
   return safeNumber(value) ?? 0;
 }
@@ -63,11 +67,11 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     block: row.block,
     level: row.level,
     seats: row.students,
-    capacity: safeNumber(row.capacity),
+    capacity: safeOptionalNumber(row.capacity),
     enrolledCount: safeNumberOrZero(row.enrolledCount),
     reservedCount: safeNumberOrZero(row.reservedCount),
     pendingCount: safeNumberOrZero(row.pendingCount),
-    seatsRemaining: safeNumber(row.seatsRemaining),
+    seatsRemaining: safeOptionalNumber(row.seatsRemaining),
     availabilityLabel: row.availabilityLabel,
     schedule: row.schedule,
     status: row.status,
@@ -75,8 +79,8 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     archivedAt: row.archivedAt,
     program: row.program,
     location: row.location,
-    minAgeYears: safeNumber(row.minAgeYears),
-    maxAgeYears: safeNumber(row.maxAgeYears),
+    minAgeYears: safeOptionalNumber(row.minAgeYears),
+    maxAgeYears: safeOptionalNumber(row.maxAgeYears),
     waitlistCount: safeNumberOrZero(row.waitlistCount),
   };
 }
@@ -132,7 +136,7 @@ export function scheduleParts(option: ParentClassOption): ScheduleDisplayParts {
 function scheduleSlotForParentClassOption(option: ParentClassOption): ParentScheduleSlotKey {
   return scheduleSlotForClassFields({
     block: option.block,
-    scheduleSummary: option.schedule,
+    scheduleSummary: [option.schedule, option.level].filter(Boolean).join(" "),
   });
 }
 
@@ -191,23 +195,24 @@ export function classOptionForScheduleBadge(
 
 export function parentClassOptionsForCatalogSlot(
   options: ParentClassOption[],
-  slot: { block: string; level: string },
+  slot: { block: string; level: string; scheduleSlot?: ParentScheduleSlotKey },
 ): ParentClassOption[] {
   const blockNumber = slot.block.match(/\d+/)?.[0] ?? "";
   const dayNumber = slot.level.match(/\d+/)?.[0] ?? "";
+  const seen = new Set<string>();
 
   function textFor(option: ParentClassOption) {
     return `${option.block} ${option.level} ${option.schedule ?? ""}`.toLowerCase();
   }
 
   return options.filter((option) => {
+    if (slot.scheduleSlot && scheduleSlotForParentClassOption(option) !== slot.scheduleSlot) return false;
     const text = textFor(option);
-    return text.includes(`block ${blockNumber}`) || text.includes(`b${blockNumber}`);
-  }).filter((option) => {
-    const text = textFor(option);
-    return text.includes(`day ${dayNumber}`);
-  }).filter((option) => {
-    const seen = new Set<string>();
+    const blockMatches = text.includes(`block ${blockNumber}`) || text.includes(`b${blockNumber}`);
+    const dayMatches =
+      text.includes(`day ${dayNumber}`) ||
+      String(option.level ?? "").trim() === dayNumber;
+    if (!blockMatches || !dayMatches) return false;
     const key = option.id || option.name;
     if (seen.has(key)) return false;
     seen.add(key);

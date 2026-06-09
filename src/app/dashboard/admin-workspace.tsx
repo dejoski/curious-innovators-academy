@@ -28,10 +28,6 @@ type AdminWorkspaceProps = {
   initialData?: AdminWorkspaceInitialData;
 };
 
-function classNameForView(active: boolean) {
-  return active ? "block" : "hidden";
-}
-
 export default function AdminWorkspace({ initialView = "home", initialData }: AdminWorkspaceProps) {
   const pathname = usePathname() ?? "";
   const [activeView, setActiveView] = React.useState<AdminView>(
@@ -102,43 +98,41 @@ export default function AdminWorkspace({ initialView = "home", initialData }: Ad
     setWorkspaceView(nextView, target.href, target.path);
   }
 
+  let panel: React.ReactNode;
+  switch (activeView) {
+    case "schedule":
+      panel = <AdminSchedulePanel />;
+      break;
+    case "classes":
+      panel = <ClassesWorkspace />;
+      break;
+    case "students":
+      panel = <AdminStudentsPanel initialData={initialData?.students} />;
+      break;
+    case "student-schedule":
+      panel = <AdminStudentSchedulePanel initialData={initialData?.studentSchedules} />;
+      break;
+    case "student-roster":
+      panel = <AdminStudentRosterPanel initialData={initialData?.classOptions} />;
+      break;
+    case "parents":
+      panel = <AdminParentsPanel />;
+      break;
+    case "teachers":
+      panel = <AdminTeachersPanel />;
+      break;
+    case "notifications":
+      panel = <AdminNotificationsPanel />;
+      break;
+    case "home":
+    default:
+      panel = <AdminHomePanel />;
+      break;
+  }
+
   return (
     <div className="min-h-full" onClickCapture={handleWorkspaceClick}>
-      <div className={classNameForView(activeView === "home")} aria-hidden={activeView !== "home"}>
-        <AdminHomePanel />
-      </div>
-
-      <div className={classNameForView(activeView === "schedule")} aria-hidden={activeView !== "schedule"}>
-        <AdminSchedulePanel />
-      </div>
-
-      <div className={classNameForView(activeView === "classes")} aria-hidden={activeView !== "classes"}>
-        <ClassesWorkspace />
-      </div>
-
-      <div className={classNameForView(activeView === "students")} aria-hidden={activeView !== "students"}>
-        <AdminStudentsPanel initialData={initialData?.students} />
-      </div>
-
-      <div className={classNameForView(activeView === "student-schedule")} aria-hidden={activeView !== "student-schedule"}>
-        <AdminStudentSchedulePanel initialData={initialData?.studentSchedules} />
-      </div>
-
-      <div className={classNameForView(activeView === "student-roster")} aria-hidden={activeView !== "student-roster"}>
-        <AdminStudentRosterPanel initialData={initialData?.classOptions} />
-      </div>
-
-      <div className={classNameForView(activeView === "parents")} aria-hidden={activeView !== "parents"}>
-        <AdminParentsPanel />
-      </div>
-
-      <div className={classNameForView(activeView === "teachers")} aria-hidden={activeView !== "teachers"}>
-        <AdminTeachersPanel />
-      </div>
-
-      <div className={classNameForView(activeView === "notifications")} aria-hidden={activeView !== "notifications"}>
-        <AdminNotificationsPanel />
-      </div>
+      {panel}
     </div>
   );
 }

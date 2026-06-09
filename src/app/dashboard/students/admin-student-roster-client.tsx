@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
@@ -28,6 +27,10 @@ import { downloadCsv } from "@/lib/client-directory-actions";
 import type { ClassRosterStatus, ClassRosterStudent, DataSource, SchoolClassOptionRow } from "@/lib/data";
 
 type SortOption = "status" | "student-az" | "student-za";
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 function statusClasses(status: ClassRosterStatus) {
   if (status === "Approved") return "border-[#004d08]/45 bg-[#d9e7d8] text-[#004d08]";
@@ -70,7 +73,6 @@ export default function AdminStudentRosterClient({
   classes: SchoolClassOptionRow[];
   dataSource: DataSource;
 }) {
-  const router = useRouter();
   const availableClasses = useMemo(
     () => classes.filter((row) => row.program === "enrichment" || row.program === "core"),
     [classes],
@@ -148,8 +150,7 @@ export default function AdminStudentRosterClient({
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
-    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
-  }, [router]);
+  }, []);
 
   const blockOptions = useMemo(() => uniqueSorted(availableClasses.map((row) => row.block)), [availableClasses]);
   const levelOptions = useMemo(

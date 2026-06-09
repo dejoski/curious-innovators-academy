@@ -241,9 +241,6 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
     if (semesterId) {
       classesQuery = classesQuery.eq("semester_id", semesterId);
     }
-    if (options?.parentFacing) {
-      classesQuery = classesQuery.eq("is_active", true).is("archived_at", null);
-    }
     const [initialClassesResult, availabilityResult] = await Promise.all([
       classesQuery,
       supabase
@@ -251,18 +248,18 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
         .select("class_id, enrolled_count, pending_count, waitlist_count, reserved_count, seats_remaining, availability_label"),
     ]);
     let classesResult = initialClassesResult;
-    if (classesResult.error && !options?.parentFacing && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
-      classesResult = await supabase
+    if (classesResult.error && (!semesterId || classQueryNeedsSchemaFallback(classesResult.error))) {
+      let fallbackQuery = supabase
         .from("classes")
         .select(CLASS_SELECT_BASE)
         .order("created_at", { ascending: true });
+      if (semesterId) {
+        fallbackQuery = fallbackQuery.eq("semester_id", semesterId);
+      }
+      classesResult = await fallbackQuery;
     }
 
     if (classesResult.error) {
-      return unavailableList();
-    }
-
-    if (availabilityResult.error) {
       return unavailableList();
     }
 
@@ -271,10 +268,9 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
       return { items: [], source: "remote" };
     }
 
-    const countsByClassId = availabilityByClassId(availabilityResult.data as unknown as Record<string, unknown>[]);
-    if (data.some((row) => !countsByClassId.has(String((row as Record<string, unknown>).id ?? "")))) {
-      return unavailableList();
-    }
+    const countsByClassId = availabilityResult.error
+      ? new Map<string, Record<string, unknown>>()
+      : availabilityByClassId(availabilityResult.data as unknown as Record<string, unknown>[]);
     const mapped = data
       .map((row) => {
         const classRow = row as unknown as Record<string, unknown>;
@@ -284,7 +280,8 @@ async function loadClassesResolved(client?: ClassReadClient, options?: ClassQuer
           ...availabilityFields(countsByClassId.get(id)),
         });
       })
-      .filter((x): x is SchoolClassRow => x !== null);
+      .filter((x): x is SchoolClassRow => x !== null)
+      .filter((row) => !options?.parentFacing || (row.isActive !== false && !row.archivedAt));
 
     if (mapped.length === 0) {
       return unavailableList();
@@ -312,7 +309,7 @@ export async function fetchClassesForClientResolved(
   return loadClassesResolved(client, { ...options, parentFacing: true });
 }
 
-async function _unused_fetchAdminClasses(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
+export async function fetchAdminClassesResolved(options?: ClassQueryOptions): Promise<ResolvedList<SchoolClassRow>> {
   const access = await requireAdminReadClient();
   if (!access) return unavailableList();
   return loadClassesResolved(access.client, options);

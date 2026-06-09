@@ -192,7 +192,7 @@ export async function fetchEnrichmentRequestsForClientResolved(
 export async function fetchEnrichmentRequestsResolved(
   options?: RequestQueryOptions,
 ): Promise<ResolvedList<EnrichmentRequestRow>> {
-  return fetchEnrichmentRequestsForClientResolved({} as RequestReadClient, options);
+  return loadRequestsResolved(undefined, options);
 }
 
 function isEnrichmentClass(row: Record<string, unknown>): boolean {
@@ -267,7 +267,7 @@ export async function fetchEnrichmentDecisionSummaryForClientResolved(
 }
 
 export async function fetchEnrichmentDecisionSummaryResolved(): Promise<EnrichmentDecisionSummary> {
-  return fetchEnrichmentDecisionSummaryForClientResolved({} as RequestReadClient, []);
+  return loadEnrichmentDecisionSummaryResolved();
 }
 
 function mapApprovalHistoryRow(row: Record<string, unknown>): ApprovalHistoryRow | null {

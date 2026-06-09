@@ -2,8 +2,7 @@
 import type { DataSource } from "@/lib/data/fetch-source";
 import type { StudentListItem } from "@/lib/data/types";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
 import { DashboardBulkSelectionBar, DashboardRowActionsMenu } from "@/components/dashboard-row-actions";
@@ -25,6 +24,10 @@ const imgGroup3 = "/images/icon-open-blocks.svg";
 const imgMaterialSymbolsSearch = "/images/icon-search.svg";
 const imgVector = "/images/vector.svg";
 const imgIcRoundPlus = "/images/icon-plus.svg";
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 function TableRow({
   studentId,
@@ -165,7 +168,6 @@ export default function StudentsStudentsList({
   initialStudents,
   dataSource,
 }: StudentsStudentsListProps) {
-  const router = useRouter();
   const [students, setStudents] = useState<StudentItem[]>(() => [
     ...initialStudents,
   ]);
@@ -292,16 +294,7 @@ export default function StudentsStudentsList({
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
-    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}`);
-  }, [router]);
-
-  useEffect(() => {
-    const visibleIds = paginatedStudents.slice(0, 4).map((student) => student.id);
-    const timers = visibleIds.map((studentId, index) =>
-      window.setTimeout(() => warmStudent(studentId), index * 120),
-    );
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [paginatedStudents, warmStudent]);
+  }, []);
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);

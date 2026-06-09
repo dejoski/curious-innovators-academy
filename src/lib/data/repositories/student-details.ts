@@ -303,7 +303,7 @@ export async function fetchStudentProfileResolved(
     const { data: student, error } = await supabase
       .from("students")
       .select(
-        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, student_competency_levels ( competency, level, behavior ), ${STUDENT_PARENT_CONTACT_SELECT}`,
+        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, ${STUDENT_PARENT_CONTACT_SELECT}`,
       )
       .eq("id", id)
       .maybeSingle();

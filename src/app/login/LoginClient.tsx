@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { invalidateClientDataCache } from "@/lib/client-data-cache";
@@ -27,6 +27,10 @@ const imgEllipse2731 = "/images/login-ellipse-1.svg";
 const imgEllipse2732 = "/images/login-ellipse-2.svg";
 const imgEllipse2733 = "/images/login-ellipse-3.svg";
 const imgGroup = "/images/login-email-icon.svg";
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 function loginDestinationForPersona(role: DashboardPersona, defaultStudentId?: string | null): string {
   return role === "admin" ? "/dashboard" : dashboardHomeForPersona(role, defaultStudentId);

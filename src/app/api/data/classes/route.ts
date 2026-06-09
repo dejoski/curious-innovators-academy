@@ -48,8 +48,8 @@ export async function GET(request: Request) {
     if ("error" in access) {
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
-    const { items: classes, source } = await fetchClassesForClientResolved(access.client, options);
-    return NextResponse.json({ classes, source });
+    const parentScoped = await fetchClassesForClientResolved(access.client, options);
+    return NextResponse.json({ classes: parentScoped.items, source: parentScoped.source });
   }
 
   const { items: classes, source } = await fetchClassesResolved(options);

@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AccountRole = "admin" | "parent" | "teacher" | "student";
 
+const ACCOUNT_ROLES: AccountRole[] = ["admin", "parent", "teacher", "student"];
+
 export type AccountWriteFail = { ok: false; message: string };
 export type AccountWriteOk<T> = { ok: true } & T;
 

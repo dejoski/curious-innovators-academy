@@ -2,6 +2,7 @@ import { isRemoteDataRequired } from "@/lib/data/env";
 import { inviteCodesMatch } from "@/lib/signup-invite";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type LoginResult = { ok: true } | { ok: false; message: string };
 
@@ -29,7 +30,7 @@ function supabaseGuard(): LoginResult | PasswordResetResult | null {
   return null;
 }
 
-function supabaseGuardOrDemo(demoKind: "demo" | "session" = "demo"): SignupResult {
+function supabaseGuardOrDemo(demoKind: "demo" | "session" = "demo"): SignupResult | SupabaseClient {
   if (!isSupabaseConfigured()) {
     return isRemoteDataRequired()
       ? { ok: false, message: SUPABASE_AUTH_REQUIRED_MSG }

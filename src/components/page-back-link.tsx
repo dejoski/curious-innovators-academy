@@ -1,7 +1,11 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import { ChevronLeft } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { DASHBOARD_BUTTON_TEXT_CLASS } from "@/lib/dashboard-shell-classes";
+
+function Link(props: ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 type PageBackLinkProps = {
   href: string;

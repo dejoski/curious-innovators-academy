@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { DASHBOARD_WORKSPACE_EVENT } from "@/lib/dashboard/workspace";
 
 type DashboardNavigationProgressValue = {
@@ -12,20 +12,6 @@ type DashboardNavigationProgressValue = {
 const DashboardNavigationProgressContext =
   React.createContext<DashboardNavigationProgressValue | null>(null);
 
-const DASHBOARD_PREFETCH_ROUTES = [
-  "/dashboard",
-  "/dashboard/schedule",
-  "/dashboard/classes/core",
-  "/dashboard/classes/requests",
-  "/dashboard/classes/approvals",
-  "/dashboard/students",
-  "/dashboard/students/schedule",
-  "/dashboard/students/roster",
-  "/dashboard/parents",
-  "/dashboard/teachers",
-  "/dashboard/settings",
-];
-
 export function DashboardNavigationProgressProvider({
   children,
 }: {
@@ -33,7 +19,6 @@ export function DashboardNavigationProgressProvider({
 }) {
   const [pendingPath, setPendingPath] = React.useState<string | null>(null);
   const pathname = usePathname() ?? "";
-  const router = useRouter();
 
   React.useEffect(() => {
     setPendingPath(null);
@@ -79,12 +64,6 @@ export function DashboardNavigationProgressProvider({
       setPendingPath(null);
     }
   }, []);
-
-  React.useEffect(() => {
-    for (const route of DASHBOARD_PREFETCH_ROUTES) {
-      router.prefetch(route);
-    }
-  }, [pathname, router]);
 
   const value = React.useMemo(
     () => ({
