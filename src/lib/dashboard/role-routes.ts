@@ -1,6 +1,14 @@
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
+export const ADMIN_HOME_HREF = "/dashboard";
+export const PARENT_HOME_HREF = "/dashboard/parents/home";
+export const TEACHER_HOME_HREF = "/dashboard/teachers";
+
 const LOCAL_URL_BASE = "https://cia.local";
+
+export function isRouteBranch(pathname: string, route: string): boolean {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
 
 function normalizedDashboardHref(rawHref: string | null | undefined): {
   href: string;
@@ -41,6 +49,31 @@ export function dashboardHomeForPersona(
   if (persona === "teacher") return TEACHER_HOME_HREF;
   if (persona === "student") return studentHomeHref(studentId);
   return ADMIN_HOME_HREF;
+}
+
+export function isDashboardPathAllowedForPersona(
+  pathname: string,
+  persona: DashboardPersona,
+  studentId?: string | null,
+): boolean {
+  if (!isRouteBranch(pathname, "/dashboard")) return true;
+  if (persona === "admin") return true;
+
+  if (
+    isRouteBranch(pathname, "/dashboard/settings") ||
+    isRouteBranch(pathname, "/dashboard/support") ||
+    isRouteBranch(pathname, "/dashboard/notifications")
+  ) {
+    return true;
+  }
+
+  if (persona === "parent") return isRouteBranch(pathname, "/dashboard/parents");
+  if (persona === "student") return isRouteBranch(pathname, studentRootHref(studentId));
+  if (persona === "teacher") {
+    return isRouteBranch(pathname, "/dashboard/teachers") || isRouteBranch(pathname, "/dashboard/schedule");
+  }
+
+  return false;
 }
 
 export function dashboardRedirectForPersona(

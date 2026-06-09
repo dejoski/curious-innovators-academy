@@ -3,7 +3,7 @@
 import DailyBlocks from "@/components/DailyBlocks";
 import DashboardStatCard from "@/components/dashboard-stat-card";
 import { DashboardRowsSkeleton } from "@/components/dashboard-loading-state";
-import Link from "next/link";
+import NextLink from "next/link";
 import { Bell, BookOpenText, ChevronRight, Dice5, GraduationCap, UserRoundCheck } from "lucide-react";
 import type { ResolvedDashboardPresentation } from "@/lib/data/repositories/dashboard";
 import type { DashboardNotification, EnrichmentRequestRow } from "@/lib/data/types";
@@ -15,6 +15,10 @@ import {
   DASHBOARD_TABLE_BODY_TEXT_CLASS,
   DASHBOARD_TABLE_HEAD_TEXT_CLASS,
 } from "@/lib/dashboard-shell-classes";
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 export type DashboardHomeViewProps = {
   presentation: ResolvedDashboardPresentation | null;

@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import { AlertTriangle, CheckCircle2, Filter, Search } from "lucide-react";
 
 import { DashboardBulkImportModal, type ParsedImportRow } from "@/components/dashboard-bulk-import-modal";
@@ -56,6 +55,10 @@ const SLOT_LABELS: Record<DailyParentScheduleSlotKey, ScheduleColumn> = {
 };
 
 const COLUMNS: ScheduleColumn[] = STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS.map((slot) => SLOT_LABELS[slot]);
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 function realBadges(badges: StudentScheduleBadge[] | undefined) {
   return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");
@@ -147,7 +150,6 @@ export default function AdminStudentScheduleClient({
   initialRows: StudentScheduleRow[];
   dataSource: DataSource;
 }) {
-  const router = useRouter();
   const [rows] = useState(() => [...initialRows]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ScheduleFilter>("all");
@@ -169,8 +171,7 @@ export default function AdminStudentScheduleClient({
   const warmStudent = React.useCallback((studentId: string) => {
     if (!studentId) return;
     preloadStudentDetailData(studentId);
-    router.prefetch(`/dashboard/students/${encodeURIComponent(studentId)}/schedule`);
-  }, [router]);
+  }, []);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();

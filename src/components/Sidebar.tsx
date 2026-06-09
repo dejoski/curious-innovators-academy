@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
@@ -54,6 +54,10 @@ const imgPolygon1 = "/images/mask-group.svg";
 const imgNotebookOneSidebar = "/images/icon-notebook-one-sidebar.svg";
 const imgCalendarLinear = "/images/icon-calendar-linear.svg";
 const imgCalendarOutline = "/images/icon-calendar-outline.svg";
+
+function Link(props: React.ComponentProps<typeof NextLink>) {
+  return <NextLink prefetch={false} {...props} />;
+}
 
 const PARENT_CATALOG_HREF = "/dashboard/parents/catalog" as const;
 const PARENT_CLASSES_HREF = "/dashboard/parents/classes" as const;

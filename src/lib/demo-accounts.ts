@@ -44,6 +44,10 @@ export function defaultDemoAccountIdForPersona(persona: DashboardPersona): DemoA
   return `${persona}-primary`;
 }
 
+export function isDemoAccountId(value: string): value is DemoAccountId {
+  return DEMO_ACCOUNTS.some((a) => a.id === value);
+}
+
 /** Two-letter avatar label from a display name */
 export function initialsFromDisplayName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

@@ -44,6 +44,10 @@ function safeNumber(value: unknown): number | null {
   return null;
 }
 
+function safeOptionalNumber(value: unknown): number | undefined {
+  return safeNumber(value) ?? undefined;
+}
+
 function safeNumberOrZero(value: unknown): number {
   return safeNumber(value) ?? 0;
 }
@@ -63,11 +67,11 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     block: row.block,
     level: row.level,
     seats: row.students,
-    capacity: safeNumber(row.capacity),
+    capacity: safeOptionalNumber(row.capacity),
     enrolledCount: safeNumberOrZero(row.enrolledCount),
     reservedCount: safeNumberOrZero(row.reservedCount),
     pendingCount: safeNumberOrZero(row.pendingCount),
-    seatsRemaining: safeNumber(row.seatsRemaining),
+    seatsRemaining: safeOptionalNumber(row.seatsRemaining),
     availabilityLabel: row.availabilityLabel,
     schedule: row.schedule,
     status: row.status,
@@ -75,8 +79,8 @@ export function parentClassOptionFromRow(row: SchoolClassRow): ParentClassOption
     archivedAt: row.archivedAt,
     program: row.program,
     location: row.location,
-    minAgeYears: safeNumber(row.minAgeYears),
-    maxAgeYears: safeNumber(row.maxAgeYears),
+    minAgeYears: safeOptionalNumber(row.minAgeYears),
+    maxAgeYears: safeOptionalNumber(row.maxAgeYears),
     waitlistCount: safeNumberOrZero(row.waitlistCount),
   };
 }

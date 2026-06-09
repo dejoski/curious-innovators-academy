@@ -25,7 +25,7 @@ function hasAnySlotBadges(badges: StudentScheduleBadge[] | undefined) {
 }
 
 function finalityState(state: ParentScheduleFinalityState, label: string, description: string): ParentScheduleFinality {
-  return { state: state as const, label, description };
+  return { state, label, description };
 }
 
 export function parentScheduleFinalityFromBadges(badgesBySlot: ParentScheduleBadges | null | undefined): ParentScheduleFinality {
@@ -56,7 +56,7 @@ function parentScheduleFinalityFromScheduleState(
   state: StudentScheduleState | null | undefined,
   row?: Pick<StudentScheduleRow, "finalizedAt" | "finalizedBy" | "hasConflicts" | "incompleteBlocks"> | null,
 ): ParentScheduleFinality | null {
-  if (state === "final") {
+  if (state === "finalized") {
     const finalizer = row?.finalizedBy ? ` by ${row.finalizedBy}` : "";
     const when = row?.finalizedAt ? ` on ${new Date(row.finalizedAt).toLocaleDateString("en-US", { timeZone: "America/New_York" })}` : "";
     return finalityState("final", "Finalized schedule", `Final. This schedule was finalized${finalizer}${when}.`);

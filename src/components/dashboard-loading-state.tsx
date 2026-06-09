@@ -40,6 +40,36 @@ export function DashboardValueSkeleton({ className = "" }: { className?: string 
   );
 }
 
+export function DashboardLoadingCard() {
+  return (
+    <div
+      className="flex min-h-[132px] flex-col gap-4 rounded-[18px] border border-[#f0f0f0] bg-white p-5"
+      role="status"
+      aria-label="Loading dashboard card"
+    >
+      <div className="h-5 w-32 animate-pulse rounded bg-[#edf2f4]" />
+      <div className="h-8 w-24 animate-pulse rounded bg-[#e7eaee]" />
+      <div className="mt-auto h-4 w-full animate-pulse rounded bg-[#f0f2f5]" />
+    </div>
+  );
+}
+
+export function DashboardLoadingPanel() {
+  return (
+    <div
+      className="rounded-[18px] border border-[#f0f0f0] bg-white"
+      role="status"
+      aria-label="Loading dashboard panel"
+    >
+      <div className="flex flex-col gap-3 border-b border-[#f0f0f0] p-4">
+        <div className="h-5 w-44 animate-pulse rounded bg-[#edf2f4]" />
+        <div className="h-4 w-64 max-w-full animate-pulse rounded bg-[#f0f2f5]" />
+      </div>
+      <DashboardRowsSkeleton rows={5} />
+    </div>
+  );
+}
+
 export function DashboardRowsSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="flex flex-col gap-3 p-4" role="status" aria-label="Loading rows">

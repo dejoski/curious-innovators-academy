@@ -386,7 +386,7 @@ function catalogSlotMetaFromBlockLevel(block: unknown, levelOrDay: unknown) {
   if (!blockNumber || !dayNumber) return null;
   const blockKey = `block${blockNumber}` as "block3" | "block4";
   const dayKey = `day${dayNumber}` as "day1" | "day2" | "day3";
-  const slotId = `${blockKey}_${dayKey}`;
+  const slotId = `${blockKey}_${dayKey}` as CatalogSlotId;
   return CATALOG_SLOT_META[slotId] ?? null;
 }
 
