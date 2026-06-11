@@ -21,16 +21,9 @@ const DEMO_CREDENTIALS = {
   },
 } as const;
 
-const ENABLE_DEMO_LOGIN = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "true";
-const hasDemoAdminCredentials = Boolean(
-  DEMO_CREDENTIALS.admin.email && DEMO_CREDENTIALS.admin.password,
-);
-const hasDemoParentCredentials = Boolean(
-  DEMO_CREDENTIALS.parent.email && DEMO_CREDENTIALS.parent.password,
-);
-const SHOW_DEMO_LOGIN = ENABLE_DEMO_LOGIN || hasDemoAdminCredentials || hasDemoParentCredentials;
-const showDemoAdmin = ENABLE_DEMO_LOGIN || hasDemoAdminCredentials;
-const showDemoParent = ENABLE_DEMO_LOGIN || hasDemoParentCredentials;
+const SHOW_DEMO_LOGIN = true;
+const showDemoAdmin = true;
+const showDemoParent = true;
 
 const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
 const imgImage1 = "/images/login-logo-lightbulb.png";
