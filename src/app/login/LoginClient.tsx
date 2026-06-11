@@ -10,8 +10,6 @@ import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
-const ENABLE_DEMO_LOGIN = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "true";
-
 const DEMO_CREDENTIALS = {
   admin: {
     email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL ?? "",
@@ -22,6 +20,17 @@ const DEMO_CREDENTIALS = {
     password: process.env.NEXT_PUBLIC_DEMO_PARENT_PASSWORD ?? "",
   },
 } as const;
+
+const ENABLE_DEMO_LOGIN = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "true";
+const hasDemoAdminCredentials = Boolean(
+  DEMO_CREDENTIALS.admin.email && DEMO_CREDENTIALS.admin.password,
+);
+const hasDemoParentCredentials = Boolean(
+  DEMO_CREDENTIALS.parent.email && DEMO_CREDENTIALS.parent.password,
+);
+const SHOW_DEMO_LOGIN = ENABLE_DEMO_LOGIN || hasDemoAdminCredentials || hasDemoParentCredentials;
+const showDemoAdmin = ENABLE_DEMO_LOGIN || hasDemoAdminCredentials;
+const showDemoParent = ENABLE_DEMO_LOGIN || hasDemoParentCredentials;
 
 const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
 const imgImage1 = "/images/login-logo-lightbulb.png";
@@ -252,22 +261,26 @@ export default function LoginClient() {
               </Link>
             </div>
 
-            {ENABLE_DEMO_LOGIN && (
+            {SHOW_DEMO_LOGIN && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => continueAsDemo("admin")}
-                  className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
-                >
-                  Continue as Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => continueAsDemo("parent")}
-                  className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
-                >
-                  Continue as Parent
-                </button>
+                {showDemoAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => continueAsDemo("admin")}
+                    className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
+                  >
+                    Continue as Admin
+                  </button>
+                )}
+                {showDemoParent && (
+                  <button
+                    type="button"
+                    onClick={() => continueAsDemo("parent")}
+                    className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
+                  >
+                    Continue as Parent
+                  </button>
+                )}
               </div>
             )}
           </form>
