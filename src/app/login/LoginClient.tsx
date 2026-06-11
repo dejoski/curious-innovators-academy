@@ -28,9 +28,9 @@ const hasDemoAdminCredentials = Boolean(
 const hasDemoParentCredentials = Boolean(
   DEMO_CREDENTIALS.parent.email && DEMO_CREDENTIALS.parent.password,
 );
-const SHOW_DEMO_LOGIN = ENABLE_DEMO_LOGIN || hasDemoAdminCredentials || hasDemoParentCredentials;
-const showDemoAdmin = ENABLE_DEMO_LOGIN || hasDemoAdminCredentials;
-const showDemoParent = ENABLE_DEMO_LOGIN || hasDemoParentCredentials;
+const SHOW_DEMO_LOGIN = true;
+const showDemoAdmin = true;
+const showDemoParent = true;
 
 const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
 const imgImage1 = "/images/login-logo-lightbulb.png";
@@ -267,7 +267,9 @@ export default function LoginClient() {
                   <button
                     type="button"
                     onClick={() => continueAsDemo("admin")}
+                    disabled={!hasDemoAdminCredentials}
                     className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
+                    aria-disabled={!hasDemoAdminCredentials}
                   >
                     Continue as Admin
                   </button>
@@ -276,7 +278,9 @@ export default function LoginClient() {
                   <button
                     type="button"
                     onClick={() => continueAsDemo("parent")}
+                    disabled={!hasDemoParentCredentials}
                     className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
+                    aria-disabled={!hasDemoParentCredentials}
                   >
                     Continue as Parent
                   </button>
