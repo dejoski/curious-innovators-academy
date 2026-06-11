@@ -19,6 +19,13 @@ import {
   scheduleSlotForClassFields,
   type ParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
+import {
+  competencyBlockDisplayName,
+  competencyMappingKey,
+  scheduleSlotsForCompetencyBlock,
+  type CompetencyBlockMapping,
+} from "@/lib/competency-block-mappings";
+import { fetchCompetencyBlockMappingsForLevels } from "@/lib/data/repositories/competency-block-mappings";
 import { normalizeStudentCompetencyLevels, summarizeStudentCompetencyLevels } from "@/lib/data/repositories/students";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
@@ -276,6 +283,31 @@ function realBadges(badges: StudentScheduleBadge[] | undefined) {
   return (badges ?? []).filter((badge) => badge.tone !== "empty" && badge.label !== "--");
 }
 
+function mappingsForCompetencyLevels(
+  levels: ReturnType<typeof normalizeStudentCompetencyLevels>,
+  mappings: CompetencyBlockMapping[],
+): CompetencyBlockMapping[] {
+  const wanted = new Set(levels.map((level) => competencyMappingKey(level.competency as "reading" | "math", level.level)));
+  return mappings.filter((mapping) => wanted.has(competencyMappingKey(mapping.competency, mapping.level)));
+}
+
+function applyCompetencyBlockPlaceholders(
+  row: StudentScheduleRow,
+  levels: ReturnType<typeof normalizeStudentCompetencyLevels>,
+  mappings: CompetencyBlockMapping[],
+) {
+  const matched = mappingsForCompetencyLevels(levels, mappings);
+  for (const mapping of matched) {
+    for (const slot of scheduleSlotsForCompetencyBlock(mapping.blockNumber)) {
+      if (realBadges(row[slot]).length > 0) continue;
+      pushBadge(row, slot, {
+        label: competencyBlockDisplayName(mapping.competency, mapping.level),
+        tone: "core",
+      });
+    }
+  }
+}
+
 function finalizeScheduleDiagnostics(row: StudentScheduleRow) {
   let incompleteBlocks = 0;
   let hasConflicts = false;
@@ -331,7 +363,7 @@ export async function fetchStudentProfileResolved(
     const { data: student, error } = await supabase
       .from("students")
       .select(
-        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, ${STUDENT_PARENT_CONTACT_SELECT}`,
+        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, ${STUDENT_PARENT_CONTACT_SELECT}, student_competency_levels ( competency, level, behavior )`,
       )
       .eq("id", id)
       .maybeSingle();
@@ -464,7 +496,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
     const semesterId = await resolveSemesterFilter(supabase, options);
     const { data: students, error: studentsError } = await supabase
       .from("students")
-      .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
+      .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}, student_competency_levels ( competency, level, behavior )`)
       .order("display_name", { ascending: true });
     if (studentsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "students", studentsError);
@@ -480,6 +512,15 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
       }),
     ).filter((row) => row.id);
     const byStudentId = new Map(rows.map((row) => [row.id, row]));
+    const studentCompetencyLevelsById = new Map(
+      ((students ?? []) as unknown as Record<string, unknown>[]).map((student) => [
+        String(student.id ?? ""),
+        normalizeStudentCompetencyLevels(student.student_competency_levels),
+      ]),
+    );
+    const competencyMappings = await fetchCompetencyBlockMappingsForLevels(
+      Array.from(studentCompetencyLevelsById.values()).flat(),
+    );
 
     const [scheduleStatesResult, enrollmentsResult] = await Promise.all([
       semesterId
@@ -535,6 +576,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
     });
 
     rows.forEach((row) => {
+      applyCompetencyBlockPlaceholders(row, studentCompetencyLevelsById.get(row.id) ?? [], competencyMappings);
       row.b1 = normalizeScheduleBadges(row.b1);
       row.b1Tue = normalizeScheduleBadges(row.b1Tue);
       row.b1Wed = normalizeScheduleBadges(row.b1Wed);
@@ -572,7 +614,7 @@ export async function fetchStudentScheduleResolved(
     const semesterId = await resolveSemesterFilter(supabase, options);
     const { data: student, error } = await supabase
       .from("students")
-      .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}`)
+      .select(`id, display_name, guardian_label, avatar_url, ${STUDENT_PARENT_CONTACT_SELECT}, student_competency_levels ( competency, level, behavior )`)
       .eq("id", id)
       .maybeSingle();
     if (error) {
@@ -638,6 +680,9 @@ export async function fetchStudentScheduleResolved(
       const badge = badgeForEnrollment(request);
       if (badge) pushBadge(row, scheduleSlotForClass(request, index), badge);
     });
+    const competencyLevels = normalizeStudentCompetencyLevels((student as Record<string, unknown>).student_competency_levels);
+    const competencyMappings = await fetchCompetencyBlockMappingsForLevels(competencyLevels);
+    applyCompetencyBlockPlaceholders(row, competencyLevels, competencyMappings);
     row.b1 = normalizeScheduleBadges(row.b1);
     row.b1Tue = normalizeScheduleBadges(row.b1Tue);
     row.b1Wed = normalizeScheduleBadges(row.b1Wed);

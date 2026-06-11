@@ -11,6 +11,15 @@ import { readApiError } from "@/lib/client-api-errors";
 import { cachedJson, invalidateClientDataCache, invalidateDashboardData } from "@/lib/client-data-cache";
 import type { SemesterRow } from "@/lib/data/types";
 import { isTestPersonaSwitcherEnabled } from "@/lib/product-ui-flags";
+import {
+  COMPETENCY_BLOCK_NUMBERS,
+  competencyBlockLabel,
+  competencyMappingKey,
+  normalizeCompetencyBlockNumber,
+  normalizeCompetencyKey,
+  normalizeCompetencyLevel,
+  type CompetencyBlockGroup,
+} from "@/lib/competency-block-mappings";
 
 type ProvisionRole = "admin" | "parent" | "teacher";
 type AccountPreferences = {
@@ -27,6 +36,11 @@ type AccountProfilePayload = {
   avatarUrl: string;
   defaultStudentId: string | null;
   preferences: AccountPreferences;
+};
+
+type CompetencyBlockSettingsPayload = {
+  groups?: CompetencyBlockGroup[];
+  source?: string;
 };
 
 const SettingsQaTools = dynamic(() => import("@/components/settings-qa-tools"), {
@@ -60,6 +74,15 @@ export default function DashboardSettingsPage() {
   const [semesterStatus, setSemesterStatus] = useState<string | null>(null);
   const [semesterError, setSemesterError] = useState<string | null>(null);
   const [semesterSavingId, setSemesterSavingId] = useState<string | null>(null);
+  const [competencyGroups, setCompetencyGroups] = useState<CompetencyBlockGroup[]>([]);
+  const [competencyDrafts, setCompetencyDrafts] = useState<Record<string, string>>({});
+  const [competencyMappingsLoading, setCompetencyMappingsLoading] = useState(true);
+  const [competencyMappingStatus, setCompetencyMappingStatus] = useState<string | null>(null);
+  const [competencyMappingError, setCompetencyMappingError] = useState<string | null>(null);
+  const [competencyMappingsSaving, setCompetencyMappingsSaving] = useState(false);
+  const [newCompetency, setNewCompetency] = useState<"reading" | "math">("reading");
+  const [newCompetencyLevel, setNewCompetencyLevel] = useState("");
+  const [newCompetencyBlock, setNewCompetencyBlock] = useState("1");
   const showQaTools = isTestPersonaSwitcherEnabled();
 
   useEffect(() => {
@@ -117,6 +140,38 @@ export default function DashboardSettingsPage() {
       }
     }
     void loadSemesters();
+    return () => {
+      cancelled = true;
+    };
+  }, [persona]);
+
+  useEffect(() => {
+    if (persona !== "admin") {
+      setCompetencyMappingsLoading(false);
+      setCompetencyGroups([]);
+      setCompetencyDrafts({});
+      return;
+    }
+    let cancelled = false;
+    async function loadCompetencyMappings() {
+      setCompetencyMappingsLoading(true);
+      setCompetencyMappingError(null);
+      try {
+        const body = await cachedJson<CompetencyBlockSettingsPayload>("/api/data/competency-block-mappings");
+        if (cancelled) return;
+        const groups = Array.isArray(body.groups) ? body.groups : [];
+        setCompetencyGroups(groups);
+        setCompetencyDrafts(Object.fromEntries(groups.map((group) => [
+          competencyMappingKey(group.competency, group.level),
+          group.blockNumber ? String(group.blockNumber) : "",
+        ])));
+      } catch {
+        if (!cancelled) setCompetencyMappingError("Could not load group block mappings.");
+      } finally {
+        if (!cancelled) setCompetencyMappingsLoading(false);
+      }
+    }
+    void loadCompetencyMappings();
     return () => {
       cancelled = true;
     };
@@ -300,6 +355,87 @@ export default function DashboardSettingsPage() {
       setSemesterSavingId(null);
     }
   }, [semesterDrafts, semesterSavingId]);
+
+  const updateCompetencyDraft = useCallback((group: CompetencyBlockGroup, value: string) => {
+    setCompetencyDrafts((current) => ({
+      ...current,
+      [competencyMappingKey(group.competency, group.level)]: value,
+    }));
+  }, []);
+
+  const handleAddCompetencyGroup = useCallback(() => {
+    const competency = normalizeCompetencyKey(newCompetency);
+    const level = normalizeCompetencyLevel(newCompetencyLevel);
+    const blockNumber = normalizeCompetencyBlockNumber(newCompetencyBlock);
+    if (!competency || !level || !blockNumber) {
+      setCompetencyMappingError("Choose a Reading or Math group and Block 1-4 before adding a mapping.");
+      return;
+    }
+    const key = competencyMappingKey(competency, level);
+    setCompetencyGroups((current) => {
+      if (current.some((group) => competencyMappingKey(group.competency, group.level) === key)) return current;
+      const newGroup: CompetencyBlockGroup = {
+        competency,
+        level,
+        blockNumber,
+        block: competencyBlockLabel(blockNumber),
+        studentCount: 0,
+        source: "mapping",
+      };
+      return [
+        ...current,
+        newGroup,
+      ].sort((a, b) => {
+        if (a.competency !== b.competency) return a.competency.localeCompare(b.competency);
+        return a.level.localeCompare(b.level, undefined, { numeric: true });
+      });
+    });
+    setCompetencyDrafts((current) => ({ ...current, [key]: String(blockNumber) }));
+    setNewCompetencyLevel("");
+    setCompetencyMappingError(null);
+  }, [newCompetency, newCompetencyBlock, newCompetencyLevel]);
+
+  const saveCompetencyMappings = useCallback(async () => {
+    if (competencyMappingsSaving) return;
+    setCompetencyMappingStatus(null);
+    setCompetencyMappingError(null);
+    setCompetencyMappingsSaving(true);
+    try {
+      const mappings = competencyGroups
+        .map((group) => {
+          const blockNumber = normalizeCompetencyBlockNumber(competencyDrafts[competencyMappingKey(group.competency, group.level)]);
+          return blockNumber ? { competency: group.competency, level: group.level, blockNumber } : null;
+        })
+        .filter((row): row is { competency: "reading" | "math"; level: string; blockNumber: NonNullable<CompetencyBlockGroup["blockNumber"]> } => row !== null);
+      const res = await fetch("/api/data/competency-block-mappings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mappings }),
+      });
+      if (!res.ok) {
+        setCompetencyMappingError(await readApiError(res));
+        return;
+      }
+      const body = (await res.json()) as CompetencyBlockSettingsPayload;
+      const groups = Array.isArray(body.groups) ? body.groups : [];
+      setCompetencyGroups(groups);
+      setCompetencyDrafts(Object.fromEntries(groups.map((group) => [
+        competencyMappingKey(group.competency, group.level),
+        group.blockNumber ? String(group.blockNumber) : "",
+      ])));
+      invalidateDashboardData([
+        "/api/data/competency-block-mappings",
+        "/api/data/student-schedules",
+        "/api/dashboard-presentation",
+      ]);
+      setCompetencyMappingStatus("Group block mappings saved.");
+      window.setTimeout(() => setCompetencyMappingStatus(null), 4500);
+    } catch {
+      setCompetencyMappingError("Request failed.");
+    } finally {
+      setCompetencyMappingsSaving(false);
+    }
+  }, [competencyDrafts, competencyGroups, competencyMappingsSaving]);
 
   return (
     <div className="p-8 w-full max-w-[1168px] mx-auto font-sans pb-16">
@@ -583,6 +719,134 @@ export default function DashboardSettingsPage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+        ) : null}
+
+        {persona === "admin" ? (
+        <section className="rounded-[12px] border border-[#eef0f3] bg-white p-6 shadow-sm">
+          <h2 className="text-[#272932] text-lg font-semibold mb-1">Reading and Math blocks</h2>
+          <p className="text-[#666d80] text-sm mb-6">
+            Assign each Reading and Math group to the instructional block used when student schedules show core placements.
+          </p>
+
+          {competencyMappingStatus ? (
+            <p className="mb-4 rounded-[8px] border border-[#c8f4f0] bg-[#e8fafb] px-3 py-2 text-sm text-[#0d5c56]" role="status">
+              {competencyMappingStatus}
+            </p>
+          ) : null}
+          {competencyMappingError ? (
+            <p className="mb-4 rounded-[8px] border border-[#f4cccc] bg-[#fff5f5] px-3 py-2 text-sm text-[#a33d3d]" role="alert">
+              {competencyMappingError}
+            </p>
+          ) : null}
+
+          <div className="grid gap-4">
+            {competencyMappingsLoading ? (
+              <p className="rounded-[10px] border border-[#d2f1f5] bg-[#ecfdff] px-4 py-3 text-sm font-medium text-[#155e66]">
+                Loading group mappings...
+              </p>
+            ) : null}
+            {!competencyMappingsLoading && competencyGroups.length === 0 ? (
+              <p className="rounded-[10px] border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 text-sm text-[#666d80]">
+                No Reading or Math groups have been found yet. Add the first mapping below.
+              </p>
+            ) : null}
+            {competencyGroups.length > 0 ? (
+              <div className="overflow-x-auto rounded-[10px] border border-[#e6e9ef]">
+                <table className="min-w-full divide-y divide-[#eef0f3] text-left">
+                  <thead className="bg-[#fafafa]">
+                    <tr>
+                      <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Subject</th>
+                      <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Group</th>
+                      <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Students</th>
+                      <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Block</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#eef0f3] bg-white">
+                    {competencyGroups.map((group) => {
+                      const key = competencyMappingKey(group.competency, group.level);
+                      return (
+                        <tr key={key}>
+                          <td className="px-4 py-3 text-[14px] font-medium capitalize text-[#272932]">{group.competency}</td>
+                          <td className="px-4 py-3 text-[14px] text-[#525a6a]">{group.level}</td>
+                          <td className="px-4 py-3 text-[14px] text-[#525a6a]">{group.studentCount}</td>
+                          <td className="px-4 py-3">
+                            <select
+                              value={competencyDrafts[key] ?? ""}
+                              onChange={(e) => updateCompetencyDraft(group, e.target.value)}
+                              className="h-[40px] min-w-[140px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+                            >
+                              <option value="">Unassigned</option>
+                              {COMPETENCY_BLOCK_NUMBERS.map((blockNumber) => (
+                                <option key={blockNumber} value={String(blockNumber)}>
+                                  {competencyBlockLabel(blockNumber)}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-5 grid gap-3 rounded-[10px] border border-[#e6e9ef] bg-[#fafafa] p-4 md:grid-cols-[150px_minmax(0,1fr)_150px_auto] md:items-end">
+            <label className="flex flex-col gap-2">
+              <span className="text-[13px] font-medium text-[#2f2f2d]">Subject</span>
+              <select
+                value={newCompetency}
+                onChange={(e) => setNewCompetency(e.target.value === "math" ? "math" : "reading")}
+                className="h-[42px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+              >
+                <option value="reading">Reading</option>
+                <option value="math">Math</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className="text-[13px] font-medium text-[#2f2f2d]">Group</span>
+              <input
+                value={newCompetencyLevel}
+                onChange={(e) => setNewCompetencyLevel(e.target.value)}
+                placeholder="Example: D"
+                className="h-[42px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+              />
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className="text-[13px] font-medium text-[#2f2f2d]">Block</span>
+              <select
+                value={newCompetencyBlock}
+                onChange={(e) => setNewCompetencyBlock(e.target.value)}
+                className="h-[42px] rounded-[8px] border border-[#dfe1e7] bg-white px-3 text-[14px] text-[#05080b] outline-none transition-colors focus:border-[#14c1d5]"
+              >
+                {COMPETENCY_BLOCK_NUMBERS.map((blockNumber) => (
+                  <option key={blockNumber} value={String(blockNumber)}>
+                    {competencyBlockLabel(blockNumber)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleAddCompetencyGroup}
+              className="inline-flex h-[42px] items-center justify-center rounded-[6px] bg-white px-4 text-sm font-semibold text-[#155e66] ring-1 ring-[#14c1d5]/30 transition-colors hover:bg-[#ecfdff]"
+            >
+              Add mapping
+            </button>
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              disabled={competencyMappingsSaving}
+              onClick={() => void saveCompetencyMappings()}
+              className="inline-flex h-[42px] items-center justify-center rounded-[6px] bg-[#14c1d5] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#12aebd] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {competencyMappingsSaving ? "Saving..." : "Save group blocks"}
+            </button>
           </div>
         </section>
         ) : null}

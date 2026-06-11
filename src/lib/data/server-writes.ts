@@ -247,6 +247,12 @@ function normalizeOptionalAge(raw: unknown): number | null {
   return Math.floor(parsed);
 }
 
+function optionalClassAgeLimit(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function normalizeScheduleDays(raw: unknown): string[] {
   const values = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,\n]/);
   const allowed = new Set(["M", "T", "W", "TH", "F"]);
@@ -2053,13 +2059,17 @@ async function ensureClassCapacityForChoices(
     if (classRow && "archived_at" in classRow && classRow.archived_at) {
       return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} has been archived.` };
     }
-    const minAge = Number(classRow?.min_age_years);
-    const maxAge = Number(classRow?.max_age_years);
-    if (studentAge !== null && Number.isFinite(minAge) && studentAge < minAge) {
-      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} requires students to be at least ${minAge}.` };
+    const minAge = optionalClassAgeLimit(classRow?.min_age_years);
+    const maxAge = optionalClassAgeLimit(classRow?.max_age_years);
+    if (studentAge !== null && minAge !== null) {
+      if (studentAge < minAge) {
+        return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} requires students to be at least ${minAge}.` };
+      }
     }
-    if (studentAge !== null && Number.isFinite(maxAge) && studentAge > maxAge) {
-      return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is limited to students age ${maxAge} or younger.` };
+    if (studentAge !== null && maxAge !== null) {
+      if (studentAge > maxAge) {
+        return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is limited to students age ${maxAge} or younger.` };
+      }
     }
 
     const remaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
@@ -2469,6 +2479,7 @@ export async function serverInsertEnrichmentRequests(input: {
       block: choice.block.trim(),
       level: choice.level.trim(),
       option: choice.option.trim(),
+      waitlist: choice.waitlist,
     }))
     .filter((choice) => choice.classId && choice.option));
   if (choices.length === 0) return { ok: false, message: "No class choices submitted" };

@@ -122,9 +122,6 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
   const selectedParentStudentId = searchParams.get("student") ?? readStoredParentStudentId();
   const visualPathname = clientVisualPath ?? pendingPath ?? pathname;
   const adminStudentRoute = parseAdminStudentRoute(visualPathname);
-  const adminStudentDetailRoot = adminStudentRoute?.studentId
-    ? `/dashboard/students/${encodeURIComponent(adminStudentRoute.studentId)}`
-    : null;
 
   const [classesExpanded, setClassesExpanded] = React.useState(() =>
     pathname.startsWith("/dashboard/classes"),
@@ -534,25 +531,12 @@ export default function Sidebar({ className, type = "open" }: SidebarProps) {
                       <Link href="/dashboard/students" className={subNavClass(adminStudentListActive || visualPathname === "/dashboard/students")}>
                         Student List
                       </Link>
-                      {!adminStudentDetailRoot ? (
-                        <>
-                          <Link href="/dashboard/students/schedule" className={subNavClass(adminStudentScheduleActive)}>
-                            Student Schedule
-                          </Link>
-                          <Link href="/dashboard/students/roster" className={subNavClass(adminStudentRosterActive)}>
-                            Student Roster
-                          </Link>
-                        </>
-                      ) : (
-                        <>
-                          <Link href={`${adminStudentDetailRoot}/schedule`} className={subNavClass(adminStudentScheduleActive)}>
-                            Student Schedule
-                          </Link>
-                          <Link href={`${adminStudentDetailRoot}/roster`} className={subNavClass(adminStudentRosterActive)}>
-                            Student Roster
-                          </Link>
-                        </>
-                      )}
+                      <Link href="/dashboard/students/schedule" className={subNavClass(adminStudentScheduleActive)}>
+                        Student Schedule
+                      </Link>
+                      <Link href="/dashboard/students/roster" className={subNavClass(adminStudentRosterActive)}>
+                        Student Roster
+                      </Link>
                     </div>
                   )}
                 </div>
