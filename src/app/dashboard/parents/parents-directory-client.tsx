@@ -11,10 +11,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Link2,
+  Mail,
   Send,
   UserCheck,
   UserPlus,
   Users,
+  Users2,
 } from "lucide-react";
 import { DASHBOARD_PANEL_CLASS } from "@/lib/dashboard-shell-classes";
 import { readApiError } from "@/lib/client-api-errors";
@@ -677,10 +680,12 @@ export function ParentsAdminDirectory({
                     actions={[
                       {
                         label: "Manage students",
+                        icon: <Users2 className="size-5" aria-hidden strokeWidth={1.8} />,
                         onClick: () => openLinkManager(parent),
                       },
                       {
                         label: "Create invite link",
+                        icon: <Link2 className="size-5" aria-hidden strokeWidth={1.8} />,
                         onClick: () => void createInviteLink(parent),
                       },
                       {
@@ -695,6 +700,7 @@ export function ParentsAdminDirectory({
                       },
                       {
                         label: "Message",
+                        icon: <Mail className="size-5" aria-hidden strokeWidth={1.8} />,
                         onClick: () => setMessageFor({ id: parent.id, name: parent.name, email: parent.email }),
                       },
                       {

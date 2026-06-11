@@ -409,11 +409,14 @@ function ParentClassesEnrichmentCatalogContent() {
         isParentSelectableEnrichmentOption(option, {
           studentAgeYears,
           schedule: studentSchedule,
+          allowClassIds: [activeRequests.firstChoice?.id, activeRequests.secondChoice?.id].filter(
+            (id): id is string => Boolean(id),
+          ),
         }),
       ),
       activeMeta,
     );
-  }, [activeMeta, availableClasses, studentAgeYears, studentSchedule]);
+  }, [activeMeta, activeRequests.firstChoice?.id, activeRequests.secondChoice?.id, availableClasses, studentAgeYears, studentSchedule]);
 
   const overlayClasses = recommendedClasses;
   const choiceMatchesActiveSlot = (choice: ParentClassOption | null) =>

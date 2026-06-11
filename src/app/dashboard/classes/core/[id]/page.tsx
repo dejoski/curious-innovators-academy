@@ -19,6 +19,7 @@ import type {
   ClassRosterStudent,
   SchoolClassRow,
 } from "@/lib/data/types";
+import { canonicalScheduleSummaryForBlockDay } from "@/lib/schedule-slots";
 
 const imgGroup1 = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-calendar-linear.svg";
@@ -37,6 +38,7 @@ type Student = ClassRosterStudent;
 type ClassMeta = {
   title: string;
   description: string;
+  teacherId?: string;
   teacher: string;
   blockLevel: string;
   schedule: string;
@@ -74,6 +76,7 @@ function classMetaFromRow(row: SchoolClassRow): ClassMeta {
   return {
     title: row.name,
     description: row.description || "",
+    teacherId: row.teacherId,
     teacher: row.teacher || "Teacher not assigned",
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
@@ -110,6 +113,7 @@ export default function ClassDetailsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [classMeta, setClassMeta] = useState<ClassMeta>(EMPTY_CLASS_META);
   const [classMetaDraft, setClassMetaDraft] = useState<ClassMeta>(EMPTY_CLASS_META);
+  const [editDay, setEditDay] = useState("1");
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [isLoadingRoster, setIsLoadingRoster] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -350,6 +354,7 @@ export default function ClassDetailsPage() {
 
   const openEditInfo = () => {
     setClassMetaDraft(classMeta);
+    setEditDay(classMeta.schedule.match(/\bDay\s*([1-3])\b/i)?.[1] ?? "1");
     setClassEditError(null);
     setIsEditInfoModalOpen(true);
   };
@@ -357,6 +362,7 @@ export default function ClassDetailsPage() {
   const saveClassMeta = async () => {
     const max = classMetaDraft.capacityMax <= 0 ? 1 : classMetaDraft.capacityMax;
     const { block, level } = splitBlockLevelLabel(classMetaDraft.blockLevel);
+    const schedule = canonicalScheduleSummaryForBlockDay(block, editDay);
     setClassEditError(null);
     setIsSavingClassMeta(true);
     try {
@@ -367,8 +373,9 @@ export default function ClassDetailsPage() {
           id: classId,
           name: classMetaDraft.title,
           teacher: classMetaDraft.teacher,
+          teacherId: classMetaDraft.teacherId,
           capacity: max,
-          schedule: classMetaDraft.schedule,
+          schedule,
           status: "Active",
           track: "core",
           description: classMetaDraft.description,
@@ -391,6 +398,11 @@ export default function ClassDetailsPage() {
       const nextMeta = body.class ? classMetaFromRow(body.class) : { ...classMetaDraft, capacityMax: max };
       setClassMeta(nextMeta);
       setClassMetaDraft(nextMeta);
+      invalidateDashboardData([
+        "/api/data/classes",
+        "/api/data/class-options",
+        "/api/dashboard-presentation",
+      ]);
       setIsEditInfoModalOpen(false);
     } catch (error) {
       setClassEditError(error instanceof Error ? error.message : "Class could not be saved.");
@@ -986,7 +998,7 @@ export default function ClassDetailsPage() {
               <X className="w-5 h-5" />
             </button>
             <h3 className="text-[18px] font-bold mb-2 pr-8 leading-[1.25]">Edit Class Info</h3>
-            <p className="text-sm text-gray-500 mb-4">Save updates this class.</p>
+            <p className="text-sm text-gray-500 mb-4">Update the details for this class.</p>
             {classEditError ? (
               <div role="alert" className="mb-4 rounded-md border border-[#f6c8c8] bg-[#fff1f1] px-3 py-2 text-sm text-[#8c1f1f]">
                 {classEditError}
@@ -1014,7 +1026,7 @@ export default function ClassDetailsPage() {
                 Teacher
                 <input
                   value={classMetaDraft.teacher}
-                  onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacher: e.target.value }))}
+                  onChange={(e) => setClassMetaDraft((d) => ({ ...d, teacher: e.target.value, teacherId: undefined }))}
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
@@ -1022,17 +1034,74 @@ export default function ClassDetailsPage() {
                 Block & level
                 <input
                   value={classMetaDraft.blockLevel}
-                  onChange={(e) => setClassMetaDraft((d) => ({ ...d, blockLevel: e.target.value }))}
+                  onChange={(e) =>
+                    setClassMetaDraft((d) => {
+                      const nextBlockLevel = e.target.value;
+                      const { block } = splitBlockLevelLabel(nextBlockLevel);
+                      return {
+                        ...d,
+                        blockLevel: nextBlockLevel,
+                        schedule: canonicalScheduleSummaryForBlockDay(block, editDay),
+                      };
+                    })
+                  }
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-semibold text-gray-600">
+                  Day
+                  <select
+                    value={editDay}
+                    onChange={(e) => {
+                      const nextDay = e.target.value;
+                      setEditDay(nextDay);
+                      setClassMetaDraft((d) => {
+                        const { block } = splitBlockLevelLabel(d.blockLevel);
+                        return { ...d, schedule: canonicalScheduleSummaryForBlockDay(block, nextDay) };
+                      });
+                    }}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  >
+                    <option value="1">Day 1</option>
+                    <option value="2">Day 2</option>
+                    <option value="3">Day 3</option>
+                  </select>
+                </label>
+                <label className="text-xs font-semibold text-gray-600">
+                  Schedule
+                  <input
+                    value={classMetaDraft.schedule}
+                    readOnly
+                    className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                  />
+                </label>
+              </div>
               <label className="text-xs font-semibold text-gray-600">
-                Schedule
-                <input
-                  value={classMetaDraft.schedule}
-                  onChange={(e) => setClassMetaDraft((d) => ({ ...d, schedule: e.target.value }))}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
+                Meeting days
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() =>
+                        setClassMetaDraft((d) => ({
+                          ...d,
+                          scheduleDays: d.scheduleDays.includes(day)
+                            ? d.scheduleDays.filter((item) => item !== day)
+                            : [...d.scheduleDays, day],
+                        }))
+                      }
+                      className={`rounded-[8px] border px-3 py-1 text-[13px] font-semibold ${
+                        classMetaDraft.scheduleDays.includes(day)
+                          ? "border-[#14c1d5] bg-[#d2f1f5] text-[#0d0d12]"
+                          : "border-[#dfe1e7] bg-white text-[#666d80]"
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
               </label>
               <div className="flex gap-3">
                 <label className="text-xs font-semibold text-gray-600 flex-1">

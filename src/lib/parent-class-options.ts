@@ -168,9 +168,14 @@ export function hasBlockingScheduleConflict(
 
 export function isParentSelectableEnrichmentOption(
   option: ParentClassOption,
-  input: { studentAgeYears?: number | null; schedule?: StudentScheduleRow | null } = {},
+  input: {
+    studentAgeYears?: number | null;
+    schedule?: StudentScheduleRow | null;
+    allowClassIds?: readonly string[];
+  } = {},
 ): boolean {
   if (option.program !== "enrichment") return false;
+  if (input.allowClassIds?.includes(option.id)) return true;
   if (option.isActive === false) return false;
   if (option.archivedAt) return false;
   if (isOptionFull(option)) return false;

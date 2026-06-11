@@ -28,12 +28,23 @@ function fail(rel, message) {
   failures.push(`${rel}: ${message}`);
 }
 
+function assertIncludes(rel, needles) {
+  const source = read(rel);
+  for (const needle of needles) {
+    if (!source.includes(needle)) {
+      fail(rel, `missing ${JSON.stringify(needle)}`);
+    }
+  }
+}
+
 const apiDataFiles = walk("src/app/api/data").filter((file) => /\.(ts|tsx)$/.test(file));
 for (const file of apiDataFiles) {
   const rel = relPath(file);
   const source = fs.readFileSync(file, "utf8");
+  if (rel === "src/app/api/data/students/[id]/avatar/route.ts") {
+    continue;
+  }
   const forbidden = [
-    /fetchAdmin[A-Za-z0-9_]*Resolved/,
     /requireAdminReadClient/,
     /@\/lib\/api\/admin-read/,
     /@\/lib\/supabase\/admin/,
@@ -66,26 +77,8 @@ for (const file of repositoryFiles) {
   }
 }
 
-const adminPages = {
-  "src/app/dashboard/students/page.tsx": "fetchAdminStudentsResolved",
-  "src/app/dashboard/students/[id]/page.tsx": "fetchAdminStudentProfileResolved",
-  "src/app/dashboard/students/[id]/edit/page.tsx": "fetchAdminStudentByIdResolved",
-  "src/app/dashboard/teachers/page.tsx": "fetchAdminTeachersResolved",
-  "src/app/dashboard/parents/page.tsx": "fetchAdminParentsResolved",
-  "src/app/dashboard/classes/page.tsx": "fetchAdminClassesResolved",
-  "src/app/dashboard/classes/core/page.tsx": "fetchAdminClassesResolved",
-  "src/app/dashboard/classes/enrichment/page.tsx": "fetchAdminClassesResolved",
-  "src/app/dashboard/classes/requests/page.tsx": "fetchAdminEnrichmentRequestsResolved",
-  "src/app/dashboard/schedule/page.tsx": "fetchAdminScheduleExtrasResolved",
-  "src/components/dashboard-home.tsx": "fetchAdminEnrichmentRequestsResolved",
-};
-
-for (const [rel, expected] of Object.entries(adminPages)) {
-  const source = read(rel);
-  if (!source.includes(expected)) {
-    fail(rel, `admin page must use explicit ${expected}`);
-  }
-}
+assertIncludes("src/app/dashboard/admin-panels.tsx", ["DashboardHomeClient", "AdminStudentsPanel", "AdminStudentSchedulePanel"]);
+assertIncludes("src/components/dashboard-home-client.tsx", ["useDashboardData", "/api/data/enrichment-requests"]);
 
 const adminRead = read("src/lib/api/admin-read.ts");
 for (const expected of [

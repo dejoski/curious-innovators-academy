@@ -3,15 +3,12 @@
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, studentDetailDataUrls } from "@/lib/client-data-cache";
 import { studentCreatePartialSaveHint } from "@/lib/product-copy";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
 import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
-
-type LevelOption = "1" | "2" | "3" | "4" | "5" | "6";
-
-const LEVEL_OPTIONS: LevelOption[] = ["1", "2", "3", "4", "5", "6"];
+import { summarizeStudentCompetencyLevels } from "@/lib/student-competency";
 
 function requiredLabel(label: string) {
   return (
@@ -36,22 +33,6 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
         props.className ?? "",
       ].join(" ")}
     />
-  );
-}
-
-function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <div className="relative">
-      <select
-        {...props}
-        className={[
-          "h-[48px] w-full appearance-none rounded-[8px] border border-[#dfe1e7] bg-white px-4 pr-10 font-sans text-[15px] text-[#272932] outline-none transition-colors",
-          "focus:border-[#14c1d5] focus:ring-2 focus:ring-[#14c1d5]/15",
-          props.className ?? "",
-        ].join(" ")}
-      />
-      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-[#0d0d12]" aria-hidden strokeWidth={2} />
-    </div>
   );
 }
 
@@ -90,7 +71,8 @@ export default function AddStudentPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [parentName, setParentName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
-  const [level, setLevel] = useState<LevelOption>("2");
+  const [readingGroup, setReadingGroup] = useState("");
+  const [mathGroup, setMathGroup] = useState("");
   const [learningProfile, setLearningProfile] = useState("");
   const [strengths, setStrengths] = useState("");
   const [supportNotes, setSupportNotes] = useState("");
@@ -111,11 +93,12 @@ export default function AddStudentPage() {
           lastName.trim() &&
           parentName.trim() &&
           parentEmail.trim() &&
-          level &&
+          readingGroup.trim() &&
+          mathGroup.trim() &&
           !submitting &&
           !createdId,
       ),
-    [createdId, firstName, lastName, level, parentEmail, parentName, submitting],
+    [createdId, firstName, lastName, mathGroup, parentEmail, parentName, readingGroup, submitting],
   );
 
   async function submit() {
@@ -123,6 +106,16 @@ export default function AddStudentPage() {
     const name = displayName.trim();
     if (name.length < 2) {
       setHint("Student name must be at least 2 characters.");
+      return;
+    }
+
+    const competencyLevels = [
+      { competency: "reading", level: readingGroup.trim(), behavior: "core" as const },
+      { competency: "math", level: mathGroup.trim(), behavior: "core" as const },
+    ].filter((row) => row.level.length > 0);
+    const resolvedLevel = summarizeStudentCompetencyLevels(competencyLevels, "");
+    if (!resolvedLevel) {
+      setHint("Add both a reading group and a math group before creating the student.");
       return;
     }
 
@@ -137,7 +130,7 @@ export default function AddStudentPage() {
         body: JSON.stringify({
           name,
           parent: parentName.trim(),
-          level,
+          level: resolvedLevel,
           track: "core",
           notes: supportNotes.trim() || undefined,
         }),
@@ -158,7 +151,8 @@ export default function AddStudentPage() {
         body: JSON.stringify({
           name,
           age: dateOfBirthToAge(dateOfBirth),
-          level,
+          level: resolvedLevel,
+          competencyLevels,
           learningProfile: learningProfile.trim(),
           strengths: strengths.trim(),
           supportNotes: supportNotes.trim(),
@@ -254,14 +248,20 @@ export default function AddStudentPage() {
         <FormSection title="Academic Information">
           <div className="grid gap-5 md:grid-cols-2">
             <label className="flex flex-col gap-3">
-              <FieldLabel>{requiredLabel("Level")}</FieldLabel>
-              <SelectInput value={level} onChange={(e) => setLevel(e.target.value as LevelOption)}>
-                {LEVEL_OPTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    Level {value}
-                  </option>
-                ))}
-              </SelectInput>
+              <FieldLabel>{requiredLabel("Reading Group")}</FieldLabel>
+              <TextInput
+                value={readingGroup}
+                onChange={(e) => setReadingGroup(e.target.value)}
+                placeholder="ex. D"
+              />
+            </label>
+            <label className="flex flex-col gap-3">
+              <FieldLabel>{requiredLabel("Math Group")}</FieldLabel>
+              <TextInput
+                value={mathGroup}
+                onChange={(e) => setMathGroup(e.target.value)}
+                placeholder="ex. C"
+              />
             </label>
             <label className="flex flex-col gap-3">
               <FieldLabel>Learning Profile</FieldLabel>
@@ -284,6 +284,9 @@ export default function AddStudentPage() {
               />
             </label>
           </div>
+          <p className="mt-4 text-sm text-[#666d80]">
+            CIA level is the student&apos;s group. Both Reading and Math groups are required.
+          </p>
         </FormSection>
       </div>
 

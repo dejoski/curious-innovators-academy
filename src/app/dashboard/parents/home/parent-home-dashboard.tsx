@@ -17,8 +17,10 @@ import {
 import {
   classOptionForScheduleBadge,
   fallbackParentClassOption,
+  isParentSelectableEnrichmentOption,
   parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
+  parseStudentAgeYears,
 } from "@/lib/parent-class-options";
 import {
   ParentScheduleGrid,
@@ -283,6 +285,7 @@ function ParentHomeDashboardContent() {
   const [student, setStudent] = useState<StudentListItem | null>(null);
   const [profile, setProfile] = useState<StudentProfileBundle | null>(null);
   const [schedule, setSchedule] = useState<StudentScheduleRow | null>(null);
+  const [studentAgeYears, setStudentAgeYears] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [dataSource, setDataSource] = useState<DataSource | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -337,6 +340,7 @@ function ParentHomeDashboardContent() {
           setStudent(activeStudent);
           setProfile(null);
           setSchedule(null);
+          setStudentAgeYears(null);
           setCatalogDraft(null);
           setServerCatalogDraft(null);
           setServerLocalRequestState(null);
@@ -364,13 +368,17 @@ function ParentHomeDashboardContent() {
         setStudent(activeStudent);
         setProfile(profileBody.profile ?? null);
         setSchedule(Array.isArray(scheduleBody.rows) ? (scheduleBody.rows[0] ?? null) : null);
+        setStudentAgeYears(parseStudentAgeYears(profileBody.profile?.details?.age));
         setDataSource(
           profileBody.source === "fallback" || scheduleBody.source === "fallback" || classesBody.source === "fallback"
             ? "fallback"
             : (profileBody.source ?? scheduleBody.source ?? studentsBody.source ?? classesBody.source ?? null),
         );
       } catch (err) {
-        if (!cancelled) setLoadError(`Could not load parent dashboard: ${err instanceof Error ? err.message : String(err)}.`);
+        if (!cancelled) {
+          setStudentAgeYears(null);
+          setLoadError(`Could not load parent dashboard: ${err instanceof Error ? err.message : String(err)}.`);
+        }
       } finally {
         if (!cancelled) setIsStudentDataLoading(false);
       }
@@ -534,6 +542,10 @@ function ParentHomeDashboardContent() {
     () => classOptions.filter((option) => option.program === "enrichment"),
     [classOptions],
   );
+  const activeRequestClassIds = useMemo(
+    () => [activeRequests.firstChoice?.id, activeRequests.secondChoice?.id].filter((id): id is string => Boolean(id)),
+    [activeRequests.firstChoice?.id, activeRequests.secondChoice?.id],
+  );
 
   function resolveStoredChoice(choice: ParentCatalogRequests[CatalogSlotId]["firstChoice"] | null | undefined): ParentClassOption | null {
     if (!choice?.name && !choice?.id) return null;
@@ -544,8 +556,17 @@ function ParentHomeDashboardContent() {
   }
 
   const recommendedClasses = useMemo(() => {
-    return parentClassOptionsForCatalogSlot(enrichmentOptions, activeMeta);
-  }, [activeMeta, enrichmentOptions]);
+    return parentClassOptionsForCatalogSlot(
+      enrichmentOptions.filter((option) =>
+        isParentSelectableEnrichmentOption(option, {
+          studentAgeYears,
+          schedule,
+          allowClassIds: activeRequestClassIds,
+        }),
+      ),
+      activeMeta,
+    );
+  }, [activeMeta, activeRequestClassIds, enrichmentOptions, schedule, studentAgeYears]);
   const overlayClasses = recommendedClasses;
   const choiceMatchesActiveSlot = (choice: ParentClassOption | null) =>
     Boolean(choice && overlayClasses.some((option) => (option.id || option.name) === (choice.id || choice.name)));
@@ -1026,7 +1047,12 @@ function ParentHomeDashboardContent() {
           classListHref={parentClassListHref(detailClass.option)}
           canSubmitDraft={Boolean(detailClass.draftChoice) && localRequestState === "draft" && hasCatalogChoices}
           submitting={submitting}
-          onEditSelection={detailClass.statusLabel.startsWith("Draft") && detailClass.catalogSlot ? editDetailSelection : undefined}
+          onEditSelection={
+            (detailClass.statusLabel.startsWith("Draft") || detailClass.statusLabel.startsWith("Pending")) &&
+            detailClass.catalogSlot
+              ? editDetailSelection
+              : undefined
+          }
           onSubmitDraft={submitDetailDraftChoice}
           submitDraftLabel="Submit This Draft"
           onClose={() => setDetailClass(null)}

@@ -16,6 +16,12 @@ import {
   STUDENT_PROFILE_TIMELINE_EVENT_TYPES,
   isStudentProfileTimelineEventType,
 } from "@/lib/data/types";
+import {
+  COMPETENCY_KEYS,
+  competencyLevelFor,
+  displayCompetencyName,
+  summarizeStudentCompetencyLevels,
+} from "@/lib/student-competency";
 
 const imgMaskGroup = "/images/icon-group.svg";
 const imgGroup1 = "/images/icon-notification-bell.svg";
@@ -37,6 +43,10 @@ const HISTORY_TYPE_BADGE_CLASSES: Record<StudentProfileTimelineEventType, string
 
 function historyTypeBadgeClasses(type: StudentProfileTimelineEventType) {
   return HISTORY_TYPE_BADGE_CLASSES[type];
+}
+
+function competencyInputLabel(competency: (typeof COMPETENCY_KEYS)[number]) {
+  return `${displayCompetencyName(competency)} Group`;
 }
 
 export type StudentProfileClientProps = {
@@ -64,6 +74,7 @@ export default function StudentProfileClient({
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const [profileState, setProfileState] = useState<StudentProfileBundle | null>(() => bundle);
 
   const [newNoteTitle, setNewNoteTitle] = useState("");
   const [newNoteContent, setNewNoteContent] = useState("");
@@ -101,6 +112,7 @@ export default function StudentProfileClient({
     setNewNoteType("Academic");
     setParentEmailDraft(bundle.parentContacts[0]?.email ?? "");
     setParentNameDraft(bundle.parentContacts[0]?.name ?? bundle.parentName ?? "");
+    setProfileState(bundle);
   }, [bundle]);
 
   const historyFilters = useMemo<HistoryFilterType[]>(() => {
@@ -131,12 +143,16 @@ export default function StudentProfileClient({
     );
   }
 
-  const mock = bundle;
+  const mock = profileState ?? bundle;
   const parentContacts = mock.parentContacts.length
     ? mock.parentContacts
     : [{ name: mock.parentName || "Parent contact" }];
+  const displayedLevel = summarizeStudentCompetencyLevels(studentDetails.competencyLevels, studentDetails.level);
 
-  const filteredEvents = events.filter((e) => filterType === ALL_HISTORY_FILTER || e.type === filterType);
+  const activeFilterType = filterType !== ALL_HISTORY_FILTER && !historyFilters.includes(filterType)
+    ? ALL_HISTORY_FILTER
+    : filterType;
+  const filteredEvents = events.filter((e) => activeFilterType === ALL_HISTORY_FILTER || e.type === activeFilterType);
   const dataHint =
     dataSource === "fallback"
       ? "Showing starter student details while records finish loading."
@@ -191,13 +207,16 @@ export default function StudentProfileClient({
     try {
       const res = await fetch(`/api/data/students/${encodeURIComponent(studentId)}/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },          body: JSON.stringify({
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: studentDetails.name,
           age: studentDetails.age,
           level: studentDetails.level,
+          competencyLevels: studentDetails.competencyLevels,
           learningProfile: studentDetails.learningProfile,
           strengths: studentDetails.strengths,
           supportNotes: studentDetails.supportNotes,
+          parentId: mock?.parentContacts[0]?.id ?? undefined,
           parentEmail: parentEmailDraft || undefined,
           parent: parentNameDraft || undefined,
         }),
@@ -213,8 +232,16 @@ export default function StudentProfileClient({
         setEditError("Student profile could not be saved.");
         return;
       }
+      setProfileState(body.profile);
       setStudentDetails(body.profile.details);
+      setAvatarUrl(body.profile.avatar);
       setEvents(body.profile.events);
+      setParentEmailDraft(body.profile.parentContacts[0]?.email ?? "");
+      setParentNameDraft(body.profile.parentContacts[0]?.name ?? body.profile.parentName ?? "");
+      invalidateDashboardData([
+        "/api/data/students",
+        ...studentDetailDataUrls(studentId),
+      ]);
       setIsEditModalOpen(false);
       setEditModalBaseline(null);
       setProfileBanner({ tone: "success", message: "Student profile was saved." });
@@ -267,11 +294,12 @@ export default function StudentProfileClient({
     (studentDetails.name !== editModalBaseline.name ||
       studentDetails.age !== editModalBaseline.age ||
       studentDetails.level !== editModalBaseline.level ||
+      JSON.stringify(studentDetails.competencyLevels) !== JSON.stringify(editModalBaseline.competencyLevels) ||
       studentDetails.learningProfile !== editModalBaseline.learningProfile ||
       studentDetails.strengths !== editModalBaseline.strengths ||
       studentDetails.supportNotes !== editModalBaseline.supportNotes ||
-      parentEmailDraft !== (bundle?.parentContacts[0]?.email ?? "") ||
-      parentNameDraft !== (bundle?.parentContacts[0]?.name ?? bundle?.parentName ?? ""));
+      parentEmailDraft !== (mock?.parentContacts[0]?.email ?? "") ||
+      parentNameDraft !== (mock?.parentContacts[0]?.name ?? mock?.parentName ?? ""));
 
   const requestCloseEditModal = () => {
     if (!isEditProfileDirty) {
@@ -307,6 +335,28 @@ export default function StudentProfileClient({
     setEditModalBaseline({ ...studentDetails });
     setEditError(null);
     setIsEditModalOpen(true);
+  };
+
+  const updateCompetencyLevel = (
+    competency: (typeof COMPETENCY_KEYS)[number],
+    level: string,
+  ) => {
+    setStudentDetails((prev) => {
+      const trimmedLevel = level.trim();
+      const nextLevels = prev.competencyLevels
+        .filter((row) => row.competency.toLowerCase() !== competency)
+        .concat(trimmedLevel ? [{ competency, level: trimmedLevel, behavior: "core" as const }] : []);
+      nextLevels.sort((left, right) => {
+        const leftIndex = COMPETENCY_KEYS.indexOf(left.competency as (typeof COMPETENCY_KEYS)[number]);
+        const rightIndex = COMPETENCY_KEYS.indexOf(right.competency as (typeof COMPETENCY_KEYS)[number]);
+        return leftIndex - rightIndex;
+      });
+      return {
+        ...prev,
+        competencyLevels: nextLevels,
+        level: summarizeStudentCompetencyLevels(nextLevels, prev.level),
+      };
+    });
   };
 
   const confirmDiscard = () => {
@@ -431,7 +481,7 @@ export default function StudentProfileClient({
               </div>
               <div className="flex gap-2 items-baseline">
                 <span className="text-[#0d0d12]">Level:</span>
-                <span className="font-semibold text-[#666d80]">{studentDetails.level}</span>
+                <span className="font-semibold text-[#666d80]">{displayedLevel || "Not set"}</span>
               </div>
               <div className="flex gap-2 items-baseline flex-wrap">
                 <span className="text-[#0d0d12] shrink-0">Learning Profile:</span>
@@ -450,6 +500,24 @@ export default function StudentProfileClient({
                 <span className="font-semibold text-[#666d80] break-words">
                   {studentDetails.supportNotes}
                 </span>
+              </div>
+              <div className="rounded-[10px] border border-[#eef0f3] bg-[#fbfcfe] p-3">
+                <div className="text-[12px] font-semibold uppercase tracking-[0.02em] text-[#667085]">
+                  Math and Reading groups
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {COMPETENCY_KEYS.map((competency) => {
+                    const row = competencyLevelFor(studentDetails.competencyLevels, competency);
+                    return (
+                      <span
+                        key={competency}
+                        className="inline-flex items-center rounded-full border border-[#dfe3ea] bg-white px-3 py-1 text-[12px] font-semibold text-[#272932]"
+                      >
+                        {displayCompetencyName(competency)} {row?.level ?? "not set"}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -524,7 +592,7 @@ export default function StudentProfileClient({
                   key={type}
                   onClick={() => setFilterType(type)}
                   className={`px-3 py-2 rounded-[6px] text-[12px] font-medium transition-colors ${
-                    filterType === type ? "bg-white shadow-sm text-[#0d0d12]" : "text-[#666d80] hover:text-[#0d0d12]"
+                    activeFilterType === type ? "bg-white shadow-sm text-[#0d0d12]" : "text-[#666d80] hover:text-[#0d0d12]"
                   }`}
                 >
                   {type}
@@ -620,14 +688,28 @@ export default function StudentProfileClient({
                   className="w-full border rounded-md p-2"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Level</label>
-                <input
-                  type="text"
-                  value={studentDetails.level}
-                  onChange={(e) => setStudentDetails({ ...studentDetails, level: e.target.value })}
-                  className="w-full border rounded-md p-2"
-                />
+              <div className="rounded-md border border-[#eef0f3] bg-[#fbfcfe] p-4">
+                <div className="mb-3 text-sm font-semibold text-[#272932]">Math and Reading groups</div>
+                <div className="grid gap-3">
+                  {COMPETENCY_KEYS.map((competency) => {
+                    const row = competencyLevelFor(studentDetails.competencyLevels, competency);
+                    return (
+                      <label key={competency} className="grid gap-1">
+                        <span className="block text-sm font-medium mb-1">{competencyInputLabel(competency)}</span>
+                        <input
+                          type="text"
+                          value={row?.level ?? ""}
+                          onChange={(e) => updateCompetencyLevel(competency, e.target.value)}
+                          className="w-full border rounded-md p-2"
+                          placeholder={`e.g. ${competency === "math" ? "C" : "D"}`}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-[#667085]">
+                  These levels drive the student&apos;s core schedule. Leave a field blank only if that group is not set yet.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Learning Profile</label>

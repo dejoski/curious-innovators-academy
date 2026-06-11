@@ -2,6 +2,7 @@ import type { DataSource, ResolvedList } from "@/lib/data/fetch-source";
 import { isStudentProfileTimelineEventType } from "@/lib/data/types";
 import type {
   ProgramTrack,
+  ScheduleConflict,
   StudentProfileBundle,
   StudentProfileTimelineEventType,
   StudentProfileTimelineEvent,
@@ -210,6 +211,14 @@ function emptyScheduleRow(input: {
   };
 }
 
+function studentConflictRecord(): ScheduleConflict {
+  return {
+    kind: "student",
+    label: "Student conflict",
+    detail: "This schedule has overlapping confirmed placements in the same block.",
+  };
+}
+
 function scheduleSlotForClass(row: Record<string, unknown>, index: number): ParentScheduleSlotKey {
   const classRow = firstRel<Record<string, unknown>>(row.classes);
   return scheduleSlotForClassFields({
@@ -221,6 +230,8 @@ function scheduleSlotForClass(row: Record<string, unknown>, index: number): Pare
 
 function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge | null {
   const classRow = firstRel<Record<string, unknown>>(row.classes);
+  const teacherRel = firstRel<Record<string, unknown>>(classRow?.teachers);
+  const teacherProfile = firstRel<Record<string, unknown>>(teacherRel?.profiles);
   const program = normalizeProgram(classRow?.program);
   const status = String(row.status ?? "").toLowerCase();
   if (program === "core" && status !== "approved") return null;
@@ -228,6 +239,8 @@ function badgeForEnrollment(row: Record<string, unknown>): StudentScheduleBadge 
   const badge: StudentScheduleBadge = {
     label: classNameShort(String(classRow?.name ?? "")),
     classId: String(classRow?.id ?? ""),
+    teacherId: String(classRow?.teacher_id ?? "").trim() || undefined,
+    teacher: String(teacherProfile?.display_name ?? "").trim() || undefined,
     tone: program === "core" ? "core" : status === "approved" ? "approved" : status === "waitlisted" || status === "waitlist" ? "waitlisted" : "pending",
   };
   if (program === "enrichment" && status === "pending" && row.id != null) {
@@ -275,6 +288,10 @@ function finalizeScheduleDiagnostics(row: StudentScheduleRow) {
   }
   row.incompleteBlocks = incompleteBlocks;
   row.hasConflicts = hasConflicts;
+  row.conflicts = [];
+  if (hasConflicts) {
+    row.conflicts.push(studentConflictRecord());
+  }
   if (row.scheduleState !== "finalized" && incompleteBlocks === 0 && !hasConflicts) {
     row.scheduleState = realBadges(DAILY_SCHEDULE_KEYS.flatMap((key) => row[key])).some((badge) => badge.tone === "pending")
       ? "pending"
@@ -290,6 +307,17 @@ function applyScheduleState(row: StudentScheduleRow, stateRow: Record<string, un
   row.finalizedBy = String(finalizer?.display_name ?? "").trim() || undefined;
 }
 
+async function fetchStudentScheduleStateGuardrails(
+  studentId: string,
+  client: StudentReadClient,
+  options?: StudentScheduleQueryOptions,
+): Promise<{ ok: true; row: StudentScheduleRow } | { ok: false; message: string }> {
+  const schedule = await fetchStudentScheduleResolved(studentId, client, options);
+  const row = schedule.rows[0];
+  if (!row) return { ok: false, message: "Student schedule could not be loaded." };
+  return { ok: true, row };
+}
+
 export async function fetchStudentProfileResolved(
   studentId: string,
   client?: StudentReadClient,
@@ -303,7 +331,7 @@ export async function fetchStudentProfileResolved(
     const { data: student, error } = await supabase
       .from("students")
       .select(
-        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, ${STUDENT_PARENT_CONTACT_SELECT}`,
+        `id, display_name, guardian_label, avatar_url, age_years, level, track, learning_profile, strengths, support_notes, student_competency_levels ( competency, level, behavior ), ${STUDENT_PARENT_CONTACT_SELECT}`,
       )
       .eq("id", id)
       .maybeSingle();
@@ -394,16 +422,13 @@ export async function fetchStudentProfileResolved(
           supportNotes: String(student.support_notes ?? "") || "—",
         },
         parentName: parentContact.name,
-        parentContacts: parentContact.names.length || parentContact.emails.length
-          ? parentContact.names.map((name, index) => ({
-              id: parentContact.parentIds[index],
-              name,
-              email: parentContact.emails[index],
-            }))
+        parentContacts: parentContact.contacts.length
+          ? parentContact.contacts
           : [{
               id: parentContact.parentIds[0],
               name: parentContact.name || "Parent contact",
               email: parentContact.email || undefined,
+              phone: parentContact.phones[0] || undefined,
             }],
         parentHref: "/dashboard/parents",
         coreSummaryLabel: `Core: ${coreClasses.length}`,
@@ -465,7 +490,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
         : Promise.resolve({ data: [], error: null }),
       supabase
         .from("enrollments")
-        .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+        .select("id, status, student_id, classes ( id, name, program, block, schedule_summary, teacher_id, teachers ( profiles ( display_name ) ) )")
         .order("created_at", { ascending: true }),
     ]);
     const { data: enrollments, error: enrollmentsError } = enrollmentsResult;
@@ -483,7 +508,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
 
     const { data: classRequests, error: classRequestsError } = await supabase
       .from("class_requests")
-      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary )")
+      .select("id, status, student_id, classes ( id, name, program, block, schedule_summary, teacher_id, teachers ( profiles ( display_name ) ) )")
       .order("created_at", { ascending: true });
     if (classRequestsError) {
       logStudentDetailsRepoIssue("fetchAdminStudentSchedulesResolved", "all", "class_requests", classRequestsError);
@@ -567,12 +592,12 @@ export async function fetchStudentScheduleResolved(
         : Promise.resolve({ data: null, error: null }),
       supabase
         .from("enrollments")
-        .select("id, status, classes ( id, name, program, block, schedule_summary )")
+        .select("id, status, classes ( id, name, program, block, schedule_summary, teacher_id, teachers ( profiles ( display_name ) ) )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
       supabase
         .from("class_requests")
-        .select("id, status, classes ( id, name, program, block, schedule_summary )")
+        .select("id, status, classes ( id, name, program, block, schedule_summary, teacher_id, teachers ( profiles ( display_name ) ) )")
         .eq("student_id", id)
         .order("created_at", { ascending: true }),
     ]);
@@ -631,6 +656,78 @@ export async function fetchStudentScheduleResolved(
     return { rows: [row], source: "remote" };
   } catch {
     return unavailableSchedule();
+  }
+}
+
+export async function updateStudentScheduleStateResolved(
+  studentId: string,
+  state: StudentScheduleState,
+  options?: StudentScheduleQueryOptions & { finalizedByProfileId?: string | null },
+): Promise<
+  | { ok: true; rows: StudentScheduleRow[]; source: DataSource }
+  | { ok: false; message: string }
+> {
+  const id = studentId.trim();
+  if (!id) return { ok: false, message: "Student id is required." };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const semesterId = await resolveSemesterFilter(supabase, options);
+    if (!semesterId) {
+      return { ok: false, message: "No active semester could be resolved." };
+    }
+
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (studentError) {
+      logStudentDetailsRepoIssue("updateStudentScheduleStateResolved", id, "students", studentError);
+      return { ok: false, message: studentError.message };
+    }
+    if (!student) return { ok: false, message: "Selected student was not found." };
+
+    const normalizedState = normalizeScheduleState(state);
+    if (normalizedState === "finalized") {
+      const guardrails = await fetchStudentScheduleStateGuardrails(id, supabase, { semesterId });
+      if (!guardrails.ok) return guardrails;
+      if ((guardrails.row.incompleteBlocks ?? 0) > 0) {
+        return {
+          ok: false,
+          message: `This schedule still has ${guardrails.row.incompleteBlocks} open block${guardrails.row.incompleteBlocks === 1 ? "" : "s"} and cannot be finalized yet.`,
+        };
+      }
+      if (guardrails.row.hasConflicts) {
+        return { ok: false, message: "This schedule has a conflict and cannot be finalized until the conflict is resolved." };
+      }
+    }
+
+    const finalizedAt = normalizedState === "finalized" ? new Date().toISOString() : null;
+    const finalizedBy = normalizedState === "finalized" ? String(options?.finalizedByProfileId ?? "").trim() || null : null;
+    const { error: writeError } = await supabase
+      .from("student_schedule_states")
+      .upsert(
+        {
+          student_id: id,
+          semester_id: semesterId,
+          state: normalizedState,
+          finalized_by: finalizedBy,
+          finalized_at: finalizedAt,
+        },
+        { onConflict: "student_id,semester_id" },
+      );
+    if (writeError) {
+      logStudentDetailsRepoIssue("updateStudentScheduleStateResolved", id, "student_schedule_states", writeError);
+      return { ok: false, message: writeError.message };
+    }
+
+    const refreshed = await fetchStudentScheduleResolved(id, supabase, { semesterId });
+    return { ok: true, rows: refreshed.rows, source: refreshed.source };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, message };
   }
 }
 

@@ -5,6 +5,7 @@ export const STUDENT_PARENT_CONTACT_SELECT = `
     parent_id,
     parents (
       id,
+      phone,
       profiles (
         display_name,
         email
@@ -13,12 +14,21 @@ export const STUDENT_PARENT_CONTACT_SELECT = `
   )
 `;
 
+export type StudentParentContactEntry = {
+  id?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+};
+
 export type StudentParentContact = {
   name: string;
   email: string;
   names: string[];
   emails: string[];
+  phones: string[];
   parentIds: string[];
+  contacts: StudentParentContactEntry[];
   hasLinkedParents: boolean;
 };
 
@@ -34,8 +44,10 @@ export function parentContactFromStudentRow(
   row: Record<string, unknown> | null | undefined,
   fallback: { name?: unknown; email?: unknown } = {},
 ): StudentParentContact {
+  const contacts: StudentParentContactEntry[] = [];
   const names: string[] = [];
   const emails: string[] = [];
+  const phones: string[] = [];
   const parentIds: string[] = [];
 
   for (const join of rowsFromRelation(row?.parent_students)) {
@@ -43,15 +55,36 @@ export function parentContactFromStudentRow(
     const parent = firstRel<Record<string, unknown>>(join.parents);
     const parentId = String(parent?.id ?? joinParentId).trim();
     const profile = firstRel<Record<string, unknown>>(parent?.profiles);
-    if (parentId) parentIds.push(parentId);
     const name = String(profile?.display_name ?? "").trim();
     const email = String(profile?.email ?? "").trim();
-    if (name) names.push(name);
-    if (email) emails.push(email);
+    const phone = String(parent?.phone ?? "").trim();
+    if (!parentId && !name && !email && !phone) continue;
+    contacts.push({
+      id: parentId || undefined,
+      name: name || "Parent contact",
+      email: email || undefined,
+      phone: phone || undefined,
+    });
+  }
+
+  const uniqueContacts = Array.from(
+    new Map(
+      contacts.map((contact) => [
+        contact.id ?? `${contact.name}|${contact.email ?? ""}|${contact.phone ?? ""}`,
+        contact,
+      ]),
+    ).values(),
+  );
+  for (const contact of uniqueContacts) {
+    if (contact.id) parentIds.push(contact.id);
+    if (contact.name) names.push(contact.name);
+    if (contact.email) emails.push(contact.email);
+    if (contact.phone) phones.push(contact.phone);
   }
 
   const uniqueNames = cleanUnique(names);
   const uniqueEmails = cleanUnique(emails);
+  const uniquePhones = cleanUnique(phones);
   const uniqueParentIds = cleanUnique(parentIds);
   const fallbackName = String(fallback.name ?? row?.guardian_label ?? row?.parent_name ?? row?.parent ?? "").trim();
   const fallbackEmail = String(fallback.email ?? row?.parent_email ?? "").trim();
@@ -61,7 +94,9 @@ export function parentContactFromStudentRow(
     email: uniqueEmails[0] ?? fallbackEmail,
     names: uniqueNames,
     emails: uniqueEmails,
+    phones: uniquePhones,
     parentIds: uniqueParentIds,
+    contacts: uniqueContacts,
     hasLinkedParents: uniqueParentIds.length > 0,
   };
 }

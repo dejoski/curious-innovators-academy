@@ -15,6 +15,26 @@ const ALLOWED_TYPES = new Map([
   ["image/gif", "gif"],
 ]);
 
+async function writeAvatarAudit(
+  supabase: any,
+  actorId: string,
+  studentId: string,
+  avatarUrl: string,
+) {
+  try {
+    if (!supabase || !actorId) return;
+    await supabase.from("audit_events").insert({
+      actor_profile_id: actorId,
+      action: "student.avatar.update",
+      entity_type: "student",
+      entity_id: studentId,
+      metadata: { avatarUrl },
+    });
+  } catch {
+    /* Audit writes should not block the primary workflow. */
+  }
+}
+
 export async function POST(req: Request, context: RouteContext) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
@@ -89,6 +109,8 @@ export async function POST(req: Request, context: RouteContext) {
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
+
+  await writeAvatarAudit(current.supabase, current.user.id, studentId, avatarUrl);
 
   return NextResponse.json({ avatarUrl });
 }

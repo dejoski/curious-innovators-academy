@@ -18,6 +18,7 @@ import type {
   ClassRosterStatus,
   SchoolClassRow,
 } from "@/lib/data/types";
+import { canonicalScheduleSummaryForBlockDay } from "@/lib/schedule-slots";
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-group.svg";
@@ -35,6 +36,7 @@ type Student = ClassRosterStudent;
 
 type ClassMeta = {
   teacher: string;
+  teacherId?: string;
   blockLevel: string;
   schedule: string;
   semesterName: string;
@@ -68,6 +70,7 @@ const EMPTY_CLASS_META: ClassMeta = {
 function classMetaFromRow(row: SchoolClassRow): ClassMeta {
   return {
     teacher: row.teacher || "Teacher not assigned",
+    teacherId: row.teacherId,
     blockLevel: [row.block, row.level ? `L${row.level}` : ""].filter(Boolean).join(" ") || "Block not set",
     schedule: row.schedule || "Schedule not set",
     semesterName: row.semesterName,
@@ -132,10 +135,13 @@ export default function EnrichmentClassDetail() {
     title: "",
     description: "",
     teacher: "",
+    teacherId: "",
     blockLevel: "",
     schedule: "",
+    scheduleDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     capacityMax: 1,
   });
+  const [editDay, setEditDay] = useState("1");
 
   const [editStudentDraft, setEditStudentDraft] = useState<Student | null>(null);
   const [classEditError, setClassEditError] = useState<string | null>(null);
@@ -380,12 +386,15 @@ export default function EnrichmentClassDetail() {
   }
 
   const openEditClassModal = () => {
+    setEditDay(classMeta.schedule.match(/\bDay\s*([1-3])\b/i)?.[1] ?? "1");
     setEditClassDraft({
       title: classTitle,
       description: classDescription,
       teacher: classMeta.teacher,
+      teacherId: classMeta.teacherId ?? "",
       blockLevel: classMeta.blockLevel,
       schedule: classMeta.schedule,
+      scheduleDays: classMeta.scheduleDays,
       capacityMax: classMeta.capacityMax,
     });
     setClassEditError(null);
@@ -397,6 +406,7 @@ export default function EnrichmentClassDetail() {
     if (!t) return;
     const { block, level } = splitBlockLevelLabel(editClassDraft.blockLevel);
     const max = editClassDraft.capacityMax <= 0 ? 1 : editClassDraft.capacityMax;
+    const schedule = canonicalScheduleSummaryForBlockDay(block, editDay);
     setClassEditError(null);
     setIsSavingClass(true);
     try {
@@ -407,8 +417,9 @@ export default function EnrichmentClassDetail() {
           id: classId,
           name: t,
           teacher: editClassDraft.teacher,
+          teacherId: editClassDraft.teacherId || undefined,
           capacity: max,
-          schedule: editClassDraft.schedule,
+          schedule,
           status: "Active",
           track: "enrichment",
           description: editClassDraft.description,
@@ -416,7 +427,7 @@ export default function EnrichmentClassDetail() {
           level,
           room: classMeta.room,
           location: classMeta.room,
-          scheduleDays: classMeta.scheduleDays,
+          scheduleDays: editClassDraft.scheduleDays,
           minAgeYears: classMeta.minAgeYears,
           maxAgeYears: classMeta.maxAgeYears,
           isActive: classMeta.isActive,
@@ -440,11 +451,18 @@ export default function EnrichmentClassDetail() {
           title: t,
           description: editClassDraft.description,
           teacher: editClassDraft.teacher,
+          teacherId: editClassDraft.teacherId || undefined,
           blockLevel: editClassDraft.blockLevel,
-          schedule: editClassDraft.schedule,
+          schedule,
           capacityMax: max,
+          scheduleDays: editClassDraft.scheduleDays,
         }));
       }
+      invalidateDashboardData([
+        "/api/data/classes",
+        "/api/data/class-options",
+        "/api/dashboard-presentation",
+      ]);
       setIsEditClassModalOpen(false);
     } catch (error) {
       setClassEditError(error instanceof Error ? error.message : "Class could not be saved.");
@@ -1127,7 +1145,7 @@ export default function EnrichmentClassDetail() {
                 Teacher
                 <input
                   value={editClassDraft.teacher}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, teacher: e.target.value }))}
+                  onChange={(e) => setEditClassDraft((d) => ({ ...d, teacher: e.target.value, teacherId: "" }))}
                   className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
                 />
               </label>
@@ -1135,17 +1153,74 @@ export default function EnrichmentClassDetail() {
                 Block & level
                 <input
                   value={editClassDraft.blockLevel}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, blockLevel: e.target.value }))}
+                  onChange={(e) =>
+                    setEditClassDraft((d) => {
+                      const nextBlockLevel = e.target.value;
+                      const { block } = splitBlockLevelLabel(nextBlockLevel);
+                      return {
+                        ...d,
+                        blockLevel: nextBlockLevel,
+                        schedule: canonicalScheduleSummaryForBlockDay(block, editDay),
+                      };
+                    })
+                  }
                   className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
                 />
               </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                  Day
+                  <select
+                    value={editDay}
+                    onChange={(e) => {
+                      const nextDay = e.target.value;
+                      setEditDay(nextDay);
+                      setEditClassDraft((d) => {
+                        const { block } = splitBlockLevelLabel(d.blockLevel);
+                        return { ...d, schedule: canonicalScheduleSummaryForBlockDay(block, nextDay) };
+                      });
+                    }}
+                    className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
+                  >
+                    <option value="1">Day 1</option>
+                    <option value="2">Day 2</option>
+                    <option value="3">Day 3</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
+                  Schedule
+                  <input
+                    value={editClassDraft.schedule}
+                    readOnly
+                    className="rounded-[8px] border border-[#f0f0f0] bg-[#fafafa] px-3 py-2 text-[14px] text-[#8a8f9f]"
+                  />
+                </label>
+              </div>
               <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#666d80]">
-                Schedule
-                <input
-                  value={editClassDraft.schedule}
-                  onChange={(e) => setEditClassDraft((d) => ({ ...d, schedule: e.target.value }))}
-                  className="rounded-[8px] border border-[#f0f0f0] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
-                />
+                Meeting days
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() =>
+                        setEditClassDraft((d) => ({
+                          ...d,
+                          scheduleDays: d.scheduleDays.includes(day)
+                            ? d.scheduleDays.filter((value) => value !== day)
+                            : [...d.scheduleDays, day],
+                        }))
+                      }
+                      className={`rounded-[8px] border px-3 py-1 text-[13px] font-semibold ${
+                        editClassDraft.scheduleDays.includes(day)
+                          ? "border-[#14c1d5] bg-[#d2f1f5] text-[#0d0d12]"
+                          : "border-[#f0f0f0] bg-white text-[#666d80]"
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
               </label>
               <div className="flex gap-3">
                 <label className="flex-1 text-[13px] font-semibold text-[#666d80]">

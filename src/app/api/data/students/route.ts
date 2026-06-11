@@ -11,7 +11,6 @@ import {
   fetchParentStudentsResolved,
   fetchStudentsResolved,
 } from "@/lib/data/repositories/students";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { parseBody, parseIdFromSearchParams, handleWriteError, handleWriteSuccess } from "@/lib/api/route-factory";
 
 export async function GET() {
@@ -35,7 +34,7 @@ export async function GET() {
   }
 
   if (String(profile?.role ?? "").toLowerCase() === "parent") {
-    const { items: students, source } = await fetchParentStudentsResolved(createSupabaseAdminClient(), current.user.id);
+    const { items: students, source } = await fetchParentStudentsResolved(current.supabase, current.user.id);
     return NextResponse.json({ students, source });
   }
 

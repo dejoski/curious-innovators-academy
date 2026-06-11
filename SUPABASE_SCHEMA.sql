@@ -241,6 +241,19 @@ CREATE TABLE public.students (
 
 CREATE INDEX students_profile_id_idx ON public.students (profile_id);
 
+CREATE TABLE public.student_competency_levels (
+  student_id uuid NOT NULL REFERENCES public.students (id) ON DELETE CASCADE,
+  competency text NOT NULL,
+  level text NOT NULL,
+  behavior text NOT NULL DEFAULT 'core',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT student_competency_levels_pkey PRIMARY KEY (student_id, competency),
+  CONSTRAINT student_competency_levels_behavior_check CHECK (behavior IN ('block', 'core', 'enrichment'))
+);
+
+CREATE INDEX student_competency_levels_student_idx ON public.student_competency_levels (student_id);
+
 CREATE TABLE public.parent_students (
   parent_id uuid NOT NULL REFERENCES public.parents (id) ON DELETE CASCADE,
   student_id uuid NOT NULL REFERENCES public.students (id) ON DELETE CASCADE,
@@ -636,6 +649,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_competency_levels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parent_students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.semesters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
@@ -738,6 +752,21 @@ CREATE POLICY students_update_admin
 CREATE POLICY students_delete_admin
   ON public.students FOR DELETE TO authenticated
   USING (private.is_admin());
+
+-- student_competency_levels
+CREATE POLICY student_competency_levels_select
+  ON public.student_competency_levels FOR SELECT TO authenticated
+  USING (
+    private.is_admin()
+    OR private.parent_can_see_student(student_competency_levels.student_id)
+    OR private.student_is_self(student_competency_levels.student_id)
+    OR private.teacher_teaches_student(student_competency_levels.student_id)
+  );
+
+CREATE POLICY student_competency_levels_write_admin
+  ON public.student_competency_levels FOR ALL TO authenticated
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 
 -- parent_students
 CREATE POLICY parent_students_select

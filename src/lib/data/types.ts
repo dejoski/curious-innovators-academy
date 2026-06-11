@@ -178,10 +178,26 @@ export type StudentProfileBundle = {
 
 export type StudentScheduleBadgeTone = "core" | "approved" | "pending" | "waitlisted" | "draft" | "empty";
 
+export type ScheduleConflictKind = "student" | "teacher" | "capacity" | "override";
+
+export type ScheduleConflict = {
+  kind: ScheduleConflictKind;
+  label: string;
+  detail: string;
+  classId?: string;
+  className?: string;
+  teacherId?: string;
+  teacher?: string;
+  requestId?: string;
+  decisionId?: string;
+};
+
 export type StudentScheduleBadge = {
   label: string;
   tone: StudentScheduleBadgeTone;
   classId?: string;
+  teacherId?: string;
+  teacher?: string;
   requestId?: string;
   draftKind?: "choice" | "change";
   draftOf?: {
@@ -202,6 +218,7 @@ export type StudentScheduleRow = {
   finalizedAt?: string;
   hasConflicts?: boolean;
   incompleteBlocks?: number;
+  conflicts?: ScheduleConflict[];
   b1: StudentScheduleBadge[];
   b1Tue: StudentScheduleBadge[];
   b1Wed: StudentScheduleBadge[];
@@ -304,6 +321,8 @@ export type EnrichmentRequestRow = {
   id: string;
   studentId?: string;
   classId?: string;
+  teacherId?: string;
+  teacher?: string;
   student: string;
   parent: string;
   class: string;
@@ -311,6 +330,14 @@ export type EnrichmentRequestRow = {
   level: string;
   option: string;
   status: RequestStatus;
+  capacity?: number;
+  seatsRemaining?: number;
+  availabilityLabel?: string;
+  hasStudentConflict?: boolean;
+  hasTeacherConflict?: boolean;
+  hasCapacityConflict?: boolean;
+  overrideRecorded?: boolean;
+  conflicts?: ScheduleConflict[];
 };
 
 /** Timeline / notes on student profile. */

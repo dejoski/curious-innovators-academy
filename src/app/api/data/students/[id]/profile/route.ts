@@ -56,6 +56,44 @@ function normalizeCompetencyLevels(value: unknown): StudentCompetencyLevel[] {
     .filter((row): row is StudentCompetencyLevel => row !== null);
 }
 
+async function requireAdminMutation(current: { supabase: any; user: { id: string } }) {
+  const { data: profileRow, error } = await current.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", current.user.id)
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  if (String(profileRow?.role ?? "").toLowerCase() !== "admin") {
+    return NextResponse.json({ error: "Administrator role required." }, { status: 403 });
+  }
+  return null;
+}
+
+async function writeStudentAudit(
+  supabase: any,
+  actorId: string,
+  input: {
+    action: string;
+    entityId: string;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  try {
+    if (!supabase || !actorId) return;
+    await supabase.from("audit_events").insert({
+      actor_profile_id: actorId,
+      action: input.action,
+      entity_type: "student",
+      entity_id: input.entityId,
+      metadata: input.metadata ?? {},
+    });
+  } catch {
+    /* Audit writes should not block the primary workflow. */
+  }
+}
+
 export async function GET(req: Request, context: RouteContext) {
   const { id } = await context.params;
   const current = await loadCurrentApiUser();
@@ -99,6 +137,8 @@ export async function PATCH(req: Request, context: RouteContext) {
   const current = await requireCurrentApiUser();
   if (!current.ok) return current.response;
   const { supabase } = current;
+  const adminCheck = await requireAdminMutation(current);
+  if (adminCheck) return adminCheck;
 
   if (!studentId) {
     return NextResponse.json({ error: "Missing student id." }, { status: 400 });
@@ -161,6 +201,15 @@ export async function PATCH(req: Request, context: RouteContext) {
     return NextResponse.json({ error: updateError?.message ?? "Student profile could not be saved." }, { status: 400 });
   }
 
+  await writeStudentAudit(current.supabase, current.user.id, {
+    action: "student.profile.update",
+    entityId: studentId,
+    metadata: {
+      fields: ["name", "age", "level", "learningProfile", "strengths", "supportNotes"],
+      hasCompetencyLevels,
+    },
+  });
+
   if (hasCompetencyLevels) {
     const { error: deleteError } = await supabase
       .from("student_competency_levels")
@@ -185,6 +234,14 @@ export async function PATCH(req: Request, context: RouteContext) {
         return NextResponse.json({ error: insertError.message }, { status: 400 });
       }
     }
+
+    await writeStudentAudit(current.supabase, current.user.id, {
+      action: "student.competency_levels.replace",
+      entityId: studentId,
+      metadata: {
+        competencyCount: competencyLevels.length,
+      },
+    });
   }
 
   const { profile, source } = await fetchStudentProfileResolved(studentId);
@@ -200,6 +257,8 @@ export async function POST(req: Request, context: RouteContext) {
   const current = await requireCurrentApiUser();
   if (!current.ok) return current.response;
   const { supabase, user } = current;
+  const adminCheck = await requireAdminMutation(current);
+  if (adminCheck) return adminCheck;
 
   if (!studentId) {
     return NextResponse.json({ error: "Missing student id." }, { status: 400 });
@@ -238,6 +297,16 @@ export async function POST(req: Request, context: RouteContext) {
       { status: 400 },
     );
   }
+
+  await writeStudentAudit(current.supabase, current.user.id, {
+    action: "student.record.create",
+    entityId: studentId,
+    metadata: {
+      category,
+      urgent,
+      title,
+    },
+  });
 
   const event = mapStudentRecord(data as unknown as Record<string, unknown>);
   return NextResponse.json({ event }, { status: 201 });

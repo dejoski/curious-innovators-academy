@@ -70,7 +70,7 @@ function isSemesterSchemaError(error: unknown): boolean {
 
 function classBelongsToSemester(row: Record<string, unknown> | null | undefined, semesterId: string | null): boolean {
   if (!semesterId) return true;
-  if (!row || !("semester_id" in row)) return true;
+  if (!row || !("semester_id" in row)) return false;
   return String(row.semester_id ?? "") === semesterId;
 }
 
@@ -264,17 +264,8 @@ async function resolveCurrentSemesterId(supabase: SupabaseMutationClient): Promi
     .select("id")
     .eq("is_current", true)
     .maybeSingle();
-  if (isSemesterSchemaError(error)) return null;
-  if (data && "id" in data) return String((data as { id: unknown }).id);
-
-  const { data: first, error: firstError } = await supabase
-    .from("semesters")
-    .select("id")
-    .order("starts_on", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (isSemesterSchemaError(firstError)) return null;
-  return first && "id" in first ? String((first as { id: unknown }).id) : null;
+  if (error || !data || !("id" in data)) return null;
+  return String((data as { id: unknown }).id);
 }
 
 async function currentUserIsAdmin(
@@ -1992,18 +1983,10 @@ async function ensureClassCapacityForChoices(
     .in("class_id", classIds);
   if (availabilityError) return { ok: false, message: availabilityError.message };
 
-  let { data: classes, error: classesError } = await supabase
+  const { data: classes, error: classesError } = await supabase
     .from("classes")
     .select("id, name, semester_id, program, is_active, archived_at, min_age_years, max_age_years")
     .in("id", classIds);
-  if (classesError && isSemesterSchemaError(classesError)) {
-    const fallback = await supabase
-      .from("classes")
-      .select("id, name, program")
-      .in("id", classIds);
-    classes = fallback.data as typeof classes;
-    classesError = fallback.error;
-  }
   if (classesError) return { ok: false, message: classesError.message };
 
   const classRows = (classes ?? []) as unknown as Record<string, unknown>[];
@@ -2284,6 +2267,18 @@ function normalizeEnrichmentRequestChoices(
   return normalized;
 }
 
+type ClearedPendingEnrichmentRequestRow = {
+  id: string;
+  student_id: string;
+  class_id: string;
+  requested_by_profile_id?: string | null;
+  created_at?: string | null;
+  status?: string | null;
+  block?: string | null;
+  level?: string | null;
+  option_label?: string | null;
+};
+
 async function clearPendingEnrichmentRequestChoices(
   supabase: SupabaseMutationClient,
   input: {
@@ -2296,8 +2291,9 @@ async function clearPendingEnrichmentRequestChoices(
     }[];
     submitScope?: "slot" | "choice";
   },
-): Promise<WriteFail | { ok: true }> {
+): Promise<WriteFail | { ok: true; rows: ClearedPendingEnrichmentRequestRow[] }> {
   const touchedSlots = new Set<string>();
+  const clearedRows: ClearedPendingEnrichmentRequestRow[] = [];
   for (const choice of input.choices) {
     const slotKey = input.submitScope === "choice" ? `${requestSlotKey(choice)}\u0000${choice.option}` : requestSlotKey(choice);
     if (touchedSlots.has(slotKey)) continue;
@@ -2305,7 +2301,7 @@ async function clearPendingEnrichmentRequestChoices(
 
     let query = supabase
       .from("class_requests")
-      .select(input.semesterId ? "id, classes ( semester_id )" : "id")
+      .select("id, student_id, class_id, requested_by_profile_id, created_at, status, block, level, option_label, classes ( semester_id )")
       .eq("student_id", input.studentId)
       .eq("status", "pending");
 
@@ -2315,44 +2311,58 @@ async function clearPendingEnrichmentRequestChoices(
       query = query.eq("option_label", choice.option);
     }
 
-    const { data, error: queryError } = await query;
-    let error = queryError;
-    let requestRows: unknown = data;
-    if (error && input.semesterId && isSemesterSchemaError(error)) {
-      let fallbackQuery = supabase
-        .from("class_requests")
-        .select("id")
-        .eq("student_id", input.studentId)
-        .eq("status", "pending");
-
-      fallbackQuery = choice.block ? fallbackQuery.eq("block", choice.block) : fallbackQuery.is("block", null);
-      fallbackQuery = choice.level ? fallbackQuery.eq("level", choice.level) : fallbackQuery.is("level", null);
-      if (input.submitScope === "choice") {
-        fallbackQuery = fallbackQuery.eq("option_label", choice.option);
-      }
-
-      const fallback = await fallbackQuery;
-      requestRows = fallback.data;
-      error = fallback.error;
-    }
+    const { data: requestRows, error } = await query;
     if (error) return { ok: false, message: error.message };
-    const ids = ((requestRows ?? []) as unknown as Record<string, unknown>[])
+    const rows = ((requestRows ?? []) as unknown as Record<string, unknown>[])
       .filter((row) => {
         if (!input.semesterId) return true;
         const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
         return classBelongsToSemester((cls ?? {}) as Record<string, unknown>, input.semesterId);
       })
-      .map((row) => String(row.id ?? ""))
-      .filter(Boolean);
-    if (ids.length > 0) {
+      .map((row) => ({
+        id: String(row.id ?? "").trim(),
+        student_id: String(row.student_id ?? "").trim(),
+        class_id: String(row.class_id ?? "").trim(),
+        requested_by_profile_id: row.requested_by_profile_id == null ? null : String(row.requested_by_profile_id),
+        created_at: row.created_at == null ? null : String(row.created_at),
+        status: row.status == null ? null : String(row.status),
+        block: row.block == null ? null : String(row.block),
+        level: row.level == null ? null : String(row.level),
+        option_label: row.option_label == null ? null : String(row.option_label),
+      }))
+      .filter((row) => row.id && row.student_id && row.class_id);
+    if (rows.length > 0) {
       const { error: deleteError } = await supabase
         .from("class_requests")
         .delete()
-        .in("id", ids);
+        .in("id", rows.map((row) => row.id));
       if (deleteError) return { ok: false, message: deleteError.message };
+      clearedRows.push(...rows);
     }
   }
 
+  return { ok: true, rows: clearedRows };
+}
+
+async function restorePendingEnrichmentRequestChoices(
+  supabase: SupabaseMutationClient,
+  rows: ClearedPendingEnrichmentRequestRow[],
+): Promise<WriteFail | { ok: true }> {
+  if (rows.length === 0) return { ok: true };
+  const { error } = await supabase
+    .from("class_requests")
+    .insert(rows.map((row) => ({
+      id: row.id,
+      student_id: row.student_id,
+      class_id: row.class_id,
+      requested_by_profile_id: row.requested_by_profile_id ?? null,
+      status: "pending" as const,
+      block: row.block ?? null,
+      level: row.level ?? null,
+      option_label: row.option_label ?? null,
+      created_at: row.created_at ?? undefined,
+    })));
+  if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
 
@@ -2371,50 +2381,24 @@ async function fetchRequestPlacementRows(
     }
   | WriteFail
 > {
-  let { data: requestedClasses, error: classError } = await supabase
+  const { data: requestedClasses, error: classError } = await supabase
     .from("classes")
     .select("id, block, level, schedule_summary, schedule_days, semester_id")
     .in("id", input.classIds);
-  if (classError && isSemesterSchemaError(classError)) {
-    const fallback = await supabase
-      .from("classes")
-      .select("id, block, level, schedule_summary, schedule_days")
-      .in("id", input.classIds);
-    requestedClasses = fallback.data as typeof requestedClasses;
-    classError = fallback.error;
-  }
   if (classError) return { ok: false, message: classError.message };
 
-  let { data: enrollments, error: enrollmentError } = await supabase
+  const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollments")
     .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days, semester_id )")
     .eq("student_id", input.studentId)
     .in("status", ["approved", "waitlisted"]);
-  if (enrollmentError && isSemesterSchemaError(enrollmentError)) {
-    const fallback = await supabase
-      .from("enrollments")
-      .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days )")
-      .eq("student_id", input.studentId)
-      .in("status", ["approved", "waitlisted"]);
-    enrollments = fallback.data as typeof enrollments;
-    enrollmentError = fallback.error;
-  }
   if (enrollmentError) return { ok: false, message: enrollmentError.message };
 
-  let { data: pendingRequests, error: pendingRequestError } = await supabase
+  const { data: pendingRequests, error: pendingRequestError } = await supabase
     .from("class_requests")
     .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days, semester_id )")
     .eq("student_id", input.studentId)
     .eq("status", "pending");
-  if (pendingRequestError && isSemesterSchemaError(pendingRequestError)) {
-    const fallback = await supabase
-      .from("class_requests")
-      .select("class_id, status, classes ( id, program, block, level, schedule_summary, schedule_days )")
-      .eq("student_id", input.studentId)
-      .eq("status", "pending");
-    pendingRequests = fallback.data as typeof pendingRequests;
-    pendingRequestError = fallback.error;
-  }
   if (pendingRequestError) return { ok: false, message: pendingRequestError.message };
 
   return {
@@ -2461,6 +2445,7 @@ export async function serverInsertEnrichmentRequests(input: {
 
       const admin = createSupabaseAdminClient();
       const semesterId = await resolveCurrentSemesterId(admin);
+      if (!semesterId) return { ok: false, message: "Current semester is not available." };
       const studentExists = await ensureStudentExists(admin, studentId);
       if (!studentExists) return { ok: false, message: "Selected student was not found" };
 
@@ -2478,19 +2463,37 @@ export async function serverInsertEnrichmentRequests(input: {
       if (!cleared.ok) return cleared;
 
       const duplicates = await ensureNoDuplicatePendingClassRequests(admin, { studentId, choices });
-      if (!duplicates.ok) return duplicates;
+      if (!duplicates.ok) {
+        const restored = await restorePendingEnrichmentRequestChoices(admin, cleared.rows);
+        if (!restored.ok) return restored;
+        return duplicates;
+      }
 
       const capacity = await ensureClassCapacityForChoices(admin, choices, { semesterId, studentId });
-      if (!capacity.ok) return capacity;
+      if (!capacity.ok) {
+        const restored = await restorePendingEnrichmentRequestChoices(admin, cleared.rows);
+        if (!restored.ok) return restored;
+        return capacity;
+      }
 
       const openSlots = await ensureOpenSlotsForRequestChoices(admin, { studentId, choices, semesterId });
-      if (!openSlots.ok) return openSlots;
+      if (!openSlots.ok) {
+        const restored = await restorePendingEnrichmentRequestChoices(admin, cleared.rows);
+        if (!restored.ok) return restored;
+        return openSlots;
+      }
 
-      return insertEnrichmentRequestRows(admin, {
+      const inserted = await insertEnrichmentRequestRows(admin, {
         studentId,
         requestedByProfileId: requesterProfileId,
         choices,
       });
+      if (!inserted.ok) {
+        const restored = await restorePendingEnrichmentRequestChoices(admin, cleared.rows);
+        if (!restored.ok) return restored;
+        return inserted;
+      }
+      return inserted;
     }
 
     const studentId = await resolveRequestStudentId(supabase, user.id, input.studentId);
@@ -2498,6 +2501,7 @@ export async function serverInsertEnrichmentRequests(input: {
 
     const capacityClient = isSupabaseAdminConfigured() ? createSupabaseAdminClient() : supabase;
     const semesterId = await resolveCurrentSemesterId(capacityClient);
+    if (!semesterId) return { ok: false, message: "Current semester is not available." };
     const cleared = await clearPendingEnrichmentRequestChoices(capacityClient, {
       studentId,
       semesterId,
@@ -2507,20 +2511,36 @@ export async function serverInsertEnrichmentRequests(input: {
     if (!cleared.ok) return cleared;
 
     const duplicates = await ensureNoDuplicatePendingClassRequests(capacityClient, { studentId, choices });
-    if (!duplicates.ok) return duplicates;
+    if (!duplicates.ok) {
+      const restored = await restorePendingEnrichmentRequestChoices(capacityClient, cleared.rows);
+      if (!restored.ok) return restored;
+      return duplicates;
+    }
 
     const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId, studentId });
-    if (!capacity.ok) return capacity;
+    if (!capacity.ok) {
+      const restored = await restorePendingEnrichmentRequestChoices(capacityClient, cleared.rows);
+      if (!restored.ok) return restored;
+      return capacity;
+    }
 
     const openSlots = await ensureOpenSlotsForRequestChoices(capacityClient, { studentId, choices, semesterId });
-    if (!openSlots.ok) return openSlots;
+    if (!openSlots.ok) {
+      const restored = await restorePendingEnrichmentRequestChoices(capacityClient, cleared.rows);
+      if (!restored.ok) return restored;
+      return openSlots;
+    }
 
     const result = await insertEnrichmentRequestRows(supabase, {
       studentId,
       requestedByProfileId: user.id,
       choices,
     });
-    if (!result.ok) return result;
+    if (!result.ok) {
+      const restored = await restorePendingEnrichmentRequestChoices(capacityClient, cleared.rows);
+      if (!restored.ok) return restored;
+      return result;
+    }
     await writeAuditEvent(supabase, {
       action: "class_request.create",
       entityType: "class_request",
@@ -2885,4 +2905,3 @@ export async function serverPatchNotificationRead(
     return { ok: false, message: msg };
   }
 }
-
