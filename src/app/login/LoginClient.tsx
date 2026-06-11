@@ -125,7 +125,6 @@ export default function LoginClient() {
   }
 
   async function continueAsDemo(kind: "admin" | "parent") {
-    if (!ENABLE_DEMO_LOGIN) return;
     const { email: demoEmail, password: demoPassword } = DEMO_CREDENTIALS[kind];
     if (!demoEmail || !demoPassword) {
       setLoginError("Demo login is not configured.");
