@@ -10,17 +10,6 @@ import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
-const DEMO_CREDENTIALS = {
-  admin: {
-    email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL ?? "",
-    password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD ?? "",
-  },
-  parent: {
-    email: process.env.NEXT_PUBLIC_DEMO_PARENT_EMAIL ?? "",
-    password: process.env.NEXT_PUBLIC_DEMO_PARENT_PASSWORD ?? "",
-  },
-} as const;
-
 const SHOW_DEMO_LOGIN = true;
 const showDemoAdmin = true;
 const showDemoParent = true;
@@ -64,6 +53,13 @@ export default function LoginClient() {
       setLoginNotice("Sign-in is not ready yet. Ask an administrator to finish account setup.");
     } else if (auth === "required") {
       setLoginNotice("Sign in to continue.");
+    } else if (auth === "error") {
+      const message = params.get("message");
+      if (message) {
+        setLoginError(message);
+      } else {
+        setLoginError("Demo login failed. Contact support and try again.");
+      }
     }
   }, []);
 
@@ -118,12 +114,14 @@ export default function LoginClient() {
   }
 
   async function continueAsDemo(kind: "admin" | "parent") {
-    const { email: demoEmail, password: demoPassword } = DEMO_CREDENTIALS[kind];
-    if (!demoEmail || !demoPassword) {
-      setLoginError("Demo login is not configured.");
-      return;
+    if (submitting) return;
+    setSubmitting(true);
+    setLoginError(null);
+    try {
+      window.location.assign(`/api/auth/demo-login?kind=${encodeURIComponent(kind)}`);
+    } finally {
+      setSubmitting(false);
     }
-    void signInWithCredentials(demoEmail, demoPassword);
   }
 
   return (
