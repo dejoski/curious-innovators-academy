@@ -500,6 +500,10 @@ export default function ClassDetailsPage() {
   const saveEditedStudent = async () => {
     if (!editStudentDraft) return;
     setEditStudentError(null);
+    if (editStudentDraft.status === "Pending") {
+      setEditStudentError("Pending class workflow must be created as a class request. Choose Approved, Waitlisted, or Rejected for roster enrollment edits.");
+      return;
+    }
     setIsSavingStudent(true);
     try {
       const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
@@ -1252,8 +1256,12 @@ export default function ClassDetailsPage() {
                   setEditStudentDraft({ ...editStudentDraft, status: e.target.value as Status })}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm"
               >
-                <option value="Pending">Pending</option>
                 <option value="Approved">Approved</option>
+                {editStudentDraft.status === "Pending" ? (
+                  <option value="Pending" disabled>
+                    Pending - use class requests
+                  </option>
+                ) : null}
                 <option value="Waitlisted">Waitlisted</option>
                 <option value="Rejected">Rejected</option>
               </select>

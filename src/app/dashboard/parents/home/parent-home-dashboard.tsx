@@ -21,6 +21,7 @@ import {
   parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
   parseStudentAgeYears,
+  requestKindForOption,
 } from "@/lib/parent-class-options";
 import {
   ParentScheduleGrid,
@@ -549,9 +550,11 @@ function ParentHomeDashboardContent() {
 
   function resolveStoredChoice(choice: ParentCatalogRequests[CatalogSlotId]["firstChoice"] | null | undefined): ParentClassOption | null {
     if (!choice?.name && !choice?.id) return null;
+    const found = classOptions.find((option) => option.id === choice.id || option.name === choice.name);
     return (
-      classOptions.find((option) => option.id === choice.id || option.name === choice.name) ??
-      fallbackParentClassOption(choice.name ?? "Selected class", choice.id)
+      found
+        ? { ...found, requestKind: choice.requestKind }
+        : fallbackParentClassOption(choice.name ?? "Selected class", choice.id)
     );
   }
 
@@ -561,6 +564,7 @@ function ParentHomeDashboardContent() {
         isParentSelectableEnrichmentOption(option, {
           studentAgeYears,
           schedule,
+          allowFullForWaitlist: true,
           allowClassIds: activeRequestClassIds,
         }),
       ),
@@ -696,7 +700,7 @@ function ParentHomeDashboardContent() {
         ...current,
         [activeSlot]: {
           ...active,
-          [targetKind]: cls,
+          [targetKind]: { ...cls, requestKind: requestKindForOption(cls) },
           [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
         },
       };

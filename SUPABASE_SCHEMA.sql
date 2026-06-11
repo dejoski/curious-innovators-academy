@@ -213,6 +213,7 @@ CREATE UNIQUE INDEX profiles_email_unique_idx ON public.profiles (lower(email));
 CREATE TABLE public.parents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id uuid NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  phone text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT parents_profile_unique UNIQUE (profile_id)
 );

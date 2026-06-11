@@ -402,6 +402,10 @@ export function formatRequestOptionLabel(option: unknown): string {
   const text = String(option ?? "").trim();
   const lower = text.toLowerCase();
   if (!text) return "";
+  if (lower.startsWith("waitlist:")) {
+    const base = formatRequestOptionLabel(text.slice("waitlist:".length));
+    return base ? `Waitlist ${base}` : "Waitlist";
+  }
   if (lower === "1" || lower === "1st" || lower === "first") return "1st choice";
   if (lower === "2" || lower === "2nd" || lower === "second") return "2nd choice";
   return text;

@@ -21,6 +21,7 @@ import {
   parentClassOptionsForCatalogSlot,
   parentClassOptionFromRow,
   parseStudentAgeYears,
+  requestKindForOption,
 } from "@/lib/parent-class-options";
 import {
   ParentScheduleGrid,
@@ -397,10 +398,10 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function resolveStoredChoice(choice: SlotRequests["firstChoice"] | null | undefined): ParentClassOption | null {
     if (!choice?.name && !choice?.id) return null;
-    return (
-      availableClasses.find((option) => option.id === choice.id || option.name === choice.name) ??
-      fallbackParentClassOption(choice.name ?? "Selected class", choice.id)
-    );
+    const found = availableClasses.find((option) => option.id === choice.id || option.name === choice.name);
+    return found
+      ? { ...found, requestKind: choice.requestKind }
+      : fallbackParentClassOption(choice.name ?? "Selected class", choice.id);
   }
 
   const recommendedClasses = useMemo(() => {
@@ -409,6 +410,7 @@ function ParentClassesEnrichmentCatalogContent() {
         isParentSelectableEnrichmentOption(option, {
           studentAgeYears,
           schedule: studentSchedule,
+          allowFullForWaitlist: true,
           allowClassIds: [activeRequests.firstChoice?.id, activeRequests.secondChoice?.id].filter(
             (id): id is string => Boolean(id),
           ),
@@ -472,7 +474,7 @@ function ParentClassesEnrichmentCatalogContent() {
         ...current,
         [activeSlot]: {
           ...active,
-          [targetKind]: cls,
+          [targetKind]: { ...cls, requestKind: requestKindForOption(cls) },
           [otherKind]: active[otherKind]?.id === cls.id ? null : active[otherKind],
         },
       };

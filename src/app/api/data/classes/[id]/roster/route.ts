@@ -14,6 +14,15 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function parseRosterStatus(raw: unknown): ClassRosterStatus | null {
+  const statusRaw = String(raw ?? "").trim();
+  if (statusRaw === "Approved") return "Approved";
+  if (statusRaw === "Waitlisted" || statusRaw === "Waitlist") return "Waitlisted";
+  if (statusRaw === "Rejected") return "Rejected";
+  if (statusRaw === "Pending") return "Pending";
+  return null;
+}
+
 export async function GET(_req: Request, context: RouteContext) {
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
@@ -29,15 +38,7 @@ export async function POST(req: Request, context: RouteContext) {
 
   const { id } = await context.params;
   const body = (await req.json()) as Record<string, unknown>;
-  const statusRaw = String(body.status ?? "").trim();
-  const status: ClassRosterStatus =
-    statusRaw === "Approved"
-      ? "Approved"
-      : statusRaw === "Waitlisted" || statusRaw === "Waitlist"
-        ? "Waitlisted"
-        : statusRaw === "Rejected"
-          ? "Rejected"
-          : "Pending";
+  const status = parseRosterStatus(body.status) ?? "Approved";
   const result = await serverInsertRosterStudent({
     classId: id,
     studentId: body.studentId == null ? undefined : String(body.studentId),
@@ -61,15 +62,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   const { id } = await context.params;
   const body = (await req.json()) as Record<string, unknown>;
   const studentId = String(body.studentId ?? "").trim();
-  const statusRaw = String(body.status ?? "").trim();
-  const status: ClassRosterStatus =
-    statusRaw === "Approved"
-      ? "Approved"
-      : statusRaw === "Waitlisted" || statusRaw === "Waitlist"
-        ? "Waitlisted"
-        : statusRaw === "Rejected"
-          ? "Rejected"
-          : "Pending";
+  const status = parseRosterStatus(body.status);
   const updatesStudent =
     body.name != null ||
     body.parent != null ||
@@ -84,13 +77,16 @@ export async function PATCH(req: Request, context: RouteContext) {
       parent: body.parent == null ? undefined : String(body.parent),
       age: body.age == null ? undefined : Number(body.age),
       level: body.level == null ? undefined : String(body.level),
-      status,
+      status: status ?? undefined,
       description: body.description == null ? undefined : String(body.description),
     });
     if (!result.ok) {
       return apiWriteError(result.message);
     }
     return NextResponse.json({ student: result.row });
+  }
+  if (!status) {
+    return apiWriteError("Enrollment status is required.");
   }
   const result = await serverPatchEnrollmentStatus({ classId: id, studentId, status });
   if (!result.ok) {

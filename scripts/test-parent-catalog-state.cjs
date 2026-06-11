@@ -149,4 +149,33 @@ assert.deepEqual(selectedChoicesForSubmit(remainingAfterFirstSubmit), [
   { classId: "podcast", block: "B4", level: "1", option: "2nd" },
 ]);
 
+const waitlistSnapshot = catalogSnapshotFromEnrichmentRequests(
+  [
+    {
+      id: "pending-waitlist",
+      studentId: mariaId,
+      classId: "robotics",
+      student: "Maria Collins",
+      parent: "Parent demo",
+      class: "Robotics Lab",
+      block: "Block 3 Day 1",
+      level: "STEM",
+      option: "Waitlist 2nd choice",
+      status: "Pending",
+    },
+  ],
+  mariaId,
+);
+assert.equal(waitlistSnapshot.requests?.block3_day1.secondChoice?.name, "Robotics Lab");
+assert.equal(waitlistSnapshot.requests?.block3_day1.secondChoice?.requestKind, "waitlist");
+
+const waitlistChoiceOnly = parentCatalogRequestsForChoice(
+  waitlistSnapshot.requests,
+  "block3_day1",
+  "secondChoice",
+);
+assert.deepEqual(selectedChoicesForSubmit(waitlistChoiceOnly), [
+  { classId: "robotics", block: "B3", level: "1", option: "2nd", waitlist: true },
+]);
+
 console.log("parent catalog state regression passed");

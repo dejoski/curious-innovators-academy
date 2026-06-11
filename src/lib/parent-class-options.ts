@@ -30,6 +30,7 @@ export type ParentClassOption = {
   minAgeYears?: number;
   maxAgeYears?: number;
   waitlistCount?: number;
+  requestKind?: "request" | "waitlist";
 };
 
 export type ParentClassChoiceKind = "firstChoice" | "secondChoice";
@@ -104,7 +105,9 @@ export function seatsRemainingForOption(option: ParentClassOption): number | nul
   if (remaining != null) return Math.max(0, remaining);
   const capacity = safeNumber(option.capacity);
   if (capacity == null) return null;
-  const reserved = safeNumberOrZero(option.reservedCount) + safeNumberOrZero(option.pendingCount);
+  const reserved = option.reservedCount == null
+    ? safeNumberOrZero(option.enrolledCount) + safeNumberOrZero(option.pendingCount)
+    : safeNumberOrZero(option.reservedCount);
   return Math.max(0, Math.floor(capacity) - Math.max(0, reserved));
 }
 
@@ -119,6 +122,10 @@ function availabilityLabelForOption(option: ParentClassOption): string {
 export function isOptionFull(option: ParentClassOption): boolean {
   const remaining = seatsRemainingForOption(option);
   return option.status === "Full" || remaining === 0;
+}
+
+export function requestKindForOption(option: ParentClassOption): "request" | "waitlist" {
+  return isOptionFull(option) ? "waitlist" : "request";
 }
 
 export function selectionLabelForOption(option: ParentClassOption): string {
@@ -172,13 +179,14 @@ export function isParentSelectableEnrichmentOption(
     studentAgeYears?: number | null;
     schedule?: StudentScheduleRow | null;
     allowClassIds?: readonly string[];
+    allowFullForWaitlist?: boolean;
   } = {},
 ): boolean {
   if (option.program !== "enrichment") return false;
   if (input.allowClassIds?.includes(option.id)) return true;
   if (option.isActive === false) return false;
   if (option.archivedAt) return false;
-  if (isOptionFull(option)) return false;
+  if (isOptionFull(option) && !input.allowFullForWaitlist) return false;
   if (!isOptionAgeEligible(option, input.studentAgeYears ?? null)) return false;
   if (hasBlockingScheduleConflict(option, input.schedule)) return false;
   return true;

@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       block: String(choice.block ?? ""),
       level: String(choice.level ?? ""),
       option: String(choice.option ?? ""),
+      waitlist: choice.waitlist === true,
     };
   });
   const submitScope = body.submitScope === "choice" ? "choice" : "slot";

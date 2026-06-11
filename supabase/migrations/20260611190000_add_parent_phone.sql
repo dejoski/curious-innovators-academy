@@ -1,0 +1,2 @@
+ALTER TABLE public.parents
+  ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';

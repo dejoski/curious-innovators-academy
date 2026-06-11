@@ -10,14 +10,16 @@ import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
 import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
 import type { DashboardPersona } from "@/lib/dashboard/persona";
 
+const ENABLE_DEMO_LOGIN = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN?.trim() === "true";
+
 const DEMO_CREDENTIALS = {
   admin: {
-    email: "admin.demo@curiousinnovators.academy",
-    password: "CuriousDemo2026!",
+    email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL ?? "",
+    password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD ?? "",
   },
   parent: {
-    email: "parent.demo@curiousinnovators.academy",
-    password: "CuriousDemo2026!",
+    email: process.env.NEXT_PUBLIC_DEMO_PARENT_EMAIL ?? "",
+    password: process.env.NEXT_PUBLIC_DEMO_PARENT_PASSWORD ?? "",
   },
 } as const;
 
@@ -114,7 +116,12 @@ export default function LoginClient() {
   }
 
   async function continueAsDemo(kind: "admin" | "parent") {
+    if (!ENABLE_DEMO_LOGIN) return;
     const { email: demoEmail, password: demoPassword } = DEMO_CREDENTIALS[kind];
+    if (!demoEmail || !demoPassword) {
+      setLoginError("Demo login is not configured.");
+      return;
+    }
     void signInWithCredentials(demoEmail, demoPassword);
   }
 
@@ -245,22 +252,24 @@ export default function LoginClient() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => continueAsDemo("admin")}
-                className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
-              >
-                Continue as Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => continueAsDemo("parent")}
-                className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
-              >
-                Continue as Parent
-              </button>
-            </div>
+            {ENABLE_DEMO_LOGIN && (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => continueAsDemo("admin")}
+                  className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
+                >
+                  Continue as Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => continueAsDemo("parent")}
+                  className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
+                >
+                  Continue as Parent
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>

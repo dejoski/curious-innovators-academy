@@ -560,6 +560,10 @@ export default function EnrichmentClassDetail() {
   async function handleSaveEditStudent() {
     if (!editStudentDraft || editingStudentId !== editStudentDraft.id) return;
     setEditStudentError(null);
+    if (editStudentDraft.status === "Pending") {
+      setEditStudentError("Pending class workflow must be created as a class request. Choose Approved, Waitlisted, or Rejected for roster enrollment edits.");
+      return;
+    }
     setIsSavingStudent(true);
     try {
       const res = await fetch(`/api/data/classes/${encodeURIComponent(classId)}/roster`, {
@@ -1342,7 +1346,11 @@ export default function EnrichmentClassDetail() {
                 className="border border-[#f0f0f0] rounded-[8px] px-3 py-2 text-[14px] outline-none focus:border-[#14c1d5]"
               >
                 <option value="Approved">Approved</option>
-                <option value="Pending">Pending</option>
+                {editStudentDraft.status === "Pending" ? (
+                  <option value="Pending" disabled>
+                    Pending - use class requests
+                  </option>
+                ) : null}
                 <option value="Waitlisted">Waitlisted</option>
                 <option value="Rejected">Rejected</option>
               </select>

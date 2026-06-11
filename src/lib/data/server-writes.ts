@@ -89,11 +89,31 @@ function workflowStatusForRoster(status: ClassRosterStatus) {
   return "pending";
 }
 
+function rosterStatusFromDb(raw: unknown): ClassRosterStatus {
+  const status = String(raw ?? "").toLowerCase();
+  if (status === "approved") return "Approved";
+  if (status === "waitlisted" || status === "waitlist") return "Waitlisted";
+  if (status === "rejected") return "Rejected";
+  return "Pending";
+}
+
 function workflowStatusForRequest(status: EnrichmentRequestRow["status"]): "pending" | "approved" | "waitlisted" | "rejected" {
   if (status === "Approved") return "approved";
   if (status === "Waitlisted") return "waitlisted";
   if (status === "Rejected") return "rejected";
   return "pending";
+}
+
+function waitlistOptionLabel(option: string): string {
+  return `waitlist:${option}`;
+}
+
+function isWaitlistOptionLabel(option: unknown): boolean {
+  return String(option ?? "").trim().toLowerCase().startsWith("waitlist:");
+}
+
+function requestOptionLabel(choice: { option: string; waitlist?: boolean }): string {
+  return choice.waitlist ? waitlistOptionLabel(choice.option) : choice.option;
 }
 
 function classPlacementSlot(row: PlacementClassRow): string | null {
@@ -1452,7 +1472,7 @@ export async function serverUpdateRosterStudent(input: {
       studentRow = data as unknown as Record<string, unknown>;
     }
 
-    const status = input.status ?? "Pending";
+    let status: ClassRosterStatus = input.status ?? "Pending";
     const dbStatus = workflowStatusForRoster(status);
     if (input.status != null) {
       if (dbStatus === "approved") {
@@ -1476,6 +1496,15 @@ export async function serverUpdateRosterStudent(input: {
         .eq("class_id", classId)
         .eq("student_id", studentId);
       if (error) return { ok: false, message: error.message };
+    } else {
+      const { data: existingEnrollment, error: existingEnrollmentError } = await supabase
+        .from("enrollments")
+        .select("status")
+        .eq("class_id", classId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      if (existingEnrollmentError) return { ok: false, message: existingEnrollmentError.message };
+      status = rosterStatusFromDb((existingEnrollment as Record<string, unknown> | null)?.status);
     }
 
     const row: ClassRosterStudent = {
@@ -1937,6 +1966,7 @@ async function insertEnrichmentRequestRows(
       block: string;
       level: string;
       option: string;
+      waitlist?: boolean;
     }[];
   },
 ): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
@@ -1947,7 +1977,7 @@ async function insertEnrichmentRequestRows(
     status: "pending" as const,
     block: choice.block || null,
     level: choice.level || null,
-    option_label: choice.option,
+    option_label: requestOptionLabel(choice),
   }));
 
   const { data, error } = await supabase
@@ -1967,14 +1997,16 @@ async function ensureClassCapacityForChoices(
   supabase: SupabaseMutationClient,
   choices: {
     classId: string;
+    waitlist?: boolean;
   }[],
   options: { semesterId: string | null; studentId: string },
 ): Promise<WriteFail | { ok: true }> {
   const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
+    if (choice.waitlist) return next;
     next.set(choice.classId, (next.get(choice.classId) ?? 0) + 1);
     return next;
   }, new Map());
-  const classIds = [...requestedByClass.keys()];
+  const classIds = [...new Set(choices.map((choice) => choice.classId))];
   if (classIds.length === 0) return { ok: true };
 
   const { data: availability, error: availabilityError } = await supabase
@@ -2032,6 +2064,14 @@ async function ensureClassCapacityForChoices(
 
     const remaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
     const requested = requestedByClass.get(classId) ?? 0;
+    const waitlistRequested = choices.some((choice) => choice.classId === classId && choice.waitlist);
+    if (waitlistRequested && remaining > 0) {
+      const className = classNamesById.get(classId) ?? "Selected class";
+      return {
+        ok: false,
+        message: `${className} still has available seats. Submit a regular class request instead of waitlist.`,
+      };
+    }
     if (requested > remaining) {
       const className = classNamesById.get(classId) ?? "Selected class";
       return {
@@ -2051,7 +2091,7 @@ async function ensureNoDuplicatePendingClassRequests(
   supabase: SupabaseMutationClient,
   input: {
     studentId: string;
-    choices: { classId: string }[];
+    choices: { classId: string; waitlist?: boolean }[];
   },
 ): Promise<WriteFail | { ok: true }> {
   const classIds = [...new Set(input.choices.map((choice) => choice.classId).filter(Boolean))];
@@ -2236,11 +2276,12 @@ function normalizeEnrichmentRequestChoices(
     block: string;
     level: string;
     option: string;
+    waitlist?: boolean;
   }[],
 ) {
   const bySlot = new Map<string, {
-    first?: { classId: string; block: string; level: string; option: "1st" };
-    second?: { classId: string; block: string; level: string; option: "2nd" };
+    first?: { classId: string; block: string; level: string; option: "1st"; waitlist?: boolean };
+    second?: { classId: string; block: string; level: string; option: "2nd"; waitlist?: boolean };
   }>();
 
   for (const choice of choices) {
@@ -2254,7 +2295,7 @@ function normalizeEnrichmentRequestChoices(
     bySlot.set(key, group);
   }
 
-  const normalized: { classId: string; block: string; level: string; option: "1st" | "2nd" }[] = [];
+  const normalized: { classId: string; block: string; level: string; option: "1st" | "2nd"; waitlist?: boolean }[] = [];
   bySlot.forEach((group) => {
     if (group.first) {
       normalized.push(group.first);
@@ -2288,6 +2329,7 @@ async function clearPendingEnrichmentRequestChoices(
       block: string;
       level: string;
       option: string;
+      waitlist?: boolean;
     }[];
     submitScope?: "slot" | "choice";
   },
@@ -2308,7 +2350,7 @@ async function clearPendingEnrichmentRequestChoices(
     query = choice.block ? query.eq("block", choice.block) : query.is("block", null);
     query = choice.level ? query.eq("level", choice.level) : query.is("level", null);
     if (input.submitScope === "choice") {
-      query = query.eq("option_label", choice.option);
+      query = query.in("option_label", [choice.option, waitlistOptionLabel(choice.option)]);
     }
 
     const { data: requestRows, error } = await query;
@@ -2416,6 +2458,7 @@ export async function serverInsertEnrichmentRequests(input: {
     block: string;
     level: string;
     option: string;
+    waitlist?: boolean;
   }[];
   submitScope?: "slot" | "choice";
 }): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
@@ -2675,7 +2718,7 @@ export async function serverPatchEnrichmentRequest(
         const allowed = await ensureApprovedRosterPlacementAllowed(mutationClient, {
           classId,
           studentId,
-          pendingRequestConsumesSeat: true,
+          pendingRequestConsumesSeat: !isWaitlistOptionLabel(raw.option_label),
         });
         if (!allowed.ok) return allowed;
       }

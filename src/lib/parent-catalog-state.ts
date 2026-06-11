@@ -10,6 +10,7 @@ import type { EnrichmentRequestRow, StudentScheduleBadge } from "@/lib/data/type
 export type ParentCatalogChoice = {
   id?: string;
   name?: string;
+  requestKind?: "request" | "waitlist";
 };
 
 export type ParentCatalogSlotRequest = {
@@ -61,7 +62,10 @@ function dispatchParentCatalogUpdated() {
 
 function normalizeChoice(choice: ParentCatalogChoice | null | undefined): ParentCatalogChoice | null {
   if (!choice?.id && !choice?.name) return null;
-  return { ...choice };
+  return {
+    ...choice,
+    requestKind: choice.requestKind === "waitlist" ? "waitlist" : "request",
+  };
 }
 
 function normalizeSlotRequest(raw: ParentCatalogSlotRequest | null | undefined): ParentCatalogSlotRequest {
@@ -296,7 +300,8 @@ function requestSlotId(row: EnrichmentRequestRow): CatalogSlotId | null {
 }
 
 function requestChoiceKind(row: EnrichmentRequestRow): "firstChoice" | "secondChoice" {
-  return row.option.trim().toLowerCase().startsWith("2") ? "secondChoice" : "firstChoice";
+  const option = row.option.trim().toLowerCase().replace(/^waitlist\s+/i, "");
+  return option.startsWith("2") ? "secondChoice" : "firstChoice";
 }
 
 function reviewStatusPriority(status: LocalReviewStatus): number {
@@ -340,7 +345,7 @@ export function catalogSnapshotFromEnrichmentRequests(
 
     next[slotId] = {
       ...next[slotId],
-      [kind]: { id: classId, name },
+      [kind]: { id: classId, name, requestKind: /^waitlist\b/i.test(row.option) ? "waitlist" : "request" },
     };
     reviewStatuses[reviewKey] = row.status;
     count += 1;
@@ -399,16 +404,28 @@ function catalogBadgesForSlot(
   const slot = requests?.[slotId];
   const rows = catalogChoiceReviews({ ...INITIAL_PARENT_CATALOG_REQUESTS, [slotId]: slot ?? {} }, reviewStatuses)
     .filter((row) => row.slotId === slotId && row.status !== "Rejected");
-  return rows.map((row) => ({
-    label:
-      row.status === "Waitlisted"
+  return rows.map((row) => {
+    const choice = row.choice === "2nd" ? slot?.secondChoice : slot?.firstChoice;
+    const isWaitlistChoice = choice?.requestKind === "waitlist";
+    return {
+      label:
+        row.status === "Waitlisted"
           ? `${row.choice === "2nd" ? "Waitlisted 2nd" : "Waitlisted"}: ${row.name}`
-          : row.choice === "2nd"
-            ? `2nd: ${row.name}`
-            : row.name,
-    classId: row.classId,
-    tone: state === "draft" ? "draft" : row.status === "Approved" ? "approved" : row.status === "Waitlisted" ? "waitlisted" : "pending",
-  }));
+          : row.status === "Pending" && isWaitlistChoice
+            ? `${row.choice === "2nd" ? "Waitlist 2nd" : "Waitlist"}: ${row.name}`
+            : row.choice === "2nd"
+              ? `2nd: ${row.name}`
+              : row.name,
+      classId: row.classId,
+      tone: state === "draft"
+        ? "draft"
+        : row.status === "Approved"
+          ? "approved"
+          : row.status === "Waitlisted" || isWaitlistChoice
+            ? "waitlisted"
+            : "pending",
+    };
+  });
 }
 
 function catalogScheduleBadgeOverrides(
@@ -525,8 +542,24 @@ export function selectedChoicesForSubmit(requests: ParentCatalogRequests) {
   return (Object.entries(normalizeRequests(requests)) as [CatalogSlotId, ParentCatalogSlotRequest][]).flatMap(([slotId, slot]) => {
     const meta = CATALOG_SLOT_META[slotId];
     return [
-      slot.firstChoice ? { classId: slot.firstChoice.id ?? "", block: meta.block, level: meta.level, option: "1st" } : null,
-      slot.secondChoice ? { classId: slot.secondChoice.id ?? "", block: meta.block, level: meta.level, option: "2nd" } : null,
-    ].filter((choice): choice is { classId: string; block: string; level: string; option: string } => Boolean(choice?.classId));
+      slot.firstChoice
+        ? {
+            classId: slot.firstChoice.id ?? "",
+            block: meta.block,
+            level: meta.level,
+            option: "1st",
+            ...(slot.firstChoice.requestKind === "waitlist" ? { waitlist: true } : {}),
+          }
+        : null,
+      slot.secondChoice
+        ? {
+            classId: slot.secondChoice.id ?? "",
+            block: meta.block,
+            level: meta.level,
+            option: "2nd",
+            ...(slot.secondChoice.requestKind === "waitlist" ? { waitlist: true } : {}),
+          }
+        : null,
+    ].filter((choice): choice is { classId: string; block: string; level: string; option: string; waitlist?: boolean } => Boolean(choice?.classId));
   });
 }

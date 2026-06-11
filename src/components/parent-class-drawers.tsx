@@ -269,7 +269,7 @@ function ParentClassSummaryCard({
   const availabilityLabel = remaining == null
     ? "Availability not available"
     : remaining <= 0
-      ? "Full"
+      ? "Waitlist available"
       : remaining === 1
         ? "1 seat left"
         : `${remaining} seats left`;
