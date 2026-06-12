@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Camera } from "lucide-react";
+import { Camera, Trash2 } from "lucide-react";
 import { PageBackLink } from "@/components/page-back-link";
 import { useDashboardPersona } from "@/components/dashboard-persona";
 import EntityAvatar from "@/components/entity-avatar";
@@ -361,6 +361,36 @@ export default function DashboardSettingsPage() {
       ...current,
       [competencyMappingKey(group.competency, group.level)]: value,
     }));
+  }, []);
+
+  const removeCompetencyMapping = useCallback((group: CompetencyBlockGroup) => {
+    const key = competencyMappingKey(group.competency, group.level);
+    setCompetencyDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setCompetencyGroups((current) => {
+      const next: CompetencyBlockGroup[] = [];
+      for (const item of current) {
+        if (competencyMappingKey(item.competency, item.level) !== key) {
+          next.push(item);
+          continue;
+        }
+        if (item.source === "mapping" && item.studentCount === 0) {
+          continue;
+        }
+        next.push({
+          ...item,
+          blockNumber: null,
+          block: "",
+          updatedAt: undefined,
+        });
+      }
+      return next;
+    });
+    setCompetencyMappingStatus(null);
+    setCompetencyMappingError(null);
   }, []);
 
   const handleAddCompetencyGroup = useCallback(() => {
@@ -761,6 +791,7 @@ export default function DashboardSettingsPage() {
                       <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Group</th>
                       <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Students</th>
                       <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Block</th>
+                      <th className="px-4 py-3 text-right text-[12px] font-semibold uppercase tracking-wide text-[#666d80]">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#eef0f3] bg-white">
@@ -784,6 +815,17 @@ export default function DashboardSettingsPage() {
                                 </option>
                               ))}
                             </select>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              disabled={competencyMappingsSaving || !(competencyDrafts[key] ?? group.blockNumber)}
+                              onClick={() => removeCompetencyMapping(group)}
+                              className="inline-flex h-[36px] items-center justify-center gap-2 rounded-[6px] px-3 text-[13px] font-semibold text-[#d80509] ring-1 ring-[#f4cccc] transition-colors hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:text-[#98a2b3] disabled:ring-[#e6e9ef]"
+                            >
+                              <Trash2 className="size-4" aria-hidden strokeWidth={1.8} />
+                              Remove mapping
+                            </button>
                           </td>
                         </tr>
                       );
