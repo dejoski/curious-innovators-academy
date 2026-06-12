@@ -166,11 +166,16 @@ function isOptionAgeEligible(option: ParentClassOption, studentAgeYears: number 
 export function hasBlockingScheduleConflict(
   option: ParentClassOption,
   schedule?: StudentScheduleRow | null,
+  input: { allowPendingScheduleSlot?: ParentScheduleSlotKey } = {},
 ): boolean {
   if (!schedule) return false;
   const slot = scheduleSlotForParentClassOption(option);
   const badges = schedule[slot] ?? [];
-  return badges.some((badge) => badge.tone === "core" || badge.tone === "approved" || badge.tone === "pending");
+  return badges.some((badge) =>
+    badge.tone === "core" ||
+    badge.tone === "approved" ||
+    (badge.tone === "pending" && slot !== input.allowPendingScheduleSlot),
+  );
 }
 
 export function isParentSelectableEnrichmentOption(
@@ -180,6 +185,7 @@ export function isParentSelectableEnrichmentOption(
     schedule?: StudentScheduleRow | null;
     allowClassIds?: readonly string[];
     allowFullForWaitlist?: boolean;
+    allowPendingScheduleSlot?: ParentScheduleSlotKey;
   } = {},
 ): boolean {
   if (option.program !== "enrichment") return false;
@@ -188,7 +194,7 @@ export function isParentSelectableEnrichmentOption(
   if (option.archivedAt) return false;
   if (isOptionFull(option) && !input.allowFullForWaitlist) return false;
   if (!isOptionAgeEligible(option, input.studentAgeYears ?? null)) return false;
-  if (hasBlockingScheduleConflict(option, input.schedule)) return false;
+  if (hasBlockingScheduleConflict(option, input.schedule, { allowPendingScheduleSlot: input.allowPendingScheduleSlot })) return false;
   return true;
 }
 

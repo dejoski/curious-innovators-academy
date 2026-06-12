@@ -35,6 +35,10 @@ const {
   remainingParentCatalogDraftAfterSubmit,
   selectedChoicesForSubmit,
 } = require("../src/lib/parent-catalog-state.ts");
+const {
+  hasBlockingScheduleConflict,
+  isParentSelectableEnrichmentOption,
+} = require("../src/lib/parent-class-options.ts");
 
 const mariaId = "ba601e9a-3d15-4a57-aa14-35d6ac516245";
 
@@ -177,5 +181,38 @@ const waitlistChoiceOnly = parentCatalogRequestsForChoice(
 assert.deepEqual(selectedChoicesForSubmit(waitlistChoiceOnly), [
   { classId: "robotics", block: "B3", level: "1", option: "2nd", waitlist: true },
 ]);
+
+const pendingSchedule = {
+  b3Tue: [{ label: "Old robotics request", tone: "pending" }],
+};
+const replacementOption = {
+  id: "creative-coding",
+  name: "Creative Coding",
+  teacher: "Teacher",
+  description: "Build interactive projects.",
+  prerequisites: "None",
+  block: "B3",
+  level: "1",
+  seats: "10 seats",
+  seatsRemaining: 2,
+  program: "enrichment",
+};
+
+assert.equal(hasBlockingScheduleConflict(replacementOption, pendingSchedule), true);
+assert.equal(
+  hasBlockingScheduleConflict(replacementOption, pendingSchedule, { allowPendingScheduleSlot: "b3Tue" }),
+  false,
+);
+assert.equal(
+  isParentSelectableEnrichmentOption(replacementOption, { schedule: pendingSchedule }),
+  false,
+);
+assert.equal(
+  isParentSelectableEnrichmentOption(replacementOption, {
+    schedule: pendingSchedule,
+    allowPendingScheduleSlot: "b3Tue",
+  }),
+  true,
+);
 
 console.log("parent catalog state regression passed");

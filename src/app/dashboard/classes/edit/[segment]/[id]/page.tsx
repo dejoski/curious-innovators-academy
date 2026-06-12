@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProgramTrack, SchoolClassRow, TeacherRow } from "@/lib/data/types";
+import type { ProgramTrack, SchoolClassRow, SemesterRow, TeacherRow } from "@/lib/data/types";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
@@ -36,7 +36,10 @@ export default function EditClassPage() {
   const program: ProgramTrack = rawSegment === "enrichment" ? "enrichment" : "core";
   const [teachers, setTeachers] = useState<TeacherRow[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(true);
+  const [semesters, setSemesters] = useState<SemesterRow[]>([]);
+  const [semestersLoading, setSemestersLoading] = useState(true);
   const [row, setRow] = useState<SchoolClassRow | null>(null);
+  const [semesterId, setSemesterId] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [syncHint, setSyncHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -50,9 +53,10 @@ export default function EditClassPage() {
     (async () => {
       setLoadError(null);
       try {
-        const [classesRes, teachersRes] = await Promise.all([
+        const [classesRes, teachersRes, semestersRes] = await Promise.all([
           fetch("/api/data/classes"),
           fetch("/api/data/teachers"),
+          fetch("/api/data/semesters"),
         ]);
         if (!classesRes.ok) {
           if (!cancelled) setLoadError(await readApiError(classesRes));
@@ -69,6 +73,7 @@ export default function EditClassPage() {
             setEditBlock(blockNum as BlockOption);
             setEditDay(dayNum as DayOption);
             setEditScheduleDays(found.scheduleDays.length > 0 ? found.scheduleDays : ["M", "T", "W", "TH", "F"]);
+            setSemesterId(found.semesterId ?? "");
           }
         }
         if (teachersRes.ok) {
@@ -77,10 +82,23 @@ export default function EditClassPage() {
             setTeachers(teachersBody.teachers);
           }
         }
+        if (semestersRes.ok) {
+          const semestersBody = (await semestersRes.json()) as {
+            semesters?: SemesterRow[];
+            currentSemester?: SemesterRow | null;
+          };
+          if (!cancelled && Array.isArray(semestersBody.semesters)) {
+            setSemesters(semestersBody.semesters);
+            setSemesterId((current) => current || semestersBody.currentSemester?.id || semestersBody.semesters?.[0]?.id || "");
+          }
+        }
       } catch {
         if (!cancelled) setLoadError("Network error loading classes.");
       } finally {
-        if (!cancelled) setTeachersLoading(false);
+        if (!cancelled) {
+          setTeachersLoading(false);
+          setSemestersLoading(false);
+        }
       }
     })();
     return () => {
@@ -148,6 +166,7 @@ export default function EditClassPage() {
           level: draft.level ?? "",
           block,
           scheduleDays: draft.scheduleDays,
+          semesterId: semesterId || undefined,
           location: draft.location ?? "",
           room: draft.room ?? "",
           minAgeYears: optionalNumber(draft.minAgeYears),
@@ -186,6 +205,23 @@ export default function EditClassPage() {
         </div>
 
         <div className="rounded-2xl border border-[#f0f0f0] bg-white p-6 shadow-sm flex flex-col gap-4">
+          <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
+            Term
+            <select
+              value={semesterId}
+              disabled={semestersLoading || semesters.length === 0}
+              onChange={(e) => setSemesterId(e.target.value)}
+              className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5] disabled:text-[#666d80]"
+            >
+              {semestersLoading ? <option value="">Loading terms...</option> : null}
+              {!semestersLoading && semesters.length === 0 ? <option value="">Use current term</option> : null}
+              {semesters.map((semester) => (
+                <option key={semester.id} value={semester.id}>
+                  {semester.name} ({semester.startsOn} to {semester.endsOn})
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex flex-col gap-1 font-sans text-[13px] text-[#666d80]">
             Class name
             <input

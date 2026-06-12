@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProgramTrack, TeacherRow } from "@/lib/data/types";
+import type { ProgramTrack, SemesterRow, TeacherRow } from "@/lib/data/types";
 import { useDashboardNavigationProgress } from "@/components/dashboard-navigation-progress";
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData } from "@/lib/client-data-cache";
@@ -96,30 +96,45 @@ export default function AddClassForm() {
     searchParams.get("track") === "enrichment" ? "enrichment" : "core",
   );
 
-  useEffect(() => {
-    const t = searchParams.get("track");
-    setTrackTab(t === "enrichment" ? "enrichment" : "core");
-  }, [searchParams]);
-
   const [teachers, setTeachers] = useState<TeacherRow[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(true);
+  const [semesters, setSemesters] = useState<SemesterRow[]>([]);
+  const [semestersLoading, setSemestersLoading] = useState(true);
+  const [semesterId, setSemesterId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setTeachersLoading(true);
+      setSemestersLoading(true);
       try {
-        const res = await fetch("/api/data/teachers");
-        if (res.ok) {
-          const body = (await res.json()) as { teachers?: TeacherRow[] };
+        const [teachersRes, semestersRes] = await Promise.all([
+          fetch("/api/data/teachers"),
+          fetch("/api/data/semesters"),
+        ]);
+        if (teachersRes.ok) {
+          const body = (await teachersRes.json()) as { teachers?: TeacherRow[] };
           if (!cancelled && Array.isArray(body.teachers)) {
             setTeachers(body.teachers);
           }
         }
+        if (semestersRes.ok) {
+          const body = (await semestersRes.json()) as {
+            semesters?: SemesterRow[];
+            currentSemester?: SemesterRow | null;
+          };
+          if (!cancelled && Array.isArray(body.semesters)) {
+            setSemesters(body.semesters);
+            setSemesterId((current) => current || body.currentSemester?.id || body.semesters?.[0]?.id || "");
+          }
+        }
       } catch {
-        /* Teacher list is non-critical for the form. */
+        /* Reference lists are non-critical for the form. */
       } finally {
-        if (!cancelled) setTeachersLoading(false);
+        if (!cancelled) {
+          setTeachersLoading(false);
+          setSemestersLoading(false);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -195,7 +210,7 @@ export default function AddClassForm() {
           minAgeYears: minAgeYears.trim() ? Number(minAgeYears) : undefined,
           maxAgeYears: maxAgeYears.trim() ? Number(maxAgeYears) : undefined,
           isActive: status === "Active",
-          semesterId: undefined,
+          semesterId: semesterId || undefined,
         }),
       });
       if (res.ok) {
@@ -328,6 +343,22 @@ export default function AddClassForm() {
 
         <FormSection title="Schedule">
           <div className="grid gap-5 md:grid-cols-2">
+            <label className="flex flex-col gap-3 md:col-span-2">
+              <FieldLabel>{requiredLabel("Term")}</FieldLabel>
+              <SelectInput
+                value={semesterId}
+                onChange={(e) => setSemesterId(e.target.value)}
+                disabled={semestersLoading || semesters.length === 0}
+              >
+                {semestersLoading ? <option value="">Loading terms...</option> : null}
+                {!semestersLoading && semesters.length === 0 ? <option value="">Use current term</option> : null}
+                {semesters.map((semester) => (
+                  <option key={semester.id} value={semester.id}>
+                    {semester.name} ({semester.startsOn} to {semester.endsOn})
+                  </option>
+                ))}
+              </SelectInput>
+            </label>
             <label className="flex flex-col gap-3">
               <FieldLabel>{requiredLabel("Day of the Week")}</FieldLabel>
               <SelectInput value={day} onChange={(e) => setDay(e.target.value as DayOption)}>

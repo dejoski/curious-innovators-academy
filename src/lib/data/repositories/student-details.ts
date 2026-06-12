@@ -26,6 +26,10 @@ import {
   type CompetencyBlockMapping,
 } from "@/lib/competency-block-mappings";
 import { fetchCompetencyBlockMappingsForLevels } from "@/lib/data/repositories/competency-block-mappings";
+import {
+  DAILY_SCHEDULE_KEYS,
+  applyTeacherConflictDiagnostics,
+} from "@/lib/data/repositories/schedule-diagnostics";
 import { normalizeStudentCompetencyLevels, summarizeStudentCompetencyLevels } from "@/lib/data/repositories/students";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
@@ -63,6 +67,89 @@ function logStudentDetailsRepoIssue(
     context,
     error: String(error ?? "(none)"),
   });
+}
+
+async function writeScheduleStateAuditEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: {
+    studentId: string;
+    semesterId: string;
+    state: StudentScheduleState;
+    finalizedBy: string | null;
+    finalizedAt: string | null;
+  },
+) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.id) return;
+    await supabase.from("audit_events").insert({
+      actor_profile_id: user.id,
+      action: "student_schedule_state.update",
+      entity_type: "student",
+      entity_id: input.studentId,
+      metadata: {
+        semesterId: input.semesterId,
+        state: input.state,
+        finalizedBy: input.finalizedBy,
+        finalizedAt: input.finalizedAt,
+      },
+    });
+  } catch {
+    /* Audit writes should not block schedule state changes. */
+  }
+}
+
+function uniqueNonEmpty(values: (string | null | undefined)[]): string[] {
+  return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))];
+}
+
+function possessiveName(name: string): string {
+  return name.endsWith("s") ? `${name}'` : `${name}'s`;
+}
+
+async function selectParentNotificationRecipientProfileIds(
+  client: StudentReadClient,
+  studentId: string,
+): Promise<string[]> {
+  const { data, error } = await client
+    .from("parent_students")
+    .select("parents ( profile_id )")
+    .eq("student_id", studentId);
+  if (error) return [];
+
+  return uniqueNonEmpty(((data ?? []) as unknown as Record<string, unknown>[]).map((row) => {
+    const parent = firstRel<Record<string, unknown>>(row.parents);
+    return String(parent?.profile_id ?? "");
+  }));
+}
+
+async function insertNotificationsIfPossible(
+  client: StudentReadClient,
+  rows: { recipient_profile_id: string; title: string; body: string; href: string }[],
+) {
+  const payload = rows.filter((row) => row.recipient_profile_id && row.title && row.body);
+  if (payload.length === 0) return;
+  try {
+    await client.from("notifications").insert(payload);
+  } catch {
+    /* Notification writes should not block schedule state changes. */
+  }
+}
+
+async function writeStudentScheduleFinalizedNotifications(
+  client: StudentReadClient,
+  input: { studentId: string; studentName: string },
+) {
+  const recipientIds = await selectParentNotificationRecipientProfileIds(client, input.studentId);
+  const studentName = input.studentName.trim() || "Your child";
+  await insertNotificationsIfPossible(client, recipientIds.map((recipientProfileId) => ({
+    recipient_profile_id: recipientProfileId,
+    title: "Schedule finalized",
+    body: `${possessiveName(studentName)} schedule has been finalized.`,
+    href: "/dashboard/parents/home",
+  })));
 }
 
 function unavailableProfile(): StudentProfileResolved {
@@ -130,21 +217,6 @@ function eventTypeFromBody(body: string): StudentProfileTimelineEventType {
   if (s.includes("deadline") || s.includes("assessment") || s.includes("enrichment")) return "Academic";
   return "General";
 }
-
-const DAILY_SCHEDULE_KEYS = [
-  "b1Tue",
-  "b2Tue",
-  "b3Tue",
-  "b4Tue",
-  "b1Wed",
-  "b2Wed",
-  "b3Wed",
-  "b4Wed",
-  "b1Thu",
-  "b2Thu",
-  "b3Thu",
-  "b4Thu",
-] as const;
 
 function normalizeScheduleState(raw: unknown): StudentScheduleState {
   const value = String(raw ?? "").toLowerCase();
@@ -593,6 +665,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
       row.b4Thu = normalizeScheduleBadges(row.b4Thu);
       finalizeScheduleDiagnostics(row);
     });
+    applyTeacherConflictDiagnostics(rows);
 
     return { rows, source: "remote" };
   } catch {
@@ -698,6 +771,7 @@ export async function fetchStudentScheduleResolved(
     row.b4Wed = normalizeScheduleBadges(row.b4Wed);
     row.b4Thu = normalizeScheduleBadges(row.b4Thu);
     finalizeScheduleDiagnostics(row);
+    applyTeacherConflictDiagnostics([row]);
     return { rows: [row], source: "remote" };
   } catch {
     return unavailableSchedule();
@@ -735,6 +809,19 @@ export async function updateStudentScheduleStateResolved(
     if (!student) return { ok: false, message: "Selected student was not found." };
 
     const normalizedState = normalizeScheduleState(state);
+    let previousScheduleState: StudentScheduleState | null = null;
+    const { data: previousStateRow, error: previousStateError } = await supabase
+      .from("student_schedule_states")
+      .select("state")
+      .eq("student_id", id)
+      .eq("semester_id", semesterId)
+      .maybeSingle();
+    if (previousStateError) {
+      logStudentDetailsRepoIssue("updateStudentScheduleStateResolved", id, "student_schedule_states", previousStateError);
+    } else if (previousStateRow) {
+      previousScheduleState = normalizeScheduleState((previousStateRow as Record<string, unknown>).state);
+    }
+
     if (normalizedState === "finalized") {
       const guardrails = await fetchStudentScheduleStateGuardrails(id, supabase, { semesterId });
       if (!guardrails.ok) return guardrails;
@@ -767,8 +854,22 @@ export async function updateStudentScheduleStateResolved(
       logStudentDetailsRepoIssue("updateStudentScheduleStateResolved", id, "student_schedule_states", writeError);
       return { ok: false, message: writeError.message };
     }
+    await writeScheduleStateAuditEvent(supabase, {
+      studentId: id,
+      semesterId,
+      state: normalizedState,
+      finalizedBy,
+      finalizedAt,
+    });
 
     const refreshed = await fetchStudentScheduleResolved(id, supabase, { semesterId });
+    const finalizedRow = refreshed.rows[0];
+    if (normalizedState === "finalized" && previousScheduleState !== "finalized" && finalizedRow) {
+      await writeStudentScheduleFinalizedNotifications(supabase, {
+        studentId: id,
+        studentName: finalizedRow.name,
+      });
+    }
     return { ok: true, rows: refreshed.rows, source: refreshed.source };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

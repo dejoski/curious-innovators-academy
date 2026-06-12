@@ -401,6 +401,10 @@ function requestClassLabel(rows: Pick<EnrichmentRequestRow, "class">[]): string 
   return `${names.length} classes`;
 }
 
+function isWaitlistRequestNotificationRow(row: Pick<EnrichmentRequestRow, "option">): boolean {
+  return /^waitlist\b/i.test(row.option.trim());
+}
+
 async function selectAdminNotificationRecipients(
   client: SupabaseMutationClient,
 ): Promise<string[]> {
@@ -435,21 +439,111 @@ async function writeClassRequestSubmittedNotifications(
   if (input.rows.length === 0) return;
   const student = requestStudentLabel(input.rows);
   const classes = requestClassLabel(input.rows);
+  const waitlistCount = input.rows.filter(isWaitlistRequestNotificationRow).length;
+  const allWaitlist = waitlistCount === input.rows.length;
+  const waitlistDetail = waitlistCount > 0 && !allWaitlist
+    ? `, including ${waitlistCount} waitlist request${waitlistCount === 1 ? "" : "s"}`
+    : "";
   const requestNoun = input.rows.length === 1 ? "request" : "requests";
   const adminIds = await selectAdminNotificationRecipients(client);
   const notifications: NotificationInsertRow[] = adminIds.map((recipientProfileId) => ({
     recipient_profile_id: recipientProfileId,
-    title: input.rows.length === 1 ? "New class request submitted" : `${input.rows.length} class requests submitted`,
-    body: `${student} submitted ${requestNoun} for ${classes}.`,
+    title: allWaitlist
+      ? input.rows.length === 1 ? "New waitlist request submitted" : `${input.rows.length} waitlist requests submitted`
+      : input.rows.length === 1 ? "New class request submitted" : `${input.rows.length} class requests submitted`,
+    body: allWaitlist
+      ? `${student} joined the waitlist for ${classes}.`
+      : `${student} submitted ${requestNoun} for ${classes}${waitlistDetail}.`,
     href: "/dashboard/classes/requests",
   }));
   if (input.requesterProfileId) {
     notifications.push({
       recipient_profile_id: input.requesterProfileId,
-      title: input.rows.length === 1 ? "Class request submitted" : "Class requests submitted",
-      body: `We received ${possessiveName(student)} ${requestNoun} for ${classes}.`,
+      title: allWaitlist
+        ? input.rows.length === 1 ? "Waitlist request submitted" : "Waitlist requests submitted"
+        : input.rows.length === 1 ? "Class request submitted" : "Class requests submitted",
+      body: allWaitlist
+        ? `We added ${possessiveName(student)} waitlist request for ${classes}.`
+        : `We received ${possessiveName(student)} ${requestNoun} for ${classes}${waitlistDetail}.`,
       href: "/dashboard/parents/catalog",
     });
+  }
+  await insertNotificationsIfPossible(client, notifications);
+}
+
+type ClassCapacitySnapshot = {
+  classId: string;
+  className: string;
+  seatsRemaining: number;
+};
+
+async function selectClassCapacitySnapshots(
+  client: SupabaseMutationClient,
+  classIds: string[],
+): Promise<Map<string, ClassCapacitySnapshot>> {
+  const ids = uniqueNonEmpty(classIds);
+  const snapshots = new Map<string, ClassCapacitySnapshot>();
+  if (ids.length === 0) return snapshots;
+
+  const [
+    { data: availability, error: availabilityError },
+    { data: classes, error: classesError },
+  ] = await Promise.all([
+    client
+      .from("class_catalog_availability")
+      .select("class_id, seats_remaining")
+      .in("class_id", ids),
+    client
+      .from("classes")
+      .select("id, name")
+      .in("id", ids),
+  ]);
+  if (availabilityError || classesError) return snapshots;
+
+  const classNames = new Map(
+    ((classes ?? []) as unknown as Record<string, unknown>[])
+      .map((row) => [String(row.id ?? "").trim(), String(row.name ?? "Selected class").trim() || "Selected class"]),
+  );
+
+  for (const row of (availability ?? []) as unknown as Record<string, unknown>[]) {
+    const classId = String(row.class_id ?? "").trim();
+    if (!classId) continue;
+    const seatsRemaining = Math.max(0, Math.floor(Number(row.seats_remaining ?? 0)));
+    snapshots.set(classId, {
+      classId,
+      className: classNames.get(classId) ?? "Selected class",
+      seatsRemaining,
+    });
+  }
+
+  return snapshots;
+}
+
+async function writeClassCapacityReachedNotifications(
+  client: SupabaseMutationClient,
+  input: {
+    classIds: string[];
+    before: Map<string, ClassCapacitySnapshot>;
+  },
+) {
+  const after = await selectClassCapacitySnapshots(client, input.classIds);
+  const reached = [...after.values()].filter((snapshot) => {
+    const previous = input.before.get(snapshot.classId);
+    return snapshot.seatsRemaining === 0 && (previous?.seatsRemaining ?? 0) > 0;
+  });
+  if (reached.length === 0) return;
+
+  const adminIds = await selectAdminNotificationRecipients(client);
+  const notifications: NotificationInsertRow[] = [];
+  for (const row of reached) {
+    for (const recipientProfileId of adminIds) {
+      notifications.push({
+        recipient_profile_id: recipientProfileId,
+        title: "Class reached capacity",
+        body: `${row.className} is now full.`,
+        href: "/dashboard/classes",
+      });
+    }
   }
   await insertNotificationsIfPossible(client, notifications);
 }
@@ -2115,7 +2209,7 @@ async function ensureClassCapacityForChoices(
     classId: string;
     waitlist?: boolean;
   }[],
-  options: { semesterId: string | null; studentId: string },
+  options: { semesterId: string | null; studentId: string; allowAgeOverride?: boolean },
 ): Promise<WriteFail | { ok: true }> {
   const requestedByClass = choices.reduce<Map<string, number>>((next, choice) => {
     if (choice.waitlist) return next;
@@ -2171,12 +2265,12 @@ async function ensureClassCapacityForChoices(
     }
     const minAge = optionalClassAgeLimit(classRow?.min_age_years);
     const maxAge = optionalClassAgeLimit(classRow?.max_age_years);
-    if (studentAge !== null && minAge !== null) {
+    if (!options.allowAgeOverride && studentAge !== null && minAge !== null) {
       if (studentAge < minAge) {
         return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} requires students to be at least ${minAge}.` };
       }
     }
-    if (studentAge !== null && maxAge !== null) {
+    if (!options.allowAgeOverride && studentAge !== null && maxAge !== null) {
       if (studentAge > maxAge) {
         return { ok: false, message: `${classNamesById.get(classId) ?? "Selected class"} is limited to students age ${maxAge} or younger.` };
       }
@@ -2581,6 +2675,7 @@ export async function serverInsertEnrichmentRequests(input: {
     waitlist?: boolean;
   }[];
   submitScope?: "slot" | "choice";
+  allowAgeOverride?: boolean;
 }): Promise<{ ok: true; rows: EnrichmentRequestRow[] } | WriteFail> {
   if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
   const choices = normalizeEnrichmentRequestChoices(input.choices
@@ -2600,6 +2695,9 @@ export async function serverInsertEnrichmentRequests(input: {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
+    const signedInAdminCanOverrideAge = Boolean(
+      user?.id && input.allowAgeOverride === true && await currentUserIsAdmin(supabase, user.id),
+    );
     if (userError || !user) {
       const studentId = input.studentId?.trim();
       if (!studentId) return { ok: false, message: "Choose a student before submitting class selections" };
@@ -2647,6 +2745,8 @@ export async function serverInsertEnrichmentRequests(input: {
         return openSlots;
       }
 
+      const reservingClassIds = choices.filter((choice) => !choice.waitlist).map((choice) => choice.classId);
+      const capacityBefore = await selectClassCapacitySnapshots(admin, reservingClassIds);
       const inserted = await insertEnrichmentRequestRows(admin, {
         studentId,
         requestedByProfileId: requesterProfileId,
@@ -2660,6 +2760,10 @@ export async function serverInsertEnrichmentRequests(input: {
       await writeClassRequestSubmittedNotifications(admin, {
         rows: inserted.rows,
         requesterProfileId,
+      });
+      await writeClassCapacityReachedNotifications(admin, {
+        classIds: reservingClassIds,
+        before: capacityBefore,
       });
       return inserted;
     }
@@ -2685,7 +2789,11 @@ export async function serverInsertEnrichmentRequests(input: {
       return duplicates;
     }
 
-    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, { semesterId, studentId });
+    const capacity = await ensureClassCapacityForChoices(capacityClient, choices, {
+      semesterId,
+      studentId,
+      allowAgeOverride: signedInAdminCanOverrideAge,
+    });
     if (!capacity.ok) {
       const restored = await restorePendingEnrichmentRequestChoices(capacityClient, cleared.rows);
       if (!restored.ok) return restored;
@@ -2699,6 +2807,8 @@ export async function serverInsertEnrichmentRequests(input: {
       return openSlots;
     }
 
+    const reservingClassIds = choices.filter((choice) => !choice.waitlist).map((choice) => choice.classId);
+    const capacityBefore = await selectClassCapacitySnapshots(capacityClient, reservingClassIds);
     const result = await insertEnrichmentRequestRows(supabase, {
       studentId,
       requestedByProfileId: user.id,
@@ -2713,11 +2823,15 @@ export async function serverInsertEnrichmentRequests(input: {
       rows: result.rows,
       requesterProfileId: user.id,
     });
+    await writeClassCapacityReachedNotifications(capacityClient, {
+      classIds: reservingClassIds,
+      before: capacityBefore,
+    });
     await writeAuditEvent(supabase, {
       action: "class_request.create",
       entityType: "class_request",
       entityId: result.rows.map((row) => row.id).join(","),
-      metadata: { count: result.rows.length, studentId },
+      metadata: { count: result.rows.length, studentId, ageOverride: signedInAdminCanOverrideAge },
     });
     return result;
   } catch (e) {
@@ -2774,6 +2888,9 @@ export async function serverPatchEnrichmentRequest(
         if (!allowed.ok) return allowed;
       }
 
+      const capacityBefore = dbStatus === "approved"
+        ? await selectClassCapacitySnapshots(mutationClient, [classId])
+        : new Map<string, ClassCapacitySnapshot>();
       const { error: enrollmentError } = await mutationClient
         .from("enrollments")
         .update({ status: dbStatus })
@@ -2817,6 +2934,10 @@ export async function serverPatchEnrichmentRequest(
         className: row.class,
         status: dbStatus,
       });
+      await writeClassCapacityReachedNotifications(mutationClient, {
+        classIds: dbStatus === "approved" ? [classId] : [],
+        before: capacityBefore,
+      });
       await writeAuditEvent(supabase, {
         action: "enrollment.status.update",
         entityType: "enrollment",
@@ -2841,6 +2962,8 @@ export async function serverPatchEnrichmentRequest(
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: dbStatus === "pending" ? "No row updated" : "Request not found" };
     const raw = data as unknown as Record<string, unknown>;
+    let decisionCapacityClassIds: string[] = [];
+    let decisionCapacityBefore = new Map<string, ClassCapacitySnapshot>();
     if (dbStatus !== "pending") {
       const studentId = String(raw.student_id ?? "").trim();
       const classId = String(raw.class_id ?? "").trim();
@@ -2858,6 +2981,10 @@ export async function serverPatchEnrichmentRequest(
         if (!allowed.ok) return allowed;
       }
 
+      if (dbStatus === "approved") {
+        decisionCapacityClassIds = [classId];
+        decisionCapacityBefore = await selectClassCapacitySnapshots(mutationClient, decisionCapacityClassIds);
+      }
       const { error: enrollmentError } = await mutationClient
         .from("enrollments")
         .upsert(
@@ -2902,6 +3029,10 @@ export async function serverPatchEnrichmentRequest(
         student: row.student,
         className: row.class,
         status: dbStatus,
+      });
+      await writeClassCapacityReachedNotifications(mutationClient, {
+        classIds: decisionCapacityClassIds,
+        before: decisionCapacityBefore,
       });
     }
     await writeAuditEvent(supabase, {

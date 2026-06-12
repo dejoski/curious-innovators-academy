@@ -22,8 +22,15 @@ const repository = fs.readFileSync(
 assert.match(repository, /if \(normalizedState === "finalized"\)/);
 assert.match(repository, /cannot be finalized yet/);
 assert.match(repository, /has a conflict and cannot be finalized/);
+assert.match(repository, /writeStudentScheduleFinalizedNotifications/);
+assert.match(repository, /title: "Schedule finalized"/);
+assert.match(repository, /previousScheduleState !== "finalized"/);
 assert.match(repository, /from\("student_schedule_states"\)/);
 assert.match(repository, /finalized_by:\s*finalizedBy/);
 assert.match(repository, /finalized_at:\s*finalizedAt/);
+assert.match(repository, /writeScheduleStateAuditEvent/);
+assert.match(repository, /action:\s*"student_schedule_state\.update"/);
+assert.match(repository, /entity_type:\s*"student"/);
+assert.match(repository, /semesterId/);
 
 console.log("student schedule state route regression passed");

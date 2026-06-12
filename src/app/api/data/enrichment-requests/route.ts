@@ -14,7 +14,7 @@ import {
   serverPatchEnrichmentRequest,
 } from "@/lib/data/server-writes";
 import type { EnrichmentRequestRow } from "@/lib/data/types";
-import { parseBody, parseIdFromBody, parseIdFromSearchParams, handleWriteError, handleWriteSuccess } from "@/lib/api/route-factory";
+import { parseBody, parseIdFromBody, parseIdFromSearchParams } from "@/lib/api/route-factory";
 
 export async function GET(request: Request) {
   const current = await loadCurrentApiUser();
@@ -76,6 +76,7 @@ export async function POST(req: Request) {
     studentId: body.studentId != null ? String(body.studentId) : undefined,
     choices,
     submitScope,
+    allowAgeOverride: body.allowAgeOverride === true,
   });
   if (!result.ok) {
     return apiWriteError(result.message, 400);

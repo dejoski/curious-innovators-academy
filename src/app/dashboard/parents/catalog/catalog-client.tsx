@@ -44,7 +44,6 @@ import {
   catalogChoiceReviews,
   catalogSnapshotFromEnrichmentRequests,
   changedParentCatalogChoiceRequests,
-  changedParentCatalogRequests,
   clearPendingParentCatalogRequests,
   clearSubmittedParentCatalogSnapshot,
   hasParentCatalogChoices,
@@ -411,6 +410,7 @@ function ParentClassesEnrichmentCatalogContent() {
           studentAgeYears,
           schedule: studentSchedule,
           allowFullForWaitlist: true,
+          allowPendingScheduleSlot: activeMeta.scheduleSlot,
           allowClassIds: [activeRequests.firstChoice?.id, activeRequests.secondChoice?.id].filter(
             (id): id is string => Boolean(id),
           ),
@@ -449,8 +449,8 @@ function ParentClassesEnrichmentCatalogContent() {
 
   function openScheduleSlot(slot: ParentScheduleSlotKey) {
     const currentBadges = scheduleBadgesBySlot[slot] ?? [];
-    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved" || badge.tone === "pending")) {
-      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed or pending class. Ask the school team to change it, or use waitlist actions for classes that should not replace the current schedule." });
+    if (currentBadges.some((badge) => badge.tone === "core" || badge.tone === "approved")) {
+      setSubmitBanner({ tone: "warning", message: "This slot already has a confirmed class. Ask the school team to change it, or use waitlist actions for classes that should not replace the current schedule." });
       return;
     }
     const catalogSlot = catalogSlotIdFromScheduleSlot(slot);
@@ -458,7 +458,7 @@ function ParentClassesEnrichmentCatalogContent() {
   }
 
   function selectChoice(cls: ParentClassOption, kind: ParentClassChoiceKind) {
-    if (hasBlockingScheduleConflict(cls, studentSchedule)) {
+    if (hasBlockingScheduleConflict(cls, studentSchedule, { allowPendingScheduleSlot: activeMeta.scheduleSlot })) {
       setSubmitBanner({ tone: "warning", message: "This class conflicts with a confirmed or pending class already visible in the schedule." });
       return;
     }
@@ -553,7 +553,7 @@ function ParentClassesEnrichmentCatalogContent() {
       const res = await fetch("/api/data/enrichment-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: activeStudent?.id, choices, submitScope: "choice" }),
+        body: JSON.stringify({ studentId: activeStudent?.id, choices, submitScope: scope === "active-slot" ? "slot" : "choice" }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;

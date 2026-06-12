@@ -39,12 +39,41 @@ These were marked `Not Started`, `Needs Attention`, or `In Progress` in the sour
 
 ## Still Real Work
 
-- ID 6 row 7: parent edit of an already pending request.
-- IDs 20-22 rows 21-23: complete immutable schedule-change audit history.
-- IDs 24-25 rows 25-26: historical class/schedule snapshots.
-- ID 29 row 30: full data exportability beyond current partial CSV exports.
-- IDs 95 and 100 rows 96 and 101: explicit term/date selection.
-- ID 108 row 109: admin override of age rule.
-- IDs 109-112 rows 110-113: core assignment by block/group/level remains only partially proven.
-- ID 118 row 119: teacher conflict detection/override record.
-- Remaining notification rows: finalized, action-needed, capacity, conflict, and waitlist-created notifications.
+- IDs 20-22 rows 21-23: schedule state writes now create audit events, but complete immutable history for every schedule edit path still needs production/browser proof.
+- IDs 24-25 rows 25-26: historical class/schedule snapshots remain partial; current schedule state/audit evidence is not a full historical snapshot model.
+- ID 118 row 119: teacher conflict detection is coded, but an explicit admin override record still needs product confirmation and proof.
+- Notification rows for action-needed/incomplete schedule and conflict detected are currently dashboard alerts, not durable notification rows.
+
+## Second Coordinator Pass - 2026-06-12
+
+These updates were implemented after worker feedback and should be moved out of `Not Started` once this commit is merged, deployed, and smoke-checked.
+
+| IDs | Spreadsheet rows | Tracker area | Status recommendation | Proof |
+| --- | ---: | --- | --- | --- |
+| 6 | 7 | Parent edit pending request | Done after deployment proof | Parent catalog can reopen a pending slot, keep pending choices selectable only for that slot, and submit with `submitScope: "slot"`. Covered by `scripts/test-parent-catalog-state.cjs`. |
+| 20-22 | 21-23 | Schedule state audit | Needs Attention | Schedule state transitions now write non-blocking `student_schedule_state.update` audit events with actor, timestamp, state, semester, finalizer metadata. Covered by `scripts/test-student-schedule-state-route.cjs`. Full immutable history across all edit paths still needs proof. |
+| 29 | 30 | Audit exportability | Needs Attention | Added admin-only `/api/data/audit-events` with JSON and CSV export. Covered by `scripts/test-audit-events-export.cjs` and auth guard checks. Broader export catalog still needs owner acceptance. |
+| 77, 80, 81, 83 | 78, 81, 82, 84 | Notifications | Needs Attention | Waitlist-created/submitted, class capacity reached, request decisions, and schedule finalized notifications are wired to real write paths. Covered by `scripts/test-notification-event-plumbing.cjs` and `scripts/test-student-schedule-state-route.cjs`. Action-needed/conflict durable notifications remain dashboard-alert only. |
+| 95, 100 | 96, 101 | Class term/date selection | Done after deployment proof | Create/edit class forms now load terms, default to current term, and send `semesterId`. Covered by `scripts/test-class-term-selector.cjs`. |
+| 108 | 109 | Admin age override | Needs Attention | Admin-authenticated request creation can pass `allowAgeOverride`; server validates signed-in admin before bypassing age guard and audits override metadata. Covered by `scripts/test-admin-age-override.cjs`. Browser UX for surfacing the override still needs proof. |
+| 109-112 | 110-113 | Core assignment by group/block/level | Needs Attention | Existing competency block mapping proof remains valid through `scripts/test-competency-block-mappings.cjs`; do not reassign as unstarted. Production UAT still needed. |
+| 118 | 119 | Teacher conflict detection | Needs Attention | Schedule rows now get teacher conflict diagnostics across same daily slots/classes. Covered by `scripts/test-schedule-diagnostics.cjs`. Explicit override record is still open. |
+
+Verification completed locally for this second pass:
+
+- `node scripts/test-class-term-selector.cjs`
+- `node scripts/test-admin-age-override.cjs`
+- `node scripts/test-parent-catalog-state.cjs`
+- `node scripts/test-audit-events-export.cjs`
+- `node scripts/test-schedule-diagnostics.cjs`
+- `node scripts/test-notification-event-plumbing.cjs`
+- `node scripts/test-student-schedule-state-route.cjs`
+- `node scripts/test-competency-block-mappings.cjs`
+- `node scripts/test-capacity-waitlist-rules.cjs`
+- `npm run check:api-auth-guards`
+- `npm run check:sql-security`
+- `npx react-doctor@latest --verbose --diff`
+- `git diff --check`
+- `npx tsc --noEmit`
+- focused ESLint over touched TS/TSX files
+- `npm run build`

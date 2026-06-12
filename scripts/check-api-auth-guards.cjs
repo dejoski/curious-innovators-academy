@@ -78,6 +78,13 @@ assertIncludes("src/app/api/data/approval-history/route.ts", [
   "fetchApprovalHistoryResolved",
 ]);
 
+assertIncludes("src/app/api/data/audit-events/route.ts", [
+  "requireRemoteApiSession",
+  "fetchAdminAuditEventsResolved",
+  "format\") === \"csv\"",
+  "auditEventsToCsv",
+]);
+
 if (failures.length > 0) {
   console.error("API auth guard check failed:");
   for (const failure of failures) console.error(`- ${failure}`);
