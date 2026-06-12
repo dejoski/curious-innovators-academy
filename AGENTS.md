@@ -18,6 +18,7 @@
 
 - Format school-facing history and schedule date behavior in `America/New_York`.
 - Verify thin/mobile viewports when layout is involved.
+- Do not leave intentional code/config changes only local. When the user asks for implementation work, push through `main` with `gh auth switch -u dejoski`, verify Vercel production updates, then switch GitHub auth back to `Dejan-Stajic_dentsu`.
 - During active localhost iteration, default to scoped coding and scoped verification in the running app, then end the turn with an exact proof level and optional validation offer.
 - Offer full lint/build/typecheck/browser/qa sweeps only when the user asks, when shared types or data boundaries changed, when work is moving toward push/deploy/issue closure, or when a focused check shows widening is the shortest safe next step.
 - Do not call production fixed until local checks plus Vercel Ready/health are confirmed.

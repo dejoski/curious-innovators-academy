@@ -53,6 +53,18 @@ function mapStatus(raw: unknown): RequestStatus {
   return "Pending";
 }
 
+function classTeacher(row: Record<string, unknown> | null | undefined): { teacherId?: string; teacher?: string } {
+  if (!row) return {};
+  const teacherRel = firstRel<Record<string, unknown>>(row.teachers);
+  const teacherProfile = firstRel<Record<string, unknown>>(teacherRel?.profiles);
+  const teacherId = String(row.teacher_id ?? "").trim();
+  const teacher = String(row.teacher_name ?? row.teacher ?? teacherProfile?.display_name ?? "").trim();
+  return {
+    teacherId: teacherId || undefined,
+    teacher: teacher || undefined,
+  };
+}
+
 export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRow | null {
   if (row.id == null || String(row.id) === "") return null;
 
@@ -60,6 +72,7 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
   const s = firstRel<Record<string, unknown>>(row.students);
   const c = firstRel<Record<string, unknown>>(row.classes);
   const r = firstRel<Record<string, unknown>>(row.requester);
+  const teacher = classTeacher(c);
 
   const studentName = s ? String(s.display_name ?? s.student_name ?? "") : "";
   const parentContact = parentContactFromStudentRow(s);
@@ -80,6 +93,8 @@ export function mapRequestRow(row: Record<string, unknown>): EnrichmentRequestRo
       requesterName ||
       String(row.parent_name ?? row.parent ?? ""),
     class: className || String(row.class_name ?? row.class_title ?? row.class ?? ""),
+    teacherId: teacher.teacherId,
+    teacher: teacher.teacher,
     block: formatBlockDayLabel(requestBlock, requestDay),
     level: formatClassLevelLabel(classLevel),
     option: formatRequestOptionLabel(rawOption),
@@ -96,6 +111,7 @@ function mapEnrollmentDecisionRequestRow(row: Record<string, unknown>): Enrichme
 
   const student = firstRel<Record<string, unknown>>(row.students);
   const cls = firstRel<Record<string, unknown>>(row.classes);
+  const teacher = classTeacher(cls);
   return {
     id: `enrollment:${String(row.id)}`,
     studentId: row.student_id == null ? undefined : String(row.student_id),
@@ -103,6 +119,8 @@ function mapEnrollmentDecisionRequestRow(row: Record<string, unknown>): Enrichme
     student: String(student?.display_name ?? student?.student_name ?? ""),
     parent: parentContactFromStudentRow(student).name,
     class: String(cls?.name ?? cls?.class_name ?? ""),
+    teacherId: teacher.teacherId,
+    teacher: teacher.teacher,
     block: formatBlockDayLabel(cls?.block, undefined, cls?.schedule_summary),
     level: formatClassLevelLabel(cls?.level),
     option: "Final placement",
@@ -133,7 +151,7 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
         level,
         option_label,
         students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
-        classes ( name, level ),
+        classes ( name, level, teacher_id, teachers ( profiles ( display_name ) ) ),
         requester:profiles!class_requests_requested_by_profile_id_fkey ( display_name, email )
       `,
       )
@@ -148,7 +166,7 @@ async function loadRequestsResolved(client?: RequestReadClient, options?: Reques
         status,
         created_at,
         students ( display_name, guardian_label, ${STUDENT_PARENT_CONTACT_SELECT} ),
-        classes ( name, program, block, level, schedule_summary )
+        classes ( name, program, block, level, schedule_summary, teacher_id, teachers ( profiles ( display_name ) ) )
       `,
       )
       .order("created_at", { ascending: false });

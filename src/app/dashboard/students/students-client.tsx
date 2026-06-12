@@ -195,6 +195,8 @@ export default function StudentsStudentsList({
   const [messageHint, setMessageHint] = useState<string | null>(null);
   const [savingParentEmail, setSavingParentEmail] = useState(false);
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
+  const [isBulkRemoveOpen, setIsBulkRemoveOpen] = useState(false);
+  const [isDeletingStudents, setIsDeletingStudents] = useState(false);
   const [spreadsheetBanner, setSpreadsheetBanner] = useState<string | null>(
     null,
   );
@@ -202,6 +204,7 @@ export default function StudentsStudentsList({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const coreFilterRef = useRef<HTMLDivElement>(null);
   const statusFilterRef = useRef<HTMLDivElement>(null);
+  const bulkRemoveDialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     setStudents([...initialStudents]);
   }, [initialStudents]);
@@ -295,6 +298,10 @@ export default function StudentsStudentsList({
     if (!studentId) return;
     preloadStudentDetailData(studentId);
   }, []);
+  const selectedStudentRows = useMemo(
+    () => students.filter((student) => selectedStudents.includes(student.id)),
+    [students, selectedStudents],
+  );
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -398,6 +405,71 @@ export default function StudentsStudentsList({
       setSelectedStudents([...selectedStudents, id]);
     }
   };
+  function openBulkRemoveDialog() {
+    setIsBulkRemoveOpen(true);
+    if (!bulkRemoveDialogRef.current?.open) {
+      bulkRemoveDialogRef.current?.showModal();
+    }
+  }
+  function closeBulkRemoveDialog() {
+    setIsBulkRemoveOpen(false);
+    if (bulkRemoveDialogRef.current?.open) {
+      bulkRemoveDialogRef.current.close();
+    }
+  }
+  async function deleteSelectedStudents() {
+    if (isDeletingStudents) return;
+
+    const ids = selectedStudentRows.map((student) => student.id);
+    if (ids.length === 0) {
+      setIsBulkRemoveOpen(false);
+      return;
+    }
+
+    const removedRows = selectedStudentRows;
+    const originalOrder = new Map(students.map((student, index) => [student.id, index]));
+    setIsDeletingStudents(true);
+    setStudents((prev) => prev.filter((student) => !ids.includes(student.id)));
+    setSelectedStudents([]);
+    closeBulkRemoveDialog();
+
+    const results = await Promise.all(ids.map(async (id) => {
+      try {
+        const res = await fetch(`/api/data/students?id=${encodeURIComponent(String(id))}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          return { id, message: await readApiError(res) };
+        }
+      } catch (error) {
+        return {
+          id,
+          message: error instanceof Error ? error.message : "Network error",
+        };
+      }
+      return null;
+    }));
+    const failures = results.filter((result): result is { id: string; message: string } => result !== null);
+
+    if (failures.length > 0) {
+      const failedIds = new Set(failures.map((failure) => failure.id));
+      setStudents((prev) => {
+        const existingIds = new Set(prev.map((student) => student.id));
+        const restored = removedRows.filter((student) => failedIds.has(student.id) && !existingIds.has(student.id));
+        return [...prev, ...restored].sort(
+          (left, right) => (originalOrder.get(left.id) ?? 0) - (originalOrder.get(right.id) ?? 0),
+        );
+      });
+      setSyncHint(
+        `${failures.length} of ${ids.length} student${ids.length === 1 ? "" : "s"} could not be removed: ${failures[0]?.message ?? "Unknown error"}`,
+      );
+    } else {
+      setSpreadsheetBanner(`Removed ${ids.length} student${ids.length === 1 ? "" : "s"}.`);
+    }
+
+    invalidateDashboardData(["/api/data/students", "/api/dashboard-presentation"]);
+    setIsDeletingStudents(false);
+  }
   return (
     <div className="flex flex-col w-full min-h-full px-[32px] py-[32px] gap-[24px] font-sans relative">
       <div className="flex flex-col gap-[4px]">
@@ -722,6 +794,14 @@ export default function StudentsStudentsList({
           >
             Open selected profile
           </Link>
+          <button
+            type="button"
+            onClick={openBulkRemoveDialog}
+            disabled={isDeletingStudents || selectedStudentRows.length === 0}
+            className="rounded-[6px] bg-[#d80509] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#c00408] disabled:cursor-not-allowed disabled:bg-white/60 disabled:text-[#667085]"
+          >
+            {isDeletingStudents ? "Deleting..." : "Delete selected"}
+          </button>
         </DashboardBulkSelectionBar>
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
           <div className="w-[1068px] flex flex-col">
@@ -984,6 +1064,49 @@ export default function StudentsStudentsList({
           </div>
         </div>
       )}
+      <dialog
+        ref={bulkRemoveDialogRef}
+        className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg backdrop:bg-black/40"
+        onCancel={() => setIsBulkRemoveOpen(false)}
+        onClose={() => setIsBulkRemoveOpen(false)}
+      >
+        <h2 className="text-lg font-semibold text-[#272932]">
+          Delete selected students?
+        </h2>
+        <p className="mt-2 text-sm text-[#666d80]">
+          This will remove {selectedStudentRows.length} selected student{selectedStudentRows.length === 1 ? "" : "s"} from the directory.
+          If the server rejects any removal, those rows will be restored.
+        </p>
+        <div className="mt-4 max-h-40 overflow-auto rounded-lg border border-[#e8e9ed] bg-[#fafafa] p-3">
+          <ul className="space-y-1 text-sm text-[#272932]">
+            {selectedStudentRows.slice(0, 8).map((student) => (
+              <li key={student.id}>{student.name}</li>
+            ))}
+            {selectedStudentRows.length > 8 ? (
+              <li className="text-[#666d80]">
+                +{selectedStudentRows.length - 8} more
+              </li>
+            ) : null}
+          </ul>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            className="rounded-md bg-[#fafafa] px-4 py-2 text-sm font-semibold text-[#0d0d12]"
+            onClick={closeBulkRemoveDialog}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isDeletingStudents || selectedStudentRows.length === 0 || !isBulkRemoveOpen}
+            className="rounded-md bg-[#d80509] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c00408] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            onClick={() => void deleteSelectedStudents()}
+          >
+            {isDeletingStudents ? "Deleting..." : "Delete selected"}
+          </button>
+        </div>
+      </dialog>
       <DashboardBulkImportModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}

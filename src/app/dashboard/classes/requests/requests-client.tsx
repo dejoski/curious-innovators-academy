@@ -27,7 +27,7 @@ export type ClassesEnrichmentRequestsProps = {
 };
 
 const PAGE_SIZE = 10;
-type SortKey = "student" | "parent" | "class" | "block" | "level" | "option" | "status";
+type SortKey = "student" | "parent" | "class" | "teacher" | "block" | "level" | "option" | "status";
 type FilterValue = "All" | RequestStatus;
 
 const STATUS_PRIORITY: Record<RequestStatus, number> = {
@@ -38,9 +38,9 @@ const STATUS_PRIORITY: Record<RequestStatus, number> = {
 };
 
 const REQUESTS_GRID_COLUMNS =
-  "32px minmax(104px,0.65fr) minmax(130px,1fr) minmax(130px,1fr) minmax(170px,1.25fr) minmax(112px,0.8fr) minmax(86px,0.65fr) minmax(126px,0.85fr) 40px";
+  "32px minmax(104px,0.6fr) minmax(130px,0.9fr) minmax(130px,0.9fr) minmax(130px,0.9fr) minmax(170px,1.2fr) minmax(112px,0.75fr) minmax(86px,0.6fr) minmax(126px,0.8fr) 40px";
 const REQUESTS_GRID_COLUMNS_COMPACT =
-  "minmax(104px,0.65fr) minmax(130px,1fr) minmax(130px,1fr) minmax(170px,1.25fr) minmax(112px,0.8fr) minmax(86px,0.65fr) minmax(126px,0.85fr) 40px";
+  "minmax(104px,0.6fr) minmax(130px,0.9fr) minmax(130px,0.9fr) minmax(130px,0.9fr) minmax(170px,1.2fr) minmax(112px,0.75fr) minmax(86px,0.6fr) minmax(126px,0.8fr) 40px";
 
 function statusBadgeClass(status: RequestStatus) {
   if (status === "Pending") return "bg-[#cfa500]/20 text-[#8a6d00] border-[#cfa500]/50";
@@ -123,6 +123,26 @@ function statusActionComplete(status: RequestStatus, count: number) {
   return `${count} ${noun} reopened.`;
 }
 
+function normalizedFilter(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function teacherLabel(row: EnrichmentRequestRow) {
+  return row.teacher?.trim() || "Teacher not assigned";
+}
+
+function uniqueSortedValues(rows: EnrichmentRequestRow[], valueForRow: (row: EnrichmentRequestRow) => string) {
+  return Array.from(new Set(rows.flatMap((row) => {
+    const value = valueForRow(row).trim();
+    return value ? [value] : [];
+  }))).toSorted((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function requestSortValue(row: EnrichmentRequestRow, key: SortKey) {
+  if (key === "teacher") return teacherLabel(row);
+  return String(row[key] ?? "");
+}
+
 export default function ClassesEnrichmentRequests({
   initialRequests,
   dataSource,
@@ -150,7 +170,11 @@ export default function ClassesEnrichmentRequests({
   const [actionBusy, setActionBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("All");
-  const [sortKey, setSortKey] = useState<SortKey>("student");
+  const [studentFilter, setStudentFilter] = useState("All");
+  const [classFilter, setClassFilter] = useState("All");
+  const [teacherFilter, setTeacherFilter] = useState("All");
+  const [blockFilter, setBlockFilter] = useState("All");
+  const [sortKey, setSortKey] = useState<SortKey>("teacher");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -200,7 +224,6 @@ export default function ClassesEnrichmentRequests({
     setSelectedIds(new Set());
     setSearch("");
     setFilter("All");
-    setSortKey("student");
     setSortDir("asc");
     setPage(1);
     setFilterOpen(false);
@@ -249,6 +272,11 @@ export default function ClassesEnrichmentRequests({
     () => (compactView ? classScopedRows.filter((request) => request.status === "Pending") : requests),
     [classScopedRows, compactView, requests],
   );
+  const filterSourceRows = compactView ? activeRequestRows : requests;
+  const studentFilterOptions = useMemo(() => uniqueSortedValues(filterSourceRows, (row) => row.student), [filterSourceRows]);
+  const classFilterOptions = useMemo(() => uniqueSortedValues(filterSourceRows, (row) => row.class), [filterSourceRows]);
+  const teacherFilterOptions = useMemo(() => uniqueSortedValues(filterSourceRows, teacherLabel), [filterSourceRows]);
+  const blockFilterOptions = useMemo(() => uniqueSortedValues(filterSourceRows, (row) => row.block), [filterSourceRows]);
 
   const processed = useMemo(() => {
     const q = compactView ? "" : search.trim().toLowerCase();
@@ -257,23 +285,30 @@ export default function ClassesEnrichmentRequests({
       if (classNameFromUrl && r.class.trim().toLowerCase() !== classNameFromUrl) return false;
       if (compactView && r.status !== "Pending") return false;
       if (!compactView && filter !== "All" && r.status !== filter) return false;
+      if (!compactView && studentFilter !== "All" && normalizedFilter(r.student) !== normalizedFilter(studentFilter)) return false;
+      if (!compactView && classFilter !== "All" && normalizedFilter(r.class) !== normalizedFilter(classFilter)) return false;
+      if (!compactView && teacherFilter !== "All" && normalizedFilter(teacherLabel(r)) !== normalizedFilter(teacherFilter)) return false;
+      if (!compactView && blockFilter !== "All" && normalizedFilter(r.block) !== normalizedFilter(blockFilter)) return false;
       if (!q) return true;
-      const hay = [r.student, r.parent, r.class, r.block, r.level, r.option, r.status].join(" ").toLowerCase();
+      const hay = [r.student, r.parent, r.class, r.teacher, r.block, r.level, r.option, r.status].join(" ").toLowerCase();
       return hay.includes(q);
     });
     rows = [...rows].sort((a, b) => {
-      const statusCmp = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
-      if (statusCmp !== 0) return statusCmp;
       if (sortKey === "status") {
+        const statusCmp = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+        if (statusCmp !== 0) return sortDir === "asc" ? statusCmp : -statusCmp;
         return a.student.localeCompare(b.student, undefined, { sensitivity: "base" });
       }
-      const av = a[sortKey];
-      const bv = b[sortKey];
+      const av = requestSortValue(a, sortKey);
+      const bv = requestSortValue(b, sortKey);
       const cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
-      return sortDir === "asc" ? cmp : -cmp;
+      if (cmp !== 0) return sortDir === "asc" ? cmp : -cmp;
+      const statusCmp = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+      if (statusCmp !== 0) return statusCmp;
+      return a.student.localeCompare(b.student, undefined, { sensitivity: "base" });
     });
     return rows;
-  }, [requests, activeRequestRows, classIdFromUrl, classNameFromUrl, compactView, search, filter, sortKey, sortDir]);
+  }, [requests, activeRequestRows, classIdFromUrl, classNameFromUrl, compactView, search, filter, studentFilter, classFilter, teacherFilter, blockFilter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -599,6 +634,62 @@ export default function ClassesEnrichmentRequests({
                   {allFilteredSelected ? "Deselect rows" : `Select rows (${selectableProcessed.length})`}
                 </button>
               ) : null}
+              <label className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]">
+                <span>Student</span>
+                <select
+                  value={studentFilter}
+                  className="max-w-[140px] bg-transparent font-medium outline-none"
+                  onChange={(e) => {
+                    setStudentFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="All">All</option>
+                  {studentFilterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]">
+                <span>Class</span>
+                <select
+                  value={classFilter}
+                  className="max-w-[140px] bg-transparent font-medium outline-none"
+                  onChange={(e) => {
+                    setClassFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="All">All</option>
+                  {classFilterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]">
+                <span>Teacher</span>
+                <select
+                  value={teacherFilter}
+                  className="max-w-[140px] bg-transparent font-medium outline-none"
+                  onChange={(e) => {
+                    setTeacherFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="All">All</option>
+                  {teacherFilterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-1 bg-[#fafafa] px-2 py-1 rounded-[8px] text-[12px]">
+                <span>Block</span>
+                <select
+                  value={blockFilter}
+                  className="max-w-[140px] bg-transparent font-medium outline-none"
+                  onChange={(e) => {
+                    setBlockFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="All">All</option>
+                  {blockFilterOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
               <div className="relative" ref={filterRef}>
                 <button
                   type="button"
@@ -652,6 +743,7 @@ export default function ClassesEnrichmentRequests({
                         ["student", "Student name"],
                         ["parent", "Parent"],
                         ["class", "Class"],
+                        ["teacher", "Teacher"],
                         ["block", "Block"],
                         ["level", "Level"],
                         ["option", "Option"],
@@ -805,7 +897,7 @@ export default function ClassesEnrichmentRequests({
           </div>
 
           <div className="hidden w-full min-w-0 overflow-x-auto pb-2 md:block">
-            <div className="min-w-[1040px]">
+            <div className="min-w-[1160px]">
           <div
             className="grid gap-3 pb-3 border-b border-[#f0f0f0] text-[12px] font-semibold text-[#8b919f] uppercase tracking-wide"
             style={{ gridTemplateColumns: compactView ? REQUESTS_GRID_COLUMNS_COMPACT : REQUESTS_GRID_COLUMNS }}
@@ -825,6 +917,7 @@ export default function ClassesEnrichmentRequests({
             <div>Status</div>
             <div>Student</div>
             <div>Parent</div>
+            <div>Teacher</div>
             <div>Class</div>
             <div className="text-center">Block</div>
             <div className="text-center">Level</div>
@@ -873,6 +966,7 @@ export default function ClassesEnrichmentRequests({
                 )}
               </div>
               <div className="truncate">{req.parent}</div>
+              <div className="truncate" title={teacherLabel(req)}>{teacherLabel(req)}</div>
               <div className="truncate">
                 {req.classId ? (
                   <Link
