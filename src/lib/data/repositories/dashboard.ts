@@ -5,6 +5,7 @@ import {
   type DashboardDailyBlockRow,
   type DashboardHeadCounts,
 } from "@/lib/dashboard-metrics";
+import { fetchAdminStudentSchedulesResolved } from "@/lib/data/repositories/student-details";
 
 type CountTable = "students" | "teachers" | "classes";
 
@@ -95,6 +96,35 @@ async function parentStudentLinkAlerts(
   return alerts;
 }
 
+async function studentScheduleSystemAlerts(): Promise<{ id: string; title: string; detail: string; href: string }[]> {
+  const { rows, source } = await fetchAdminStudentSchedulesResolved();
+  if (source !== "remote") return [];
+
+  const incompleteSchedules = rows.filter((row) => (row.incompleteBlocks ?? 0) > 0);
+  const schedulesWithConflicts = rows.filter((row) => row.hasConflicts || (row.conflicts?.length ?? 0) > 0);
+  const alerts: { id: string; title: string; detail: string; href: string }[] = [];
+
+  if (incompleteSchedules.length > 0) {
+    alerts.push({
+      id: "incomplete-student-schedules",
+      title: `${incompleteSchedules.length} student schedule${incompleteSchedules.length === 1 ? "" : "s"} incomplete`,
+      detail: "Review open blocks before finalizing schedules.",
+      href: "/dashboard/students",
+    });
+  }
+
+  if (schedulesWithConflicts.length > 0) {
+    alerts.push({
+      id: "student-schedule-conflicts",
+      title: `${schedulesWithConflicts.length} schedule conflict${schedulesWithConflicts.length === 1 ? "" : "s"} detected`,
+      detail: "Resolve overlapping confirmed placements before finalizing.",
+      href: "/dashboard/students",
+    });
+  }
+
+  return alerts;
+}
+
 /**
  * Dashboard stat cards + Daily Blocks derived from the same counts.
  * Uses a service-role client only after the current server session is verified as admin.
@@ -106,7 +136,7 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
     const access = await requireAdminReadClient();
     if (!access) return unavailablePresentation();
 
-    const [results, systemAlerts] = await Promise.all([
+    const [results, parentLinkAlerts, scheduleAlerts] = await Promise.all([
       Promise.all([
       countExact(access.client, "students"),
       countExact(access.client, "teachers"),
@@ -114,6 +144,7 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
       countExact(access.client, "classes", { column: "program", value: "enrichment" }),
       ]),
       parentStudentLinkAlerts(access.client),
+      studentScheduleSystemAlerts(),
     ]);
 
     const failures = results.filter((result): result is CountQueryFailure => !result.ok);
@@ -143,7 +174,7 @@ export async function resolveDashboardPresentation(): Promise<ResolvedDashboardP
     return {
       metrics,
       dailyRows: getDashboardDailyBlocks(),
-      systemAlerts,
+      systemAlerts: [...scheduleAlerts, ...parentLinkAlerts],
       fromRemote: true,
     };
   } catch (error: unknown) {

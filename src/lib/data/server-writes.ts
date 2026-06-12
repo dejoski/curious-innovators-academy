@@ -373,6 +373,116 @@ async function writeAuditEvent(
   }
 }
 
+type NotificationInsertRow = {
+  recipient_profile_id: string;
+  title: string;
+  body: string;
+  href: string;
+};
+
+function uniqueNonEmpty(values: (string | null | undefined)[]): string[] {
+  return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))];
+}
+
+function possessiveName(name: string): string {
+  return name.endsWith("s") ? `${name}'` : `${name}'s`;
+}
+
+function requestStudentLabel(rows: Pick<EnrichmentRequestRow, "student">[]): string {
+  const names = uniqueNonEmpty(rows.map((row) => row.student));
+  if (names.length === 1) return names[0];
+  return "A student";
+}
+
+function requestClassLabel(rows: Pick<EnrichmentRequestRow, "class">[]): string {
+  const names = uniqueNonEmpty(rows.map((row) => row.class));
+  if (names.length === 0) return "selected class";
+  if (names.length === 1) return names[0];
+  return `${names.length} classes`;
+}
+
+async function selectAdminNotificationRecipients(
+  client: SupabaseMutationClient,
+): Promise<string[]> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin");
+  if (error) return [];
+  return uniqueNonEmpty(((data ?? []) as { id?: unknown }[]).map((row) => String(row.id ?? "")));
+}
+
+async function insertNotificationsIfPossible(
+  client: SupabaseMutationClient,
+  rows: NotificationInsertRow[],
+) {
+  const payload = rows.filter((row) => row.recipient_profile_id && row.title && row.body);
+  if (payload.length === 0) return;
+  try {
+    await client.from("notifications").insert(payload);
+  } catch {
+    /* Notification writes should not block the primary workflow. */
+  }
+}
+
+async function writeClassRequestSubmittedNotifications(
+  client: SupabaseMutationClient,
+  input: {
+    rows: EnrichmentRequestRow[];
+    requesterProfileId: string;
+  },
+) {
+  if (input.rows.length === 0) return;
+  const student = requestStudentLabel(input.rows);
+  const classes = requestClassLabel(input.rows);
+  const requestNoun = input.rows.length === 1 ? "request" : "requests";
+  const adminIds = await selectAdminNotificationRecipients(client);
+  const notifications: NotificationInsertRow[] = adminIds.map((recipientProfileId) => ({
+    recipient_profile_id: recipientProfileId,
+    title: input.rows.length === 1 ? "New class request submitted" : `${input.rows.length} class requests submitted`,
+    body: `${student} submitted ${requestNoun} for ${classes}.`,
+    href: "/dashboard/classes/requests",
+  }));
+  if (input.requesterProfileId) {
+    notifications.push({
+      recipient_profile_id: input.requesterProfileId,
+      title: input.rows.length === 1 ? "Class request submitted" : "Class requests submitted",
+      body: `We received ${possessiveName(student)} ${requestNoun} for ${classes}.`,
+      href: "/dashboard/parents/catalog",
+    });
+  }
+  await insertNotificationsIfPossible(client, notifications);
+}
+
+async function writeClassRequestDecisionNotification(
+  client: SupabaseMutationClient,
+  input: {
+    recipientProfileId: string;
+    student: string;
+    className: string;
+    status: FinalRequestDecisionStatus;
+  },
+) {
+  const recipientProfileId = input.recipientProfileId.trim();
+  if (!recipientProfileId) return;
+  const student = input.student.trim() || "Your child";
+  const className = input.className.trim() || "the selected class";
+  const statusCopy = input.status === "approved" ? "approved" : input.status === "waitlisted" ? "waitlisted" : "not approved";
+  await insertNotificationsIfPossible(client, [
+    {
+      recipient_profile_id: recipientProfileId,
+      title:
+        input.status === "approved"
+          ? "Class request approved"
+          : input.status === "waitlisted"
+            ? "Class request waitlisted"
+            : "Class request rejected",
+      body: `${possessiveName(student)} request for ${className} was ${statusCopy}.`,
+      href: "/dashboard/parents/catalog",
+    },
+  ]);
+}
+
 async function resolveTeacherIdByDisplayName(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   displayName: string,
@@ -2547,6 +2657,10 @@ export async function serverInsertEnrichmentRequests(input: {
         if (!restored.ok) return restored;
         return inserted;
       }
+      await writeClassRequestSubmittedNotifications(admin, {
+        rows: inserted.rows,
+        requesterProfileId,
+      });
       return inserted;
     }
 
@@ -2595,6 +2709,10 @@ export async function serverInsertEnrichmentRequests(input: {
       if (!restored.ok) return restored;
       return result;
     }
+    await writeClassRequestSubmittedNotifications(capacityClient, {
+      rows: result.rows,
+      requesterProfileId: user.id,
+    });
     await writeAuditEvent(supabase, {
       action: "class_request.create",
       entityType: "class_request",
@@ -2693,6 +2811,12 @@ export async function serverPatchEnrichmentRequest(
       const refetched = await selectFinalPlacement(mutationClient, id);
       const row = refetched.ok ? mapFinalPlacementRequestRow(refetched.raw) : mapFinalPlacementRequestRow({ ...raw, status: dbStatus });
       if (!row) return { ok: false, message: "Could not map final placement" };
+      await writeClassRequestDecisionNotification(mutationClient, {
+        recipientProfileId: String(decision?.requested_by_profile_id ?? ""),
+        student: row.student,
+        className: row.class,
+        status: dbStatus,
+      });
       await writeAuditEvent(supabase, {
         action: "enrollment.status.update",
         entityType: "enrollment",
@@ -2772,6 +2896,14 @@ export async function serverPatchEnrichmentRequest(
     const mapped = mapRequestRow(raw);
     if (!mapped) return { ok: false, message: "Could not map request" };
     const row = { ...mapped, status };
+    if (dbStatus !== "pending") {
+      await writeClassRequestDecisionNotification(mutationClient, {
+        recipientProfileId: String(raw.requested_by_profile_id ?? ""),
+        student: row.student,
+        className: row.class,
+        status: dbStatus,
+      });
+    }
     await writeAuditEvent(supabase, {
       action: "class_request.status.update",
       entityType: "class_request",

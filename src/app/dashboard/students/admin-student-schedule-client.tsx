@@ -14,7 +14,6 @@ import {
   DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS,
   DASHBOARD_DIRECTORY_TABLE_HEAD_ROW_CLASS,
   DASHBOARD_BODY_TEXT_CLASS,
-  DASHBOARD_BUTTON_TEXT_CLASS,
   DASHBOARD_PAGE_SUBTITLE_CLASS,
   DASHBOARD_PAGE_TITLE_CLASS,
   DASHBOARD_PANEL_CLASS,
@@ -24,14 +23,15 @@ import {
 import { readApiError } from "@/lib/client-api-errors";
 import { invalidateDashboardData, preloadStudentDetailData } from "@/lib/client-data-cache";
 import { downloadCsv } from "@/lib/client-directory-actions";
-import type { DataSource, StudentScheduleBadge, StudentScheduleRow } from "@/lib/data";
+import type { DataSource, StudentScheduleBadge, StudentScheduleRow, StudentScheduleState } from "@/lib/data";
 import { parentScheduleFinalityClasses, parentScheduleFinalityFromRow } from "@/lib/parent-schedule-status";
 import {
   STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS,
   type DailyParentScheduleSlotKey,
 } from "@/lib/schedule-slots";
 
-type ScheduleFilter = "all" | "pending" | "approved";
+type ScheduleFilterValue = "all";
+type ScheduleStateFilter = ScheduleFilterValue | StudentScheduleState;
 
 type ScheduleColumn = {
   key: DailyParentScheduleSlotKey;
@@ -55,6 +55,13 @@ const SLOT_LABELS: Record<DailyParentScheduleSlotKey, ScheduleColumn> = {
 };
 
 const COLUMNS: ScheduleColumn[] = STUDENT_SCHEDULE_COMPARISON_SLOT_KEYS.map((slot) => SLOT_LABELS[slot]);
+const ALL_FILTER_VALUE: ScheduleFilterValue = "all";
+
+const SCHEDULE_STATE_OPTIONS: { value: StudentScheduleState; label: string }[] = [
+  { value: "draft", label: "Draft" },
+  { value: "pending", label: "Pending finalization" },
+  { value: "finalized", label: "Finalized" },
+];
 
 function Link(props: React.ComponentProps<typeof NextLink>) {
   return <NextLink prefetch={false} {...props} />;
@@ -71,6 +78,36 @@ function chipClasses(tone: StudentScheduleBadge["tone"]) {
   if (tone === "waitlisted") return "border-[#cfa500]/45 bg-[#fff8e6] text-[#9a7600]";
   if (tone === "draft") return "border-[#8b5cf6]/35 bg-[#eadcff] text-[#6d28d9]";
   return "border-[#dfe3ea] bg-[#fbfcfe] text-[#667085]";
+}
+
+function scheduleStateLabel(state: StudentScheduleState) {
+  return SCHEDULE_STATE_OPTIONS.find((option) => option.value === state)?.label ?? state;
+}
+
+function scheduleSlotLabel(column: ScheduleColumn) {
+  return `${column.label} ${column.sublabel}`;
+}
+
+function uniqueSortedValues(values: string[]) {
+  return Array.from(new Set(values.flatMap((value) => {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }))).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
+}
+
+function placementTeacherLabel(badge: StudentScheduleBadge) {
+  return badge.teacher?.trim() ?? "";
+}
+
+function rowPlacementBadges(row: StudentScheduleRow) {
+  return COLUMNS.flatMap((column) =>
+    realBadges(row[column.key]).map((badge) => ({
+      badge,
+      column,
+    })),
+  );
 }
 
 function LegendItem({ tone, label }: { tone: StudentScheduleBadge["tone"]; label: string }) {
@@ -100,7 +137,15 @@ function ScheduleCell({ badges }: { badges: StudentScheduleBadge[] }) {
   );
 }
 
-function ScheduleStatePill({ row }: { row: StudentScheduleRow }) {
+function ScheduleStatePill({
+  row,
+  updating,
+  onStateChange,
+}: {
+  row: StudentScheduleRow;
+  updating: boolean;
+  onStateChange: (state: StudentScheduleState) => void;
+}) {
   const finality = parentScheduleFinalityFromRow(row);
   return (
     <div className="flex flex-col items-start gap-1.5">
@@ -126,21 +171,188 @@ function ScheduleStatePill({ row }: { row: StudentScheduleRow }) {
           </span>
         ) : null}
       </div>
+      <label className="mt-1 flex max-w-[142px] flex-col gap-1 text-[11px] font-semibold text-[#666d80]">
+        <span>Admin state</span>
+        <select
+          value={row.scheduleState}
+          disabled={updating}
+          onChange={(event) => onStateChange(event.target.value as StudentScheduleState)}
+          className="h-8 rounded-[8px] border border-[#dfe1e6] bg-white px-2 text-[12px] font-semibold text-[#0d0d12] outline-none disabled:cursor-wait disabled:opacity-60"
+          aria-label={`Set schedule state for ${row.name}`}
+        >
+          {SCHEDULE_STATE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
 
-function rowMatchesFilter(row: StudentScheduleRow, filter: ScheduleFilter) {
-  if (filter === "all") return true;
-  const badges = COLUMNS.flatMap((column) => realBadges(row[column.key]));
-  if (filter === "pending") return badges.some((badge) => badge.tone === "pending");
-  return badges.some((badge) => badge.tone === "approved") && !badges.some((badge) => badge.tone === "pending");
+function rowMatchesFilters(
+  row: StudentScheduleRow,
+  filters: {
+    query: string;
+    student: string;
+    className: string;
+    teacher: string;
+    block: string;
+    status: ScheduleStateFilter;
+  },
+) {
+  const placements = rowPlacementBadges(row);
+  if (filters.student !== ALL_FILTER_VALUE && row.id !== filters.student) return false;
+  if (filters.status !== ALL_FILTER_VALUE && row.scheduleState !== filters.status) return false;
+  if (filters.className !== ALL_FILTER_VALUE && !placements.some(({ badge }) => badge.label === filters.className)) return false;
+  if (filters.teacher !== ALL_FILTER_VALUE && !placements.some(({ badge }) => placementTeacherLabel(badge) === filters.teacher)) return false;
+  if (filters.block !== ALL_FILTER_VALUE && !placements.some(({ column }) => column.key === filters.block)) return false;
+
+  if (!filters.query) return true;
+  const haystack = [
+    row.name,
+    row.parent,
+    scheduleStateLabel(row.scheduleState),
+    ...placements.flatMap(({ badge, column }) => [badge.label, placementTeacherLabel(badge), scheduleSlotLabel(column)]),
+  ].join(" ").toLowerCase();
+  return haystack.includes(filters.query);
 }
 
 function sourceHint(source: DataSource) {
   if (source === "fallback") return "Showing starter schedules while records finish loading.";
   if (source === "unavailable") return "Student schedules are temporarily unavailable.";
   return null;
+}
+
+function ScheduleFilterToolbar({
+  query,
+  onQueryChange,
+  studentFilter,
+  onStudentFilterChange,
+  studentOptions,
+  classFilter,
+  onClassFilterChange,
+  classOptions,
+  teacherFilter,
+  onTeacherFilterChange,
+  teacherOptions,
+  blockFilter,
+  onBlockFilterChange,
+  blockOptions,
+  statusFilter,
+  onStatusFilterChange,
+  selectedCount,
+  onToggleAll,
+  onOpenImport,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  studentFilter: string;
+  onStudentFilterChange: (value: string) => void;
+  studentOptions: { value: string; label: string }[];
+  classFilter: string;
+  onClassFilterChange: (value: string) => void;
+  classOptions: string[];
+  teacherFilter: string;
+  onTeacherFilterChange: (value: string) => void;
+  teacherOptions: string[];
+  blockFilter: string;
+  onBlockFilterChange: (value: string) => void;
+  blockOptions: ScheduleColumn[];
+  statusFilter: ScheduleStateFilter;
+  onStatusFilterChange: (value: ScheduleStateFilter) => void;
+  selectedCount: number;
+  onToggleAll: () => void;
+  onOpenImport: () => void;
+}) {
+  return (
+    <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <label className={`flex min-w-0 flex-1 items-center gap-3 text-[#666d80] lg:max-w-[420px] ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS}`}>
+        <Search className="size-5 shrink-0" aria-hidden strokeWidth={2} />
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search student, parent, class, teacher, or block..."
+          className={DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS}
+        />
+      </label>
+      <div className="flex flex-wrap gap-3">
+        <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
+          <Filter className="size-4" aria-hidden strokeWidth={2} />
+          <span className="whitespace-nowrap">Student</span>
+          <select value={studentFilter} onChange={(event) => onStudentFilterChange(event.target.value)} className="max-w-[170px] bg-transparent font-medium outline-none">
+            <option value={ALL_FILTER_VALUE}>All students</option>
+            {studentOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
+          <span className="whitespace-nowrap">Class</span>
+          <select value={classFilter} onChange={(event) => onClassFilterChange(event.target.value)} className="max-w-[170px] bg-transparent font-medium outline-none">
+            <option value={ALL_FILTER_VALUE}>All classes</option>
+            {classOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
+          <span className="whitespace-nowrap">Teacher</span>
+          <select value={teacherFilter} onChange={(event) => onTeacherFilterChange(event.target.value)} className="max-w-[170px] bg-transparent font-medium outline-none">
+            <option value={ALL_FILTER_VALUE}>All teachers</option>
+            {teacherOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
+          <span className="whitespace-nowrap">Block</span>
+          <select value={blockFilter} onChange={(event) => onBlockFilterChange(event.target.value)} className="bg-transparent font-medium outline-none">
+            <option value={ALL_FILTER_VALUE}>All blocks</option>
+            {blockOptions.map((option) => <option key={option.key} value={option.key}>{scheduleSlotLabel(option)}</option>)}
+          </select>
+        </label>
+        <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
+          <span className="whitespace-nowrap">Status</span>
+          <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value as ScheduleStateFilter)} className="bg-transparent font-medium outline-none">
+            <option value={ALL_FILTER_VALUE}>All statuses</option>
+            {SCHEDULE_STATE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <button type="button" onClick={onToggleAll} className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa] px-4 hover:bg-[#f0f0f0]`}>
+          {selectedCount > 0 ? `Clear selected (${selectedCount})` : "Select visible"}
+        </button>
+        <button type="button" onClick={onOpenImport} className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} border border-[#14c1d5]/40 px-4 font-semibold text-[#14c1d5] hover:bg-[#ecfdff]`}>
+          Bulk import CSV
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleBulkSelectionActions({
+  selectedIds,
+  onClear,
+  onExport,
+}: {
+  selectedIds: Set<string>;
+  onClear: () => void;
+  onExport: () => void;
+}) {
+  return (
+    <DashboardBulkSelectionBar count={selectedIds.size} noun="student" onClear={onClear}>
+      <button
+        type="button"
+        onClick={onExport}
+        className="rounded-[6px] bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
+      >
+        Download selected CSV
+      </button>
+      <Link
+        href={`/dashboard/students/${encodeURIComponent(Array.from(selectedIds)[0] ?? "")}`}
+        className={`rounded-[6px] px-3 py-1.5 text-[12px] font-semibold ${
+          selectedIds.size === 1 ? "bg-[#14c1d5] text-white hover:bg-[#11adbf]" : "pointer-events-none bg-white/60 text-[#667085]"
+        }`}
+      >
+        Open selected profile
+      </Link>
+    </DashboardBulkSelectionBar>
+  );
 }
 
 export default function AdminStudentScheduleClient({
@@ -150,9 +362,14 @@ export default function AdminStudentScheduleClient({
   initialRows: StudentScheduleRow[];
   dataSource: DataSource;
 }) {
-  const [rows] = useState(() => [...initialRows]);
+  const [rows, setRows] = useState(() => [...initialRows]);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ScheduleFilter>("all");
+  const [studentFilter, setStudentFilter] = useState<string>(ALL_FILTER_VALUE);
+  const [classFilter, setClassFilter] = useState<string>(ALL_FILTER_VALUE);
+  const [teacherFilter, setTeacherFilter] = useState<string>(ALL_FILTER_VALUE);
+  const [blockFilter, setBlockFilter] = useState<string>(ALL_FILTER_VALUE);
+  const [statusFilter, setStatusFilter] = useState<ScheduleStateFilter>(ALL_FILTER_VALUE);
+  const [updatingScheduleIds, setUpdatingScheduleIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -173,13 +390,34 @@ export default function AdminStudentScheduleClient({
     preloadStudentDetailData(studentId);
   }, []);
 
+  const studentOptions = useMemo(
+    () => rows.map((row) => ({ value: row.id, label: row.name })).sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" })),
+    [rows],
+  );
+  const classOptions = useMemo(
+    () => uniqueSortedValues(rows.flatMap((row) => rowPlacementBadges(row).map(({ badge }) => badge.label))),
+    [rows],
+  );
+  const teacherOptions = useMemo(
+    () => uniqueSortedValues(rows.flatMap((row) => rowPlacementBadges(row).map(({ badge }) => placementTeacherLabel(badge)))),
+    [rows],
+  );
+  const blockOptions = useMemo(
+    () => COLUMNS.filter((column) => rows.some((row) => realBadges(row[column.key]).length > 0)),
+    [rows],
+  );
+
   const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((row) => {
-      const matchesQuery = !q || row.name.toLowerCase().includes(q) || row.parent.toLowerCase().includes(q);
-      return matchesQuery && rowMatchesFilter(row, filter);
-    });
-  }, [filter, query, rows]);
+    const filters = {
+      query: query.trim().toLowerCase(),
+      student: studentFilter,
+      className: classFilter,
+      teacher: teacherFilter,
+      block: blockFilter,
+      status: statusFilter,
+    };
+    return rows.filter((row) => rowMatchesFilters(row, filters));
+  }, [blockFilter, classFilter, query, rows, statusFilter, studentFilter, teacherFilter]);
 
   const hint = sourceHint(dataSource);
   function toggleRow(id: string) {
@@ -241,6 +479,39 @@ export default function AdminStudentScheduleClient({
     return { created, errors };
   }
 
+  async function updateScheduleState(row: StudentScheduleRow, state: StudentScheduleState) {
+    if (row.scheduleState === state || updatingScheduleIds.has(row.id)) return;
+
+    setUpdatingScheduleIds((prev) => new Set(prev).add(row.id));
+    setSyncHint(`Updating ${row.name} to ${scheduleStateLabel(state).toLowerCase()}...`);
+    try {
+      const encodedId = encodeURIComponent(row.id);
+      const res = await fetch(`/api/data/students/${encodedId}/schedule`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+      const body = (await res.json()) as { rows?: StudentScheduleRow[] };
+      const updatedRow = body.rows?.[0] ?? { ...row, scheduleState: state };
+      setRows((current) => current.map((existing) => (existing.id === row.id ? updatedRow : existing)));
+      invalidateDashboardData([
+        "/api/data/student-schedules",
+        `/api/data/students/${encodedId}/schedule`,
+        "/api/dashboard-presentation",
+      ]);
+      setSyncHint(`${row.name} schedule is now ${scheduleStateLabel(updatedRow.scheduleState).toLowerCase()}.`);
+    } catch (error) {
+      setSyncHint(`Could not update ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setUpdatingScheduleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-8 font-sans md:px-8">
       <div>
@@ -260,64 +531,28 @@ export default function AdminStudentScheduleClient({
       </div>
 
       <section className={`${DASHBOARD_PANEL_CLASS} p-5`}>
-        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className={`flex min-w-0 flex-1 items-center gap-3 text-[#666d80] lg:max-w-[420px] ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS}`}>
-            <Search className="size-5 shrink-0" aria-hidden strokeWidth={2} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search..."
-              className={DASHBOARD_DIRECTORY_TOOLBAR_INPUT_CLASS}
-            />
-          </label>
-          <div className="flex flex-wrap gap-3">
-            <label className={`inline-flex items-center gap-2 ${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa]`}>
-              <Filter className="size-4" aria-hidden strokeWidth={2} />
-              <span className="whitespace-nowrap">Filter by:</span>
-              <select
-                value={filter}
-                onChange={(event) => setFilter(event.target.value as ScheduleFilter)}
-                className="bg-transparent font-medium outline-none"
-              >
-                <option value="all">Active Students</option>
-                <option value="pending">Pending Requests</option>
-                <option value="approved">Approved Only</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} bg-[#fafafa] px-4 hover:bg-[#f0f0f0]`}
-            >
-              {selectedIds.size > 0 ? `Clear selected (${selectedIds.size})` : "Select visible"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsImportOpen(true)}
-              className={`${DASHBOARD_DIRECTORY_TOOLBAR_CONTROL_CLASS} border border-[#14c1d5]/40 px-4 font-semibold text-[#14c1d5] hover:bg-[#ecfdff]`}
-            >
-              Bulk import CSV
-            </button>
-          </div>
-        </div>
-
-        <DashboardBulkSelectionBar count={selectedIds.size} noun="student" onClear={() => setSelectedIds(new Set())}>
-          <button
-            type="button"
-            onClick={exportSelectedSchedules}
-            className="rounded-[6px] bg-[#14c1d5] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#11adbf]"
-          >
-            Download selected CSV
-          </button>
-          <Link
-            href={`/dashboard/students/${encodeURIComponent(Array.from(selectedIds)[0] ?? "")}`}
-            className={`rounded-[6px] px-3 py-1.5 text-[12px] font-semibold ${
-              selectedIds.size === 1 ? "bg-[#14c1d5] text-white hover:bg-[#11adbf]" : "pointer-events-none bg-white/60 text-[#667085]"
-            }`}
-          >
-            Open selected profile
-          </Link>
-        </DashboardBulkSelectionBar>
+        <ScheduleFilterToolbar
+          query={query}
+          onQueryChange={setQuery}
+          studentFilter={studentFilter}
+          onStudentFilterChange={setStudentFilter}
+          studentOptions={studentOptions}
+          classFilter={classFilter}
+          onClassFilterChange={setClassFilter}
+          classOptions={classOptions}
+          teacherFilter={teacherFilter}
+          onTeacherFilterChange={setTeacherFilter}
+          teacherOptions={teacherOptions}
+          blockFilter={blockFilter}
+          onBlockFilterChange={setBlockFilter}
+          blockOptions={blockOptions}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          selectedCount={selectedIds.size}
+          onToggleAll={toggleAll}
+          onOpenImport={() => setIsImportOpen(true)}
+        />
+        <ScheduleBulkSelectionActions selectedIds={selectedIds} onClear={() => setSelectedIds(new Set())} onExport={exportSelectedSchedules} />
 
         <div className={DASHBOARD_TABLE_SCROLL_CLASS}>
           <table className="min-w-[1920px] table-fixed border-collapse">
@@ -360,7 +595,11 @@ export default function AdminStudentScheduleClient({
                     </td>
                     <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>{row.parent || "--"}</td>
                     <td className={DASHBOARD_DIRECTORY_TABLE_CELL_CLASS}>
-                      <ScheduleStatePill row={row} />
+                      <ScheduleStatePill
+                        row={row}
+                        updating={updatingScheduleIds.has(row.id)}
+                        onStateChange={(state) => void updateScheduleState(row, state)}
+                      />
                     </td>
                     {COLUMNS.map((column) => (
                       <td key={column.key} className={`text-center ${DASHBOARD_DIRECTORY_TABLE_CELL_COMPACT_CLASS}`}>

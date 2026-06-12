@@ -7,7 +7,7 @@ import { invalidateDashboardData } from "@/lib/client-data-cache";
 import Link from "next/link";
 import { notFound, useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { PARENT_SCHEDULE_ROWS, canonicalScheduleSummaryForBlockDay } from "@/lib/schedule-slots";
+import { PARENT_SCHEDULE_ROWS, canonicalScheduleSummaryForBlockDay, formatBlockDayLabel } from "@/lib/schedule-slots";
 
 type ClassStatus = "Active" | "Full";
 type DayOption = "1" | "2" | "3";
@@ -19,17 +19,6 @@ const BLOCK_OPTIONS: BlockOption[] = ["1", "2", "3", "4"];
 
 function blockLabelForOption(value: BlockOption): string {
   return PARENT_SCHEDULE_ROWS[Number(value) - 1]?.label ?? `Block ${value}`;
-}
-
-function scheduleDaysText(days: string[] | undefined): string {
-  return (days ?? []).join(", ");
-}
-
-function parseScheduleDays(value: string): string[] {
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
 }
 
 function optionalNumber(value: number | undefined): number | undefined {
@@ -126,6 +115,8 @@ export default function EditClassPage() {
   const save = async () => {
     const trimmed = draft.name.trim();
     const teacherName = draft.teacher.trim();
+    const schedule = canonicalScheduleSummaryForBlockDay(editBlock, editDay);
+    const block = formatBlockDayLabel(editBlock, editDay, schedule);
     if (submitting) return;
     if (!trimmed) {
       setSyncHint("Class name is required.");
@@ -150,12 +141,12 @@ export default function EditClassPage() {
           name: trimmed,
           teacher: teacherName,
           capacity,
-          schedule: draft.schedule.trim(),
+          schedule,
           status: draft.status,
           track: draft.program,
           description: draft.description ?? "",
           level: draft.level ?? "",
-          block: draft.block ?? "",
+          block,
           scheduleDays: draft.scheduleDays,
           location: draft.location ?? "",
           room: draft.room ?? "",
@@ -166,6 +157,11 @@ export default function EditClassPage() {
         }),
       });
       if (res.ok) {
+        invalidateDashboardData([
+          "/api/data/classes",
+          "/api/data/class-options",
+          "/api/dashboard-presentation",
+        ]);
         const href = `/dashboard/classes/${segment}/${draft.id}`;
         startNavigation(href);
         router.push(href);
@@ -245,7 +241,7 @@ export default function EditClassPage() {
                   const day = e.target.value as DayOption;
                   setEditDay(day);
                   const summary = canonicalScheduleSummaryForBlockDay(editBlock, day);
-                  setRow({ ...draft, schedule: summary });
+                  setRow({ ...draft, block: formatBlockDayLabel(editBlock, day, summary), schedule: summary });
                 }}
                 className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
               >
@@ -262,7 +258,7 @@ export default function EditClassPage() {
                   const block = e.target.value as BlockOption;
                   setEditBlock(block);
                   const summary = canonicalScheduleSummaryForBlockDay(block, editDay);
-                  setRow({ ...draft, block: blockLabelForOption(block), schedule: summary });
+                  setRow({ ...draft, block: formatBlockDayLabel(block, editDay, summary), schedule: summary });
                 }}
                 className="rounded-lg border border-[#dfe1e7] px-3 py-2 font-sans text-[14px] text-[#0d0d12] outline-none focus:border-[#14c1d5]"
               >

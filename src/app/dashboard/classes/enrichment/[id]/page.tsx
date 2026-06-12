@@ -18,7 +18,7 @@ import type {
   ClassRosterStatus,
   SchoolClassRow,
 } from "@/lib/data/types";
-import { canonicalScheduleSummaryForBlockDay } from "@/lib/schedule-slots";
+import { canonicalScheduleSummaryForBlockDay, formatBlockDayLabel } from "@/lib/schedule-slots";
 
 const imgGroup = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-group.svg";
@@ -407,6 +407,7 @@ export default function EnrichmentClassDetail() {
     const { block, level } = splitBlockLevelLabel(editClassDraft.blockLevel);
     const max = editClassDraft.capacityMax <= 0 ? 1 : editClassDraft.capacityMax;
     const schedule = canonicalScheduleSummaryForBlockDay(block, editDay);
+    const blockLabel = formatBlockDayLabel(block, editDay, schedule);
     setClassEditError(null);
     setIsSavingClass(true);
     try {
@@ -423,7 +424,7 @@ export default function EnrichmentClassDetail() {
           status: "Active",
           track: "enrichment",
           description: editClassDraft.description,
-          block,
+          block: blockLabel,
           level,
           room: classMeta.room,
           location: classMeta.room,

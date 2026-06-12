@@ -19,7 +19,7 @@ import type {
   ClassRosterStudent,
   SchoolClassRow,
 } from "@/lib/data/types";
-import { canonicalScheduleSummaryForBlockDay } from "@/lib/schedule-slots";
+import { canonicalScheduleSummaryForBlockDay, formatBlockDayLabel } from "@/lib/schedule-slots";
 
 const imgGroup1 = "/images/icon-group.svg";
 const imgGroup2 = "/images/icon-calendar-linear.svg";
@@ -363,6 +363,7 @@ export default function ClassDetailsPage() {
     const max = classMetaDraft.capacityMax <= 0 ? 1 : classMetaDraft.capacityMax;
     const { block, level } = splitBlockLevelLabel(classMetaDraft.blockLevel);
     const schedule = canonicalScheduleSummaryForBlockDay(block, editDay);
+    const blockLabel = formatBlockDayLabel(block, editDay, schedule);
     setClassEditError(null);
     setIsSavingClassMeta(true);
     try {
@@ -379,7 +380,7 @@ export default function ClassDetailsPage() {
           status: "Active",
           track: "core",
           description: classMetaDraft.description,
-          block,
+          block: blockLabel,
           level,
           room: classMetaDraft.room,
           location: classMetaDraft.room,
