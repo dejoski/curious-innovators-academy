@@ -47,6 +47,12 @@ assertAny("src/app/api/auth/demo-login/route.ts", [
   "Demo login is not configured.",
 ]);
 
+assertIncludes("src/app/api/health/route.ts", "DEMO_ADMIN_EMAIL");
+assertIncludes("src/app/api/health/route.ts", "DEMO_ADMIN_PASSWORD");
+assertIncludes("src/app/api/health/route.ts", "DEMO_PARENT_EMAIL");
+assertIncludes("src/app/api/health/route.ts", "DEMO_PARENT_PASSWORD");
+assertIncludes("src/app/api/health/route.ts", "demoLoginDisabled: !demoLoginEnabled");
+
 if (failures.length > 0) {
   console.error("Demo login contract check failed:");
   for (const failure of failures) {
