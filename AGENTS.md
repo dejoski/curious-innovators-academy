@@ -18,7 +18,9 @@
 
 - Format school-facing history and schedule date behavior in `America/New_York`.
 - Verify thin/mobile viewports when layout is involved.
-- Do not leave intentional code/config changes only local. When the user asks for implementation work, push through `main` with `gh auth switch -u dejoski`, verify Vercel production updates, then switch GitHub auth back to `Dejan-Stajic_dentsu`.
+- Do not leave intentional code/config/docs/instruction changes only local. For this CIA project, implementation is not complete until the intended changes are committed, pushed to `main`, Vercel production is Ready, and the relevant production smoke check has been run.
+- Always perform GitHub operations for this repo with `gh auth switch -u dejoski`, then switch back to `gh auth switch -u Dejan-Stajic_dentsu` before ending the turn so the user's work account remains active.
+- Keep generated or unrelated dirty files out of the commit unless explicitly required. If a requested change cannot be pushed and production-verified in the same turn, say exactly why before stopping.
 - During active localhost iteration, default to scoped coding and scoped verification in the running app, then end the turn with an exact proof level and optional validation offer.
 - Offer full lint/build/typecheck/browser/qa sweeps only when the user asks, when shared types or data boundaries changed, when work is moving toward push/deploy/issue closure, or when a focused check shows widening is the shortest safe next step.
 - Do not call production fixed until local checks plus Vercel Ready/health are confirmed.
