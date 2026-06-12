@@ -20,6 +20,7 @@
     "check:security-headers": "node scripts/check-security-headers.cjs",
     "check:production-health-guards": "node scripts/check-production-health-guards.cjs",
     "check:production-auth-guard": "node scripts/check-production-auth-guard.cjs",
+    "check:demo-login": "node scripts/check-demo-login.cjs",
     "check:responsive": "playwright test e2e/responsive.spec.ts",
     "test:e2e": "playwright test",
     "test:parent-catalog-state": "node scripts/test-parent-catalog-state.cjs",
