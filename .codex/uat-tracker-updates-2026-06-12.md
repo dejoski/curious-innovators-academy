@@ -101,3 +101,31 @@ Coordinator proof completed locally:
 - `npx tsc --noEmit`
 - `npm run build`
 - `git diff --check`
+
+## Local Spreadsheet Reconciliation - 2026-06-18
+
+Local spreadsheet surface created: `.codex/uat-tracker-local.csv`.
+
+Live source re-read: Google Drive raw XLSX fetch of `CIA_SIS Build.xlsx` from the linked spreadsheet. Direct Sheets API range reads are still blocked because the file is Office-backed (`FAILED_PRECONDITION`). No production Google Sheet write was performed.
+
+Coordinator status rules applied:
+
+- `Done` only when the row was already `Done` in the source tracker or this ledger explicitly recommended `Done after deployment proof`.
+- `Needs Attention` for coded/evidence-backed rows that still need browser UAT, live proof, owner review, or row-specific acceptance proof.
+- `Not Started` only when no repo evidence or accepted worker/coordinator proof exists.
+
+Local coordinator counts after reconciliation:
+
+- Total tasks: 206
+- Done: 116
+- Needs Attention: 90
+- In Progress: 0
+- Not Started: 0
+- N/A: 0
+
+Original live spreadsheet counts preserved in the CSV as `Original Sheet Status`:
+
+- Done: 83
+- In Progress: 4
+- Needs Attention: 32
+- Not Started: 87
