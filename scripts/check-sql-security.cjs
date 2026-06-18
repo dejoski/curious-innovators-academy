@@ -41,6 +41,22 @@ requireText("ALTER TABLE public.student_schedule_states ENABLE ROW LEVEL SECURIT
 requireText("CREATE POLICY student_schedule_states_select", "student_schedule_states select policy missing");
 requireText("CREATE POLICY student_schedule_states_write_admin", "student_schedule_states write policy missing");
 
+requireText("CREATE TABLE IF NOT EXISTS public.student_schedule_snapshots", "student_schedule_snapshots table missing");
+requireText("ALTER TABLE public.student_schedule_snapshots ENABLE ROW LEVEL SECURITY", "student_schedule_snapshots RLS missing");
+requireText("CREATE POLICY student_schedule_snapshots_select_scoped", "student_schedule_snapshots select policy missing");
+requireText("CREATE POLICY student_schedule_snapshots_insert_admin", "student_schedule_snapshots insert policy missing");
+
+requireText("CREATE TABLE IF NOT EXISTS public.class_snapshots", "class_snapshots table missing");
+requireText("ALTER TABLE public.class_snapshots ENABLE ROW LEVEL SECURITY", "class_snapshots RLS missing");
+requireText("CREATE POLICY class_snapshots_select_admin", "class_snapshots select policy missing");
+requireText("CREATE POLICY class_snapshots_insert_admin", "class_snapshots insert policy missing");
+
+requireText("CREATE TABLE IF NOT EXISTS public.teacher_conflict_overrides", "teacher_conflict_overrides table missing");
+requireText("ALTER TABLE public.teacher_conflict_overrides ENABLE ROW LEVEL SECURITY", "teacher_conflict_overrides RLS missing");
+requireText("CREATE POLICY teacher_conflict_overrides_select_admin", "teacher_conflict_overrides select policy missing");
+requireText("CREATE POLICY teacher_conflict_overrides_insert_admin", "teacher_conflict_overrides insert policy missing");
+requireText("CREATE POLICY teacher_conflict_overrides_update_admin", "teacher_conflict_overrides update policy missing");
+
 requireText("ALTER TABLE public.students ENABLE ROW LEVEL SECURITY", "students RLS missing");
 requireText("CREATE POLICY students_select_scoped", "students select policy missing");
 requireText("CREATE POLICY students_write_admin", "students write policy missing");

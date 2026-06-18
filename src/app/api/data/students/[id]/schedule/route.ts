@@ -4,6 +4,7 @@ import { loadCurrentApiUser } from "@/lib/api/require-auth";
 import {
   fetchAdminStudentScheduleResolved,
   fetchStudentScheduleResolved,
+  recordTeacherScheduleConflictOverrideResolved,
   updateStudentScheduleStateResolved,
 } from "@/lib/data/repositories/student-details";
 import type { StudentScheduleState } from "@/lib/data/types";
@@ -14,6 +15,32 @@ function parseScheduleState(raw: unknown): StudentScheduleState | null {
   const state = String(raw ?? "").trim().toLowerCase();
   if (state === "draft" || state === "pending" || state === "finalized") return state;
   return null;
+}
+
+function parseTeacherConflictOverride(raw: Record<string, unknown> | null): {
+  teacherId: string;
+  slot: string;
+  classIds: string[];
+  reason?: string | null;
+} | null {
+  const source = raw?.teacherConflictOverride && typeof raw.teacherConflictOverride === "object"
+    ? raw.teacherConflictOverride as Record<string, unknown>
+    : raw;
+  if (String(raw?.action ?? "").trim() !== "recordTeacherConflictOverride" && !raw?.teacherConflictOverride) {
+    return null;
+  }
+  const teacherId = String(source?.teacherId ?? source?.teacher_id ?? "").trim();
+  const slot = String(source?.slot ?? "").trim();
+  const classIdsRaw = source?.classIds ?? source?.class_ids;
+  const classIds = Array.isArray(classIdsRaw)
+    ? classIdsRaw.map((value) => String(value ?? "").trim()).filter(Boolean)
+    : [];
+  return {
+    teacherId,
+    slot,
+    classIds,
+    reason: String(source?.reason ?? "").trim() || null,
+  };
 }
 
 async function requireAdminScheduleMutation(current: { supabase: NonNullable<Awaited<ReturnType<typeof loadCurrentApiUser>>["supabase"]>; user: { id: string } }) {
@@ -80,6 +107,20 @@ export async function PATCH(req: Request, context: RouteContext) {
   if (adminCheck) return adminCheck;
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  const teacherConflictOverride = parseTeacherConflictOverride(body);
+  if (teacherConflictOverride) {
+    const { searchParams } = new URL(req.url);
+    const result = await recordTeacherScheduleConflictOverrideResolved(id, {
+      ...teacherConflictOverride,
+      semesterId: searchParams.get("semesterId"),
+      recordedByProfileId: current.user.id,
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.message }, { status: 400 });
+    }
+    return NextResponse.json({ rows: result.rows, source: result.source, overrideId: result.overrideId });
+  }
+
   const state = parseScheduleState(body?.state);
   if (!state) {
     return NextResponse.json({ error: "Schedule state must be draft, pending, or finalized." }, { status: 400 });

@@ -29,7 +29,9 @@ import { fetchCompetencyBlockMappingsForLevels } from "@/lib/data/repositories/c
 import {
   DAILY_SCHEDULE_KEYS,
   applyTeacherConflictDiagnostics,
+  type ActiveTeacherConflictOverride,
 } from "@/lib/data/repositories/schedule-diagnostics";
+import { recordStudentScheduleSnapshot } from "@/lib/data/repositories/history";
 import { normalizeStudentCompetencyLevels, summarizeStudentCompetencyLevels } from "@/lib/data/repositories/students";
 import { requireAdminReadClient, type AdminReadClient } from "@/lib/api/admin-read";
 import { parentContactFromStudentRow, STUDENT_PARENT_CONTACT_SELECT } from "@/lib/data/parent-contact";
@@ -101,6 +103,40 @@ async function writeScheduleStateAuditEvent(
   }
 }
 
+async function writeScheduleConflictOverrideAuditEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: {
+    studentId: string;
+    teacherId: string;
+    slot: string;
+    classIds: string[];
+    overrideId: string;
+    reason?: string | null;
+  },
+) {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.id) return;
+    await supabase.from("audit_events").insert({
+      actor_profile_id: user.id,
+      action: "schedule_conflict.override",
+      entity_type: "teacher_conflict_override",
+      entity_id: input.overrideId,
+      metadata: {
+        studentId: input.studentId,
+        teacherId: input.teacherId,
+        slot: input.slot,
+        classIds: input.classIds,
+        reason: input.reason ?? null,
+      },
+    });
+  } catch {
+    /* Audit writes should not block schedule override changes. */
+  }
+}
+
 function uniqueNonEmpty(values: (string | null | undefined)[]): string[] {
   return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))];
 }
@@ -136,6 +172,73 @@ async function insertNotificationsIfPossible(
   } catch {
     /* Notification writes should not block schedule state changes. */
   }
+}
+
+async function insertUnreadNotificationsIfAbsent(
+  client: StudentReadClient,
+  rows: { recipient_profile_id: string; title: string; body: string; href: string }[],
+) {
+  const payload = rows.filter((row) => row.recipient_profile_id && row.title && row.body);
+  if (payload.length === 0) return;
+  try {
+    const missing: typeof payload = [];
+    for (const row of payload) {
+      const { data, error } = await client
+        .from("notifications")
+        .select("id")
+        .eq("recipient_profile_id", row.recipient_profile_id)
+        .eq("title", row.title)
+        .eq("href", row.href)
+        .eq("body", row.body)
+        .is("read_at", null)
+        .limit(1);
+      if (!error && (data?.length ?? 0) === 0) missing.push(row);
+    }
+    if (missing.length > 0) await client.from("notifications").insert(missing);
+  } catch {
+    /* Notification writes should not block schedule state changes. */
+  }
+}
+
+async function selectAdminNotificationRecipientProfileIds(
+  client: StudentReadClient,
+): Promise<string[]> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin");
+  if (error) return [];
+  return uniqueNonEmpty(((data ?? []) as { id?: unknown }[]).map((row) => String(row.id ?? "")));
+}
+
+async function writeScheduleAttentionNotifications(
+  client: StudentReadClient,
+  row: StudentScheduleRow,
+) {
+  const adminIds = await selectAdminNotificationRecipientProfileIds(client);
+  if (adminIds.length === 0) return;
+  const href = `/dashboard/students/${row.id}/schedule`;
+  const student = row.name.trim() || "A student";
+  const notifications: { recipient_profile_id: string; title: string; body: string; href: string }[] = [];
+  if (row.scheduleState !== "finalized" && (row.incompleteBlocks ?? 0) > 0) {
+    const body = `${student} has ${row.incompleteBlocks} incomplete schedule block${row.incompleteBlocks === 1 ? "" : "s"} needing admin action.`;
+    notifications.push(...adminIds.map((recipientProfileId) => ({
+      recipient_profile_id: recipientProfileId,
+      title: "Schedule action needed",
+      body,
+      href,
+    })));
+  }
+  if ((row.conflicts ?? []).length > 0) {
+    const body = `${student} has ${row.conflicts?.length ?? 0} schedule conflict${(row.conflicts?.length ?? 0) === 1 ? "" : "s"} needing review.`;
+    notifications.push(...adminIds.map((recipientProfileId) => ({
+      recipient_profile_id: recipientProfileId,
+      title: "Schedule conflict detected",
+      body,
+      href,
+    })));
+  }
+  await insertUnreadNotificationsIfAbsent(client, notifications);
 }
 
 async function writeStudentScheduleFinalizedNotifications(
@@ -411,6 +514,26 @@ function applyScheduleState(row: StudentScheduleRow, stateRow: Record<string, un
   row.finalizedBy = String(finalizer?.display_name ?? "").trim() || undefined;
 }
 
+async function fetchActiveTeacherConflictOverrides(
+  client: StudentReadClient,
+): Promise<ActiveTeacherConflictOverride[]> {
+  const { data, error } = await client
+    .from("teacher_conflict_overrides")
+    .select("id, teacher_id, slot, class_ids")
+    .eq("active", true);
+  if (error) return [];
+  return ((data ?? []) as unknown as Record<string, unknown>[])
+    .map((row) => ({
+      id: String(row.id ?? "").trim(),
+      teacherId: String(row.teacher_id ?? "").trim(),
+      slot: String(row.slot ?? "").trim(),
+      classIds: Array.isArray(row.class_ids)
+        ? row.class_ids.map((value) => String(value ?? "").trim()).filter(Boolean)
+        : [],
+    }))
+    .filter((row) => row.id && row.teacherId && row.slot && row.classIds.length >= 2);
+}
+
 async function fetchStudentScheduleStateGuardrails(
   studentId: string,
   client: StudentReadClient,
@@ -647,6 +770,8 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
       if (row && badge) pushBadge(row, scheduleSlotForClass(request, index), badge);
     });
 
+    const activeTeacherOverrides = await fetchActiveTeacherConflictOverrides(supabase);
+
     rows.forEach((row) => {
       applyCompetencyBlockPlaceholders(row, studentCompetencyLevelsById.get(row.id) ?? [], competencyMappings);
       row.b1 = normalizeScheduleBadges(row.b1);
@@ -665,7 +790,7 @@ export async function fetchAdminStudentSchedulesResolved(options?: StudentSchedu
       row.b4Thu = normalizeScheduleBadges(row.b4Thu);
       finalizeScheduleDiagnostics(row);
     });
-    applyTeacherConflictDiagnostics(rows);
+    applyTeacherConflictDiagnostics(rows, activeTeacherOverrides);
 
     return { rows, source: "remote" };
   } catch {
@@ -755,6 +880,7 @@ export async function fetchStudentScheduleResolved(
     });
     const competencyLevels = normalizeStudentCompetencyLevels((student as Record<string, unknown>).student_competency_levels);
     const competencyMappings = await fetchCompetencyBlockMappingsForLevels(competencyLevels);
+    const activeTeacherOverrides = await fetchActiveTeacherConflictOverrides(supabase);
     applyCompetencyBlockPlaceholders(row, competencyLevels, competencyMappings);
     row.b1 = normalizeScheduleBadges(row.b1);
     row.b1Tue = normalizeScheduleBadges(row.b1Tue);
@@ -771,7 +897,7 @@ export async function fetchStudentScheduleResolved(
     row.b4Wed = normalizeScheduleBadges(row.b4Wed);
     row.b4Thu = normalizeScheduleBadges(row.b4Thu);
     finalizeScheduleDiagnostics(row);
-    applyTeacherConflictDiagnostics([row]);
+    applyTeacherConflictDiagnostics([row], activeTeacherOverrides);
     return { rows: [row], source: "remote" };
   } catch {
     return unavailableSchedule();
@@ -831,7 +957,10 @@ export async function updateStudentScheduleStateResolved(
           message: `This schedule still has ${guardrails.row.incompleteBlocks} open block${guardrails.row.incompleteBlocks === 1 ? "" : "s"} and cannot be finalized yet.`,
         };
       }
-      if (guardrails.row.hasConflicts) {
+      const blockingConflicts = (guardrails.row.conflicts ?? []).filter((conflict) =>
+        conflict.kind !== "teacher" || !conflict.overrideRecorded,
+      );
+      if (blockingConflicts.length > 0) {
         return { ok: false, message: "This schedule has a conflict and cannot be finalized until the conflict is resolved." };
       }
     }
@@ -864,6 +993,18 @@ export async function updateStudentScheduleStateResolved(
 
     const refreshed = await fetchStudentScheduleResolved(id, supabase, { semesterId });
     const finalizedRow = refreshed.rows[0];
+    if (finalizedRow) {
+      const snapshot = await recordStudentScheduleSnapshot(finalizedRow, supabase, {
+        semesterId,
+        recordedByProfileId: String(options?.finalizedByProfileId ?? "").trim() || finalizedBy,
+        reason: "Schedule state updated",
+        sourceAction: "student_schedule_state.update",
+        sourceEntityType: "student",
+        sourceEntityId: id,
+      });
+      if (!snapshot.ok) return { ok: false, message: snapshot.message };
+      await writeScheduleAttentionNotifications(supabase, finalizedRow);
+    }
     if (normalizedState === "finalized" && previousScheduleState !== "finalized" && finalizedRow) {
       await writeStudentScheduleFinalizedNotifications(supabase, {
         studentId: id,
@@ -871,6 +1012,81 @@ export async function updateStudentScheduleStateResolved(
       });
     }
     return { ok: true, rows: refreshed.rows, source: refreshed.source };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, message };
+  }
+}
+
+export async function recordTeacherScheduleConflictOverrideResolved(
+  studentId: string,
+  input: {
+    teacherId: string;
+    slot: string;
+    classIds: string[];
+    reason?: string | null;
+    semesterId?: string | null;
+    recordedByProfileId?: string | null;
+  },
+): Promise<
+  | { ok: true; rows: StudentScheduleRow[]; source: DataSource; overrideId: string }
+  | { ok: false; message: string }
+> {
+  const id = studentId.trim();
+  const teacherId = input.teacherId.trim();
+  const slot = input.slot.trim();
+  const classIds = uniqueNonEmpty(input.classIds);
+  if (!id) return { ok: false, message: "Student id is required." };
+  if (!teacherId) return { ok: false, message: "Teacher id is required." };
+  if (!slot) return { ok: false, message: "Schedule slot is required." };
+  if (classIds.length < 2) return { ok: false, message: "At least two class ids are required for a teacher conflict override." };
+  if (!isSupabaseConfigured()) return { ok: false, message: "School records are temporarily unavailable." };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const semesterId = await resolveSemesterFilter(supabase, input);
+    const recordedByProfileId = String(input.recordedByProfileId ?? "").trim() || null;
+    const { data, error } = await supabase
+      .from("teacher_conflict_overrides")
+      .insert({
+        teacher_id: teacherId,
+        slot,
+        class_ids: classIds,
+        reason: String(input.reason ?? "").trim(),
+        active: true,
+        decided_by_profile_id: recordedByProfileId,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, message: error.message };
+    const overrideId = String((data as Record<string, unknown> | null)?.id ?? "").trim();
+    if (!overrideId) return { ok: false, message: "Teacher conflict override was not returned." };
+
+    await writeScheduleConflictOverrideAuditEvent(supabase, {
+      studentId: id,
+      teacherId,
+      slot,
+      classIds,
+      overrideId,
+      reason: input.reason,
+    });
+
+    const refreshed = await fetchStudentScheduleResolved(id, supabase, { semesterId });
+    const row = refreshed.rows[0];
+    if (row) {
+      const snapshot = await recordStudentScheduleSnapshot(row, supabase, {
+        semesterId,
+        recordedByProfileId,
+        reason: "Teacher conflict override recorded",
+        sourceAction: "schedule_conflict.override",
+        sourceEntityType: "teacher_conflict_override",
+        sourceEntityId: overrideId,
+      });
+      if (!snapshot.ok) return { ok: false, message: snapshot.message };
+      await writeScheduleAttentionNotifications(supabase, row);
+    }
+
+    return { ok: true, rows: refreshed.rows, source: refreshed.source, overrideId };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, message };

@@ -29,9 +29,11 @@ function assertAny(rel, needles) {
 const guardedRoutes = [
   "src/app/api/data/classes/route.ts",
   "src/app/api/data/classes/[id]/roster/route.ts",
+  "src/app/api/data/classes/[id]/history/route.ts",
   "src/app/api/data/teachers/route.ts",
   "src/app/api/data/parents/route.ts",
   "src/app/api/data/students/route.ts",
+  "src/app/api/data/students/[id]/schedule-history/route.ts",
   "src/app/api/data/feedback/route.ts",
   "src/app/api/data/schedule-extras/route.ts",
   "src/app/api/data/me/route.ts",
@@ -66,6 +68,21 @@ assertIncludes("src/app/api/data/students/[id]/avatar/route.ts", [
   "requireParentStudentAccess",
   "Only linked parents or administrators can update this student photo.",
   "student.avatar.update",
+]);
+
+assertIncludes("src/app/api/data/students/[id]/schedule-history/route.ts", [
+  "loadCurrentApiUser",
+  "isParentRole",
+  "requireParentStudentAccess",
+  "fetchStudentScheduleHistoryResolved",
+  "fetchAdminStudentScheduleHistoryResolved",
+  "Only linked parents or administrators can read this student schedule history.",
+]);
+
+assertIncludes("src/app/api/data/classes/[id]/history/route.ts", [
+  "loadCurrentApiUser",
+  "Administrator role required.",
+  "fetchAdminClassSnapshotHistoryResolved",
 ]);
 
 assertIncludes("src/app/api/data/schedule-extras/route.ts", [

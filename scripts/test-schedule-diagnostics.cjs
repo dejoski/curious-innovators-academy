@@ -103,11 +103,34 @@ applyTeacherConflictDiagnostics([confirmedA, confirmedB, pending]);
 assert.equal(confirmedA.conflicts.length, 1);
 assert.equal(confirmedB.conflicts.length, 1);
 
+const overrideA = emptyRow("override-a");
+const overrideB = emptyRow("override-b");
+overrideA.b2Wed.push(placement("class-a", "Robotics A"));
+overrideB.b2Wed.push(placement("class-b", "Robotics B"));
+applyTeacherConflictDiagnostics([overrideA, overrideB], [{
+  id: "override-1",
+  teacherId: "teacher-1",
+  slot: "b2Wed",
+  classIds: ["class-a", "class-b"],
+}]);
+assert.equal(overrideA.hasConflicts, true);
+assert.equal(overrideA.conflicts[0].kind, "teacher");
+assert.equal(overrideA.conflicts[0].overrideId, "override-1");
+assert.equal(overrideA.conflicts[0].overrideRecorded, true);
+assert.equal(overrideB.conflicts[0].overrideId, "override-1");
+assert.equal(overrideB.conflicts[0].overrideRecorded, true);
+
 const studentDetails = fs.readFileSync(
   path.join(root, "src/lib/data/repositories/student-details.ts"),
   "utf8",
 );
-assert.match(studentDetails, /applyTeacherConflictDiagnostics\(rows\)/);
-assert.match(studentDetails, /applyTeacherConflictDiagnostics\(\[row\]\)/);
+assert.match(studentDetails, /applyTeacherConflictDiagnostics\(rows,\s*activeTeacherOverrides\)/);
+assert.match(studentDetails, /applyTeacherConflictDiagnostics\(\[row\],\s*activeTeacherOverrides\)/);
+assert.match(studentDetails, /fetchActiveTeacherConflictOverrides/);
+assert.match(studentDetails, /\.from\("teacher_conflict_overrides"\)/);
+assert.match(studentDetails, /conflict\.kind !== "teacher" \|\| !conflict\.overrideRecorded/);
+assert.match(studentDetails, /recordTeacherScheduleConflictOverrideResolved/);
+assert.match(studentDetails, /action:\s*"schedule_conflict\.override"/);
+assert.match(studentDetails, /sourceAction:\s*"schedule_conflict\.override"/);
 
 console.log("schedule diagnostics regression passed");

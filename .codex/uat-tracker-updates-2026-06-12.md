@@ -39,10 +39,8 @@ These were marked `Not Started`, `Needs Attention`, or `In Progress` in the sour
 
 ## Still Real Work
 
-- IDs 20-22 rows 21-23: schedule state writes now create audit events, but complete immutable history for every schedule edit path still needs production/browser proof.
-- IDs 24-25 rows 25-26: historical class/schedule snapshots remain partial; current schedule state/audit evidence is not a full historical snapshot model.
-- ID 118 row 119: teacher conflict detection is coded, but an explicit admin override record still needs product confirmation and proof.
-- Notification rows for action-needed/incomplete schedule and conflict detected are currently dashboard alerts, not durable notification rows.
+- No known UAT row remains completely unimplemented after the 2026-06-17 coordinator pass below.
+- Remaining blocker for `Done`: deployment plus browser/live proof for the new snapshot, override, and notification workflows.
 
 ## Second Coordinator Pass - 2026-06-12
 
@@ -77,3 +75,29 @@ Verification completed locally for this second pass:
 - `npx tsc --noEmit`
 - focused ESLint over touched TS/TSX files
 - `npm run build`
+
+## Remaining-Gaps Coordinator Pass - 2026-06-17
+
+These updates address the 8 actually unfixed UAT requirements identified from the tracker ledger. Status should move to `Needs Attention` until merged, deployed, and browser/live proven.
+
+| IDs | Spreadsheet rows | Tracker area | Status recommendation | Proof |
+| --- | ---: | --- | --- | --- |
+| 20-22 | 21-23 | Immutable schedule-change history | Needs Attention | Added `student_schedule_snapshots`, schedule history read API, and snapshot writes after schedule-affecting mutations. Local proof: `node scripts/test-schedule-history-schema.cjs`, `node scripts/test-history-repository-static.cjs`, `node scripts/test-student-schedule-state-route.cjs`, `npx tsc --noEmit`, `npm run build`. Needs production/browser proof. |
+| 24-25 | 25-26 | Historical class/schedule snapshots | Needs Attention | Added `class_snapshots`, class history read API, class snapshot writes on create/update/archive/lifecycle, and affected-student schedule snapshots where feasible. Local proof: schema/history tests, API auth guard check, typecheck, build. Needs production/browser proof. |
+| 118 | 119 | Teacher conflict override record | Needs Attention | Added `teacher_conflict_overrides`, active override lookup, `overrideId`/`overrideRecorded` conflict metadata, admin override mutation through student schedule API, audit action `schedule_conflict.override`, and finalization logic that permits only overridden teacher conflicts. Local proof: `node scripts/test-schedule-diagnostics.cjs`, `node scripts/test-student-schedule-state-route.cjs`, typecheck, build. Needs browser/live proof. |
+| Notification gaps | 78-84 subset | Durable action-needed/conflict notifications | Needs Attention | Added deduped unread admin notification rows for schedule action needed and schedule conflict detected from write paths, not dashboard reads. Existing finalized/request/capacity notifications remain intact. Local proof: `node scripts/test-notification-event-plumbing.cjs`, typecheck, build. Needs production notification smoke. |
+
+Coordinator proof completed locally:
+
+- `node scripts/test-schedule-history-schema.cjs`
+- `node scripts/test-history-repository-static.cjs`
+- `node scripts/test-audit-events-export.cjs`
+- `node scripts/test-schedule-diagnostics.cjs`
+- `node scripts/test-notification-event-plumbing.cjs`
+- `node scripts/test-student-schedule-state-route.cjs`
+- `npm run check:api-auth-guards`
+- `npm run check:sql-security`
+- `npm run check:demo-login`
+- `npx tsc --noEmit`
+- `npm run build`
+- `git diff --check`

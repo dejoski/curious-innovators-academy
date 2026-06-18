@@ -5,6 +5,8 @@ import { mapNotificationRow } from "@/lib/data/repositories/notifications";
 import { mapParentRow } from "@/lib/data/repositories/parents";
 import { firstRel } from "@/lib/data/repositories/relations";
 import { mapRequestRow } from "@/lib/data/repositories/requests";
+import { recordClassSnapshot, recordStudentScheduleSnapshot } from "@/lib/data/repositories/history";
+import { fetchStudentScheduleResolved } from "@/lib/data/repositories/student-details";
 import { mapStudentRow, STUDENT_SELECT } from "@/lib/data/repositories/students";
 import { mapTeacherRow } from "@/lib/data/repositories/teachers";
 import {
@@ -29,6 +31,7 @@ import type {
   SchoolClassRow,
   SemesterRow,
   StudentListItem,
+  StudentScheduleRow,
   TeacherRow,
 } from "@/lib/data/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -423,10 +426,151 @@ async function insertNotificationsIfPossible(
   const payload = rows.filter((row) => row.recipient_profile_id && row.title && row.body);
   if (payload.length === 0) return;
   try {
-    await client.from("notifications").insert(payload);
+    const missing: NotificationInsertRow[] = [];
+    for (const row of payload) {
+      const { data, error } = await client
+        .from("notifications")
+        .select("id")
+        .eq("recipient_profile_id", row.recipient_profile_id)
+        .eq("title", row.title)
+        .eq("href", row.href)
+        .eq("body", row.body)
+        .is("read_at", null)
+        .limit(1);
+      if (!error && (data?.length ?? 0) === 0) missing.push(row);
+    }
+    if (missing.length > 0) await client.from("notifications").insert(missing);
   } catch {
     /* Notification writes should not block the primary workflow. */
   }
+}
+
+async function writeScheduleAttentionNotifications(
+  client: SupabaseMutationClient,
+  row: StudentScheduleRow,
+) {
+  const adminIds = await selectAdminNotificationRecipients(client);
+  if (adminIds.length === 0) return;
+  const href = `/dashboard/students/${row.id}/schedule`;
+  const student = row.name.trim() || "A student";
+  const notifications: NotificationInsertRow[] = [];
+  if (row.scheduleState !== "finalized" && (row.incompleteBlocks ?? 0) > 0) {
+    const body = `${student} has ${row.incompleteBlocks} incomplete schedule block${row.incompleteBlocks === 1 ? "" : "s"} needing admin action.`;
+    notifications.push(...adminIds.map((recipientProfileId) => ({
+      recipient_profile_id: recipientProfileId,
+      title: "Schedule action needed",
+      body,
+      href,
+    })));
+  }
+  if ((row.conflicts ?? []).length > 0) {
+    const body = `${student} has ${row.conflicts?.length ?? 0} schedule conflict${(row.conflicts?.length ?? 0) === 1 ? "" : "s"} needing review.`;
+    notifications.push(...adminIds.map((recipientProfileId) => ({
+      recipient_profile_id: recipientProfileId,
+      title: "Schedule conflict detected",
+      body,
+      href,
+    })));
+  }
+  await insertNotificationsIfPossible(client, notifications);
+}
+
+async function recordStudentScheduleMutationSnapshot(
+  client: SupabaseMutationClient,
+  input: {
+    studentId: string;
+    semesterId?: string | null;
+    recordedByProfileId?: string | null;
+    reason: string;
+    sourceAction: string;
+    sourceEntityType: string;
+    sourceEntityId: string;
+  },
+): Promise<WriteFail | { ok: true }> {
+  const studentId = input.studentId.trim();
+  if (!studentId) return { ok: true };
+  const semesterId = input.semesterId?.trim() || await resolveCurrentSemesterId(client);
+  const schedule = await fetchStudentScheduleResolved(studentId, client, { semesterId });
+  const row = schedule.rows[0];
+  if (!row) return { ok: false, message: "Student schedule could not be loaded for history snapshot." };
+  const snapshot = await recordStudentScheduleSnapshot(row, client, {
+    semesterId,
+    recordedByProfileId: input.recordedByProfileId,
+    reason: input.reason,
+    sourceAction: input.sourceAction,
+    sourceEntityType: input.sourceEntityType,
+    sourceEntityId: input.sourceEntityId,
+  });
+  if (!snapshot.ok) return { ok: false, message: snapshot.message };
+  await writeScheduleAttentionNotifications(client, row);
+  return { ok: true };
+}
+
+async function recordStudentScheduleMutationSnapshots(
+  client: SupabaseMutationClient,
+  input: {
+    studentIds: string[];
+    semesterId?: string | null;
+    recordedByProfileId?: string | null;
+    reason: string;
+    sourceAction: string;
+    sourceEntityType: string;
+    sourceEntityId: string;
+  },
+): Promise<WriteFail | { ok: true }> {
+  for (const studentId of uniqueNonEmpty(input.studentIds)) {
+    const recorded = await recordStudentScheduleMutationSnapshot(client, {
+      ...input,
+      studentId,
+    });
+    if (!recorded.ok) return recorded;
+  }
+  return { ok: true };
+}
+
+async function selectScheduleAffectedStudentIdsForClass(
+  client: SupabaseMutationClient,
+  classId: string,
+): Promise<string[]> {
+  const id = classId.trim();
+  if (!id) return [];
+  const [enrollmentsResult, requestsResult] = await Promise.all([
+    client.from("enrollments").select("student_id").eq("class_id", id),
+    client.from("class_requests").select("student_id").eq("class_id", id),
+  ]);
+  return uniqueNonEmpty([
+    ...((enrollmentsResult.data ?? []) as unknown as Record<string, unknown>[]).map((row) => String(row.student_id ?? "")),
+    ...((requestsResult.data ?? []) as unknown as Record<string, unknown>[]).map((row) => String(row.student_id ?? "")),
+  ]);
+}
+
+async function recordClassScheduleMutationSnapshots(
+  client: SupabaseMutationClient,
+  input: {
+    classRow: SchoolClassRow | Record<string, unknown>;
+    affectedStudentIds?: string[];
+    recordedByProfileId?: string | null;
+    reason: string;
+    sourceAction: string;
+    sourceEntityId: string;
+  },
+): Promise<WriteFail | { ok: true }> {
+  const classSnapshot = await recordClassSnapshot(input.classRow, client, {
+    recordedByProfileId: input.recordedByProfileId,
+    reason: input.reason,
+    sourceAction: input.sourceAction,
+    sourceEntityType: "class",
+    sourceEntityId: input.sourceEntityId,
+  });
+  if (!classSnapshot.ok) return { ok: false, message: classSnapshot.message };
+  return recordStudentScheduleMutationSnapshots(client, {
+    studentIds: input.affectedStudentIds ?? [],
+    recordedByProfileId: input.recordedByProfileId,
+    reason: input.reason,
+    sourceAction: input.sourceAction,
+    sourceEntityType: "class",
+    sourceEntityId: input.sourceEntityId,
+  });
 }
 
 async function writeClassRequestSubmittedNotifications(
@@ -747,6 +891,14 @@ export async function serverInsertClass(input: {
         archivedAt: mapped.archivedAt ?? null,
       },
     });
+    const snapshot = await recordClassScheduleMutationSnapshots(supabase, {
+      classRow: mapped,
+      affectedStudentIds: [],
+      reason: "Class created",
+      sourceAction: "class.create",
+      sourceEntityId: mapped.id,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -880,6 +1032,14 @@ export async function serverUpdateClass(
         archivedAt: mapped.archivedAt ?? null,
       },
     });
+    const snapshot = await recordClassScheduleMutationSnapshots(supabase, {
+      classRow: mapped,
+      affectedStudentIds: await selectScheduleAffectedStudentIdsForClass(supabase, mapped.id),
+      reason: "Class updated",
+      sourceAction: "class.update",
+      sourceEntityId: mapped.id,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -903,6 +1063,21 @@ export async function serverDeleteClass(id: string): Promise<{ ok: true } | Writ
       entityId: id,
       metadata: { source: "delete", archivedAt },
     });
+    const { data: classRow, error: classSnapshotSelectError } = await supabase
+      .from("classes")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (classSnapshotSelectError) return { ok: false, message: classSnapshotSelectError.message };
+    if (!classRow) return { ok: false, message: "Class could not be loaded for history snapshot." };
+    const snapshot = await recordClassScheduleMutationSnapshots(supabase, {
+      classRow: await flattenClassRowForMap(supabase, classRow as Record<string, unknown>),
+      affectedStudentIds: await selectScheduleAffectedStudentIdsForClass(supabase, id),
+      reason: "Class archived",
+      sourceAction: "class.archive",
+      sourceEntityId: id,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -937,6 +1112,14 @@ export async function serverSetClassLifecycle(
       entityId: mapped.id,
       metadata: { name: mapped.name, isActive: mapped.isActive, archivedAt: mapped.archivedAt ?? null },
     });
+    const snapshot = await recordClassScheduleMutationSnapshots(supabase, {
+      classRow: mapped,
+      affectedStudentIds: await selectScheduleAffectedStudentIdsForClass(supabase, mapped.id),
+      reason: input.archived ? "Class archived" : input.isActive ? "Class activated" : "Class deactivated",
+      sourceAction: input.archived ? "class.archive" : input.isActive ? "class.activate" : "class.deactivate",
+      sourceEntityId: mapped.id,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true, row: mapped };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -1472,6 +1655,14 @@ export async function serverPatchEnrollmentStatus(input: {
       entityId: `${classId}:${studentId}`,
       metadata: { classId, studentId, status: dbStatus },
     });
+    const snapshot = await recordStudentScheduleMutationSnapshot(supabase, {
+      studentId,
+      reason: "Enrollment status updated",
+      sourceAction: "enrollment.status.update",
+      sourceEntityType: "enrollment",
+      sourceEntityId: `${classId}:${studentId}`,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -1502,6 +1693,14 @@ export async function serverDeleteEnrollment(input: {
       entityId: `${classId}:${studentId}`,
       metadata: { classId, studentId },
     });
+    const snapshot = await recordStudentScheduleMutationSnapshot(supabase, {
+      studentId,
+      reason: "Enrollment deleted",
+      sourceAction: "enrollment.delete",
+      sourceEntityType: "enrollment",
+      sourceEntityId: `${classId}:${studentId}`,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -1623,6 +1822,14 @@ export async function serverInsertRosterStudent(input: {
       entityId: `${classId}:${row.id}`,
       metadata: { classId, studentId: row.id, status: dbStatus, createdStudent },
     });
+    const snapshot = await recordStudentScheduleMutationSnapshot(supabase, {
+      studentId: row.id,
+      reason: "Enrollment created",
+      sourceAction: "enrollment.create",
+      sourceEntityType: "enrollment",
+      sourceEntityId: `${classId}:${row.id}`,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true, row };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -1732,6 +1939,16 @@ export async function serverUpdateRosterStudent(input: {
       entityId: `${classId}:${studentId}`,
       metadata: { classId, studentId, fields: Object.keys(studentPayload), status: input.status ?? null },
     });
+    if (input.status != null) {
+      const snapshot = await recordStudentScheduleMutationSnapshot(supabase, {
+        studentId,
+        reason: "Roster enrollment status updated",
+        sourceAction: "enrollment.student.update",
+        sourceEntityType: "enrollment",
+        sourceEntityId: `${classId}:${studentId}`,
+      });
+      if (!snapshot.ok) return snapshot;
+    }
     return { ok: true, row };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -2765,6 +2982,15 @@ export async function serverInsertEnrichmentRequests(input: {
         classIds: reservingClassIds,
         before: capacityBefore,
       });
+      const snapshot = await recordStudentScheduleMutationSnapshot(admin, {
+        studentId,
+        semesterId,
+        reason: "Enrichment requests submitted",
+        sourceAction: "class_request.create",
+        sourceEntityType: "class_request",
+        sourceEntityId: inserted.rows.map((row) => row.id).join(","),
+      });
+      if (!snapshot.ok) return snapshot;
       return inserted;
     }
 
@@ -2833,6 +3059,16 @@ export async function serverInsertEnrichmentRequests(input: {
       entityId: result.rows.map((row) => row.id).join(","),
       metadata: { count: result.rows.length, studentId, ageOverride: signedInAdminCanOverrideAge },
     });
+    const snapshot = await recordStudentScheduleMutationSnapshot(capacityClient, {
+      studentId,
+      semesterId,
+      recordedByProfileId: user.id,
+      reason: "Enrichment requests submitted",
+      sourceAction: "class_request.create",
+      sourceEntityType: "class_request",
+      sourceEntityId: result.rows.map((row) => row.id).join(","),
+    });
+    if (!snapshot.ok) return snapshot;
     return result;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -2872,6 +3108,15 @@ export async function serverPatchEnrichmentRequest(
           entityId: reopened.row.id,
           metadata: { enrollmentId, studentId, classId, reason: options.reason ?? null },
         });
+        const snapshot = await recordStudentScheduleMutationSnapshot(mutationClient, {
+          studentId,
+          recordedByProfileId: user?.id,
+          reason: "Final placement reopened as request",
+          sourceAction: "class_request.reopen",
+          sourceEntityType: "class_request",
+          sourceEntityId: reopened.row.id,
+        });
+        if (!snapshot.ok) return snapshot;
         return reopened;
       }
 
@@ -2944,6 +3189,15 @@ export async function serverPatchEnrichmentRequest(
         entityId: enrollmentId,
         metadata: { studentId, classId, status: dbStatus, reason: options.reason ?? null },
       });
+      const snapshot = await recordStudentScheduleMutationSnapshot(mutationClient, {
+        studentId,
+        recordedByProfileId: user?.id,
+        reason: "Final placement status updated",
+        sourceAction: "enrollment.status.update",
+        sourceEntityType: "enrollment",
+        sourceEntityId: enrollmentId,
+      });
+      if (!snapshot.ok) return snapshot;
       return { ok: true, row };
     }
 
@@ -3041,6 +3295,15 @@ export async function serverPatchEnrichmentRequest(
       entityId: row.id,
       metadata: { status: row.status, reason: options.reason ?? null },
     });
+    const snapshot = await recordStudentScheduleMutationSnapshot(mutationClient, {
+      studentId: String(raw.student_id ?? ""),
+      recordedByProfileId: user?.id,
+      reason: "Class request status updated",
+      sourceAction: "class_request.status.update",
+      sourceEntityType: "class_request",
+      sourceEntityId: row.id,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true, row };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -3078,6 +3341,14 @@ export async function serverDeleteEnrichmentRequest(
         entityId: enrollmentId,
         metadata: { studentId, classId, reason: options.reason ?? null, source: "enrichment_requests" },
       });
+      const snapshot = await recordStudentScheduleMutationSnapshot(mutationClient, {
+        studentId,
+        reason: "Final placement deleted",
+        sourceAction: "enrollment.delete",
+        sourceEntityType: "enrollment",
+        sourceEntityId: enrollmentId,
+      });
+      if (!snapshot.ok) return snapshot;
       return { ok: true };
     }
 
@@ -3105,6 +3376,14 @@ export async function serverDeleteEnrichmentRequest(
         reason: options.reason ?? null,
       },
     });
+    const snapshot = await recordStudentScheduleMutationSnapshot(mutationClient, {
+      studentId: String((data as Record<string, unknown>).student_id ?? ""),
+      reason: "Class request deleted",
+      sourceAction: "class_request.delete",
+      sourceEntityType: "class_request",
+      sourceEntityId: trimmedId,
+    });
+    if (!snapshot.ok) return snapshot;
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

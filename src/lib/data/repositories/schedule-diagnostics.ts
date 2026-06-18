@@ -18,6 +18,13 @@ export const DAILY_SCHEDULE_KEYS = [
 
 type DailyScheduleSlotKey = (typeof DAILY_SCHEDULE_KEYS)[number];
 
+export type ActiveTeacherConflictOverride = {
+  id: string;
+  teacherId: string;
+  slot: string;
+  classIds: string[];
+};
+
 type TeacherPlacement = {
   row: StudentScheduleRow;
   slot: DailyScheduleSlotKey;
@@ -47,7 +54,21 @@ function isConfirmedClassPlacement(badge: StudentScheduleBadge): boolean {
   return CONFIRMED_TONES.has(badge.tone) && Boolean(badge.classId?.trim()) && Boolean(badge.teacherId?.trim());
 }
 
-function teacherConflictRecord(placement: TeacherPlacement): ScheduleConflict {
+function findActiveTeacherConflictOverride(
+  placements: TeacherPlacement[],
+  overrides: ActiveTeacherConflictOverride[],
+): ActiveTeacherConflictOverride | null {
+  const first = placements[0];
+  if (!first) return null;
+  const classIds = [...new Set(placements.map((placement) => placement.classId).filter(Boolean))];
+  return overrides.find((override) =>
+    override.teacherId === first.teacherId &&
+    override.slot === first.slot &&
+    classIds.every((classId) => override.classIds.includes(classId)),
+  ) ?? null;
+}
+
+function teacherConflictRecord(placement: TeacherPlacement, override?: ActiveTeacherConflictOverride | null): ScheduleConflict {
   const teacher = placement.badge.teacher?.trim() || "This teacher";
   return {
     kind: "teacher",
@@ -57,19 +78,24 @@ function teacherConflictRecord(placement: TeacherPlacement): ScheduleConflict {
     className: placement.badge.label,
     teacherId: placement.teacherId,
     teacher: placement.badge.teacher,
+    overrideId: override?.id,
+    overrideRecorded: Boolean(override),
   };
 }
 
-function hasTeacherConflictRecord(row: StudentScheduleRow, placement: TeacherPlacement): boolean {
+function hasTeacherConflictRecord(row: StudentScheduleRow, placement: TeacherPlacement, override?: ActiveTeacherConflictOverride | null): boolean {
   return (row.conflicts ?? []).some((conflict) =>
     conflict.kind === "teacher" &&
     conflict.teacherId === placement.teacherId &&
     conflict.classId === placement.classId &&
-    conflict.detail === teacherConflictRecord(placement).detail,
+    conflict.detail === teacherConflictRecord(placement, override).detail,
   );
 }
 
-export function applyTeacherConflictDiagnostics(rows: StudentScheduleRow[]) {
+export function applyTeacherConflictDiagnostics(
+  rows: StudentScheduleRow[],
+  activeOverrides: ActiveTeacherConflictOverride[] = [],
+) {
   const placementsBySlotTeacher = new Map<string, TeacherPlacement[]>();
 
   for (const row of rows) {
@@ -89,12 +115,13 @@ export function applyTeacherConflictDiagnostics(rows: StudentScheduleRow[]) {
   for (const placements of placementsBySlotTeacher.values()) {
     const distinctClassIds = new Set(placements.map((placement) => placement.classId));
     if (distinctClassIds.size < 2) continue;
+    const override = findActiveTeacherConflictOverride(placements, activeOverrides);
 
     for (const placement of placements) {
-      if (hasTeacherConflictRecord(placement.row, placement)) continue;
+      if (hasTeacherConflictRecord(placement.row, placement, override)) continue;
       placement.row.hasConflicts = true;
       placement.row.conflicts = placement.row.conflicts ?? [];
-      placement.row.conflicts.push(teacherConflictRecord(placement));
+      placement.row.conflicts.push(teacherConflictRecord(placement, override));
     }
   }
 }

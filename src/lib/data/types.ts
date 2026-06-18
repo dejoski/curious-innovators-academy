@@ -190,6 +190,8 @@ export type ScheduleConflict = {
   teacher?: string;
   requestId?: string;
   decisionId?: string;
+  overrideId?: string;
+  overrideRecorded?: boolean;
 };
 
 export type StudentScheduleBadge = {
