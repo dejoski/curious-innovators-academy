@@ -100,7 +100,7 @@ export async function signOutSupabaseOrDemo(): Promise<void> {
   if (!isSupabaseConfigured()) return;
   const supabase = getBrowserSupabase();
   if (!supabase) return;
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
 }
 
 /**
@@ -216,7 +216,7 @@ export async function updateRecoveredPassword(password: string): Promise<Passwor
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { ok: false, message: error.message };
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
   return { ok: true };
 }
 

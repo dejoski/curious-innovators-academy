@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isParentRole, requireParentStudentAccess } from "@/lib/api/parent-access";
 import { cleanTrimmedValue, cleanNewlines } from "@/lib/api/text-utils";
-import { loadCurrentApiUser, requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
+import { loadCurrentApiUser, requireCurrentApiUser, requireRemoteApiSession, type SupabaseServerClient } from "@/lib/api/require-auth";
 import {
   fetchAdminStudentProfileResolved,
   fetchStudentProfileResolved,
@@ -56,7 +56,7 @@ function normalizeCompetencyLevels(value: unknown): StudentCompetencyLevel[] {
     .filter((row): row is StudentCompetencyLevel => row !== null);
 }
 
-async function requireAdminMutation(current: { supabase: any; user: { id: string } }) {
+async function requireAdminMutation(current: { supabase: SupabaseServerClient; user: { id: string } }) {
   const { data: profileRow, error } = await current.supabase
     .from("profiles")
     .select("role")
@@ -72,7 +72,7 @@ async function requireAdminMutation(current: { supabase: any; user: { id: string
 }
 
 async function writeStudentAudit(
-  supabase: any,
+  supabase: SupabaseServerClient,
   actorId: string,
   input: {
     action: string;

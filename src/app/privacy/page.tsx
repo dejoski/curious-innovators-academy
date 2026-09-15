@@ -14,9 +14,10 @@ export default function PrivacyPage() {
           Back to login
         </Link>
         <h1 className="mt-6 text-[28px] font-bold leading-[1.1]">Privacy Policy</h1>
-        <p className="mt-3 text-sm leading-6 text-[#666d80]">Last updated: May 17, 2026</p>
+        <p className="mt-3 text-sm leading-6 text-[#666d80]">Last updated: September 15, 2026</p>
 
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#3d4554]">
+          <section><h2 className="text-lg font-semibold">Public demonstration</h2><p>This site is a shared open-source demo. Do not enter real student, family, financial, or contact information. Other visitors can access demo records. Supabase session cookies support sign-in, and the hosting providers may retain operational logs. Independent schools running a fork are responsible for their own privacy policy and data practices.</p></section>
           <section>
             <h2 className="text-lg font-semibold text-[#272932]">What We Collect</h2>
             <p className="mt-2">

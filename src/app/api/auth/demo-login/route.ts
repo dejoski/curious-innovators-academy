@@ -1,84 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-
 import { dashboardHomeForPersona } from "@/lib/dashboard/role-routes";
-import { isRemoteDataRequired } from "@/lib/data/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { DashboardPersona } from "@/lib/dashboard/persona";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 
-type DemoPersona = "admin" | "parent";
+export const dynamic = "force-dynamic";
 
-const DEMO_LOGIN_ERROR = "Demo login is not configured.";
-
-function demoCredential(envVar: string, legacyPublicVar: string): string {
-  return process.env[envVar]?.trim() || process.env[legacyPublicVar]?.trim() || "";
+function backToLogin(request: NextRequest, reason: string) {
+  const response = NextResponse.redirect(new URL(`/login?auth=${reason}`, request.url), 303);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
-function demoCredentialsFor(kind: DemoPersona) {
-  if (kind === "admin") {
-    return {
-      email: demoCredential("DEMO_ADMIN_EMAIL", "NEXT_PUBLIC_DEMO_ADMIN_EMAIL"),
-      password: demoCredential("DEMO_ADMIN_PASSWORD", "NEXT_PUBLIC_DEMO_ADMIN_PASSWORD"),
-    };
-  }
-
-  return {
-    email: demoCredential("DEMO_PARENT_EMAIL", "NEXT_PUBLIC_DEMO_PARENT_EMAIL"),
-    password: demoCredential("DEMO_PARENT_PASSWORD", "NEXT_PUBLIC_DEMO_PARENT_PASSWORD"),
-  };
-}
-
-function redirectWithMessage(request: NextRequest, message: string) {
-  const url = new URL(request.url);
-  const loginUrl = new URL("/login", url);
-  loginUrl.searchParams.set("auth", "error");
-  loginUrl.searchParams.set("message", message);
-  return NextResponse.redirect(loginUrl);
-}
-
+// Crawlers and prefetches must not start sessions.
 export async function GET(request: NextRequest) {
-  const kind = (new URL(request.url).searchParams.get("kind") as DemoPersona | null) ?? null;
-  if (kind !== "admin" && kind !== "parent") {
-    return redirectWithMessage(request, "Invalid demo login request.");
-  }
+  return backToLogin(request, "required");
+}
 
-  if (!isRemoteDataRequired()) {
-    return redirectWithMessage(request, "Demo login is unavailable in this environment.");
+export async function POST(request: NextRequest) {
+  if (request.headers.get("origin") !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "Use the demo sign-in page." }, { status: 403 });
   }
-
-  const { email, password } = demoCredentialsFor(kind);
-  if (!email || !password) {
-    return redirectWithMessage(request, DEMO_LOGIN_ERROR);
+  if (process.env.DEMO_MODE !== "true" || !isSupabaseAdminConfigured()) {
+    return backToLogin(request, "configuration");
   }
-
+  const body = await request.formData().catch(() => null);
+  const kind = body?.get("kind");
+  if (kind !== "admin" && kind !== "parent" && kind !== "teacher") {
+    return NextResponse.json({ error: "Choose a demo role." }, { status: 400 });
+  }
+  // Visitors supply a role, never an email, user ID, redirect, or privilege.
+  const email = process.env[`DEMO_${kind.toUpperCase()}_EMAIL`]?.trim() || `demo.${kind}@example.com`;
   try {
+    const admin = createSupabaseAdminClient();
+    const { data: profile, error: profileError } = await admin.from("profiles")
+      .select("id, role").eq("email", email).eq("role", kind).maybeSingle();
+    if (profileError || !profile) return backToLogin(request, "configuration");
+    const { data: account, error: accountError } = await admin.auth.admin.getUserById(profile.id);
+    if (accountError || account.user?.app_metadata?.demo !== true) return backToLogin(request, "configuration");
+    // Consume the one-time token on the server. No email is sent.
+    const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    if (linkError || !link.properties?.hashed_token) return backToLogin(request, "failed");
     const supabase = await createSupabaseServerClient();
-    const { error, data } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error || !data?.user) {
-      return redirectWithMessage(request, "Demo login failed. Contact support and try again.");
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, default_student_id")
-      .eq("id", data.user.id)
-      .maybeSingle();
-
-    const role = profile?.role;
-    const persona = role === "admin" || role === "parent" || role === "teacher" || role === "student"
-      ? (role as DashboardPersona)
-      : "admin";
-    const defaultStudentId =
-      typeof profile?.default_student_id === "string" && profile.default_student_id.trim().length > 0
-        ? profile.default_student_id
-        : null;
-    const home = dashboardHomeForPersona(persona, defaultStudentId);
-    const next = new URL(home, request.url);
-    return NextResponse.redirect(next);
+    const { data, error } = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: link.properties.hashed_token });
+    if (error || data.user?.id !== profile.id) return backToLogin(request, "failed");
+    const response = NextResponse.redirect(new URL(dashboardHomeForPersona(kind), request.url), 303);
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch {
-    return redirectWithMessage(request, "Demo login failed. Contact support and try again.");
+    return backToLogin(request, "failed");
   }
 }

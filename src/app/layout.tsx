@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 const APP_DESCRIPTION =
-  "School hub for Curious Innovators Academy — roster, classes, schedules, and family-facing tools.";
+  "Open-source student information system and school scheduling starter. Build a connected school with Next.js and Supabase.";
 
 export const metadata: Metadata = {
   applicationName: "Curious Innovators Academy",

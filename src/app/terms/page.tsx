@@ -14,14 +14,13 @@ export default function TermsPage() {
           Back to login
         </Link>
         <h1 className="mt-6 text-[28px] font-bold leading-[1.1]">Terms of Use</h1>
-        <p className="mt-3 text-sm leading-6 text-[#666d80]">Last updated: May 17, 2026</p>
+        <p className="mt-3 text-sm leading-6 text-[#666d80]">Last updated: September 15, 2026</p>
 
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#3d4554]">
           <section>
             <h2 className="text-lg font-semibold text-[#272932]">Authorized Use</h2>
             <p className="mt-2">
-              This application is for authorized academy staff, guardians, teachers, and students. Users are responsible
-              for keeping credentials private and signing out on shared devices.
+              This public demonstration is open to visitors exploring the software. Use fictional information, respect other visitors, and do not abuse shared accounts. The source code is available under the MIT license, including its warranty disclaimer.
             </p>
           </section>
 

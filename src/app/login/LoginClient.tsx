@@ -1,299 +1,57 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
-import { invalidateClientDataCache } from "@/lib/client-data-cache";
-import { dashboardHomeForPersona } from "@/lib/dashboard/role-routes";
-import { DASHBOARD_PANEL_TITLE_CLASS } from "@/lib/dashboard-shell-classes";
-import { signInWithEmailPassword } from "@/lib/supabase/auth-bridge";
-import type { DashboardPersona } from "@/lib/dashboard/persona";
+import { useState } from "react";
+import Link from "next/link";
+import { ArrowRight, BookOpen, GraduationCap, HeartHandshake, Code } from "lucide-react";
 
-const SHOW_DEMO_LOGIN = true;
-const showDemoAdmin = true;
-const showDemoParent = true;
+const roles = [
+  { id: "parent", name: "Parent", icon: HeartHandshake, description: "Follow your children's schedules and explore enrichment classes." },
+  { id: "teacher", name: "Teacher", icon: BookOpen, description: "See your teaching schedule, assigned classes, and student rosters." },
+  { id: "admin", name: "Admin", icon: GraduationCap, description: "Explore school operations, class planning, and enrollment requests." },
+] as const;
 
-const imgChatGptImage23012026141937Photoroom1 = "/images/login-logo-text.png";
-const imgImage1 = "/images/login-logo-lightbulb.png";
-const imgEllipse2731 = "/images/login-ellipse-1.svg";
-const imgEllipse2732 = "/images/login-ellipse-2.svg";
-const imgEllipse2733 = "/images/login-ellipse-3.svg";
-const imgGroup = "/images/login-email-icon.svg";
-
-function Link(props: React.ComponentProps<typeof NextLink>) {
-  return <NextLink prefetch={false} {...props} />;
-}
-
-function loginDestinationForPersona(role: DashboardPersona, defaultStudentId?: string | null): string {
-  return role === "admin" ? "/dashboard" : dashboardHomeForPersona(role, defaultStudentId);
-}
-
-function replaceLoginDestination(href: string): boolean {
-  if (typeof window !== "undefined" && href === "/dashboard") {
-    window.location.replace(href);
-    return true;
-  }
-  return false;
-}
-
-export default function LoginClient() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginNotice, setLoginNotice] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const auth = params.get("auth");
-    if (auth === "configuration") {
-      setLoginNotice("Sign-in is not ready yet. Ask an administrator to finish account setup.");
-    } else if (auth === "required") {
-      setLoginNotice("Sign in to continue.");
-    } else if (auth === "error") {
-      const message = params.get("message");
-      if (message) {
-        setLoginError(message);
-      } else {
-        setLoginError("Demo login failed. Contact support and try again.");
-      }
-    }
-  }, []);
-
-  async function signInWithCredentials(emailAddress: string, secret: string) {
-    if (submitting) return;
-    setSubmitting(true);
-    setLoginError(null);
-    try {
-      const result = await signInWithEmailPassword(emailAddress, secret);
-      if (!result.ok) {
-        setLoginError(result.message);
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/data/me", { cache: "no-store" });
-        if (response.status === 401) {
-          setLoginError("Signed in, but your account has no accessible profile.");
-          return;
-        }
-        const payload = (await response.json().catch(() => null)) as {
-          profile?: { email?: string; role?: DashboardPersona; defaultStudentId?: string | null };
-        } | null;
-        if (!payload?.profile?.email) {
-          setLoginError("Signed in, but no account credentials were accepted for this email.");
-          return;
-        }
-        const role = payload.profile.role;
-        if (role === "admin" || role === "parent" || role === "teacher" || role === "student") {
-          const home = loginDestinationForPersona(role, payload.profile.defaultStudentId);
-          invalidateClientDataCache();
-          if (replaceLoginDestination(home)) return;
-          router.replace(home);
-          router.refresh();
-          return;
-        }
-      } catch {
-        // If session verification fails transiently, let existing flow continue.
-      }
-
-      invalidateClientDataCache();
-      router.replace("/dashboard");
-      router.refresh();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    void signInWithCredentials(email, password);
-  }
-
-  async function continueAsDemo(kind: "admin" | "parent") {
-    if (submitting) return;
-    setSubmitting(true);
-    setLoginError(null);
-    try {
-      window.location.assign(`/api/auth/demo-login?kind=${encodeURIComponent(kind)}`);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
+export default function LoginClient({ error }: { error?: string }) {
+  const [pending, setPending] = useState<string | null>(null);
   return (
-    <div className="relative min-h-dvh w-full overflow-x-hidden overflow-y-auto bg-white font-sans">
-      <div className="absolute left-[696px] top-[-80px] hidden h-[460px] w-[833px] xl:block">
-        <div className="absolute inset-[-63.91%_-35.29%]">
-          <img alt="" className="block size-full max-w-none" src={imgEllipse2731} />
-        </div>
-      </div>
-
-      <div className="absolute left-0 top-[-217px] hidden h-[494.45px] w-[1162.5px] items-center justify-center xl:flex">
-        <div className="-scale-y-100 rotate-180">
-          <div className="relative h-[494.45px] w-[1162.5px]">
-            <div className="absolute inset-[-59.46%_-25.29%]">
-              <img alt="" className="block size-full max-w-none" src={imgEllipse2732} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute left-[479px] top-0 hidden h-[308px] w-[455px] xl:block">
-        <div className="absolute inset-[-82.47%_-55.82%]">
-          <img alt="" className="block size-full max-w-none" src={imgEllipse2733} />
-        </div>
-      </div>
-
-      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-56px)] w-full max-w-[423px] flex-col items-center justify-center bg-[#fafafa] px-5 py-6 shadow-[0px_0px_14.5px_rgba(0,0,0,0.08)] sm:rounded-[8px] sm:px-[42px] sm:py-8 xl:absolute xl:left-1/2 xl:top-1/2 xl:h-auto xl:max-h-[calc(100dvh-96px)] xl:min-h-0 xl:w-[423px] xl:-translate-x-1/2 xl:-translate-y-1/2 xl:justify-start xl:overflow-y-auto xl:py-8 [@media(max-height:760px)]:xl:py-5">
-        <div className="flex w-full flex-col gap-[20px] sm:w-[339px] [@media(max-height:760px)]:xl:gap-[14px]">
-          <div className="relative h-[44px] w-[196px] shrink-0 overflow-clip [@media(max-height:760px)]:xl:h-[36px] [@media(max-height:760px)]:xl:w-[170px]">
-            <div className="absolute left-[47.07px] top-[5.47px] h-[31.659px] w-[132.782px]">
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <img
-                  alt=""
-                  className="absolute left-[-49.86%] top-[-152.43%] h-[430.1%] w-[153.88%] max-w-none"
-                  src={imgChatGptImage23012026141937Photoroom1}
-                />
-              </div>
-            </div>
-            <div className="absolute left-0 top-[-1.41px] h-[45.405px] w-[43.322px]">
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <img alt="" className="absolute left-0 top-0 h-full w-[384.62%] max-w-none" src={imgImage1} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex w-full flex-col gap-[2px] sm:w-[261px]">
-            <h1 className={`${DASHBOARD_PANEL_TITLE_CLASS} [@media(max-height:760px)]:xl:text-[18px]`}>
-              Log in to the school
-            </h1>
-            <p className="text-[14px] font-normal leading-[1.5] text-[#87888a]">
-              Welcome back! Log in to continue
-            </p>
-          </div>
-
-          <form className="flex w-full flex-col gap-[14px] [@media(max-height:760px)]:xl:gap-[10px]" onSubmit={handleSubmit}>
-            <div className="flex w-full flex-col gap-[8px] overflow-clip">
-              <label className="text-[14px] font-medium leading-[1.5] tracking-[0.28px] text-[#2f2f2d]">
-                E-mail
-              </label>
-              <div className="flex h-[52px] w-full items-center gap-[8px] rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px] [@media(max-height:760px)]:xl:h-[46px]">
-                <div className="relative size-[24px] shrink-0 overflow-clip">
-                  <img alt="" className="absolute inset-0 block size-full max-w-none" src={imgGroup} />
-                </div>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="min-w-0 flex-1 bg-transparent text-[16px] font-normal leading-[1.5] tracking-[0.32px] text-[#05080b] outline-none placeholder:text-[#818898]"
-                />
-              </div>
-            </div>
-
-            <div className="flex w-full flex-col gap-[8px] overflow-clip">
-              <label className="text-[14px] font-medium leading-[1.5] tracking-[0.28px] text-[#2f2f2d]">
-                Password
-              </label>
-              <div className="flex h-[52px] w-full items-center rounded-[10px] border border-[#dfe1e7] bg-white px-[12px] py-[8px] [@media(max-height:760px)]:xl:h-[46px]">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="min-w-0 flex-1 bg-transparent text-[16px] font-normal leading-[1.5] tracking-[0.32px] text-[#05080b] outline-none placeholder:text-[#818898]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="flex size-[32px] shrink-0 items-center justify-center rounded-[6px] text-[#666d80] transition-colors hover:bg-[#f7f8fa] hover:text-[#272932] focus:outline-none focus:ring-2 focus:ring-[#14c1d5]/40"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {loginError && (
-              <p role="alert" className="rounded-[8px] border border-[#d92d20]/25 bg-[#fff4f2] px-3 py-2 text-[13px] leading-[1.4] text-[#b42318]">
-                {loginError}
-              </p>
-            )}
-            {loginNotice && !loginError && (
-              <p role="status" className="rounded-[8px] border border-[#14c1d5]/25 bg-[#ecfdff] px-3 py-2 text-[13px] leading-[1.4] text-[#155e66]">
-                {loginNotice}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex h-[42px] w-full items-center justify-center rounded-[6px] bg-[#14c1d5] px-[16px] py-[8px] shadow-[0px_1px_1px_rgba(13,13,18,0.06)] disabled:cursor-not-allowed disabled:bg-[#a8e7ef] [@media(max-height:760px)]:xl:h-[38px]"
-            >
-              <span className="font-sans text-[16px] font-semibold leading-[1.5] tracking-[0.32px] text-white">
-                {submitting ? "Signing in..." : "Sign in"}
-              </span>
-            </button>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 text-[13px] leading-[1.4]">
-              <Link href="/signup" className="font-medium text-[#14c1d5] hover:underline">
-                Create an account
-              </Link>
-              <Link href="/forgot-password" className="font-medium text-[#666d80] hover:text-[#14c1d5] hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-
-            {SHOW_DEMO_LOGIN && (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {showDemoAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => continueAsDemo("admin")}
-                    className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#14c1d5]/40 bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#0b7180] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#ecfdff]"
-                  >
-                    Continue as Admin
-                  </button>
-                )}
-                {showDemoParent && (
-                  <button
-                    type="button"
-                    onClick={() => continueAsDemo("parent")}
-                    className="flex min-h-[38px] items-center justify-center rounded-[6px] border border-[#dfe1e7] bg-white px-3 py-1.5 text-center text-[14px] font-semibold leading-tight text-[#272932] shadow-[0px_1px_1px_rgba(13,13,18,0.04)] hover:bg-[#f7f8fa]"
-                  >
-                    Continue as Parent
-                  </button>
-                )}
-              </div>
-            )}
-          </form>
-        </div>
-      </div>
-
-      <div className="absolute left-[165px] top-1/2 hidden h-[176px] w-[416px] -translate-y-1/2 flex-col gap-[10px] xl:flex">
-        <p className="text-[28px] font-semibold leading-[1.1] text-[#05080b]">
-          Fast, efficient, and productive
-        </p>
-        <p className="flex-1 text-[18px] font-normal leading-[1.64] text-[#2f2f2d]">
-          Manage classes, rosters, schedules, and family requests from one secure school workspace.
-        </p>
-      </div>
-
-      <div className="relative z-10 flex justify-center gap-4 pb-4 text-[12px] text-[#666d80] xl:absolute xl:bottom-6 xl:left-0 xl:right-0 xl:pb-0">
-        <Link href="/privacy" className="hover:text-[#14c1d5] hover:underline">
-          Privacy
+    <main className="min-h-dvh bg-[#f6f8f7] px-5 py-8 text-[#18332f] sm:px-8 lg:px-16">
+      <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+        <Link href="/login" className="flex items-center gap-3 font-semibold tracking-tight">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-[#18332f] text-white"><GraduationCap size={23} /></span>
+          <span>Curious Innovators<br /><span className="text-xs font-normal tracking-wide text-[#526761]">ACADEMY</span></span>
         </Link>
-        <Link href="/terms" className="hover:text-[#14c1d5] hover:underline">
-          Terms
-        </Link>
+        <a href="https://github.com/dejoski/curious-innovators-academy" className="flex items-center gap-2 rounded-lg border border-[#cad6d0] px-4 py-2 text-sm font-medium hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4"><Code size={17} />View source</a>
+      </header>
+      <div className="mx-auto grid max-w-6xl items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:gap-20">
+        <section>
+          <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-[#47705b]">Open source. Built for schools.</p>
+          <h1 className="max-w-xl text-4xl font-semibold leading-[1.12] tracking-[-0.04em] sm:text-5xl lg:text-6xl">More room<br />for learning.</h1>
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-[#526761]">A student information and scheduling toolkit for the school you want to build. Connect families, teachers, classes, and the school day.</p>
+          <div className="mt-8 flex flex-wrap gap-2 text-xs font-medium text-[#526761]">
+            {["Student records", "Class scheduling", "Family portal", "MIT licensed"].map((label) => <span key={label} className="rounded-full border border-[#d6e1da] px-3 py-1.5">{label}</span>)}
+          </div>
+          <p className="mt-9 max-w-md text-sm leading-relaxed text-[#526761]">Fork it, adapt it, and make it your own. Built with Next.js and Supabase, with access rules for each school role.</p>
+        </section>
+        <section aria-labelledby="demo-title" className="rounded-3xl border border-[#dce5df] bg-white p-6 shadow-[0_16px_60px_-30px_#254c3c50] sm:p-9">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#47705b]">Explore the demo</p>
+          <h2 id="demo-title" className="mt-2 text-2xl font-semibold tracking-tight">Choose your seat.</h2>
+          <p className="mb-6 mt-2 text-sm leading-relaxed text-[#526761]">No account or password needed. Pick a role to explore the school.</p>
+          {error && <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+          <div className="space-y-3">
+            {roles.map(({ id, name, icon: Icon, description }) => (
+              <form key={id} action="/api/auth/demo-login" method="post" onSubmit={() => setPending(id)}><input type="hidden" name="kind" value={id} /><button type="submit" disabled={pending !== null} className="group flex w-full items-center gap-4 rounded-2xl border border-[#dce5df] p-4 text-left transition hover:border-[#47705b] hover:bg-[#f5f9f6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#47705b] disabled:opacity-60">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#edf4ee] text-[#47705b]"><Icon size={23} /></span>
+                <span className="flex-1"><span className="block text-sm font-semibold">{pending === id ? "Opening your workspace..." : `Log in as Demo ${name}`}</span><span className="mt-1 block text-xs leading-relaxed text-[#526761]">{description}</span></span>
+                <ArrowRight size={17} className="shrink-0 text-[#47705b]" />
+              </button></form>
+            ))}
+          </div>
+          <p className="mt-5 text-xs leading-relaxed text-[#64746d]">This is a shared demonstration. Please use fictional information when exploring.</p>
+        </section>
       </div>
-    </div>
+      <footer className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4 border-t border-[#dce5df] pt-5 text-xs text-[#526761]">
+        <p>A starting point for schools and the people building them.</p>
+        <div className="flex gap-5"><a href="https://github.com/dejoski/curious-innovators-academy#make-it-your-school" className="hover:underline">Build your school</a><Link href="/privacy" className="hover:underline">Privacy</Link><Link href="/terms" className="hover:underline">Terms</Link></div>
+      </footer>
+    </main>
   );
 }

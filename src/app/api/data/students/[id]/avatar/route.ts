@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isParentRole, requireParentStudentAccess } from "@/lib/api/parent-access";
-import { requireCurrentApiUser, requireRemoteApiSession } from "@/lib/api/require-auth";
+import { requireCurrentApiUser, requireRemoteApiSession, type SupabaseServerClient } from "@/lib/api/require-auth";
 import { isSupabaseAdminConfigured } from "@/lib/data/server-env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -16,7 +16,7 @@ const ALLOWED_TYPES = new Map([
 ]);
 
 async function writeAvatarAudit(
-  supabase: any,
+  supabase: SupabaseServerClient,
   actorId: string,
   studentId: string,
   avatarUrl: string,

@@ -1,32 +1,27 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("smoke", () => {
-  test("login page loads", async ({ page }) => {
-    await page.goto("/login");
-    await expect(
-      page.getByRole("heading", { name: /log in to the school/i })
-    ).toBeVisible();
-    await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
-  });
+test("demo landing has three roles and no credential fields", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: /more room for learning/i })).toBeVisible();
+  for (const role of ["Parent", "Teacher", "Admin"]) {
+    await expect(page.getByRole("button", { name: new RegExp(`Log in as Demo ${role}`) })).toBeVisible();
+  }
+  await expect(page.locator('input[type="email"], input[type="password"]')).toHaveCount(0);
+});
 
-  test("demo login shortcuts are visible", async ({ page }) => {
-    await page.goto("/login");
-    await expect(page.getByRole("button", { name: /continue as admin/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /continue as parent/i })).toBeVisible();
-  });
+test("GET never signs a visitor in", async ({ request }) => {
+  const response = await request.get("/api/auth/demo-login?kind=admin", { maxRedirects: 0 });
+  expect(response.status()).toBe(303);
+  expect(response.headers().location).toContain("/login?auth=required");
+  expect(response.headers()["set-cookie"]).toBeUndefined();
+});
 
-  test("demo login route is wired", async ({ page }) => {
-    const response = await page.request.get("/api/auth/demo-login?kind=admin", {
-      maxRedirects: 0,
-    });
-    expect(response.status()).toBe(307);
-    const location = response.headers()["location"];
-    expect(location).toMatch(/\/(dashboard|login\?auth=error)/);
-  });
+test("cross-origin demo requests are rejected", async ({ request }) => {
+  const response = await request.post("/api/auth/demo-login", { headers: { Origin: "https://untrusted.example" }, form: { kind: "admin" } });
+  expect(response.status()).toBe(403);
+});
 
-  test("GET /dashboard/classes returns 200", async ({ page }) => {
-    const response = await page.goto("/dashboard/classes");
-    expect(response, "navigation should return a response").toBeTruthy();
-    expect(response!.ok(), `expected 200, got ${response!.status()}`).toBe(true);
-  });
+test("anonymous API requests do not expose student records", async ({ request }) => {
+  const response = await request.get("/api/data/students");
+  expect([401, 503]).toContain(response.status());
 });

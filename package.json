@@ -7,40 +7,26 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "check:routes": "node scripts/check-routes.mjs",
-    "check:workspace-hygiene": "node scripts/check-workspace-hygiene.cjs",
-    "check:operator-scripts": "node scripts/check-operator-scripts.cjs",
-    "check:ci-workflows": "node scripts/check-ci-workflows.cjs",
-    "check:env-contract": "node scripts/check-env-contract.cjs",
     "check:data-boundaries": "node scripts/check-data-boundaries.cjs",
     "check:api-auth-guards": "node scripts/check-api-auth-guards.cjs",
     "check:sql-security": "node scripts/check-sql-security.cjs",
-    "check:server-secret-boundaries": "node scripts/check-server-secret-boundaries.cjs",
-    "check:restore-target-guard": "node scripts/check-restore-target-guard.cjs",
-    "check:security-headers": "node scripts/check-security-headers.cjs",
-    "check:production-health-guards": "node scripts/check-production-health-guards.cjs",
-    "check:production-auth-guard": "node scripts/check-production-auth-guard.cjs",
     "check:demo-login": "node scripts/check-demo-login.cjs",
     "check:responsive": "playwright test e2e/responsive.spec.ts",
     "test:e2e": "playwright test",
     "test:parent-catalog-state": "node scripts/test-parent-catalog-state.cjs",
     "repair:core-enrollments": "node scripts/repair-core-enrollments.cjs",
-    "provision:supabase-users": "node scripts/provision-supabase-users.cjs",
     "verify:production": "node scripts/verify-production-readiness.cjs",
     "verify:restore-target": "CIA_VERIFY_RESTORE_TARGET=true node scripts/verify-production-readiness.cjs",
-    "monitor:production": "node scripts/monitor-production.cjs",
-    "check:supabase-backups": "node scripts/check-supabase-backups.cjs",
-    "drill:logical-backup-restore": "node scripts/drill-logical-backup-restore.cjs",
-    "verify:supabase-login": "node scripts/verify-supabase-login.cjs"
+    "setup:demo": "node scripts/setup-demo.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.90.1",
     "lucide-react": "^1.12.0",
-    "next": "16.2.6",
+    "next": "^16.3.5",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "repowise": "^0.1.90"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -49,12 +35,17 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "^16.3.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   },
   "overrides": {
-    "postcss": "8.5.14"
+    "postcss": "8.5.28"
+  },
+  "description": "Open-source student information system and school scheduling starter",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
   }
 }

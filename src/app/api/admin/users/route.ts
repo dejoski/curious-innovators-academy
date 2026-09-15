@@ -48,6 +48,9 @@ async function requireAdmin() {
 }
 
 export async function POST(req: Request) {
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json({ error: "Account invitations are disabled in the public demo." }, { status: 403 });
+  }
   const authError = await requireRemoteApiSession();
   if (authError) return authError;
 
